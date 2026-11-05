@@ -7,6 +7,34 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-05 — The TPN room's page: stickers from NeoFeed, names on the room's PC (PR B, #219)
+
+`tpn-room.html`, `tpn-room.jsx`, `compiled/tpn-room.js`, `compiled/tpn-room-version.js`, `tpn-room-core.js`,
+`tpn-room-store.js`, `tpn-room.css`, `tpn-room-check.html`, `tpn-room-check.js`, `fonts/sarabun/`, `app.jsx` (the refusal line
+links to the page), `tools/build.mjs`, `tools/dev-local.mjs`, `tools/verify-release.mjs`, `test/verify-tpn-room-*-1105.cjs`,
+`test/tpn-room-fixture.cjs`, `test/verify-build-shells.cjs` § 8, `test/gas-vm-sandbox.cjs` (`logRow`'s `entryId` is a plain UUID now).
+
+Pp: "cont PR B". Before building, four things had no answer, and she chose each on 2026-11-05: build ahead of the
+TPN-room PC check and release only after it (the check is `tpn-room-check.html`); the date made comes from a date box at
+print, today by default (D17); the label's fixed lines stay blank and hold every print until the unit gives them (D18);
+a birth-weight correction does not hold the page's print, and the row shows both weights (D19, a residual risk).
+
+The page loads no `data.js`, so it has nothing to compute a figure with (D20). A harness walks the whole flow in real
+Chromium under the real CSP against the real backend in the sandbox, with an origin-private folder for the picker: the
+sentinel name and AN appear in no request URL, header or body. What it cannot prove is the real PC's folder and permission,
+and the real printer. No dose changes, so `CONSTANTS_VERSION` stays. No backend change.
+
+STATUS catches up on #214 and #217 here too, as both of them said it would.
+
+Vera, NO BLOCK, five findings. Fixed, each test red first: a printed order now only a draft warned only inside the folded
+drafts; `overflow: hidden` could cut the bag label off silently and made the one-page check unable to fail, so the page now
+measures the sheet before the dialog; a tab open across a release kept its old versions; a first-run file recorded no lost
+print log. Also bounded the date box and stopped it going stale over midnight. Her fifth, names outliving an erasure on the
+PC and `.replaced-*` files with no end date, is now in `REFERENCE.md` § Thai PDPA for Pp and the DPO (tasks.md 2.8a).
+
+While fixing these the page harness's PDF step ran under screen media and "fit one page" passed on a picture of the list.
+It now also asserts that print hides the screen and shows the sheet.
+
 ## Session 2026-11-03 — Changing a submitted TPN order tells the doctor to phone the TPN room
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `test/verify-revise-phone-1103.cjs`,

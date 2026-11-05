@@ -36,7 +36,12 @@ const HOSTS = [
   // Cannot set response headers, so no CSP here (REFERENCE.md § Frontend, `_headers`).
   { base: "https://valhalla-health.github.io/neofeed/", csp: false },
 ];
-const ALWAYS = ["manifest.json", "moved.html"]; // plus every file under icons/
+const ALWAYS = ["manifest.json", "moved.html", // plus every file under icons/
+  // The TPN room's page. index.html does not link it, so it is named here.
+  "tpn-room.html", "tpn-room-check.html", "tpn-room-check.js", "tpn-room-core.js", "tpn-room-store.js", "tpn-room.css",
+  "compiled/tpn-room.js", "compiled/tpn-room-version.js",
+  "fonts/sarabun/sarabun-thai-400-normal.woff2", "fonts/sarabun/sarabun-thai-700-normal.woff2",
+  "fonts/sarabun/sarabun-latin-400-normal.woff2", "fonts/sarabun/sarabun-latin-700-normal.woff2", "fonts/sarabun/OFL.txt"];
 
 const args = process.argv.slice(2);
 const waitArg = args.find((a) => a === "--wait" || a.startsWith("--wait="));

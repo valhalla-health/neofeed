@@ -309,7 +309,7 @@ function boot(opts) {
     logRow(sid, ts, extra) {
       const r = new Array(38).fill('');
       r[0] = ts; r[1] = sid; r[2] = 3; r[3] = 1250; r[4] = 150; r[13] = 'TPN central'; r[14] = 'submitted'; r[15] = 'nurse@kcmh.test';
-      r[24] = JSON.stringify({ wtG: 1250 }); r[25] = 'e-' + crypto.randomUUID(); r[26] = '2026-09-10T01:00:00.000Z'; r[27] = 'nurse@kcmh.test'; r[35] = 1;
+      r[24] = JSON.stringify({ wtG: 1250 }); r[25] = crypto.randomUUID(); r[26] = '2026-09-10T01:00:00.000Z'; r[27] = 'nurse@kcmh.test'; r[35] = 1;
       for (const [k, v] of Object.entries(extra || {})) r[k] = v;
       return r;
     },

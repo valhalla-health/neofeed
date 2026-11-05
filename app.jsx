@@ -3627,7 +3627,7 @@ function LoginScreen({ onLogin, notice = null }) {
           padding: "10px 14px", borderRadius: 10, fontSize: 13, lineHeight: 1.5,
           background: "var(--warn-bg)", border: "1px solid var(--warn-line)", color: "var(--warn-ink)",
         }}>
-          <div style={{ fontWeight: 600 }}>{notice.title}</div>
+          <div style={{ fontWeight: 600 }}>{notice.title}{/บัญชีเภสัช/.test(notice.title) && <> <a href="tpn-room.html">เปิดหน้าห้อง TPN</a></>}</div>
           {notice.body && <div style={{ marginTop: 2 }}>{notice.body}</div>}
         </div>
       )}
@@ -3702,7 +3702,7 @@ function LoginScreen({ onLogin, notice = null }) {
         </div>
       )}
 
-      {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}><span aria-hidden="true" style={{ display: "inline-flex", verticalAlign: "-2px", marginRight: 6 }}><Icon name="warn" size={15} stroke={2.2} /></span>{error}</div>}
+      {error && <div className="login-error" style={{ maxWidth: 320, width: "100%" }}><span aria-hidden="true" style={{ display: "inline-flex", verticalAlign: "-2px", marginRight: 6 }}><Icon name="warn" size={15} stroke={2.2} /></span>{error}{/บัญชีเภสัช/.test(error) && <> <a href="tpn-room.html">เปิดหน้าห้อง TPN</a></>}</div>}
 
       {/* The Valhalla line at the foot of the screen (Praew, 2026-09-22): one
           quiet line, "by Valhalla Health · © 2026", and no version. The

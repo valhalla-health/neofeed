@@ -1,7 +1,16 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-03 — A line telling the doctor to phone the TPN room when changing a submitted order: not live.** This
-> PR on `main` only. No figure and no backend change.
+> ⏳ **2026-11-05 — TPN-room stickers, PR B (`tpn-room.html`, #219): not live, not merged.** The page, its encrypted name
+> file and the three stickers are built and tested on synthetic infants (`openspec/changes/tpn-room-stickers`
+> tasks.md § 2). It needs no backend change. **Three things hold the release:** `tpn-room-check.html` passing on
+> the TPN-room PC (0.1), the PN label's fixed lines from the unit (0.3 i; until then the page refuses to print), and
+> Pp's check of the sample PDF against a real sheet. IT and the DPO still have to hear about the new local store of
+> names, and its retention and erasure need a rule (0.2, 2.8a). Make the pharmacy account after that (`REFERENCE.md` § The TPN room).
+>
+> ✅ **2026-11-05 — frontend `release` = `a541271` (PR #217), with backend `@67`.** Released #216, the line telling
+> the doctor to phone the TPN room when changing a submitted order. `node tools/verify-release.mjs --wait` passed on
+> both hosts from Pp's PC (comment on #217), and the tag `release-2026-11-05-pr217` is pushed. No ward device has
+> tried it. Rollback: the frontend to `release-2026-11-03-pr214` (`42fa2bc`); the backend is unchanged.
 >
 > ✅ **2026-11-03, by 09:30 ICT — backend: only the ward's deployment and `@HEAD` remain.** On Pp's word, the 24
 > old deployments (`@2`–`@25`) were removed after each version's code was read. `clasp list-deployments` went
@@ -10,18 +19,14 @@
 > `node tools/check-deployments.mjs` (`REFERENCE.md` § Backend (GAS)). #215 adds it: merged into `main` on Praew's instruction.
 > `tools/` is not served, so it needs no release.
 >
-> ⏳ **2026-11-03 — The doctor's sheet on one A4 page: not live.** Merged into `main` on Praew's instruction
-> (#213), and live `729910f` still runs to 2 pages at its fullest. Before release, print the fullest sheet from a
-> ward PC and printer: the measurements are headless Chromium. No backend change.
->
-> ⏳ **2026-11-03 — A locked No TPN order's Submit: not live.** Merged into `main` on Praew's instruction (#210),
-> and live `729910f` still offers Submit there. It goes out with the next `main → release` PR. No backend change.
->
-> ⏳ **2026-11-03 — TPN-room stickers, PR A: not live.** Merged into `main` on Praew's instruction (#212). It adds the
-> `pharmacy` role, `Daily_Log` AM, `pharmacyOrders` and the calculator's `printJson`, and it ships backend first
-> (`REFERENCE.md` § The TPN room). The TPN unit confirmed the four PROVISIONAL figures on 2026-11-03
-> (`openspec/changes/tpn-room-stickers/tasks.md` 0.3 a–d). Still open: 0.3 e as written there, 0.3 m, and Pp's sign-off
-> on the figure table (1.1). Nothing reads these figures until PR B.
+> ✅ **2026-11-03, 17:43 ICT — frontend `release` = `42fa2bc` (PR #214), with backend `@67`, backend first.** Released
+> #210 (a locked No TPN order's Submit), #213 (the doctor's sheet on one A4 page) and #212 (TPN-room stickers, PR A:
+> the `pharmacy` role, `Daily_Log` AM, `pharmacyOrders`, the calculator's `printJson`). `node tools/verify-release.mjs
+> --wait` passed on both hosts (61 passes, comment on #214), and the tag `release-2026-11-03-pr214` is pushed. The
+> TPN unit confirmed the four PROVISIONAL figures on 2026-11-03 (tasks.md 0.3 a–d). **Not checked yet:** no ward device
+> has been seen on it, the first new bag order on the real Sheet (AM starts `{"v":1`, `calcInput.printJsonV` is 1), and
+> the fullest sheet on a ward printer, signed with a real pen. Still open: 0.3 e as written, 0.3 m, and Pp's sign-off on
+> the figure table (1.1). Rollback: the frontend first, to `release-2026-11-01-pr209` (`729910f`), then the backend, to `@66`.
 >
 > ✅ **2026-11-01, 15:53 ICT — frontend `release` = `729910f` (PR #209), with backend `@66`.** PR #209 released
 > #206 (Step 3's "No TPN" tick and short sheet) and #207 (one "Bag cannot be made" stop). `node

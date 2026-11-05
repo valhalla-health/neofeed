@@ -25,6 +25,8 @@
 //   NICU 4 DD  nothing today                                    → Needs entry
 //   SCN 1  SS  submitted                                        → prints
 //   SCN 2  TT  nothing today                                    → Needs entry
+// A pharmacy account opens /tpn-room.html on the same data: AA and SS have sticker
+// figures (design D14), BB is a draft, CC is under an older CONSTANTS_VERSION.
 
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -35,11 +37,12 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const SERVED = ["index.html", "boot.js", "data.js", "manifest.json", "moved.html", "compiled", "vendor", "icons"];
+const SERVED = ["index.html", "boot.js", "data.js", "manifest.json", "moved.html", "compiled", "vendor", "icons",
+  "tpn-room.html", "tpn-room-check.html", "tpn-room-check.js", "tpn-room-core.js", "tpn-room-store.js", "tpn-room.css", "fonts"];
 const GAS_URL_LINE = /window\.NEOFEED_GAS_URL\s*=\s*"https:\/\/script\.google\.com\/macros\/s\/[^"]+";/;
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json",
-  ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon",
+  ".css": "text/css; charset=utf-8", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon",
 };
 // A day's order whose saved figures reproduce on reload (test/verify-ward-print-1012.cjs).
 const CALC = { curWtG: 900, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, ioInput: 130, ioOutput: 60, drainContent: 0,
@@ -75,6 +78,8 @@ function seed(tree) {
     { email: "nurse@dev.local", role: "nurse", name: "Nurse Dev" },
   ].map(a => ({ ...a, password: randomBytes(9).toString("base64url") }));
   for (const a of accounts) g.addStaff(a.email, a.role, a.password, { name: a.name });
+  const pharmacy = { email: "pharmacy@dev.local", role: "pharmacy", name: "Pharmacist Dev", password: randomBytes(9).toString("base64url") };
+  g.addStaff(pharmacy.email, pharmacy.role, pharmacy.password, { name: pharmacy.name });
 
   for (const [sid, name, bed] of [["AA-1", "AA", "NICU 1"], ["BB-1", "BB", "NICU 2"], ["CC-1", "CC", "NICU 3"],
     ["DD-1", "DD", "NICU 4"], ["SS-1", "SS", "SCN 1"], ["TT-1", "TT", "SCN 2"]]) {
@@ -89,19 +94,29 @@ function seed(tree) {
     27: "doctor@dev.local", 28: 130, 29: 60, 30: 0, 31: version,
   });
   const day = SBX.bkkMidnight(today);
-  const log = g.sheet("Daily_Log").data;
-  log.push(g.logRow("AA-1", day, order("submitted", constants)));
+  const logSheet = g.sheet("Daily_Log");
+  logSheet.maxColumns = 39;
+  logSheet.data[0][38] = "printJson";
+  const log = logSheet.data;
+  // From this checkout's test/, not the tree's: --tree may be a commit from before it.
+  const FX = createRequire(pathToFileURL(path.join(HERE, "..", "test", "x.cjs")))("./tpn-room-fixture.cjs");
+  const figures = (version) => JSON.stringify({ ...FX.printJson(FX.loadData(tree), today), constantsVersion: version });
+  log.push(g.logRow("AA-1", day, { ...order("submitted", constants), 38: figures(constants) }));
   log.push(g.logRow("BB-1", day, order("draft", constants)));
-  log.push(g.logRow("CC-1", day, order("submitted", OLDER_CONSTANTS)));
-  log.push(g.logRow("SS-1", day, order("submitted", constants)));
-  return { g, accounts, constants, today };
+  log.push(g.logRow("CC-1", day, { ...order("submitted", OLDER_CONSTANTS), 38: figures(OLDER_CONSTANTS) }));
+  log.push(g.logRow("SS-1", day, { ...order("submitted", constants), 38: figures(constants) }));
+  return { g, accounts, pharmacy, constants, today };
 }
 
-// Start the server. `port` 0 picks a free one. Resolves to { url, accounts,
-// constants, today, stop }.
+// Start the server. `port` 0 picks a free one. Resolves to { url, accounts, pharmacy,
+// constants, today, g, stop }.
 export async function start({ tree = path.join(HERE, ".."), port = 8155, quiet = false } = {}) {
   tree = path.resolve(tree);
-  const { g, accounts, constants, today } = seed(tree);
+  const { g, accounts, pharmacy, constants, today } = seed(tree);
+  // The TPN room's pages run under the hosts' real policy, with only the backend's
+  // address swapped: a page that breaks under it fails here, not on the host.
+  const headersFile = path.join(tree, "_headers");
+  const roomCsp = fs.existsSync(headersFile) ? (fs.readFileSync(headersFile, "utf8").match(/^\s*Content-Security-Policy:\s*(.+)$/m) || [])[1] : "";
   let dir = null;
   const server = http.createServer((req, res) => {
     if (req.method === "POST" && req.url.split("?")[0] === "/gas") {
@@ -121,7 +136,9 @@ export async function start({ tree = path.join(HERE, ".."), port = 8155, quiet =
     if (!file.startsWith(path.resolve(dir) + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
       res.writeHead(404); res.end("not found"); return;
     }
-    res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream", "Cache-Control": "no-store" });
+    const headers = { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream", "Cache-Control": "no-store" };
+    if (/^\/tpn-room(-check)?\.html$/.test(rel) && roomCsp) headers["Content-Security-Policy"] = roomCsp.trim();
+    res.writeHead(200, headers);
     fs.createReadStream(file).pipe(res);
   });
   await new Promise((ok, fail) => { server.once("error", fail); server.listen(port, "127.0.0.1", ok); });
@@ -131,10 +148,11 @@ export async function start({ tree = path.join(HERE, ".."), port = 8155, quiet =
   if (!quiet) {
     console.log(`NeoFeed dev-local: ${url}  (tree ${tree})`);
     console.log(`  backend: gas-backend.gs in the sandbox · CONSTANTS_VERSION ${constants} · ward day ${today}`);
-    for (const a of accounts) console.log(`  ${a.role.padEnd(6)} ${a.email}  ${a.password}`);
+    for (const a of [...accounts, pharmacy]) console.log(`  ${a.role.padEnd(8)} ${a.email}  ${a.password}`);
+    console.log(`  TPN room: ${url}/tpn-room.html (the pharmacy account)`);
     console.log("  Ctrl+C stops it. Made-up infants AA–DD (NICU) and SS–TT (SCN); see the header of this file.");
   }
-  return { url, accounts, constants, today, stop };
+  return { url, accounts, pharmacy, constants, today, g, stop };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
