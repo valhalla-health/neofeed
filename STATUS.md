@@ -1,5 +1,19 @@
 # NeoFeed — Status
 
+> ✅ **2026-11-05 — frontend `release` = `a541271` (PR #217), with backend `@68`.** PR #217 released #216 (a
+> line telling the doctor to phone the TPN room when changing a submitted order). `node tools/verify-release.mjs
+> --wait` passed both hosts (0 failures, 61 passes, comment on #217). Tag `release-2026-11-05-pr217` pushed.
+> **Corrects the three ⏳ entries below:** #210 (locked No TPN order's Submit), #212 (TPN-room sticker figures PR
+> A) and #213 (printed order one A4 page) went live with PR #214 on 2026-11-03 — those entries were written
+> before #214 merged and were never updated, because the next PR on the repo (#216) sat open until now.
+> **Backend `@68`** (PR #218, backend-first, on Pp's go-ahead): `Patient_Registry` gains columns S–U —
+> `pnIndication`, `liverDysfunction`, `renalDysfunction` — for the Indication for PN dropdown and the Liver/Renal
+> Dysfunction ticks next to Diagnosis. Additive only; nothing reads them until #218's frontend half merges and
+> releases. `clasp deploy` verified: `clasp pull --versionNumber 68` is byte-identical to the committed
+> `gas-backend.gs`, and a no-credential `ping` answered. ⚠️ No ward device has tried this release. Rollback: the
+> frontend to `release-2026-11-03-pr214` (`42fa2bc`); the backend `clasp update-deployment AKfycbz8Nt… -V 67`
+> first. Recorded here by PR #218, the next PR on the repo.
+>
 > ⏳ **2026-11-03 — A line telling the doctor to phone the TPN room when changing a submitted order: not live.** This
 > PR on `main` only. No figure and no backend change.
 >
