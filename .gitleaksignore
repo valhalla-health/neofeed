@@ -17,3 +17,11 @@ test/verify-resync-and-lists.cjs:generic-api-key:93
 # this file for a reason that isn't a leak.
 test/verify-forced-password-client.cjs:generic-api-key:90
 test/verify-forced-password-client.cjs:generic-api-key:138
+
+# The made-up password a pharmacy sign-in harness and its plan text pass to a stubbed loginRequest. Nothing
+# checks it: gasRequest is a recorder there, and it was never a credential. Came in with #212. Found 2026-11-03
+# when merging main blocked a commit, because a merge stages everything main brought.
+test/verify-pharmacy-frontend-1030.cjs:generic-api-key:32
+test/verify-pharmacy-frontend-1030.cjs:generic-api-key:45
+openspec/changes/tpn-room-stickers/plan-pr-a.md:generic-api-key:986
+openspec/changes/tpn-room-stickers/plan-pr-a.md:generic-api-key:995

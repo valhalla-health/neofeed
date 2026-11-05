@@ -2359,6 +2359,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // on, its short sheet says "TPN stopped today" too (D.orderCancelsTpn).
   const replacesTpn = savedReplacesTpn || (savedStatus === "submitted" && !!savedEntryId && savedHadTpn);
   const tpnCancelledToday = noTpnOn && replacesTpn;
+  // A save here would write a revision of a submitted order with TPN, for today or
+  // tomorrow: the TPN room may already be working from it, so the doctor phones (Pp,
+  // 2026-11-03: "โทรด้วย"). That is a typed change, or an order Print holds for a new
+  // save with nothing typed. A bag put back over a No TPN order counts: the room was
+  // told it stopped. An earlier day's bag has been given, and a draft has not
+  // reached the room.
+  const daysToOrder = D.daysBetweenDateStr(D.todayLocal(), orderDateKey);
+  const revisingForRoom = (dirty || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0)
+    && !scratch && !centerPoint && !ordersReadOnly && savedStatus === "submitted" && (savedHadTpn || bagOrdered)
+    && (daysToOrder === 0 || daysToOrder === 1);
   const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday || tpnCancelledToday);
   // orderSettled: saved, unchanged and held by nothing that needs a new save. It is
   // printable without the No TPN term, because a No TPN order with no short sheet
@@ -4352,6 +4362,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             {figuresMissing && !scratch && !ordersReadOnly && (
               <div className="sticker-figures-missing" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
                 ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง
+              </div>
+            )}
+            {revisingForRoom && (
+              <div className="revise-phone-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย
               </div>
             )}
             {/* A locked order with nothing changed has nothing to submit, unless

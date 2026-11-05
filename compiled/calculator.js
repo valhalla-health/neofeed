@@ -1539,6 +1539,8 @@ function Calculator({
   const tpnStoppedToday = noTpnOn && D.orderHadTpn(previousEntry);
   const replacesTpn = savedReplacesTpn || savedStatus === "submitted" && !!savedEntryId && savedHadTpn;
   const tpnCancelledToday = noTpnOn && replacesTpn;
+  const daysToOrder = D.daysBetweenDateStr(D.todayLocal(), orderDateKey);
+  const revisingForRoom = (dirty || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0) && !scratch && !centerPoint && !ordersReadOnly && savedStatus === "submitted" && (savedHadTpn || bagOrdered) && (daysToOrder === 0 || daysToOrder === 1);
   const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday || tpnCancelledToday);
   const orderSettled = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const printable = orderSettled && (!noTpnOn || noTpnSheet);
@@ -2822,7 +2824,7 @@ function Calculator({
     /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14 }),
     " ",
     saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"
-  ), figuresMissing && !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement(
+  ), figuresMissing && !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), revisingForRoom && /* @__PURE__ */ React.createElement("div", { className: "revise-phone-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย"), !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn primary",

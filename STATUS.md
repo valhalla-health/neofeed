@@ -1,5 +1,8 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-03 — A line telling the doctor to phone the TPN room when changing a submitted order: not live.** This
+> PR on `main` only. No figure and no backend change.
+>
 > ✅ **2026-11-03, by 09:30 ICT — backend: only the ward's deployment and `@HEAD` remain.** On Pp's word, the 24
 > old deployments (`@2`–`@25`) were removed after each version's code was read. `clasp list-deployments` went
 > from 26 to 2 and held over five reads, every old URL answers 404, and `AKfycbz8…` still answers `ping` at `@66`
