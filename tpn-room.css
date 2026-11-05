@@ -1,0 +1,99 @@
+/* The TPN room's page and its A4 sticker sheet. Sarabun (OFL, fonts/sarabun/OFL.txt)
+   is served with the page, so every PC prints the same. */
+@font-face { font-family: "Sarabun"; font-weight: 400; font-display: swap; src: url(fonts/sarabun/sarabun-thai-400-normal.woff2) format("woff2"); unicode-range: U+0E01-0E5B, U+200C-200D, U+25CC; }
+@font-face { font-family: "Sarabun"; font-weight: 700; font-display: swap; src: url(fonts/sarabun/sarabun-thai-700-normal.woff2) format("woff2"); unicode-range: U+0E01-0E5B, U+200C-200D, U+25CC; }
+@font-face { font-family: "Sarabun"; font-weight: 400; font-display: swap; src: url(fonts/sarabun/sarabun-latin-400-normal.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Sarabun"; font-weight: 700; font-display: swap; src: url(fonts/sarabun/sarabun-latin-700-normal.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+:root {
+  --ink: #1f2a24; --muted: #5d6a62; --line: #d5dcd6; --paper: #ffffff; --wash: #f4f6f3;
+  --moss: #3f6b4f; --moss-ink: #ffffff; --bad: #a32020; --bad-wash: #fbeeee; --warn: #8a5a00; --warn-wash: #fdf5e3;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--wash); color: var(--ink); font: 16px/1.45 "Sarabun", sans-serif; }
+button, input { font: inherit; }
+h1 { font-size: 24px; margin: 0; }
+h2 { font-size: 18px; margin: 0 0 8px; }
+h3 { font-size: 15px; margin: 12px 0 4px; }
+p { margin: 6px 0; }
+.muted { color: var(--muted); }
+.bad { color: var(--bad); }
+.warn { color: var(--warn); background: var(--warn-wash); border-left: 4px solid var(--warn); padding: 6px 10px; font-weight: 700; }
+.note { background: var(--warn-wash); padding: 6px 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+label { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--muted); }
+label.inline { flex-direction: row; align-items: center; gap: 6px; }
+label.check { flex-direction: row; align-items: flex-start; gap: 6px; color: var(--ink); }
+input { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: var(--paper); }
+button { padding: 7px 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--moss); border-color: var(--moss); color: var(--moss-ink); font-weight: 700; }
+button:disabled { opacity: .55; cursor: default; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
+
+.narrow { max-width: 420px; margin: 48px auto; padding: 24px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+.narrow h1 { margin-bottom: 8px; }
+.screen { max-width: 1000px; margin: 0 auto; padding: 16px; }
+.top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.status-line { font-size: 14px; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 10px 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0; }
+.counts { display: flex; flex-wrap: wrap; gap: 14px; align-items: baseline; }
+.counts strong { font-size: 22px; }
+.orders { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.order { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.order-changed { border-color: var(--warn); border-width: 2px; }
+.order-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.bed { font-size: 18px; }
+.id { color: var(--muted); font-size: 14px; }
+.twin { font-weight: 700; }
+.tag { font-size: 13px; border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; }
+.who { margin-left: auto; }
+.order-facts { font-size: 14px; }
+.crit { background: var(--bad-wash); border-left: 4px solid var(--bad); padding: 6px 10px; margin: 6px 0; }
+.reasons { margin: 6px 0; padding-left: 20px; color: var(--bad); font-size: 14px; }
+.order-actions { margin-top: 6px; }
+.drafts { margin-top: 14px; }
+.drafts summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+.contacts { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; margin-top: 18px; }
+
+.scrim { position: fixed; inset: 0; background: rgba(20, 30, 24, .45); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow: auto; }
+.dialog { background: var(--paper); border-radius: 10px; padding: 18px; width: 100%; max-width: 480px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px 14px; margin: 8px 0; }
+.facts dt { font-size: 13px; color: var(--muted); }
+.facts dd { margin: 0; font-weight: 700; }
+.twin-big { font-size: 26px; font-weight: 700; text-align: center; background: var(--warn-wash); border-radius: 6px; padding: 6px; }
+.history { margin-top: 12px; border-top: 1px solid var(--line); font-size: 13px; }
+
+/* ── The sheet: one A4 page, three parts, cut by hand along the dashed lines. ── */
+.sheet { display: none; }
+@page { size: A4; margin: 0; }
+@media print {
+  html, body { background: #fff; color: #000; font-size: 11pt; }
+  .screen, .scrim { display: none !important; }
+  .sheet { display: flex; flex-direction: column; width: 210mm; height: 296mm; overflow: hidden; padding: 6mm 9mm; }
+  .part { padding: 3mm 0; border-bottom: 1px dashed #000; }
+  .part:last-child { border-bottom: 0; }
+  .part-worksheet { flex: 0 0 136mm; }
+  .part-label { flex: 0 0 90mm; }
+  .part-bag { flex: 1 1 auto; }
+  .part-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
+  .big-name { font-size: 16pt; font-weight: 700; overflow-wrap: anywhere; }
+  .facts-line { display: flex; flex-wrap: wrap; gap: 1mm 7mm; margin: 1mm 0; }
+  .fig { font-weight: 700; }
+  .worksheet-body { display: flex; gap: 8mm; margin-top: 1mm; }
+  .stock { flex: 1 1 auto; border-collapse: collapse; }
+  .stock td { padding: .4mm 1.5mm; border-bottom: 1px solid #999; line-height: 1.2; }
+  .stock .tick { width: 6mm; }
+  .stock .num { text-align: right; width: 22mm; font-size: 12pt; }
+  .stock .unit { width: 9mm; }
+  .wfi { flex: 0 0 42mm; align-self: flex-start; border: 2px solid #000; padding: 3mm; text-align: center; }
+  .wfi-value { font-size: 26pt; line-height: 1.2; }
+  .small-id { font-size: 8pt; margin-top: 1mm; }
+  .fixed-line { min-height: 1.2em; }
+  .heading { font-weight: 700; text-align: center; }
+  .amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5mm 5mm; margin: 1.5mm 0; }
+  .bag-name { font-size: 24pt; font-weight: 700; text-align: center; overflow-wrap: anywhere; }
+  .bag-ward { font-size: 34pt; font-weight: 700; text-align: center; border: 3px solid #000; margin: 2mm 25mm; padding: 1mm; }
+  .part-bag .facts-line { justify-content: center; }
+}
