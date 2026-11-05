@@ -106,7 +106,10 @@ Built 2026-11-05 on branch `claude/tpn-room-page`, ahead of 0.1 and 0.3 i on Pp'
       0.3 i:** the PN label's heading, storage line and extension are blank in `tpn-room-core.js`, and the page
       refuses to print until all three are filled in (design D18).
 - [x] 2.7 The sentinel-name test: no request URL, header or body contains the mapped name.
-- [ ] 2.8 Vera's report in the PR; `CHANGELOG.md`; `STATUS.md`.
+- [ ] 2.8 Vera's report in the PR; `CHANGELOG.md`; `STATUS.md`. Run 2026-11-05: NO BLOCK, findings 1–4 fixed with
+      tests, 5 is the retention question below.
+- [ ] 2.8a For Pp and the DPO, with 0.2 (Vera, 2026-11-05): a retention rule for `.replaced-*` name files, and a manual
+      erasure step for the name file, which `pseudonymizePatient` cannot reach (`REFERENCE.md` § Thai PDPA).
 - [x] 2.9 From the cold readers (2026-10-30), each with a test where it can have one. **Contact line:** only
       "order ผิด: โทรหาหมอผู้สั่ง" is filled in. Who to call about NeoFeed and the passphrase waits on Pp and 0.3 l,
       in `CONTACTS` in `tpn-room-core.js`; a blank line stays off the page.

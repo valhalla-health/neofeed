@@ -197,7 +197,7 @@ function NameFilePanel({ store, onOpen }) {
     catch (err) { setError(String(err.message || err)); }
     finally { setBusy(false); setPass(""); setAgain(""); }
   };
-  const create = (e) => { e.preventDefault(); if (checkPair()) run(async () => onOpen(await store.createFile(dir, pass))); };
+  const create = (e) => { e.preventDefault(); if (checkPair()) run(async () => onOpen(await store.createFile(dir, pass, Core.wardToday()))); };
   const unlock = (e) => { e.preventDefault(); run(() => tryOpen(dir, pass)); };
   const replace = (e) => {
     e.preventDefault();
@@ -342,8 +342,9 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
   const paper = state ? Core.needsPaperCheck(date, state.meta.logLostOn) : false;
   const crit = order.printJson && order.printJson.critical;
   const twin = Core.twinLabel(order.twinSuffix, order.multiplesCount);
-  const [prepared, setPrepared] = React.useState(Core.wardToday());
-  const preparedOk = Core.isRealDate(prepared);
+  const [typedDate, setTypedDate] = React.useState("");
+  const prepared = typedDate || Core.wardToday();
+  const preparedOk = Core.preparedDateOk(prepared);
   return (
     <li className={"order" + (changed ? " order-changed" : "")} data-session={order.sessionId}>
       <div className="order-head">
@@ -376,7 +377,7 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
         {reasons.length === 0 && (
           <>
             <label className="inline">วันที่เตรียม TPN
-              <input type="date" value={prepared} onChange={(e) => setPrepared(e.target.value)} />
+              <input type="date" value={prepared} onChange={(e) => setTypedDate(e.target.value)} />
             </label>
             <button className="primary" disabled={busy || !preparedOk} onClick={() => onPrint(order, prepared)}>
               {last && !changed ? "พิมพ์ซ้ำ" : "พิมพ์สติกเกอร์"}
@@ -386,6 +387,13 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
       </div>
     </li>
   );
+}
+
+// The sheet and each of its parts hold their content without clipping any of it.
+function sheetOverflows() {
+  const sheet = document.getElementById("sticker-sheet");
+  if (!sheet) return true;
+  return [sheet, ...sheet.querySelectorAll(".part")].some((e) => e.scrollHeight > e.clientHeight + 1);
 }
 
 // ── The three stickers. `Fig` marks a printJson string, `Lbl` a fixed label; the
@@ -523,15 +531,28 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
     file.save((s) => NameStore.touchSeen(s, ids, reply.date)).then(bump).catch((err) => setError(err.message));
   }, [file, reply]);
 
-  // Print once the sheet is on the page and its font is ready. The sheet leaves the
-  // page after the dialog closes, so no name stays in the DOM for nothing.
+  // Once the sheet is laid out and its font is ready: measure it, log it, print it. The
+  // sheet hides what overflows, so a sheet that does not fit is refused here and never
+  // printed with its bag label cut off. The log goes before the print: a print the log
+  // missed is the one the warning cannot see. The sheet leaves the page after the dialog
+  // closes, so no name stays in the DOM for nothing.
   React.useEffect(() => {
     if (!printJob) return;
     let live = true;
     const done = () => { if (live) setPrintJob(null); };
     window.addEventListener("afterprint", done);
     const ready = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-    ready.then(() => { if (live) window.print(); });
+    ready.then(async () => {
+      if (!live) return;
+      if (sheetOverflows()) {
+        setError("ที่ว่างบนแผ่นสติกเกอร์ไม่พอ ชื่อหรือข้อความยาวเกินไป ย่อชื่อแล้วลองใหม่");
+        setPrintJob(null);
+        return;
+      }
+      await file.save((s) => NameStore.logPrint(s, printJob.entry));
+      bump();
+      if (live) window.print();
+    }).catch((err) => { setError(err.message); setPrintJob(null); });
     return () => { live = false; window.removeEventListener("afterprint", done); };
   }, [printJob]);
 
@@ -547,6 +568,10 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const printOrder = async (order, preparedDate) => {
     setBusy(true); setError("");
     try {
+      // A tab left open across a release still holds the old versions.
+      const served = await fetch("compiled/tpn-room-version.js", { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => null);
+      if (served === null) { setError("เช็กรุ่นของหน้านี้ไม่ได้ ลองใหม่อีกครั้ง"); return; }
+      if (!Core.versionsMatch(served, VERSIONS)) { setError("NeoFeed ออกรุ่นใหม่แล้ว โหลดหน้านี้ใหม่ก่อนพิมพ์"); return; }
       // Read once more: the list may be minutes old (spec, "Checked again just before printing").
       const fresh = await fetchDay(reply.date);
       if (!fresh) return;
@@ -558,13 +583,13 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         nameFileOpen: true, mapping,
       });
       if (reasons.length) { setError(reasons.join(" · ")); return; }
-      // The log goes first: a print the log missed is the one the warning cannot see.
-      await file.save((s) => NameStore.logPrint(s, {
-        sessionId: order.sessionId, date: fresh.date, entryId: check.order.entryId,
-        revision: check.order.revision, preparedDate, by: who, at: new Date().toISOString(),
-      }));
-      bump();
-      setPrintJob(Core.stickerModel(check.order, mapping, preparedDate));
+      setPrintJob({
+        model: Core.stickerModel(check.order, mapping, preparedDate),
+        entry: {
+          sessionId: order.sessionId, date: fresh.date, entryId: check.order.entryId,
+          revision: check.order.revision, preparedDate, by: who, at: new Date().toISOString(),
+        },
+      });
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   };
 
@@ -574,7 +599,8 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const drafts = orders.filter((o) => o.status !== "submitted");
   const gone = reply && file ? Core.goneAfterPrint(orders, file.state.printLog, reply.date) : [];
   const count = file ? Object.keys(file.state.infants).length : 0;
-  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy } : null;
+  const backToDraft = reply && file ? Core.draftAfterPrint(orders, file.state.printLog, reply.date) : [];
+  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob } : null;
 
   return (
     <>
@@ -617,6 +643,11 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
             {p.sessionId}: พิมพ์แล้ว แต่ถูกลบใน NeoFeed — อย่าใช้ถุงนี้
           </p>
         ))}
+        {backToDraft.map((o) => (
+          <p key={o.sessionId} className="warn">
+            {o.sessionId}: พิมพ์แล้ว แต่ order เปลี่ยนเป็นฉบับร่าง อย่าใช้ถุงนี้จนกว่าหมอจะ Submit ฉบับใหม่
+          </p>
+        ))}
         {reply && (
           <>
             {submitted.length === 0 && <p className="muted">ยังไม่มี order ที่ Submit แล้วของวันนี้</p>}
@@ -638,7 +669,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
       {mappingFor && file && (
         <MappingDialog order={mappingFor} infants={file.state.infants} onSave={saveMapping} onClose={() => setMappingFor(null)} />
       )}
-      {printJob && <StickerSheet model={printJob} />}
+      {printJob && <StickerSheet model={printJob.model} />}
     </>
   );
 }

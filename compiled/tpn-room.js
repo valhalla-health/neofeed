@@ -207,7 +207,7 @@ function NameFilePanel({ store, onOpen }) {
   };
   const create = (e) => {
     e.preventDefault();
-    if (checkPair()) run(async () => onOpen(await store.createFile(dir, pass)));
+    if (checkPair()) run(async () => onOpen(await store.createFile(dir, pass, Core.wardToday())));
   };
   const unlock = (e) => {
     e.preventDefault();
@@ -283,9 +283,15 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
   const paper = state ? Core.needsPaperCheck(date, state.meta.logLostOn) : false;
   const crit = order.printJson && order.printJson.critical;
   const twin = Core.twinLabel(order.twinSuffix, order.multiplesCount);
-  const [prepared, setPrepared] = React.useState(Core.wardToday());
-  const preparedOk = Core.isRealDate(prepared);
-  return /* @__PURE__ */ React.createElement("li", { className: "order" + (changed ? " order-changed" : ""), "data-session": order.sessionId }, /* @__PURE__ */ React.createElement("div", { className: "order-head" }, /* @__PURE__ */ React.createElement("strong", { className: "bed" }, order.bed || "ไม่มีเตียง"), /* @__PURE__ */ React.createElement("span", { className: "id" }, order.sessionId), twin && /* @__PURE__ */ React.createElement("span", { className: "twin" }, twin), order.revision > 1 && /* @__PURE__ */ React.createElement("span", { className: "tag" }, "ฉบับ ", order.revision), /* @__PURE__ */ React.createElement("span", { className: "who" }, mapping ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("strong", null, mapping.name), " · ", mapping.an) : /* @__PURE__ */ React.createElement("span", { className: "muted" }, "ยังไม่ได้ใส่ชื่อ"))), /* @__PURE__ */ React.createElement("p", { className: "muted order-facts" }, "BW ", order.bw, " g · DOL ", order.dol, order.printJson && /* @__PURE__ */ React.createElement(React.Fragment, null, " · น้ำหนักที่ใช้คำนวณ ", order.printJson.dosingWeightKg, " kg"), order.prescriber && /* @__PURE__ */ React.createElement(React.Fragment, null, " · บันทึกโดย ", order.prescriber), order.submittedAt && /* @__PURE__ */ React.createElement(React.Fragment, null, " · Submit ", Core.wardTime(order.submittedAt))), crit && /* @__PURE__ */ React.createElement("div", { className: "crit", role: "note" }, /* @__PURE__ */ React.createElement("strong", null, "ค่าวิกฤตที่หมอยืนยัน:"), " ", crit.alerts.join(", "), /* @__PURE__ */ React.createElement("div", null, "เหตุผล: ", crit.reason)), changed && /* @__PURE__ */ React.createElement("p", { className: "warn" }, "หมอแก้ order หลังพิมพ์ → ฉบับ ", order.revision), paper && !last && /* @__PURE__ */ React.createElement("p", { className: "warn" }, "เทียบกับ order กระดาษก่อน ไฟล์ชื่อเริ่มใหม่ จึงไม่รู้ว่าพิมพ์ไปแล้วหรือยัง"), last && !changed && /* @__PURE__ */ React.createElement("p", { className: "muted" }, "พิมพ์แล้ว ", Core.wardTime(last.at), " โดย ", last.by), reasons.length > 0 && /* @__PURE__ */ React.createElement("ul", { className: "reasons" }, reasons.map((r) => /* @__PURE__ */ React.createElement("li", { key: r }, r))), /* @__PURE__ */ React.createElement("div", { className: "row order-actions" }, file && /* @__PURE__ */ React.createElement("button", { onClick: () => onMap(order) }, mapping ? "แก้ชื่อ / AN" : "ใส่ชื่อ / AN"), reasons.length === 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { className: "inline" }, "วันที่เตรียม TPN", /* @__PURE__ */ React.createElement("input", { type: "date", value: prepared, onChange: (e) => setPrepared(e.target.value) })), /* @__PURE__ */ React.createElement("button", { className: "primary", disabled: busy || !preparedOk, onClick: () => onPrint(order, prepared) }, last && !changed ? "พิมพ์ซ้ำ" : "พิมพ์สติกเกอร์"))));
+  const [typedDate, setTypedDate] = React.useState("");
+  const prepared = typedDate || Core.wardToday();
+  const preparedOk = Core.preparedDateOk(prepared);
+  return /* @__PURE__ */ React.createElement("li", { className: "order" + (changed ? " order-changed" : ""), "data-session": order.sessionId }, /* @__PURE__ */ React.createElement("div", { className: "order-head" }, /* @__PURE__ */ React.createElement("strong", { className: "bed" }, order.bed || "ไม่มีเตียง"), /* @__PURE__ */ React.createElement("span", { className: "id" }, order.sessionId), twin && /* @__PURE__ */ React.createElement("span", { className: "twin" }, twin), order.revision > 1 && /* @__PURE__ */ React.createElement("span", { className: "tag" }, "ฉบับ ", order.revision), /* @__PURE__ */ React.createElement("span", { className: "who" }, mapping ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("strong", null, mapping.name), " · ", mapping.an) : /* @__PURE__ */ React.createElement("span", { className: "muted" }, "ยังไม่ได้ใส่ชื่อ"))), /* @__PURE__ */ React.createElement("p", { className: "muted order-facts" }, "BW ", order.bw, " g · DOL ", order.dol, order.printJson && /* @__PURE__ */ React.createElement(React.Fragment, null, " · น้ำหนักที่ใช้คำนวณ ", order.printJson.dosingWeightKg, " kg"), order.prescriber && /* @__PURE__ */ React.createElement(React.Fragment, null, " · บันทึกโดย ", order.prescriber), order.submittedAt && /* @__PURE__ */ React.createElement(React.Fragment, null, " · Submit ", Core.wardTime(order.submittedAt))), crit && /* @__PURE__ */ React.createElement("div", { className: "crit", role: "note" }, /* @__PURE__ */ React.createElement("strong", null, "ค่าวิกฤตที่หมอยืนยัน:"), " ", crit.alerts.join(", "), /* @__PURE__ */ React.createElement("div", null, "เหตุผล: ", crit.reason)), changed && /* @__PURE__ */ React.createElement("p", { className: "warn" }, "หมอแก้ order หลังพิมพ์ → ฉบับ ", order.revision), paper && !last && /* @__PURE__ */ React.createElement("p", { className: "warn" }, "เทียบกับ order กระดาษก่อน ไฟล์ชื่อเริ่มใหม่ จึงไม่รู้ว่าพิมพ์ไปแล้วหรือยัง"), last && !changed && /* @__PURE__ */ React.createElement("p", { className: "muted" }, "พิมพ์แล้ว ", Core.wardTime(last.at), " โดย ", last.by), reasons.length > 0 && /* @__PURE__ */ React.createElement("ul", { className: "reasons" }, reasons.map((r) => /* @__PURE__ */ React.createElement("li", { key: r }, r))), /* @__PURE__ */ React.createElement("div", { className: "row order-actions" }, file && /* @__PURE__ */ React.createElement("button", { onClick: () => onMap(order) }, mapping ? "แก้ชื่อ / AN" : "ใส่ชื่อ / AN"), reasons.length === 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { className: "inline" }, "วันที่เตรียม TPN", /* @__PURE__ */ React.createElement("input", { type: "date", value: prepared, onChange: (e) => setTypedDate(e.target.value) })), /* @__PURE__ */ React.createElement("button", { className: "primary", disabled: busy || !preparedOk, onClick: () => onPrint(order, prepared) }, last && !changed ? "พิมพ์ซ้ำ" : "พิมพ์สติกเกอร์"))));
+}
+function sheetOverflows() {
+  const sheet = document.getElementById("sticker-sheet");
+  if (!sheet) return true;
+  return [sheet, ...sheet.querySelectorAll(".part")].some((e) => e.scrollHeight > e.clientHeight + 1);
 }
 const Fig = ({ of, children }) => /* @__PURE__ */ React.createElement("span", { className: "fig", "data-fig": of }, children);
 const Lbl = ({ children }) => /* @__PURE__ */ React.createElement("span", { className: "lbl", "data-lbl": "" }, children);
@@ -351,8 +357,19 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
     };
     window.addEventListener("afterprint", done);
     const ready = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-    ready.then(() => {
+    ready.then(async () => {
+      if (!live) return;
+      if (sheetOverflows()) {
+        setError("ที่ว่างบนแผ่นสติกเกอร์ไม่พอ ชื่อหรือข้อความยาวเกินไป ย่อชื่อแล้วลองใหม่");
+        setPrintJob(null);
+        return;
+      }
+      await file.save((s) => NameStore.logPrint(s, printJob.entry));
+      bump();
       if (live) window.print();
+    }).catch((err) => {
+      setError(err.message);
+      setPrintJob(null);
     });
     return () => {
       live = false;
@@ -370,6 +387,15 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
     setBusy(true);
     setError("");
     try {
+      const served = await fetch("compiled/tpn-room-version.js", { cache: "no-store" }).then((r) => r.ok ? r.text() : "").catch(() => null);
+      if (served === null) {
+        setError("เช็กรุ่นของหน้านี้ไม่ได้ ลองใหม่อีกครั้ง");
+        return;
+      }
+      if (!Core.versionsMatch(served, VERSIONS)) {
+        setError("NeoFeed ออกรุ่นใหม่แล้ว โหลดหน้านี้ใหม่ก่อนพิมพ์");
+        return;
+      }
       const fresh = await fetchDay(reply.date);
       if (!fresh) return;
       const check = Core.recheck(order, fresh.orders);
@@ -389,17 +415,18 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         setError(reasons.join(" · "));
         return;
       }
-      await file.save((s) => NameStore.logPrint(s, {
-        sessionId: order.sessionId,
-        date: fresh.date,
-        entryId: check.order.entryId,
-        revision: check.order.revision,
-        preparedDate,
-        by: who,
-        at: (/* @__PURE__ */ new Date()).toISOString()
-      }));
-      bump();
-      setPrintJob(Core.stickerModel(check.order, mapping, preparedDate));
+      setPrintJob({
+        model: Core.stickerModel(check.order, mapping, preparedDate),
+        entry: {
+          sessionId: order.sessionId,
+          date: fresh.date,
+          entryId: check.order.entryId,
+          revision: check.order.revision,
+          preparedDate,
+          by: who,
+          at: (/* @__PURE__ */ new Date()).toISOString()
+        }
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -412,7 +439,8 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const drafts = orders.filter((o) => o.status !== "submitted");
   const gone = reply && file ? Core.goneAfterPrint(orders, file.state.printLog, reply.date) : [];
   const count = file ? Object.keys(file.state.infants).length : 0;
-  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy } : null;
+  const backToDraft = reply && file ? Core.draftAfterPrint(orders, file.state.printLog, reply.date) : [];
+  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob } : null;
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "screen" }, /* @__PURE__ */ React.createElement("header", { className: "top" }, /* @__PURE__ */ React.createElement("h1", null, "ห้อง TPN"), /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("button", { onClick: onChangePassword }, "เปลี่ยนรหัสผ่าน"), /* @__PURE__ */ React.createElement("button", { onClick: onLogout }, "ออกจากระบบ"))), /* @__PURE__ */ React.createElement("p", { className: "status-line", role: "status" }, "ชื่อในไฟล์ ", count, " คน · ", file ? `ไฟล์เปิดอยู่ · โฟลเดอร์ ${file.folderName}` : "ไฟล์ชื่อยังไม่เปิด", " · เข้าระบบ ", who), !file && /* @__PURE__ */ React.createElement(NameFilePanel, { store, onOpen: setFile }), /* @__PURE__ */ React.createElement("section", { className: "controls" }, /* @__PURE__ */ React.createElement("label", { className: "inline" }, "วันที่", /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -426,7 +454,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         if (Core.isRealDate(d) && d >= win.min && d <= win.max) load(d);
       }
     }
-  )), /* @__PURE__ */ React.createElement("button", { onClick: () => load(date), disabled: loading || !dateOk }, loading ? "กำลังโหลด…" : "รีเฟรช"), reply && /* @__PURE__ */ React.createElement("div", { className: "counts" }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, reply.counts.submitted), " Submit แล้ว"), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, reply.counts.drafts), " ฉบับร่าง"), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, reply.counts.active), " ผู้ป่วยในหน่วย"), /* @__PURE__ */ React.createElement("span", { className: "muted" }, "โหลดเมื่อ ", Core.wardTime(null, reply.loadedAt)))), !dateOk && /* @__PURE__ */ React.createElement("p", { className: "bad", role: "alert" }, "เลือกได้ตั้งแต่ ", Core.buddhistDate(win.min), " ถึง ", Core.buddhistDate(win.max)), reply && reply.date !== date && dateOk && !loading && /* @__PURE__ */ React.createElement("p", { className: "note" }, "รายการด้านล่างเป็นของวันที่ ", Core.buddhistDate(reply.date)), error && /* @__PURE__ */ React.createElement("p", { className: "bad", role: "alert" }, error), gone.map((p) => /* @__PURE__ */ React.createElement("p", { key: p.sessionId, className: "warn gone", "data-gone": p.sessionId }, p.sessionId, ": พิมพ์แล้ว แต่ถูกลบใน NeoFeed — อย่าใช้ถุงนี้")), reply && /* @__PURE__ */ React.createElement(React.Fragment, null, submitted.length === 0 && /* @__PURE__ */ React.createElement("p", { className: "muted" }, "ยังไม่มี order ที่ Submit แล้วของวันนี้"), /* @__PURE__ */ React.createElement("ul", { className: "orders" }, submitted.map((o) => /* @__PURE__ */ React.createElement(OrderRow, { key: o.entryId || o.sessionId, order: o, ...rowProps }))), drafts.length > 0 && /* @__PURE__ */ React.createElement("details", { className: "drafts" }, /* @__PURE__ */ React.createElement("summary", null, "ฉบับร่าง ", drafts.length, " รายการ"), /* @__PURE__ */ React.createElement("ul", { className: "orders" }, drafts.map((o) => /* @__PURE__ */ React.createElement(OrderRow, { key: o.entryId || o.sessionId, order: o, ...rowProps }))))), /* @__PURE__ */ React.createElement(Contacts, null)), mappingFor && file && /* @__PURE__ */ React.createElement(MappingDialog, { order: mappingFor, infants: file.state.infants, onSave: saveMapping, onClose: () => setMappingFor(null) }), printJob && /* @__PURE__ */ React.createElement(StickerSheet, { model: printJob }));
+  )), /* @__PURE__ */ React.createElement("button", { onClick: () => load(date), disabled: loading || !dateOk }, loading ? "กำลังโหลด…" : "รีเฟรช"), reply && /* @__PURE__ */ React.createElement("div", { className: "counts" }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, reply.counts.submitted), " Submit แล้ว"), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, reply.counts.drafts), " ฉบับร่าง"), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, reply.counts.active), " ผู้ป่วยในหน่วย"), /* @__PURE__ */ React.createElement("span", { className: "muted" }, "โหลดเมื่อ ", Core.wardTime(null, reply.loadedAt)))), !dateOk && /* @__PURE__ */ React.createElement("p", { className: "bad", role: "alert" }, "เลือกได้ตั้งแต่ ", Core.buddhistDate(win.min), " ถึง ", Core.buddhistDate(win.max)), reply && reply.date !== date && dateOk && !loading && /* @__PURE__ */ React.createElement("p", { className: "note" }, "รายการด้านล่างเป็นของวันที่ ", Core.buddhistDate(reply.date)), error && /* @__PURE__ */ React.createElement("p", { className: "bad", role: "alert" }, error), gone.map((p) => /* @__PURE__ */ React.createElement("p", { key: p.sessionId, className: "warn gone", "data-gone": p.sessionId }, p.sessionId, ": พิมพ์แล้ว แต่ถูกลบใน NeoFeed — อย่าใช้ถุงนี้")), backToDraft.map((o) => /* @__PURE__ */ React.createElement("p", { key: o.sessionId, className: "warn" }, o.sessionId, ": พิมพ์แล้ว แต่ order เปลี่ยนเป็นฉบับร่าง อย่าใช้ถุงนี้จนกว่าหมอจะ Submit ฉบับใหม่")), reply && /* @__PURE__ */ React.createElement(React.Fragment, null, submitted.length === 0 && /* @__PURE__ */ React.createElement("p", { className: "muted" }, "ยังไม่มี order ที่ Submit แล้วของวันนี้"), /* @__PURE__ */ React.createElement("ul", { className: "orders" }, submitted.map((o) => /* @__PURE__ */ React.createElement(OrderRow, { key: o.entryId || o.sessionId, order: o, ...rowProps }))), drafts.length > 0 && /* @__PURE__ */ React.createElement("details", { className: "drafts" }, /* @__PURE__ */ React.createElement("summary", null, "ฉบับร่าง ", drafts.length, " รายการ"), /* @__PURE__ */ React.createElement("ul", { className: "orders" }, drafts.map((o) => /* @__PURE__ */ React.createElement(OrderRow, { key: o.entryId || o.sessionId, order: o, ...rowProps }))))), /* @__PURE__ */ React.createElement(Contacts, null)), mappingFor && file && /* @__PURE__ */ React.createElement(MappingDialog, { order: mappingFor, infants: file.state.infants, onSave: saveMapping, onClose: () => setMappingFor(null) }), printJob && /* @__PURE__ */ React.createElement(StickerSheet, { model: printJob.model }));
 }
 function TpnRoomApp({ store }) {
   const [user, setUser] = React.useState(readSession);

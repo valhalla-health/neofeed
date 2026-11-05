@@ -65,35 +65,37 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .twin-big { font-size: 26px; font-weight: 700; text-align: center; background: var(--warn-wash); border-radius: 6px; padding: 6px; }
 .history { margin-top: 12px; border-top: 1px solid var(--line); font-size: 13px; }
 
-/* ── The sheet: one A4 page, three parts, cut by hand along the dashed lines. ── */
-.sheet { display: none; }
+/* ── The sheet: one A4 page, three parts, cut by hand along the dashed lines. It is laid
+   out off-screen before the print dialog, at its printed size, so the page can measure
+   whether it fits. Its overflow is hidden, so nothing else would notice. ── */
 @page { size: A4; margin: 0; }
+.sheet { position: fixed; left: -400mm; top: 0; visibility: hidden; display: flex; flex-direction: column; width: 210mm; height: 296mm; overflow: hidden; padding: 6mm 9mm; background: #fff; color: #000; font-size: 11pt; line-height: 1.45; }
+.part { padding: 3mm 0; border-bottom: 1px dashed #000; min-height: 0; overflow: hidden; }
+.part:last-child { border-bottom: 0; }
+.part-worksheet { flex: 0 0 136mm; }
+.part-label { flex: 0 0 90mm; }
+.part-bag { flex: 1 1 auto; }
+.part-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
+.big-name { font-size: 16pt; font-weight: 700; overflow-wrap: anywhere; }
+.facts-line { display: flex; flex-wrap: wrap; gap: 1mm 7mm; margin: 1mm 0; }
+.fig { font-weight: 700; }
+.worksheet-body { display: flex; gap: 8mm; margin-top: 1mm; }
+.stock { flex: 1 1 auto; border-collapse: collapse; }
+.stock td { padding: .4mm 1.5mm; border-bottom: 1px solid #999; line-height: 1.2; }
+.stock .tick { width: 6mm; }
+.stock .num { text-align: right; width: 22mm; font-size: 12pt; }
+.stock .unit { width: 9mm; }
+.wfi { flex: 0 0 42mm; align-self: flex-start; border: 2px solid #000; padding: 3mm; text-align: center; }
+.wfi-value { font-size: 26pt; line-height: 1.2; }
+.small-id { font-size: 8pt; margin-top: 1mm; }
+.fixed-line { min-height: 1.2em; }
+.heading { font-weight: 700; text-align: center; }
+.amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5mm 5mm; margin: 1.5mm 0; }
+.bag-name { font-size: 24pt; font-weight: 700; text-align: center; overflow-wrap: anywhere; }
+.bag-ward { font-size: 34pt; font-weight: 700; text-align: center; border: 3px solid #000; margin: 2mm 25mm; padding: 1mm; }
+.part-bag .facts-line { justify-content: center; }
 @media print {
-  html, body { background: #fff; color: #000; font-size: 11pt; }
+  html, body { background: #fff; color: #000; }
   .screen, .scrim { display: none !important; }
-  .sheet { display: flex; flex-direction: column; width: 210mm; height: 296mm; overflow: hidden; padding: 6mm 9mm; }
-  .part { padding: 3mm 0; border-bottom: 1px dashed #000; }
-  .part:last-child { border-bottom: 0; }
-  .part-worksheet { flex: 0 0 136mm; }
-  .part-label { flex: 0 0 90mm; }
-  .part-bag { flex: 1 1 auto; }
-  .part-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
-  .big-name { font-size: 16pt; font-weight: 700; overflow-wrap: anywhere; }
-  .facts-line { display: flex; flex-wrap: wrap; gap: 1mm 7mm; margin: 1mm 0; }
-  .fig { font-weight: 700; }
-  .worksheet-body { display: flex; gap: 8mm; margin-top: 1mm; }
-  .stock { flex: 1 1 auto; border-collapse: collapse; }
-  .stock td { padding: .4mm 1.5mm; border-bottom: 1px solid #999; line-height: 1.2; }
-  .stock .tick { width: 6mm; }
-  .stock .num { text-align: right; width: 22mm; font-size: 12pt; }
-  .stock .unit { width: 9mm; }
-  .wfi { flex: 0 0 42mm; align-self: flex-start; border: 2px solid #000; padding: 3mm; text-align: center; }
-  .wfi-value { font-size: 26pt; line-height: 1.2; }
-  .small-id { font-size: 8pt; margin-top: 1mm; }
-  .fixed-line { min-height: 1.2em; }
-  .heading { font-weight: 700; text-align: center; }
-  .amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5mm 5mm; margin: 1.5mm 0; }
-  .bag-name { font-size: 24pt; font-weight: 700; text-align: center; overflow-wrap: anywhere; }
-  .bag-ward { font-size: 34pt; font-weight: 700; text-align: center; border: 3px solid #000; margin: 2mm 25mm; padding: 1mm; }
-  .part-bag .facts-line { justify-content: center; }
+  .sheet { position: static; visibility: visible; }
 }

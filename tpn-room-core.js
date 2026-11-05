@@ -216,11 +216,28 @@
     for (const p of printLog || []) if (p.date === date) last.set(p.sessionId, p);
     return [...last.values()].filter((p) => !here.has(p.sessionId));
   }
+  // Printed, and the reply now holds only a draft for that infant: the bag in the room
+  // is out of date, and the draft's own row sits folded away (Vera, 2026-11-05).
+  function draftAfterPrint(orders, printLog, date) {
+    return (orders || []).filter((o) => o.status !== "submitted" && changedAfterPrint(o, printLog, date));
+  }
   // A new file lost the print log, so nothing in the window can say what was already
   // printed. Those orders go against the paper first (tasks.md 2.9).
   function needsPaperCheck(date, logLostOn) {
     if (!logLostOn || !isRealDate(date)) return false;
     return date >= addDays(logLostOn, -7) && date <= addDays(logLostOn, 1);
+  }
+  // A tab left open keeps the versions it loaded, across a release (Vera, 2026-11-05).
+  // `text` is compiled/tpn-room-version.js as the host serves it now.
+  function versionsMatch(text, versions) {
+    const m = /constantsVersion: ("[^"]*"), stickerSchema: (\d+)/.exec(String(text || ""));
+    return !!m && m[1] === JSON.stringify(versions.constantsVersion) && Number(m[2]) === versions.stickerSchema;
+  }
+  // The date made: a real date within a week of today, so a mistyped year cannot print.
+  function preparedDateOk(s, now) {
+    if (!isRealDate(s)) return false;
+    const today = wardToday(now);
+    return s >= addDays(today, -7) && s <= addDays(today, 7);
   }
   // The read just before a print. The list may be minutes old: refuse if this order
   // moved under it. Returns the fresh order, or the reason.
@@ -267,7 +284,8 @@
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
     wardLabel, twinLabel, currentOrders, anProblem, anUsedBy,
     missingFigures, printReasons, fixedLinesReady,
-    lastPrint, changedAfterPrint, goneAfterPrint, needsPaperCheck, recheck, stickerModel,
+    lastPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
+    recheck, stickerModel,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.TPNRoomCore = api;

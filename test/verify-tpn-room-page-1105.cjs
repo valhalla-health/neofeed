@@ -58,7 +58,7 @@ const INIT = `
   const problems = [];
 
   // One browser profile. `fill` swaps in made-up fixed lines, as the unit's real ones will be.
-  async function newRoom({ fill = true } = {}) {
+  async function newRoom({ fill = true, fixed = FIXED_FILLED, versionFile = null } = {}) {
     const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 } });
     await ctx.addInitScript(INIT);
     await ctx.route('**/*', async (route) => {
@@ -68,8 +68,11 @@ const INIT = `
       if (u.hostname !== '127.0.0.1') return route.abort();
       if (fill && u.pathname === '/tpn-room-core.js') {
         const res = await route.fetch();
-        const body = (await res.text()).replace(FIXED_BLANK, FIXED_FILLED);
+        const body = (await res.text()).replace(FIXED_BLANK, fixed);
         return route.fulfill({ response: res, body });
+      }
+      if (versionFile && versionFile.body && u.pathname === '/compiled/tpn-room-version.js') {
+        return route.fulfill({ status: 200, contentType: 'text/javascript', body: versionFile.body });
       }
       return route.continue();
     });
@@ -227,7 +230,7 @@ const INIT = `
     const aaPrint = row(p2, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' });
     await aaPrint.waitFor();
     ok('the date box defaults to today', (await row(p2, 'AA-1').locator('input[type=date]').inputValue()) === today);
-    const made = '2027-01-02';
+    const made = new Date(Date.parse(today + 'T00:00:00Z') + 2 * 86400000).toISOString().slice(0, 10);
     await row(p2, 'AA-1').locator('input[type=date]').fill(made);
     const before = calls('pharmacyOrders').length;
     await aaPrint.click();
@@ -260,7 +263,12 @@ const INIT = `
     const be = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}`;
     eq('Buddhist-era dates; date made comes from the box', sheetCheck.dates, [be(today), be(today), be(made), be(today)]);
     eq('the fixed lines print', sheetCheck.fixed.length, 3);
+    await p2.emulateMedia({ media: 'print' });
+    const fits = await p2.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
+    ok('the sheet and each part fit, measured under print', fits.length === 4 && fits.every(Boolean));
+    eq('print shows the sheet and hides the screen', await p2.evaluate(() => [getComputedStyle(document.querySelector('.screen')).display, getComputedStyle(document.getElementById('sticker-sheet')).visibility, getComputedStyle(document.getElementById('sticker-sheet')).position]), ['none', 'visible', 'static']);
     const pdf = await p2.pdf({ preferCSSPageSize: true, printBackground: true });
+    await p2.emulateMedia({ media: null });
     const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
     eq('the fullest row set fits one A4 page', pages, 1);
     if (process.env.TPN_ROOM_PDF_OUT) fs.writeFileSync(process.env.TPN_ROOM_PDF_OUT, pdf);
@@ -441,6 +449,64 @@ const INIT = `
     const fields = new Set();
     for (const r of calls('pharmacyOrders')) Object.keys(JSON.parse(r.body)).forEach((k) => fields.add(k));
     eq('pharmacyOrders carries action, token and date, nothing else', [...fields].sort(), ['action', 'date', 'token']);
+
+    section('§12b Vera on this PR, 2026-11-05: each failed on the first commit');
+    const within = (loc, ms = 5000) => loc.waitFor({ timeout: ms }).then(() => true, () => false);
+    {
+      // A cleared browser and an empty folder look like a first run, so a new file marks the window.
+      const c = await newRoom();
+      const pg = await open(c);
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await row(pg, 'AA-1').waitFor();
+      await createNameFile(pg);
+      ok('a new file from the first-run view says to check the paper', /เทียบกับ order กระดาษก่อน/.test(await row(pg, 'AA-1').innerText()));
+
+      // Printed, then the order goes back to a draft: the warning must not sit inside the fold.
+      await mapInfant(pg, 'AA-1', 'ทารกสังเคราะห์', '22222/69');
+      await row(pg, 'AA-1').getByText('22222/69').waitFor();
+      await row(pg, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' }).click();
+      await pg.waitForFunction(() => window.__prints === 1, null, { timeout: 8000 });
+      await pg.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+      const live = logRowOf('AA-1');
+      const saved = [live[25], live[14], live[38]];
+      live[25] = require('crypto').randomUUID(); live[14] = 'draft'; live[38] = '';
+      await pg.getByRole('button', { name: 'รีเฟรช' }).click();
+      ok('a printed order now only a draft warns on the open screen', await within(pg.locator('.screen > .warn').filter({ hasText: 'AA-1' })));
+      [live[25], live[14], live[38]] = saved;
+      await c.close();
+    }
+    {
+      // Too much text for the sheet: refuse, rather than cut the bag label off silently.
+      const long = 'ข้อความยาวมาก '.repeat(40);
+      const c = await newRoom({ fixed: `const PN_FIXED = { heading: "${long}", storage: "${long}", extension: "${long}" };` });
+      const pg = await open(c);
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await row(pg, 'AA-1').waitFor();
+      await createNameFile(pg);
+      await mapInfant(pg, 'AA-1', 'ทารกสังเคราะห์ '.repeat(5).trim(), '33333/69');
+      await row(pg, 'AA-1').getByText('33333/69').waitFor();
+      await row(pg, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' }).click();
+      ok('a sheet that does not fit refuses with a reason', await within(pg.getByRole('alert').filter({ hasText: 'ไม่พอ' })));
+      eq('…and does not print', await pg.evaluate(() => window.__prints), 0);
+      ok('…and the log does not call it printed', !/พิมพ์แล้ว/.test(await row(pg, 'AA-1').innerText()));
+      await c.close();
+    }
+    {
+      // A tab left open across a release that moved a figure.
+      const versionFile = { body: null };
+      const c = await newRoom({ versionFile });
+      const pg = await open(c);
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await row(pg, 'AA-1').waitFor();
+      await createNameFile(pg);
+      await mapInfant(pg, 'AA-1', 'ทารกสังเคราะห์', '44444/69');
+      await row(pg, 'AA-1').getByText('44444/69').waitFor();
+      versionFile.body = '"use strict";\nwindow.TPN_ROOM_VERSIONS = { constantsVersion: "2099-01-01.1", stickerSchema: 1 };\n';
+      await row(pg, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' }).click();
+      ok('a tab older than the release says to reload', await within(pg.getByRole('alert').filter({ hasText: 'โหลดหน้านี้ใหม่' })));
+      eq('…and does not print', await pg.evaluate(() => window.__prints), 0);
+      await c.close();
+    }
 
     section('§13 no page error, no CSP violation');
     eq('the console stayed clean', problems, []);

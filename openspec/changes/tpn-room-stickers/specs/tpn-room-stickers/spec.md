@@ -90,6 +90,21 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 - **THEN** the page calls `pharmacyOrders` for that date once more and refuses to print an order whose
   `entryId` changed since the list was loaded; the counts show when the list was loaded ("โหลดเมื่อ HH:MM")
 
+#### Scenario: Printed, and now only a draft
+
+- **WHEN** the reply holds only a draft for an ID and date the page printed, with another `entryId`
+- **THEN** a warning on the open screen, not in the folded drafts, says not to use the bag until the doctor submits
+
+#### Scenario: A tab older than the release
+
+- **WHEN** the pharmacist presses print and the host's `compiled/tpn-room-version.js` differs from what the tab loaded
+- **THEN** the page refuses and says to reload
+
+#### Scenario: A sheet that does not fit
+
+- **WHEN** the name or the fixed lines would overflow the sheet or one of its parts
+- **THEN** the page refuses, logs no print, and says why
+
 #### Scenario: A doctor-confirmed critical value
 
 - **WHEN** the order's `printJson` carries a confirmed critical alert

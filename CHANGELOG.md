@@ -26,6 +26,15 @@ and the real printer. No dose changes, so `CONSTANTS_VERSION` stays. No backend 
 
 STATUS catches up on #214 and #217 here too, as both of them said it would.
 
+Vera, NO BLOCK, five findings. Fixed, each test red first: a printed order now only a draft warned only inside the folded
+drafts; `overflow: hidden` could cut the bag label off silently and made the one-page check unable to fail, so the page now
+measures the sheet before the dialog; a tab open across a release kept its old versions; a first-run file recorded no lost
+print log. Also bounded the date box and stopped it going stale over midnight. Her fifth, names outliving an erasure on the
+PC and `.replaced-*` files with no end date, is now in `REFERENCE.md` § Thai PDPA for Pp and the DPO (tasks.md 2.8a).
+
+While fixing these the page harness's PDF step ran under screen media and "fit one page" passed on a picture of the list.
+It now also asserts that print hides the screen and shows the sheet.
+
 ## Session 2026-11-03 — Changing a submitted TPN order tells the doctor to phone the TPN room
 
 `calculator.jsx`, `compiled/calculator.js`, both shells' `?v=` tokens, `test/verify-revise-phone-1103.cjs`,

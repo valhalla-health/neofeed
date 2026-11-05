@@ -57,7 +57,7 @@ clinical judgement. Everything else is engineering sequencing.
         § Later); heparin "0–1 u/mL" against the caution's "usual 0.5–1"; "check
         sterile water เรื่อง rate" and "ตั้ง fat ให้ปัดลง", meaning not recorded. Item 22 (Mg in mg) is built.
       - **Next phase:** the stickers are now `openspec/changes/tpn-room-stickers` (PR A live; PR B, the page,
-        built and not live, `STATUS.md`), not the pharmacy sheet printed again. `.print-back` stays hidden in print, not removed.
+        built and not live, `STATUS.md`; retention of the name file, tasks.md 2.8a), not the pharmacy sheet printed again. `.print-back` stays hidden in print, not removed.
       - **Tell pharmacy and the ward:** released on 2026-10-29 (#201, backend `@66`) and not yet told.
         Mg is in mg, Vitalipid is whole mL with a 1 mL minimum, only the front prints, a revision is
         marked, and every open NeoFeed tab needs a reload (a stale tab's Submit is refused).

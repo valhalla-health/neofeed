@@ -681,6 +681,12 @@ secondary uses (e.g. research/QI exports) if those are ever added.
 - *Access/rectification* — no self-service path yet; handled manually via
   admin editing the registry. Worth a real endpoint if request volume grows.
 
+**A store of names outside the Sheet (not live):** the TPN room's name file holds the name, AN and edit history on
+one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with the change request (tasks.md
+0.2):** `pseudonymizePatient()` cannot reach that PC, so an erasure leaves the name there until the 30-day purge, and
+an edit keeps the old name in the history until then; and a `.replaced-*` file left by "start a new file" has no end date,
+because the purge runs on the open file only. No retention rule or manual erasure step exists yet.
+
 **Accountability (Sec 39):** `Audit_Log` sheet (auto-created by
 `getSheetAudit()`) records registry reads and erasures with actor email +
 timestamp — persists past Apps Script's 7-day execution-log window. Two additions

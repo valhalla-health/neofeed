@@ -14,7 +14,9 @@ TPN-room PC ── tpn-room.html ◄──────────────�
                  └─► three stickers on one A4 sheet ─► the room's printer
 ```
 
-Two things leave the PC: the sign-in, and `{action: "pharmacyOrders", token, date}`.
+Two things leave the PC: the sign-in, and `{action: "pharmacyOrders", token, date}`. Just before a print the page also
+fetches its own `compiled/tpn-room-version.js` from the host, which sends nothing: a tab left open across a release
+that moved a figure must reload first (Vera, 2026-11-05).
 
 ## Decisions
 
@@ -66,6 +68,8 @@ Two things leave the PC: the sign-in, and `{action: "pharmacyOrders", token, dat
   empty table.
 - **A lost passphrase:** "start a new file" warns, keeps the old file beside the new one under another name,
   and records the day, so every order from 7 days before it to 1 day after says "เทียบกับ order กระดาษก่อน".
+- **A first file counts as a lost log too:** a cleared browser and an empty folder look like a first run, so the page
+  cannot tell them apart, and a paper check in the first week costs little (Vera, 2026-11-05).
 - **One write at a time** in a tab; a second tab's write stops this one with "โหลดหน้านี้ใหม่".
 
 ## Network (PDPA)
@@ -101,6 +105,8 @@ One A4 sheet, three parts, cut by hand, as in the unit's current print.
 - **Rows:** the worksheet lists the sample's stock rows in its order, less Aminoleban, Nephrosteril and
   MgSO₄ 50 %, which the unit dropped (2026-11-03). A stock the unit keeps and NeoFeed cannot order (Amiparen,
   Addamel N) prints `0`.
+- **A sheet that does not fit is refused.** The sheet hides its overflow, so the page lays it out off-screen at its
+  printed size and measures it before the dialog (Vera, 2026-11-05). The print log is written after that check.
 - **Decimals:** at most the sample's, and never a trailing zero (Pp, 2026-10-30: the ISMP rule holds on
   the sticker too, so KCl prints `3`, not `3.0`, and an empty row `0`).
 
