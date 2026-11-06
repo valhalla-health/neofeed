@@ -1,7 +1,7 @@
 # NeoFeed — Status
 
 > ⏳ **2026-11-06 — No Calculator button inside a ward, แสดงทั้งหมด on the filter's line (#222): merged into
-> `main`, not live.** UI only, frontend only; no calculation, printed figure or backend change. It goes out with
+> `main` on Praew's instruction, not live.** UI only, frontend only; no calculation, printed figure or backend change. It goes out with
 > the next release PR.
 >
 > ✅ **2026-11-06, 23:35 ICT — frontend `release` = `96f393e` (PR #221), on Pp's word** ("release ก่อน ให้เค้าเห็นภาพ
