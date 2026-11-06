@@ -57,8 +57,9 @@ ward, that is the follow-up").
   § 8 and `verify-print-one-page-1102` now expect the blank line. ⚠️ **The saver's name no longer prints anywhere on
   paper**: the back sheet's "บันทึกโดย" is on screen only, since `.print-back` does not print (2026-10-28), so the
   second commit's "the back sheet still records who saved" holds for the screen and the saved row, not the paper.
-  Pharmacy reads the handwriting and the รหัส line. Open for Pp: whether pharmacy needs a printed name or code (the
-  TPN team asked for the name on 2026-09-22 "so pharmacy knows whom to call"), and telling the TPN team.
+  Pharmacy reads the handwriting and the รหัส line. **Pp decided (2026-11-06): keep it blank**, after being asked
+  whether pharmacy needs a printed name or code (the TPN team asked for the name on 2026-09-22 "so pharmacy knows
+  whom to call"). Still to do: tell the TPN team. Pp also chose to keep both asks in one PR (#224).
 
 ### Decisions
 
