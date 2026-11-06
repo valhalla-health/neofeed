@@ -205,6 +205,9 @@ function describeOrderValue(key, v) {
   if (key === "aaProduct") return window.NEOFEED_DATA.KCMH_STOCK[v]?.short || v;
   // Stored in mEq, read in mg (Pp, 2026-10-28).
   if (key === "mgPerKg" && typeof v === "number") return window.NEOFEED_DATA.displayNum(v * window.NEOFEED_DATA.MG_MG_PER_MEQ, 2);
+  // Glycophos typed by P has no end to its decimals (20 mg = 0.645161… mL/kg):
+  // 4 decimals at most, as on the printed order; 0.0625 stays 0.0625.
+  if (key === "glycophosP" && typeof v === "number" && isFinite(v)) return window.NEOFEED_DATA.displayNum(v, 4);
   // A volume derived from Rate × 24 used to reach this list — and the printed
   // pharmacy form — as "98.39999999999999" (review 2026-09-17, UP-C13).
   // toPrecision(12) strips float noise without rounding away a real decimal
@@ -937,6 +940,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const glycophosPerMl = glycophosBy === "p" ? S.glycophos.pMgPerMl : S.glycophos.naMeqPerMl;
   const glycophosTyped = Number(D.displayNum(glycophosP * glycophosPerMl, 3)) || 0;
   const setGlycophosTyped = (v) => setGlycophosP(v / glycophosPerMl);
+  // Back to Na whenever the infant or the order changes: the header's "Switch
+  // patient" keeps this component mounted, and a P left on from the last infant
+  // would read the next infant's habitual "2" (mEq Na) as 2 mg P (Vera).
+  React.useEffect(() => { setGlycophosBy("na"); }, [patient?.sessionId, editEntry]);
   const [kCl, setKCl] = useState(0);
   const [k2hpo4, setK2HPO4] = useState(0);
   const [mgPerKg, setMgPerKg] = useState(0);
@@ -3578,7 +3585,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {naCl > 0    && <span className="step-summary-chip">Na {fmt(calc.naKg,1)} mEq/kg</span>}
               {kCl > 0     && <span className="step-summary-chip">K {fmt(calc.kKg,1)} mEq/kg</span>}
               {caPerKg > 0 && <span className="step-summary-chip">Ca {caPerKg} mg/kg</span>}
-              {glycophosP > 0 && <span className="step-summary-chip">P {fmt(glycophosP, 3)} mL/kg Glycophos</span>}
+              {glycophosP > 0 && <span className="step-summary-chip">P {fmt(glycophosP, 4)} mL/kg Glycophos</span>}
             </div>
           )}
           <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
@@ -4241,7 +4248,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `ELECTROLYTES (ordered per kg → amount IN BAG → mL of stock):`,
                 naCl>0 ? `  ${S.naCl.label}:    ${naCl} mEq/kg → ${fmt(naCl*calc.factor, 1)} mEq → ${calc.solVol.naCl} mL` : "",
                 naAcet>0 ? `  Na Acetate:   ${naAcet} mEq/kg → ${fmt(naAcet*calc.factor, 1)} mEq → ${calc.solVol.naAcet} mL${S.naAcetate.acetateMeqPerMl ? ` (acetate ${fmt(naAcet*calc.factor / S.naAcetate.naMeqPerMl * S.naAcetate.acetateMeqPerMl, 1)} mEq)` : ""}` : "",
-                glycophosP>0 ? `  Glycophos®:   ${fmt(glycophosP, 3)} mL/kg → ${calc.solVol.glycophos} mL (Na ${fmt(glycophosP*2*calc.factor, 1)} mEq | P ${fmt(glycophosP*31*calc.factor, 0)} mg)` : "",
+                glycophosP>0 ? `  Glycophos®:   ${fmt(glycophosP, 4)} mL/kg → ${calc.solVol.glycophos} mL (Na ${fmt(glycophosP*2*calc.factor, 1)} mEq | P ${fmt(glycophosP*31*calc.factor, 0)} mg)` : "",
                 `  Total Na:     ${fmt(calc.bag.na_mEq, 1)} mEq in bag = ${fmt(calc.naKg, 1)} mEq/kg/d delivered`,
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
                 k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*15.5*calc.factor, 0)} mg)` : "",
@@ -5030,7 +5037,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td style={tdRx(glycophosP > 0)}>{chk(glycophosP > 0)} Disodium glycerophosphate<br/><span style={plain}>(Na = {S.glycophos.naMeqPerMl} mEq/mL, P = {S.glycophos.pMgPerMl} mg/mL)</span></td>
             {/* The paper form's "{ mL · Na mEq · P mg }": the mL is the dose;
                 Na and P are what it brings, so plain text (not figures). */}
-            <td style={tdr}>{glycophosP > 0 ? <><strong>{f(glycophosP, 3)}</strong> mL<br/><span style={note}>Na {f(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq · P {f(glycophosP * S.glycophos.pMgPerMl, 1)} mg</span></> : "—"}</td>
+            <td style={tdr}>{glycophosP > 0 ? <><strong>{f(glycophosP, 4)}</strong> mL<br/><span style={note}>Na {f(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq · P {f(glycophosP * S.glycophos.pMgPerMl, 1)} mg</span></> : "—"}</td>
             <td style={tdr}>{glycophosP > 0 ? <><strong>{f(calc.solVol?.glycophos,1)}</strong> mL</> : "—"}</td>
           </tr>
           <tr>

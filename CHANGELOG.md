@@ -21,15 +21,18 @@ Pp sent three requests from her phone the same evening, each with a screenshot o
    (Na 1–4 mEq is 15.5–62 mg P, so the chips sit beside the Na ones), and the line under it shows the Na it brings.
    The buttons change what the box is typed in, never the dose: the order still stores one figure, `glycophosP`
    (mL/kg/d = mmol P/kg/d), so nothing saved, synced, printed or sent to Center Point changes shape, and switching
-   back and forth leaves the order unchanged (not dirty). The choice is not saved and every Calculator opens on Na,
-   so a number typed from habit is read as Na as before; on a shared ward PC one doctor's P cannot become the next
-   doctor's unit (Omen's case). A dose typed by P has no end to its decimals (20 mg is 0.6451… mL/kg), so the three
-   places that printed `glycophosP` raw now round it to 3 decimals at most: the order form's mL/kg cell, the Step 4
-   summary chip and the copied text. Values typed in Na print as before (0.5, 0.55, 0.625). The stock mL was always
+   back and forth leaves the order unchanged (not dirty). The choice is not saved: every Calculator opens on Na, and
+   goes back to Na when the infant or the order changes (the header's "Switch patient" keeps the Calculator mounted;
+   Vera's 🔴), so a number typed from habit is read as Na as before, and on a shared ward PC one doctor's P cannot
+   become the next doctor's unit. A dose typed by P has no end to its decimals (20 mg is 0.6451… mL/kg), so the four
+   places that showed `glycophosP` raw or to 12 digits now show 4 decimals at most: the order form's mL/kg cell, the
+   changes list, the Step 4 summary chip and the copied text. A dose typed in Na with up to 3 decimals of mEq prints
+   as before (0.5, 0.55, 0.625, 0.0625). The stock mL was always
    rounded once (`CR-R-STOCK-ML`); order S9 in `verify-calc-sum.cjs` proves the bag still adds up at 20 mg P/kg.
 2. **No Factor on the Calculator.** "แฟคเตอร์ก็ไม่ต้องขึ้นโชว์หน้านี้ สำหรับแพทย์และพยาบาล". The Factor box beside
-   Prepared is gone; the pharmacy back sheet keeps the Factor (`CR-U-FACTOR`). The fuzz and the oracle checked the
-   on-screen Factor: they now check it is absent, the oracle still checks the printed one, and every stock mL is
+   Prepared is gone. It is still on the pharmacy back sheet, which renders but has not printed since 2026-10-28,
+   and in the quick calc's copied text; pharmacy works it out from the front (`CR-U-FACTOR`). The fuzz and the oracle checked the
+   on-screen Factor: they now check it is absent, the oracle still checks the back sheet's, and every stock mL is
    × Factor, so a wrong Factor still fails both. Three other harnesses read it there too and now read the prepared
    volume or the stock it scales instead. The "× Factor" notes on the Soluvit, Peditrace and ZnSO₄ hints stay.
 3. **Dextrose % chips on one line on a phone.** "เปอร์เซ็นต์เด็กโต [dextrose %] ในหน้าจอของโมบายให้เรียงยาวต่อกันไป

@@ -655,7 +655,7 @@ async function run(scIn) {
   } else {
     near(sc, 'Prepared mL/day', grabT(/Prepared \(เตรียมจริง\)([\d.]+) mL\/day/), e.Vp, 1);
     // The Factor is pharmacy's: off the screen since 2026-11-06 (Pp); the
-    // printed back sheet's Factor is checked below ('print Factor').
+    // back sheet's Factor (rendered, not printed) is checked below ('print Factor').
     near(sc, 'no Factor figure on screen', grabT(/Factor([\d.]+)/) === null ? 1 : 0, 1, 0);
     near(sc, 'GIR readout', num(container.querySelector('.gir-readout .num')?.firstChild?.textContent), e.gir, 1);
     near(sc, 'AA stock mL/day', grabT(/Volume([\d.]+) mL\/day/), e.aaMl, 1);

@@ -512,7 +512,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     tpnOrder();
     near('prepared = delivered 120 + 30 = 150 mL/day', prepared(), 150, 1);
     // Factor 2 kg × 1.25 = 2.5: off the screen since 2026-11-06 (Pp, pharmacy's
-    // figure); the amino acid below is × 2.5, and the print carries the Factor.
+    // figure); the amino acid below is × 2.5, and the back sheet keeps the Factor.
     ok('no Factor box on screen', !/Factor\s*[\d.]/.test(text(container)), text(container).match(/Factor.{0,30}/));
     near('amino acid in the bag scales with it: 2 g/kg × 2.5 = 5 g → 50 mL', aaVolume(), 50, 1);
     await save();

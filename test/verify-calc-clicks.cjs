@@ -392,6 +392,39 @@ const openAll = () => click(btnExact('Open all'));
   await act(async () => { await new Promise(r => setTimeout(r, 10)); });
   ok('quick calc refuses to print', printed === 0 && toasts.some(t => /พิมพ์ใบสั่ง TPN ไม่ได้/.test(t.msg)));
 
+  // ── Glycophos by P: back to Na on the next infant, and the changes list (Vera, 2026-11-06) ──
+  {
+    mount();
+    const glyBy = (t) => [...container.querySelectorAll('.glycophos-by button')].find(b => b.textContent === t);
+    click(btnExact('Open all'));
+    click(glyBy('P'));
+    setField('Glycophos', 30);
+    ok('infant A: P on, 30 mg typed', glyBy('P')?.classList.contains('on') && inputFor('Glycophos').value === '30');
+    // The header's "Switch patient" re-renders the same mounted Calculator with another infant.
+    const infantB = { sessionId: 'CS-2', name: 'Other', initials: 'OT', bw: 1000, ga: 30, sex: 'girls',
+      admissionDate: '2026-09-01', currentBed: 'SCN 4', diagnosis: '-', weights: [{ dol: 1, w: 1000 }], lengths: [], hcs: [] };
+    const props = (patient, previousEntry = null) => ({ patient, dol: 10, editEntry: null, baselineEntry: null, previousEntry, logDate: null,
+      userLabel: 'Dr Sweep (sweep@kcmh.test)', userEmail: 'sweep@kcmh.test', onLog() { return Promise.resolve({ ok: true }); },
+      onUpdate() { return Promise.resolve({ ok: true }); }, onDelete() { return Promise.resolve({ ok: true }); }, onSaved() {}, onWeightChange() {} });
+    act(() => { root.render(React.createElement(window.Calculator, props(infantB))); });
+    ok('infant B: Glycophos is back on Na', glyBy('Na')?.classList.contains('on') && !glyBy('P')?.classList.contains('on'));
+    ok('infant B: the label says ใส่เป็น Na and the chips are 1–4', /Glycophos® \(ใส่เป็น Na\)/.test(text()) && chipsAfter('Glycophos').map(c => num(c.textContent)).join() === '1,2,3,4');
+    setField('Glycophos', 2);
+    ok('infant B: a habitual 2 is 2 mEq Na = 1 mmol P/kg', /→ P 1 mmol\/kg\/d = 31 mg\/kg\/d/.test(text()), container.querySelector('.glycophos-p')?.textContent);
+
+    // The changes list against yesterday's Glycophos 1 mL/kg/d: today 20 mg P reads 0.6452, not 12 digits.
+    const yesterday = { entryId: 'prev-1', ts: '2026-09-22', weight: 1000, status: 'submitted',
+      calcInput: { totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, glycophosP: 1, route: 'central' } };
+    mount({ previousEntry: yesterday });
+    click(btnExact('Open all'));
+    click(glyBy('P'));
+    setField('Glycophos', 20);
+    const rows = [...container.querySelectorAll('.order-changes tbody tr')].map(tr => tr.textContent.replace(/\s+/g, ' '));
+    const gly = rows.find(r => /Glycophos/.test(r));
+    ok('changes list: Glycophos 1 → 0.6452', !!gly && /0\.6452/.test(gly) && !/0\.645161/.test(gly), rows);
+    ok('no figure on the Calculator carries a float tail', !/\d\.\d{6,}/.test(text()), text().match(/\d\.\d{6,}/g));
+  }
+
   failures.forEach(f => console.log('  FAIL  ' + f));
   console.log(fail === 0
     ? `\nCALC CLICKS: ALL PASS (${pass} assertions)`
