@@ -102,8 +102,8 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
   bold, and the paper's other choices print unticked. **One departure from the paper's order (2026-11-02):**
   the Amino acid cell is two lines, the ticked product first with its dose, then the paper's other choices
   side by side, so a ticked product that is not first on the paper (Aminoplasmal) is no longer printed
-  where the paper has it. Oral orders go under "8. Other", and the saver's
-  name goes at "แพทย์". Alerts are settled in the app, where a critical one needs a confirmation with a
+  where the paper has it. Oral orders go under "8. Other", and "แพทย์" is a
+  blank line the checking doctor writes and signs (Pp, 2026-11-06; it printed the saver's name before). Alerts are settled in the app, where a critical one needs a confirmation with a
   reason at Save; the only alert text on the front is that confirmation, since 2026-10-28. The "Normal Requirement" column is NeoFeed's targets, not
   the paper's printed ranges, which disagree with the app (review F4).
 - **Back: pharmacy.** The Factor, the aqueous bag stock by stock in mL with the WFI q.s., K⁺ in the bag,
