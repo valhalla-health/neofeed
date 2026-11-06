@@ -4,7 +4,8 @@
 # not apply here — gas-backend.gs.js is ignored by git but sits on disk and
 # would otherwise be served publicly. Everything the running app needs is
 # index.html, manifest.json, moved.html, boot.js, data.js, compiled/, vendor/
-# and icons/. Anything not on that list belongs below.
+# and icons/, and for the TPN room tpn-room.html, tpn-room-check.html, its .js and
+# .css files and fonts/. Anything not on that list belongs below.
 #
 # boot.js, compiled/ and vendor/ must never be listed: without boot.js the app
 # silently runs in LOCAL MOCK MODE, without the other two it is a blank page.

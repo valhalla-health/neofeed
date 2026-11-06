@@ -65,8 +65,9 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 #### Scenario: Not printable
 
 - **WHEN** an order is a draft, lacks `printJson`, is unmapped, has a blank or free-text bed, has a null figure
-  or an empty `orderDate`, or has a `constantsVersion` other than the current one (the doctor's Print is held
-  then too)
+  or an empty `orderDate`, has a `constantsVersion` other than the current one (the doctor's Print is held
+  then too), has no `entryId`, or the name file is not open, or the PN label's fixed lines are not filled in
+  (design D18)
 - **THEN** it has no print button, and the row names the reason
 
 #### Scenario: The order changed after printing
@@ -89,6 +90,21 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 - **THEN** the page calls `pharmacyOrders` for that date once more and refuses to print an order whose
   `entryId` changed since the list was loaded; the counts show when the list was loaded ("โหลดเมื่อ HH:MM")
 
+#### Scenario: Printed, and now only a draft
+
+- **WHEN** the reply holds only a draft for an ID and date the page printed, with another `entryId`
+- **THEN** a warning on the open screen, not in the folded drafts, says not to use the bag until the doctor submits
+
+#### Scenario: A tab older than the release
+
+- **WHEN** the pharmacist presses print and the host's `compiled/tpn-room-version.js` differs from what the tab loaded
+- **THEN** the page refuses and says to reload
+
+#### Scenario: A sheet that does not fit
+
+- **WHEN** the name or the fixed lines would overflow the sheet or one of its parts
+- **THEN** the page refuses, logs no print, and says why
+
 #### Scenario: A doctor-confirmed critical value
 
 - **WHEN** the order's `printJson` carries a confirmed critical alert
@@ -106,7 +122,8 @@ The page SHALL print the three parts on one A4 sheet. Every figure on them SHALL
 `printJson`, unit and decimals included, and the page SHALL compute none. The bag label SHALL print the
 ward as `9B2(NICU)` for NICU and iso beds and `9B2(SCN)` for SCN beds. Dates SHALL print in the Buddhist
 era. The PN label's date made SHALL be the day the TPN is prepared (TPN unit, 2026-11-03); the page cannot assume
-that is the print day or the order's date.
+that is the print day or the order's date, so it SHALL come from a date box beside the print button, today by
+default (design D17).
 
 #### Scenario: Figures are copied, not computed
 
@@ -117,6 +134,12 @@ that is the print day or the order's date.
 
 - **WHEN** `printJson` lists a stock at 0 mL
 - **THEN** the worksheet prints that row with its 0, so the compounder can tick it
+
+#### Scenario: The date made
+
+- **WHEN** the pharmacist sets the date box to the day the TPN will be prepared and presses print
+- **THEN** the PN label's date made is that date, the sticker's other dates are the order's, and no request
+  carries the box's value
 
 #### Scenario: An isolation bed
 

@@ -2253,7 +2253,7 @@ function LoginScreen({ onLogin, notice = null }) {
     background: "var(--warn-bg)",
     border: "1px solid var(--warn-line)",
     color: "var(--warn-ink)"
-  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, notice.title), notice.body && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 2 } }, notice.body)), mode === "google" && /* @__PURE__ */ React.createElement(React.Fragment, null, gsiFailed && /* @__PURE__ */ React.createElement("div", { role: "alert", className: "login-gsi-failed", style: {
+  } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, notice.title, /บัญชีเภสัช/.test(notice.title) && /* @__PURE__ */ React.createElement(React.Fragment, null, " ", /* @__PURE__ */ React.createElement("a", { href: "tpn-room.html" }, "เปิดหน้าห้อง TPN"))), notice.body && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 2 } }, notice.body)), mode === "google" && /* @__PURE__ */ React.createElement(React.Fragment, null, gsiFailed && /* @__PURE__ */ React.createElement("div", { role: "alert", className: "login-gsi-failed", style: {
     width: "100%",
     maxWidth: 320,
     boxSizing: "border-box",
@@ -2346,7 +2346,7 @@ function LoginScreen({ onLogin, notice = null }) {
       marginRight: 8,
       verticalAlign: "middle"
     } }), "กำลังตรวจสอบ...") : "เข้าสู่ระบบ"
-  ))), error && /* @__PURE__ */ React.createElement("div", { className: "login-error", style: { maxWidth: 320, width: "100%" } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { display: "inline-flex", verticalAlign: "-2px", marginRight: 6 } }, /* @__PURE__ */ React.createElement(Icon, { name: "warn", size: 15, stroke: 2.2 })), error), /* @__PURE__ */ React.createElement("div", { className: "login-contact" }, /* @__PURE__ */ React.createElement("div", { className: "login-endorse" }, /* @__PURE__ */ React.createElement("span", null, "by Valhalla Health · © 2026"))), /* @__PURE__ */ React.createElement("style", null, `@keyframes spin { to { transform: rotate(360deg); } }`));
+  ))), error && /* @__PURE__ */ React.createElement("div", { className: "login-error", style: { maxWidth: 320, width: "100%" } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { display: "inline-flex", verticalAlign: "-2px", marginRight: 6 } }, /* @__PURE__ */ React.createElement(Icon, { name: "warn", size: 15, stroke: 2.2 })), error, /บัญชีเภสัช/.test(error) && /* @__PURE__ */ React.createElement(React.Fragment, null, " ", /* @__PURE__ */ React.createElement("a", { href: "tpn-room.html" }, "เปิดหน้าห้อง TPN"))), /* @__PURE__ */ React.createElement("div", { className: "login-contact" }, /* @__PURE__ */ React.createElement("div", { className: "login-endorse" }, /* @__PURE__ */ React.createElement("span", null, "by Valhalla Health · © 2026"))), /* @__PURE__ */ React.createElement("style", null, `@keyframes spin { to { transform: rotate(360deg); } }`));
 }
 const CENSUS_WARDS = [
   { ward: "NICU", label: "NICU" },
