@@ -1013,7 +1013,8 @@ Source: the official KCMH pharmacy worksheet (verified 2026-08-06; `test/verify-
 holds an independent transcription); Na acetate 3 and KCl 2 confirmed by the TPN team and Pp on
 2026-09-28; ZnSO₄ by pharmacy on 2026-10-25. The P per mL of Glycophos (31) and of K₂HPO₄ (15.5) are
 also literals in the calculation. Glycophos typed by P (Pp, 2026-11-06): the Na / P buttons beside its
-label change what the box and its chips are in (Na 1–4 mEq/kg/d; P 15, 30, 45, 60 mg/kg/d), never the
+label change what the box and its chips are in (Na 1–4 mEq/kg/d; P 15, 30, 45, 60 mg/kg/d of elemental P,
+Pp confirmed), never the
 dose. The order stores one figure, mL/kg/d (= mmol P/kg/d), whichever is typed; every Calculator opens
 on Na, and goes back to Na when the infant or the order changes (the header's "Switch patient"
 keeps it mounted; Vera), so a dose typed from habit is read as Na, as before. A P-typed dose shows to 4

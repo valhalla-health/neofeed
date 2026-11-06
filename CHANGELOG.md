@@ -58,7 +58,8 @@ Pp sent three requests from her phone the same evening, each with a screenshot o
 
 Five pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
 No dose constant, limit or `CONSTANTS_VERSION` moved (5 adds two alert thresholds). No second clinician has
-reviewed the P entry path or `CR-GLYCO-UNIT-HABIT`: Pp only. Center Point's packet keeps Glycophos mL/kg to 3
+reviewed the P entry path or `CR-GLYCO-UNIT-HABIT`: Pp only; asked, she wanted none ("ไม่", 2026-11-06). Asked
+whether "ฟอสเฟต" means elemental mg P (as built, the form's 31 mg/mL) rather than mg of phosphate ion, she said yes. Center Point's packet keeps Glycophos mL/kg to 3
 decimals (`center-point/tpn-snapshot.mjs`), where the order form now shows up to 4; the stock mL is the same in
 both. With the two Glycophos titles, the fullest confirmed order (15 titles, a 300-character reason) measures
 272.4 mm on CI's fallback font, against 268.3 before and the page's 281: still one page
