@@ -7,6 +7,61 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-06 (2) — Print ทั้งหมด prints the ward's orders as one print job
+
+`app.jsx` (`printQueue`, `printBatch`, `CalculatorView` `captureSheet`), `registry.jsx` (`WardPrintBatch`),
+`calculator.jsx` (two attributes on `#print-form`, and the auto-print request carries its block reason), both
+shells (CSS), `compiled/`, `test/verify-print-all-1028.cjs`. No calculation, limit, unit or printed figure changed,
+and the sheet is the one each order's calculator already renders.
+
+### Why
+
+Pp, on a phone screenshot of the calculator's "Print ทั้งหมด · ใบที่ 2 จาก 15 — ถัดไป: NICU 3 …" bar:
+"ถ้ากดปริ้นท์ทั้งหมดแล้วไม่ต้องเข้ามากดทีละคนอีกได้ไหม ให้ปริ้นออกมาเลย เพราะหมอต้องเช็ค บ่อนเซ็นชื่ออยู่แล้ว
+คนทําหน้าที่ปริ้นอาจจะเป็นพยาบาล จะได้ไม่ต้องกดหลายที". Fifteen orders took fifteen print dialogs and fourteen taps
+of ถัดไป. This is the follow-up the 2026-10-28 (2) entry left open ("If the ward wants one dialog for the whole
+ward, that is the follow-up").
+
+### What changed
+
+- **One tap, one print dialog.** Print ทั้งหมด (or Print ที่เลือก) still opens each ticked order in bed order exactly as
+  a tap on its row does, so each passes the calculator's Print gate and the edit lock. But the calculator no longer
+  prints it: it hands back a copy of its `#print-form` (`CalculatorView` `captureSheet`, two frames on, as the Print
+  handler prints), or the reason it holds the order back, and the run opens the next by itself. The bar reads
+  "กำลังเตรียม Print ทั้งหมด · ใบที่ 2 จาก 15 · NICU 2 … — ไม่ต้องกดอะไร", with ยกเลิก.
+- **The job** (`registry.jsx` `WardPrintBatch`) replaces the list when the run ends: "พร้อมพิมพ์ 13 จาก 15 ใบ", a ✓
+  line per sheet, and every order held back in red, by name, with why (a colleague has it open, a critical value
+  with no reason, off the list since, no answer). The copies print one per A4 page in bed order.
+- **When the dialog opens.** Every order made it: once, by itself. Any held back: not until the nurse taps
+  "พิมพ์ N ใบ", so the list of what is missing is seen before the stack goes to pharmacy. "พิมพ์ N ใบ" prints the
+  same job again; "← กลับไปรายการ" goes back to the list. A tap on one row still prints that one order at once.
+- **A sheet goes in only if it names the order opened.** `#print-form` now carries `data-session-id` and
+  `data-entry-id`; the copy is taken only when both match the order the run opened, and the run checks again before
+  keeping it. Anything else is that order skipped by name, never printed under it.
+- **An order that never answers** (the edit lock's reply lost) is skipped by name after 40 s
+  (`PRINT_ALL_STEP_MS`), so the run still ends.
+- **Leaving ends it.** ยกเลิก, the back link, the rail or the bottom bar end the run and drop any job; nothing pulls the
+  user back to the list.
+
+### Decisions
+
+- **Copies of the rendered sheet, not a second renderer.** The 2026-10-28 (2) entry ruled out a print-only mode inside
+  `Calculator`: a second path that decides what may print. The copy is the DOM the existing gate already allowed
+  (`PrintOrderForm` renders only while `printable` holds), so what may print is still decided in one place. The
+  copies are cloned nodes, never re-parsed HTML.
+- **Why it is now safe to go on without a tap.** The one-tap rule existed because moving the page on under an open
+  print dialog could put the next infant's order on this one's sheet. Now no dialog opens until every order is
+  collected, and the page holding the job does not change while it is open.
+- **A held order stops the automatic dialog.** One more tap when something is missing, so no one takes 13 sheets to
+  pharmacy believing they are the ward's 15.
+
+### Checked
+
+`verify-print-all-1028.cjs` rewritten for the job: 82/82 on the sources (#2 one dialog with three sheets in bed order,
+each naming its own infant and entry, none opened while an order was open; #3–#4 held orders named, dialog on a tap;
+#5 ยกเลิก and the rail; #7 the ticked ones only; #8–#8d a sync during the run; #8e an order that never answers; #8f a
+sheet naming another entry is never taken; #9 No TPN orders). The whole suite, sources and `compiled/`: see the PR.
+
 ## Session 2026-11-06 — CI pins jsdom to 30
 
 `.github/workflows/test.yml`, `test/README.md`.

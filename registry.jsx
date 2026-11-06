@@ -280,6 +280,89 @@ function wardPrintableOrder(p, entries, ward, today) {
     && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;
 }
 
+// Print ทั้งหมด's one print job (Pp, 2026-11-06: "ถ้ากดปริ้นท์ทั้งหมดแล้วไม่ต้อง
+// เข้ามากดทีละคนอีกได้ไหม ให้ปริ้นออกมาเลย"). `batch` is the finished run
+// (app.jsx printBatch): a copy of each order's sheet, taken from its own
+// calculator through the Print gate and the edit lock (app.jsx CalculatorView
+// captureSheet), and every order held back, with why. The copies print one
+// after another, one A4 page each, in the list's bed order.
+// Every order made it: the print dialog opens by itself, once per run. Any held
+// back: the page names them first, and the nurse prints the rest with one tap,
+// so no one takes the stack to pharmacy thinking it is the whole ward.
+function WardPrintBatch({ batch, onBack }) {
+  const wardName = batch.ward === "other" ? "อื่นๆ" : batch.ward;
+  const sheetsRef = React.useRef(null);
+  // The copies are DOM nodes, not React elements: each is exactly what its
+  // calculator rendered. They go into the host as they are, never re-parsed.
+  React.useEffect(() => {
+    const host = sheetsRef.current;
+    if (!host) return;
+    while (host.firstChild) host.removeChild(host.firstChild);
+    batch.sheets.forEach(({ sheet }) => host.appendChild(sheet));
+    return () => { while (host.firstChild) host.removeChild(host.firstChild); };
+  }, [batch]);
+  const n = batch.sheets.length;
+  const print = () => requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+  const autoPrinted = React.useRef(null);
+  React.useEffect(() => {
+    if (n === 0 || batch.skipped.length > 0 || autoPrinted.current === batch.token) return;
+    autoPrinted.current = batch.token;
+    print();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batch]);
+
+  return (
+    <>
+      <div className="page-head print-head" style={{ marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <h1>Print ทั้งหมด · {wardName}</h1>
+          <div className="sub">
+            พร้อมพิมพ์ <span className="num">{n}</span> จาก <span className="num">{batch.total}</span> ใบ
+            {batch.skipped.length > 0 && <> · ข้าม <span className="num">{batch.skipped.length}</span> ใบ</>}
+          </div>
+          <button className="btn" onClick={onBack} style={{ fontSize: 12.5, marginTop: 10 }}>← กลับไปรายการ</button>
+        </div>
+        {n > 0 && (
+          <button type="button" className="btn primary print-all print-batch-go" onClick={print}
+            aria-label={`พิมพ์ ${n} ใบในครั้งเดียว`}>
+            <Icon name="pdf" size={14} color="#fff" /> พิมพ์ <span className="num">{n}</span> ใบ
+          </button>
+        )}
+      </div>
+
+      <div className="card print-batch-summary" style={{ padding: "12px 14px", maxWidth: 760 }}>
+        {batch.skipped.length > 0 && (
+          <div className="print-batch-skipped" role="alert">
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>
+              ไม่ได้อยู่ในชุดพิมพ์นี้ <span className="num">{batch.skipped.length}</span> ใบ — เปิดจากรายการเพื่อตรวจสอบและพิมพ์ทีละใบ
+            </div>
+            <ul>
+              {batch.skipped.map(({ item, reason }) => (
+                <li key={item.entryId}><strong>{item.label || "ใบสั่ง"}</strong> — {reason}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {n > 0 ? (
+          <ul className="print-batch-list">
+            {batch.sheets.map(({ item }) => <li key={item.entryId}>✓ {item.label || "ใบสั่ง"}</li>)}
+          </ul>
+        ) : (
+          <div style={{ fontSize: 13, color: "var(--ink-3)" }}>ไม่มีใบที่พิมพ์ได้ในชุดนี้</div>
+        )}
+        {n > 0 && (
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
+            แพทย์ตรวจและลงนามในแต่ละใบก่อนส่งห้องยา
+          </div>
+        )}
+      </div>
+
+      {/* The sheets themselves: never on screen, the only thing printed. */}
+      <div className="print-batch" ref={sheetsRef} />
+    </>
+  );
+}
+
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
   const wardName = ward === "other" ? "อื่นๆ" : ward;
   const active = patients.filter(p => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
@@ -291,10 +374,11 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
   // every row a tap would open straight to print, in the list's bed order.
   // App opens them one at a time, each as a tap on its row would (app.jsx
   // printQueue), so each still passes the calculator's Print gate and the edit
-  // lock. A row still saving, or a day with two orders, is left out: a tap on
-  // it does not print either (wardPrintableOrder). The label names the next infant on the
-  // calculator's ถัดไป button as the row does: bed (รอเตียง when parked, as
-  // BedChip says), name and twin label.
+  // lock, and prints them all as one job at the end (WardPrintBatch). A row
+  // still saving, or a day with two orders, is left out: a tap on it does not
+  // print either (wardPrintableOrder). The label names the infant on the run's
+  // bar and its summary as the row does: bed (รอเตียง when parked, as BedChip
+  // says), name and twin label.
   const printable = rows.flatMap(({ p }) => {
     const order = wardPrintableOrder(p, log[p.sessionId], ward, today);
     return order ? [{ sessionId: p.sessionId, entryId: order.entryId,
@@ -335,7 +419,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         {onPrintAll && rows.length > 0 && (
           <button type="button" className="btn primary print-all" disabled={queue.length === 0}
             onClick={() => onPrintAll(queue)}
-            aria-label={`${printWhat} ${queue.length} ใบ — เปิดทีละใบตามลำดับเตียง`}>
+            aria-label={`${printWhat} ${queue.length} ใบ — พิมพ์ครั้งเดียวตามลำดับเตียง`}>
             <Icon name="pdf" size={14} color="#fff" /> {printWhat} <span className="num">({queue.length})</span>
           </button>
         )}

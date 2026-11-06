@@ -2447,10 +2447,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // reason the button would, rather than the page waiting silently.
   // One request per token: a re-render, or `printable` flipping, never prints
   // twice; app.jsx drops the token as soon as the calculator is left.
+  // Print ทั้งหมด collects each sheet instead of printing it (app.jsx
+  // CalculatorView), so the request says why an order is held back: the
+  // reason as it stands when the request goes, the same text the toast shows.
   const autoPrintDone = React.useRef(null);
+  const printBlockRef = React.useRef("");
+  printBlockRef.current = printBlockToast;
   React.useEffect(() => {
     if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
-    const go = () => { autoPrintDone.current = autoPrint; requestPrint(); };
+    const go = () => { autoPrintDone.current = autoPrint; requestPrint(printBlockRef.current); };
     if (printable) { go(); return; }
     const t = setTimeout(go, 1500);
     return () => clearTimeout(t);
@@ -4839,7 +4844,10 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   );
 
   return (
-    <div id="print-form" style={{ position:"relative", fontFamily:"'IBM Plex Sans','Sarabun',serif", fontSize:10.5, color:"#000", padding:"0 2mm", display:"none" }}>
+    // data-session-id and data-entry-id name the order on this sheet, so the
+    // ward's Print ทั้งหมด can check each sheet it collects is the order it
+    // opened (app.jsx CalculatorView) before it goes into the one print job.
+    <div id="print-form" data-session-id={patient?.sessionId || ""} data-entry-id={entryId || ""} style={{ position:"relative", fontFamily:"'IBM Plex Sans','Sarabun',serif", fontSize:10.5, color:"#000", padding:"0 2mm", display:"none" }}>
 
       {/* Draft watermark — printed before Submit locks the row (see the
           publish-lock design). Not shown once published, and never shown at
