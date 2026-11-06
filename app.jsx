@@ -2305,8 +2305,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // root's class, which pads the workspace so the button never sits over the
   // last rows of the list it floats above. Not on a ward's Print order list
   // (Pp, 2026-10-28: "ไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง"): that page is for
-  // printing only.
-  const showQuickFab = view === "registry" && !printWard;
+  // printing only. Nor inside a ward (Pp, 2026-11-06: "ถ้าเข้ามาในหน้าวอร์ดแล้ว
+  // ไม่ต้องมีแคลคูเลเตอร์"): it floated over the patient cards' Open buttons.
+  // The ward gate keeps it.
+  const showQuickFab = view === "registry" && !printWard && !ward;
   return (
     <div className={showQuickFab ? "app has-quick-fab" : "app"}>
       {/* Top bar */}
@@ -3018,10 +3020,11 @@ function QuickCalcView({ onBack }) {
 }
 
 // ── Quick-calc floating button ───────────────────────────────
-// Bottom-right, and on the WARD PAGE ONLY — the ward gate and the ward's
-// patient list, both `view === "registry"` (Praew, 2026-09-22, second round:
-// "ให้ calculator มาอยู่หน้า patient ward แทน"), but not a ward's Print order
-// list, which is for printing only (Pp, 2026-10-28). Earlier that day it had gone
+// Bottom-right, and on the WARD GATE ONLY — `view === "registry"` with no ward
+// open (Praew, 2026-09-22, second round: "ให้ calculator มาอยู่หน้า patient
+// ward แทน"). Not a ward's Print order list, which is for printing only (Pp,
+// 2026-10-28), and not a ward's patient list, where it sat over the cards'
+// Open buttons (Pp, 2026-11-06: "ถ้าเข้ามาในหน้าวอร์ดแล้ว ไม่ต้องมีแคลคูเลเตอร์"). Earlier that day it had gone
 // to the Dashboard alone ("calculator ให้มีเฉพาะหน้าแรก ต้องกลับมาที่ dashboard
 // เท่านั้น"); before that it rode every view except the two calculators, which
 // put a second, unsaveable calculator in the corner of the growth chart and

@@ -56,6 +56,34 @@ actually runs; one PR for both.
   replaces). `tools/reference-tabs.json` gains `PUMP_MAX_HOURS`.
 - No second clinician reviewed this; Pp's request and her answers only. The skill's other line numbers were not
   refreshed with `--fix-lines`, so this PR does not collide with #223's refresh.
+## Session 2026-11-06 (3) — No Calculator button inside a ward; แสดงทั้งหมด on the filter's line
+
+`app.jsx`, `registry.jsx`, `NeoFeed.html`, `index.html`, `compiled/app.js`, `compiled/registry.js`,
+`test/verify-quick-calc.cjs`, `test/verify-print-all-1028.cjs`, `test/verify-ios-input-zoom-1009.cjs`,
+`test/verify-phone-sweep.cjs`, `test/README.md`.
+
+Pp, from two phone screenshots of the NICU list: "ถ้าเข้ามาในหน้าวอร์ดแล้ว ไม่ต้องมีแคลคูเลเตอร์", and the
+Logged today filter's แสดงทั้งหมด should sit on the same line as its words, as it already did under Needs entry
+("เอาเล็กลงก็ได้").
+
+1. **The quick-calc button is on the ward gate only.** `showQuickFab` adds `&& !ward`: a ward's patient list,
+   like its Print order list since 2026-10-28, has no Calculator button. It floated over the cards' Open
+   buttons. The gate (no ward chosen) keeps it, and its ← still lands back on the gate. The bottom nav's Calc
+   (a patient's calculator) is unchanged.
+2. **The filter line never wraps the button.** It wrapped only for the longer label: `.reg-filter-note` had
+   `flex-wrap: wrap`, and "แสดงเฉพาะ Logged today · 17 จาก 18 ราย" left no room beside it at phone width. Now
+   `nowrap`: the words wrap inside their own `.reg-filter-text` and `.reg-filter-all` stays at the right, in
+   12px type with tighter padding. Its 44px tap height on a phone is kept.
+
+Tests: `verify-quick-calc.cjs` pins the new condition; `verify-print-all-1028.cjs` 1.1 now expects no button on
+the ward list; `verify-ios-input-zoom-1009.cjs` goes out to the gate for the quick calc and back into the ward;
+`verify-phone-sweep.cjs` checks, on all 24 profiles, that แสดงทั้งหมด is level with its words and no Calculator
+button shows in the ward (340 passed). No calculation, printed figure or backend changed.
+
+`STATUS.md` also catches up on PR #221 (`release` = `96f393e`, 2026-11-06 23:35 ICT: #218's frontend, #219,
+#220), merged while this PR was open, and drops the two ⏳ entries it made live. It also records #224 (2026-11-06
+(2)) as merged into `main`, with release PR #225 open; #224 merged first, so this entry is (3).
+
 ## Session 2026-11-06 (2) — Print ทั้งหมด prints the ward's orders as one print job; "แพทย์" left blank to sign
 
 `app.jsx` (`printQueue`, `printBatch`, `CalculatorView` `captureSheet`), `registry.jsx` (`WardPrintBatch`),

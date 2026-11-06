@@ -1349,12 +1349,18 @@
   }
   button.reg-stat:hover { border-color: var(--brand); }
   .reg-stat.is-on { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand), var(--shadow-card); }
-  /* "แสดงเฉพาะ … · แสดงทั้งหมด", above a narrowed list. */
+  /* "แสดงเฉพาะ … · แสดงทั้งหมด", above a narrowed list. One row on every
+     width (Pp, 2026-11-06): Logged today's longer label wrapped the button onto
+     its own line where Needs entry's did not. The words wrap inside their own
+     box; the button never wraps and is the compact one (three classes, to
+     outrank the phone's .btn.sm text; its 44px tap height stays). */
   .reg-filter-note {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
-    padding: 8px 12px; margin-bottom: 12px; border-radius: var(--r);
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: nowrap;
+    padding: 6px 8px 6px 12px; margin-bottom: 12px; border-radius: var(--r);
     background: var(--surface); border: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2);
   }
+  .reg-filter-text { flex: 1 1 auto; min-width: 0; line-height: 1.4; }
+  .reg-filter-note .btn.reg-filter-all { flex: 0 0 auto; white-space: nowrap; font-size: 12px; padding: 4px 10px; }
   /* The ward gate's Print order button under each tile, and the ward print
      list's footer (registry.jsx WardGateCell, WardPrintList). */
   .ward-print { width: 100%; justify-content: center; }
@@ -2174,9 +2180,9 @@
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
   <script src="compiled/calculator.js?v=8824469d02"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
-  <script src="compiled/registry.js?v=ab1133675b"></script>
+  <script src="compiled/registry.js?v=7d630b9003"></script>
   <script src="compiled/log.js?v=7b665ce3f8"></script>
-  <script src="compiled/app.js?v=1d5bc187d6"></script>
+  <script src="compiled/app.js?v=fe95becd3e"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

@@ -3,10 +3,13 @@
 > ⏳ **2026-11-06 — the lipid pump (this PR): in review.** A tap on Lipid volume rounds the syringe to the nearest
 > whole mL/day and sets the dose from it; both pumps show 0.1 mL/hr and the hours they run, and lipid g/kg/h is over
 > those hours. The printed lipid line changes on every order with lipid, so `CONSTANTS_VERSION` moves to `2026-11-06.1`:
-> once released, an order saved before it prints only after it is saved again. **#224** (Print ทั้งหมด as one print job;
-> "แพทย์" left blank) is merged into `main` (2026-11-07, 00:25 ICT), not live until a release. Recorded here by this PR.
+> once released, an order saved before it prints only after it is saved again.
 >
-> ⏳ **2026-11-06 — Print ทั้งหมด as one print job (PR #224): merged into `main`, not live (above).** One tap collects every ticked order's
+> ⏳ **2026-11-06 — No Calculator button inside a ward, แสดงทั้งหมด on the filter's line (#222): merged into
+> `main` 2026-11-07 01:00 ICT on Praew's instruction, not live; in release PR #225 (open).** UI only, frontend only; no
+> calculation, printed figure or backend change.
+>
+> ⏳ **2026-11-06 — Print ทั้งหมด as one print job (PR #224): merged into `main` 2026-11-07 00:25 ICT, not live; release PR #225 open.** One tap collects every ticked order's
 > sheet through its own calculator's Print gate and edit lock, then opens one print dialog (by itself when none was
 > held back; on a tap of "พิมพ์ N ใบ" after naming any that were). The sheet's "แพทย์" line is now blank, signed by
 > hand, no longer the saver's name (Pp, same thread); the saver's name now prints nowhere on paper, which Pp chose
@@ -14,21 +17,18 @@
 > `calculator.jsx` adds two attributes to the sheet, both shells), no figure changed, no `clasp` step. ⚠️ Not yet
 > printed on a ward printer or from a phone's print dialog. `CHANGELOG.md` 2026-11-06 (2).
 >
-> ⚠️ **2026-11-06, 23:35 ICT — frontend `release` = `96f393e` (PR #221): merged, verification not recorded.** PR #221
-> released `main` at `ce06e16`: #218's frontend half (the Indication for PN dropdown and the Liver/Renal Dysfunction
-> ticks, reading backend `@68`'s columns S–U) and #219 (`tpn-room.html`, whose print stays locked until the PN
-> label's fixed lines are in). Cloudflare's build of `ce06e16` succeeded; Pp walked dev local on the head (comment on
-> #221). No `verify-release` result or `release-2026-11-06-pr221` tag is on the PR yet. Rollback: the frontend to
-> `release-2026-11-05-pr217` (`a541271`). Recorded here by the next PR on the repo.
->
-> ⏳ **2026-11-06 — TPN-room stickers, PR B (`tpn-room.html`, #219): served since #221 (above), print still locked.** The page, its
-> encrypted name file and the three stickers are built and tested on synthetic infants (`openspec/changes/tpn-room-stickers`
-> tasks.md § 2). It needs no backend change. **Three things hold its first print** (tasks.md § 0): `tpn-room-check.html`
-> passing on the TPN-room PC (0.1), the PN label's fixed lines from the unit (0.3 i; until then the page refuses to
-> print), and Pp's check of the sample PDF against a real sheet. IT and the DPO still have to hear about the new local
-> store of names, and its retention and erasure need a rule (0.2, 2.8a). Make the pharmacy account after that
-> (`REFERENCE.md` § The TPN room). **#220** (CI pins `jsdom@30` after jsdom 31 broke `verify-status-zones.cjs`) is
-> merged too; it changes nothing either host serves, so no release follows. Recorded here by PR #218.
+> ✅ **2026-11-06, 23:35 ICT — frontend `release` = `96f393e` (PR #221), on Pp's word** ("release ก่อน ให้เค้าเห็นภาพ
+> และทดลองใช้"). Released #218's frontend half (the Indication for PN dropdown and Liver/Renal Dysfunction ticks,
+> reading the columns backend `@68` added), #219 (the TPN room's page, `tpn-room.html`) and #220 (CI pins
+> `jsdom@30`; nothing served). `node tools/verify-release.mjs 96f393e --wait`: 0 failures, 87 passes on both
+> hosts (comment on #221). `/tpn-room.html` and `/tpn-room-check.html` now answer on Cloudflare. Tag
+> `release-2026-11-06-pr221` pushed. ⚠️ #221's comment gives the backend as `@67`; this page has had `@68` since
+> #218's backend-first deploy, and `clasp list-deployments` settles which. **Not proven yet:** no one has signed
+> in to the live page, the TPN room's PC has not run `tpn-room-check.html` (tasks.md 0.1), and the page refuses
+> to print until `PN_FIXED` holds the unit's three PN label lines (0.3 i). Pp still checks the sample PDF against a
+> real sheet; IT and the DPO still have to hear about the local name file, whose retention and erasure need a rule
+> (0.2, 2.8a). Make the pharmacy account after that (`REFERENCE.md` § The TPN room). Rollback: the frontend to
+> `release-2026-11-05-pr217` (`a541271`). Recorded here by PR #222, the next PR on the repo.
 >
 > ✅ **2026-11-05 — frontend `release` = `a541271` (PR #217), with backend `@68`.** PR #217 released #216 (a
 > line telling the doctor to phone the TPN room when changing a submitted order). `node tools/verify-release.mjs

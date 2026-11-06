@@ -816,8 +816,8 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           a list missing infants with nothing saying why reads as the ward. */}
       {statFilter && (
         <div className="reg-filter-note" role="status">
-          <span>แสดงเฉพาะ <strong>{STAT_FILTER_LABEL[statFilter]}</strong> · <span className="num">{shownActive.length}</span> จาก <span className="num">{activeSorted.length}</span> ราย</span>
-          <button type="button" className="btn sm" onClick={() => setStatFilter(null)}>แสดงทั้งหมด</button>
+          <span className="reg-filter-text">แสดงเฉพาะ <strong>{STAT_FILTER_LABEL[statFilter]}</strong> · <span className="num">{shownActive.length}</span> จาก <span className="num">{activeSorted.length}</span> ราย</span>
+          <button type="button" className="btn sm reg-filter-all" onClick={() => setStatFilter(null)}>แสดงทั้งหมด</button>
         </div>
       )}
 

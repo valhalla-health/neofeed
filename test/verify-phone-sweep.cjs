@@ -241,6 +241,20 @@ async function sweepDevice(browser, BASE, [name, W, H, largeText], extraCss) {
     await page.locator('.reg-stat', { hasText: 'Needs entry' }).click({ timeout: 5000 });
     await page.waitForSelector('.reg-filter-note', { timeout: 5000 });
     await check('ward list · Needs entry', '.work');
+    // แสดงทั้งหมด on the same row as its "แสดงเฉพาะ …" words, at every width,
+    // and no Calculator button inside a ward (Pp, 2026-11-06).
+    const note = await page.evaluate(() => {
+      const n = document.querySelector('.reg-filter-note');
+      const t = n && n.querySelector('.reg-filter-text'), b = n && n.querySelector('.reg-filter-all');
+      if (!t || !b) return ['the filter words or แสดงทั้งหมด is missing'];
+      const tb = t.getBoundingClientRect(), bb = b.getBoundingClientRect();
+      const fab = document.querySelector('.quick-fab');
+      return [
+        ...(bb.top >= tb.bottom || bb.left < tb.right - 1 ? ['แสดงทั้งหมด wrapped under the words'] : []),
+        ...(fab && fab.getBoundingClientRect().width > 0 ? ['the Calculator button shows in the ward'] : []),
+      ];
+    });
+    results.push({ screen: 'ward list · แสดงทั้งหมด on one row, no Calculator', clipped: [], sideways: 0, reach: { ok: true }, problems: note });
     await page.locator('.reg-stat', { hasText: 'Needs entry' }).click({ timeout: 5000 });
     if (!largeText) {
       await page.locator('button', { hasText: 'New session' }).click({ timeout: 5000 });
