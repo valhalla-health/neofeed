@@ -78,6 +78,8 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
     const r = new RegExp(`\\${sel}\\s*\\{[^}]*grid-template-columns:([^;}]*)`).exec(phone)?.[1] || '';
     ok(`${shell}: on a phone, ${sel} is one column`, /^\s*minmax\(0,\s*1fr\)\s*!important\s*$/.test(r), r);
   }
+  // …and the 20% lipid box with its chips spans the lipid row (Pp, 2026-11-06).
+  ok(`${shell}: on a phone, the 20% lipid box spans the lipid row`, /\.s2-lip-row > :first-child\s*\{\s*grid-column:\s*1 \/ -1;\s*\}/.test(phone));
 }
 {
   const calc = read('calculator.jsx'), app = read('app.jsx'), log = read('log.jsx');

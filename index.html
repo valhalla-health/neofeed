@@ -1652,6 +1652,9 @@
        (Pp, 2026-11-06), so its five chips sit on one line. */
     .s2-aa-row  { grid-template-columns: minmax(0, 1fr) !important; }
     .s2-lip-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+    /* The 20% lipid box and its five chips take the whole row, so the chips sit
+       on one line; the two tiles share the row below (Pp, 2026-11-06). */
+    .s2-lip-row > :first-child { grid-column: 1 / -1; }
     /* Bottom (energy+alerts+save): 3-col → 1-col */
     .calc-bottom { grid-template-columns: 1fr !important; }
     /* SaltRow: 1.6fr 1fr 90px → 1fr 80px (hide = total col, shown in readout below) */
@@ -2181,13 +2184,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=5ab01dfbf2"></script>
+  <script src="data.js?v=de3607692e"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
   <script src="compiled/calculator.js?v=9e505ae9ba"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
   <script src="compiled/registry.js?v=7d630b9003"></script>
   <script src="compiled/log.js?v=7b665ce3f8"></script>
-  <script src="compiled/app.js?v=fe95becd3e"></script>
+  <script src="compiled/app.js?v=c917a7bae0"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

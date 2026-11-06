@@ -979,11 +979,12 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    2026-09-21 on a ward request) — reached from `QuickCalcFab`, a floating
    button bottom-right labelled **Calculator**, the same word as the patient
    wizard: the `ไม่บันทึก` chip beside the heading is what tells them apart.
-   **It is on the Ward page only** — the ward gate and the ward's patient
-   list, both `view === "registry"` (Praew, 2026-09-22, second round: "ให้
-   calculator มาอยู่หน้า patient ward แทน"; it had been on the Dashboard only
-   since that morning, and on every view but the two calculators before
-   that), and its ← returns to the Ward page, on whichever ward was open.
+   **It is on the ward gate only** (`view === "registry"` with no ward
+   chosen; Pp, 2026-11-06, #222: "ถ้าเข้ามาในหน้าวอร์ดแล้ว ไม่ต้องมีแคลคูเลเตอร์").
+   From 2026-09-22 it was on the gate and the ward's patient list (Praew,
+   second round: "ให้ calculator มาอยู่หน้า patient ward แทน"; the Dashboard
+   only that morning, every view but the two calculators before that). Its ←
+   returns to the gate.
    While it shows, `.app.has-quick-fab` pads the workspace so the list's last
    rows scroll clear of it, on a workstation and above a phone's nav. Its glyph is
    `icons.jsx`'s **stroked `calculator`**, added for it — the filled `calc`

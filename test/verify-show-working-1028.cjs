@@ -152,8 +152,12 @@ function mount(c) {
     ? { sessionId: null, name: null, initials: null, bw: 0, ga: 0, sex: '', currentBed: '', diagnosis: '', weights: [], lengths: [], hcs: [] }
     : { sessionId: 'NF12-' + c.name, name: 'NF', bw: c.g, currentBed: 'NICU 5', diagnosis: '-',
       weights: [{ dol: 1, w: c.g }], admissionDate: '2026-10-18' };
+  // `saved`: the order is reopened from a saved row with this calcInput, for a
+  // feed Step 2 no longer offers (FBM_INF_MIX since 2026-11-06).
+  const editEntry = c.saved ? { entryId: 'e-nf12-' + c.name, ts: '2026-10-28', weight: c.g,
+    lastModified: '2026-10-28T02:00:00.000Z', calcInput: { curWtG: c.g, fluidTargetPerKg: c.fluid ?? 150, ...c.saved } } : null;
   act(() => { root.render(React.createElement(window.Calculator, {
-    patient, scratch: !!c.scratch, dol: c.dol ?? 10, editEntry: null, baselineEntry: null, previousEntry: null,
+    patient, scratch: !!c.scratch, dol: c.dol ?? 10, editEntry, baselineEntry: null, previousEntry: null,
     logDate: c.scratch ? null : '2026-10-28',
     userLabel: 'Dr Working (working@kcmh.test)', userEmail: 'working@kcmh.test',
     onLog: () => Promise.resolve({ ok: true, entryId: 'e-nf12', lastModified: 'lm-1' }),
@@ -210,7 +214,9 @@ const B = { name: 'B', g: 1500, route: 'Peripheral', feed: 'BM_HMF_24',
 const C = { name: 'C', g: 1000, fluid: 160, feed: 'FBM_PF_24', order: { 'Volume(mL/feed)': 19, 'Frequency': 8 } };
 const Dm = { name: 'D', g: 1000, route: 'Central', feed: 'BM_20',
   order: { 'Volume(mL/day)': 100, 'Dextrose final': 10, 'Amino acid': 3, 'Volume(mL/feed)': 3, 'Frequency': 8 }, tick: { 'MEN (trophic)': true } };
-const E = { name: 'E', g: 2000, fluid: 160, feed: 'FBM_INF_MIX', order: { 'Volume(mL/feed)': 40, 'Frequency': 8 } };
+// E is reopened from a saved order: FBM ↔ Infatrini left Step 2 on 2026-11-06 (Pp:
+// feed 1 + feed 2 give it), and a row saved on it still computes and shows.
+const E = { name: 'E', g: 2000, fluid: 160, saved: { enType: 'FBM_INF_MIX', enVol: 40, enFreq: 8 } };
 const F = { name: 'F', g: 1000, route: 'Central',
   order: { 'Volume(mL/day)': 100, 'Dextrose final': 10, 'Amino acid': 3 } };
 
@@ -272,6 +278,9 @@ const BM = D.EN_DB.BM_20, BMH = D.EN_DB.BM_HMF_24;
     ok('a MEN feed of breast milk still names its milk (Step 2 shows what it provides)', !!assumption());
     mount(E);
     const e = assumption();
+    ok('E is reopened on FBM ↔ Infatrini, shown as saved and not swapped',
+      container.querySelector('.en-feed-1 .en-strength')?.value === 'FBM_INF_MIX'
+      && container.querySelector('.en-feed-1 .en-product')?.selectedOptions[0]?.textContent === D.EN_DB.FBM_INF_MIX.label);
     ok('FBM ↔ Infatrini: base milk and HMF named, and the mix row\'s own note', !!e && !!e.querySelector('[data-v="hmf.pro"]')
       && text(e).includes(D.EN_DB.FBM_INF_MIX.note), text(e));
     mount(C);
