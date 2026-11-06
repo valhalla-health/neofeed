@@ -78,7 +78,9 @@ Pp sent three requests from her phone the same evening, each with a screenshot o
 
 7. **The lipid chips on one line on a phone.** Asked, Pp: "y". Below 768 px the 20% lipid box and its five chips
    span the lipid row (`.s2-lip-row > :first-child`); the Lipid and Vitalipid tiles share the row below.
-   `verify-phone-sweep.cjs` checks the rule in both shells.
+   `verify-phone-sweep.cjs` checks the rule in both shells. Asked whether the Components / Bag total (prepared)
+   panel under the amino acid should go too (Components is the TPN room's figure; Bag total repeats Prepared),
+   Pp: "keep it". It stays, and still turns red when the bag is over-full.
 
 Seven pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
 No dose constant, limit or `CONSTANTS_VERSION` moved (5 adds two alert thresholds). No second clinician has
