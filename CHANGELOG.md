@@ -22,6 +22,8 @@ The fix pins `jsdom@30`, the version CI ran on Node 22.23 until that day. `react
 pinned to a major. Moving to 31 is a separate change: the test would read the zones with a tolerance that fits six
 significant digits. STATUS catches up in #218, which already carries it.
 
+PR #220: merged into `main` on Praew's instruction. It changes nothing either host serves, so no release follows.
+
 ## Session 2026-11-05 — The TPN room's page: stickers from NeoFeed, names on the room's PC (PR B, #219)
 
 `tpn-room.html`, `tpn-room.jsx`, `compiled/tpn-room.js`, `compiled/tpn-room-version.js`, `tpn-room-core.js`,
