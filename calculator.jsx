@@ -971,14 +971,19 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
   // Step 3's Lipid volume, tapped: the 20% lipid syringe to the nearest whole
   // mL/day, and 20% lipid set to the dose that volume gives, so the pump rate
-  // and g/kg/h follow (Pp, 2026-11-06). D.lipidDoseAtWholeMl never takes a dose
-  // across 4.0 g/kg/d; the toast says what moved, so a dose that changed is seen.
+  // and g/kg/h follow (Pp, 2026-11-06). D.lipidDoseAtWholeMl never makes a
+  // critical lipid line the typed dose did not have (4.0 g/kg/d, the g/kg/h
+  // ceiling over the pump's actual hours); the toast says what moved.
   const roundLipidToWholeMl = () => {
-    const dose = D.lipidDoseAtWholeMl(lipidPerKg, wtKg);
+    const dose = D.lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours: lipidDripHours, vitalipidMl: calc.vitalipidVol });
     if (dose == null) return;
     const mlNow = Number(D.displayNum(lipidPerKg * wtKg / D.KCMH_STOCK.smof20.gPerMl, 1));
     const mlNew = Number(D.displayNum(dose * wtKg / D.KCMH_STOCK.smof20.gPerMl, 1));
-    if (dose === lipidPerKg) { showToast(`Lipid ${D.displayNum(mlNow, 1)} mL/day เป็น mL เต็มแล้ว`, "info"); return; }
+    if (dose === lipidPerKg) {
+      showToast(Number.isInteger(mlNow) ? `Lipid ${D.displayNum(mlNow, 1)} mL/day เป็น mL เต็มแล้ว`
+        : `Lipid ${D.displayNum(mlNow, 1)} mL/day ต่ำกว่า 0.5 mL — ไม่ปัด`, "info");
+      return;
+    }
     setLipidPerKg(dose);
     showToast(`Lipid ${D.displayNum(mlNow, 1)} → ${D.displayNum(mlNew, 1)} mL/day · 20% lipid ${D.displayNum(lipidPerKg, 4)} → ${D.displayNum(dose, 4)} g/kg/d`, "info");
   };
@@ -1984,7 +1989,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sOsm = osmStatusAt(calc.osm);
   // Lipid g/kg/h against the ceiling (D.LIPID_GKGH; TPN team and Praew,
   // 2026-09-28), graded on the 2-decimal figure the pump card shows.
-  const lipidGkgh = lipidPerKg > 0 && lipidDripHours > 0 ? Math.round(lipidPerKg / lipidDripHours * 100) / 100 : 0;
+  // Both pumps at 0.1 mL/hr, never past 24 h, and the hours each actually runs
+  // (Pp, 2026-11-06; D.pumpRate). g/kg/h is the lipid dose over the lipid pump's
+  // actual hours, so it is graded on what the pump does (CR-LIPID-RATE).
+  const tpnPump = D.pumpRate(totalTPN_mL, 24);
+  const lipidPump = D.pumpRate(calc.lipidBagVol, lipidDripHours);
+  const lipidGkgh = D.lipidGkghAt(lipidPerKg, calc.lipidBagVol, lipidDripHours);
+  const pumpHoursText = (pump) => pump ? `${fmt(pump.hours, 1)} h` : "—";
   const sLipidGkgh = lipidGkgh > D.LIPID_GKGH.max ? "crit" : lipidGkgh > D.LIPID_GKGH.warn ? "warn" : "ok";
   // EN volume: short of 100 mL/kg/d is a caution; nothing ordered is not.
   const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
@@ -2278,8 +2289,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (${kRedIsMax(kLim) ? `max ${kLim.hardMax}` : `critical above ${kLim.red}`}).`, ref: "TPN team, 2026-09-28" });
   // Lipid infusion rate, per the ceiling the TPN team set (2026-09-28).
-  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
-  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
+  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
+  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
@@ -3264,10 +3275,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <div className="step-summary">
               <span className="step-summary-chip">{fmt(totalTPN_mL,0)} mL/d</span>
               {calc.overfill > 1.001 && <span className="step-summary-chip">prep {fmt(calc.preparedVol,0)} mL · ×{fmt(calc.overfill,2)}</span>}
-              <span className="step-summary-chip">{fmt(totalTPN_mL/24,2)} mL/hr</span>
+              <span className="step-summary-chip">{tpnPump ? fmt(tpnPump.rate, 1) : "—"} mL/hr</span>
               {calc.gir > 0 && <span className="step-summary-chip">GIR {fmt(calc.gir,1)}</span>}
               {aaPerKg > 0 && <span className="step-summary-chip">AA {aaPerKg}</span>}
-              {lipidPerKg > 0 && <span className="step-summary-chip">Lip {fmt(calc.lipidBagVol/lipidDripHours, 2)} mL/hr</span>}
+              {lipidPerKg > 0 && <span className="step-summary-chip">Lip {lipidPump ? fmt(lipidPump.rate, 1) : "—"} mL/hr</span>}
             </div>
           )}
           {/* "No TPN" at the top right (Pp, 2026-11-01): skips Step 3. On a
@@ -3324,11 +3335,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 </div>
                 {/* r × 24 rounded to 2 dp: 4.1 × 24 is 98.39999999999999 in
                     floating point, and that string reached the Volume box, the
-                    changes list and the printed form (UP-C13). */}
+                    changes list and the printed form (UP-C13). The box shows
+                    the pump's rate at 0.1 mL/hr and the hours it runs (Pp,
+                    2026-11-06; D.pumpRate): 100 mL/day is 4.2 mL/hr for 23.8 h. */}
                 <NumField label="Rate" unit="mL/hr"
-                  value={parseFloat((totalTPN_mL/24).toFixed(2))}
-                  onChange={(r) => setTotalTPN_mL(parseFloat((r * 24).toFixed(2)))} step={0.05}
-                  hint={totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day` : "ใส่ rate pump"} />
+                  value={tpnPump ? tpnPump.rate : 0}
+                  onChange={(r) => setTotalTPN_mL(parseFloat((r * 24).toFixed(2)))} step={0.1}
+                  hint={totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day · infusion ${pumpHoursText(tpnPump)}` : "ใส่ rate pump"} />
               </div>
 
               {/* ── Overfill: dead space → prepared volume → Factor ──────────
@@ -3486,11 +3499,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <div>
                   <div style={{ fontSize:10, color:"var(--ink-3)", fontWeight:600, letterSpacing:"0.04em" }}>PUMP RATE</div>
                   <div className="num" style={{ fontSize:30, fontWeight:700, lineHeight:1.15, color:"var(--warn-ink)" }}>
-                    {calc.lipidBagVol > 0 ? fmt(calc.lipidBagVol/lipidDripHours, 2) : "—"}
+                    {lipidPump ? fmt(lipidPump.rate, 1) : "—"}
                     <span style={{ fontSize:13, color:"var(--ink-3)", marginLeft:5, fontWeight:400 }}>mL/hr</span>
                   </div>
                   <div style={{ fontSize:11, color:"var(--ink-3)", marginTop:1 }}>
-                    {fmt(calc.lipidBagVol,1)} mL/day over {lipidDripHours} h
+                    {fmt(calc.lipidBagVol,1)} mL/day · <span className="lipid-pump-hours">infusion {pumpHoursText(lipidPump)}</span>
                   </div>
                   {/* The same rate as lipid per kg per hour (TPN team,
                       2026-09-22), to 2 decimals and against the team's ceiling
@@ -4234,11 +4247,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `Osm: ${fmt(calc.osm, 0)} mOsm/L`,
                 `──────────────────────────────`,
                 `FLUID: Target ${fluidTargetPerKg} mL/kg/d = ${fmt(fluidTargetPerKg*calc.wtKg, 0)} mL/day`,
-                `  TPN aqueous: ${fmt(totalTPN_mL, 1)} mL/day delivered → Rate ${fmt(totalTPN_mL/24, 2)} mL/hr`,
+                `  TPN aqueous: ${fmt(totalTPN_mL, 1)} mL/day delivered → Rate ${tpnPump ? fmt(tpnPump.rate, 1) : "—"} mL/hr, infusion ${pumpHoursText(tpnPump)}`,
                 calc.overfill > 1.001
                   ? `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (+${fmt(deadVol_mL, 1)} mL ปริมาตรคาสาย) · Factor ${fmt(calc.factor, 3)} = ${fmt(calc.wtKg, 2)} kg × ${fmt(calc.overfill, 3)}`
                   : `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (no overfill)`,
-                `  Lipid bag:   ${fmt(calc.lipidBagVol, 1)} mL/day over ${lipidDripHours}h → Rate ${fmt(calc.lipidBagVol/lipidDripHours, 2)} mL/hr${lipidPerKg > 0 ? ` (${fmt(lipidPerKg/lipidDripHours, 2)} g/kg/h)` : ""}`,
+                `  Lipid bag:   ${fmt(calc.lipidBagVol, 1)} mL/day → Rate ${lipidPump ? fmt(lipidPump.rate, 1) : "—"} mL/hr, infusion ${pumpHoursText(lipidPump)}${lipidPerKg > 0 ? ` (${fmt(lipidGkgh, 2)} g/kg/h)` : ""}`,
                 `  Prescribed:  ${fmt(calc.prescribedFluid, 0)} mL/day | Remaining: ${fmt(calc.remaining, 1)} mL`,
                 `──────────────────────────────`,
                 `DEXTROSE: ${dexPct}% → D50W ${calc.d50wVol} mL/day | ${fmt(calc.dexG_bag, 1)} g in bag, ${fmt(calc.dexG, 1)} g delivered = ${fmt(calc.dexGPerKg, 1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})`,
@@ -4811,6 +4824,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
 
   // Never a trailing zero on the pharmacy form (D.displayNum, 2026-09-22).
   const f  = (n, d=1) => (isFinite(n) && n > 0) ? D.displayNum(n, d) : "—";
+  const printLipidPump = D.pumpRate(calc.lipidBagVol, lipidDripHours || 24);
   const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";
   // WFI q.s. can legitimately be 0 or negative (over-filled bag) — must not print "—"
   const fSigned = (n, d=1) => D.displayNum(n, d);
@@ -4999,7 +5013,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         <tr>
           <td>Lipid</td>
           <td><span style={lipidPerKg > 0 ? { fontWeight:700 } : undefined}>{chk(lipidPerKg > 0)} 20% SMOF</span> &nbsp;<span style={{ color:"#555" }}>☐ 20% Intralipid &nbsp;☐ 20% Clinoleic &nbsp;☐ Other (Specify) ....</span>
-            &nbsp;= <strong>{f(lipidPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL</td>
+            &nbsp;= <strong>{f(lipidPerKg,3)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL</td>
         </tr>
         <tr>
           <td>Fat soluble vitamin</td>
@@ -5137,11 +5151,13 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           is unchanged: Center Point's sheet prints it too, and the parity
           check reads the alerts after it. */}
       <div className="print-lipid-rate" style={{ marginTop:6, fontSize:10.5 }}>
-        Lipid pump rate: bag total <strong>{f(calc.lipidBagVol,1)}</strong> mL infused over <strong>{lipidDripHours || 24}</strong> h
-        = Rate <strong>{calc.lipidBagVol > 0 ? f(calc.lipidBagVol/(lipidDripHours||24),2) : "—"}</strong> mL/hr
+        {/* The rate at 0.1 mL/hr and the hours the pump actually runs at it
+            (Pp, 2026-11-06; D.pumpRate), as Step 3 shows them. */}
+        Lipid pump rate: bag total <strong>{f(calc.lipidBagVol,1)}</strong> mL
+        = Rate <strong>{printLipidPump ? f(printLipidPump.rate,1) : "—"}</strong> mL/hr, infusion <strong>{printLipidPump ? f(printLipidPump.hours,1) : "—"}</strong> h
         {/* A conversion of two figures printed on this line, so plain
             text like the Mg mEq beside its mg — not a dose of its own. */}
-        {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(lipidPerKg/(lipidDripHours||24), 2)} g/kg/h)</span>}
+        {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(D.lipidGkghAt(lipidPerKg, calc.lipidBagVol, lipidDripHours || 24), 2)} g/kg/h)</span>}
       </div>
       </>)}
       {critOverride ? (
@@ -5196,7 +5212,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           </tr>
           <tr>
             <td>Lipid</td>
-            <td><strong>☑ 20% SMOF</strong> = <strong>{f(lipidPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL &nbsp;&nbsp;
+            <td><strong>☑ 20% SMOF</strong> = <strong>{f(lipidPerKg,3)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL &nbsp;&nbsp;
               Vitalipid N infant = <strong>{f(calc.vitalipidVol,1)}</strong> mL</td>
           </tr>
         </tbody></table>

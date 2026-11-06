@@ -7,26 +7,48 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-06 (2) — Step 3: tap Lipid volume to round it to a whole mL
+## Session 2026-11-06 (2) — The lipid pump: tap to a whole mL, and both pumps at 0.1 mL/hr
 
-`data.js` (`lipidDoseAtWholeMl`), `calculator.jsx` (Step 3's Lipid volume box, `roundLipidToWholeMl`),
-`test/verify-lipid-whole-ml-1106.cjs` (new), `test/README.md`, the `neofeed-clinical-rules` skill
-(`CR-R-LIPID-WHOLE-ML`), `compiled/` and both shells' `?v=` tokens.
+`data.js` (`lipidDoseAtWholeMl`, `pumpRate`, `PUMP_MAX_HOURS`, `lipidGkghAt`), `calculator.jsx` (Step 3's two pumps, the
+step chips, the copied order, the printed lipid line), `center-point/tpn-snapshot.mjs` (`pnRate`, `lipidRate`,
+`lipidHours`, `lipidKg`), `tools/reference-tabs.json`, the `neofeed-clinical-rules` skill (`CR-R-LIPID-WHOLE-ML`,
+`CR-R-PUMP-RATE` new; `CR-LIPID-RATE` changed), `test/verify-lipid-whole-ml-1106.cjs` (new), `test/README.md`, the
+harnesses that pinned the old rates (below), `compiled/` and both shells' `?v=` tokens.
 
-Pp, 2026-11-06, from a phone screenshot of the Lipid Pump card (1,680 g, 2 g/kg/d, 16.8 mL/day): "ถ้ากดที่ลิพิตโวลุ่ม
-จะ rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ ml/kg/hr ข้างบนอีกที". Asked, she chose the nearest whole mL, and
-the whole mL below where rounding would take a dose across 4.0 g/kg/d, so a tap never makes a critical alert.
+Pp, 2026-11-06, from phone screenshots of the Lipid Pump card (1,680 g, 2 g/kg/d, 16.8 mL/day, 0.95 mL/hr):
+"ถ้ากดที่ลิพิตโวลุ่มจะ rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ ml/kg/hr ข้างบนอีกที", then "Pump rate
+ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง infusion in กี่ hr ให้ ถ้าเกิน 24 ชม. ให้ปัดเพิ่ม rate แทน ให้ไม่เกิน". Asked, she chose:
+the nearest whole mL; the whole mL below where rounding would cross 4.0 g/kg/d, so a tap never makes a critical
+alert; 24 h (not the hours typed) as the limit that rounds a rate up; both pumps; g/kg/h over the hours the pump
+actually runs; one PR for both.
 
-- The Lipid volume box is now a button. A tap rounds the 20 % lipid syringe to the nearest whole mL/day (half up, at
-  least 1 mL) and sets 20 % lipid to the dose that volume gives (mL × 0.2 ÷ kg): 16.8 → 17 mL, 2 → 2.02 g/kg/d. The pump
-  rate, g/kg/h, energy and the printed order all follow from that dose, as from a typed one. A toast names the mL and
-  the dose before and after. Nothing rounds until the tap, and a typed dose is never changed on its own.
-- The dose is kept to the fewest decimals (2, else 3, else 4) that still give the whole mL at 0.1 mL, so the box reads
-  2.02 and the printed order reads "2.02 g/kg/d = 17 mL".
-- Never across the IV lipid ceiling (`CR-LIPID-IV-MAX`): at 1,680 g, 4 g/kg/d is 33.6 mL; 34 mL would be 4.05, so the
-  tap gives 33 mL (3.93). A dose already above 4.0 rounds to the nearest mL and keeps its critical alert.
-- No constant moves and no saved order changes, so `CONSTANTS_VERSION` stays; a tapped order prints the dose it holds.
-  The skill's line numbers were not refreshed with `--fix-lines` here, so this PR does not collide with #223's refresh.
+- **Tap Lipid volume** (`CR-R-LIPID-WHOLE-ML`). The box is a button: a tap rounds the 20 % lipid syringe to the nearest
+  whole mL/day (half up) and sets 20 % lipid to the dose that volume gives (mL × 0.2 ÷ kg): 16.8 → 17 mL, 2 → 2.02
+  g/kg/d. A toast names the mL and the dose before and after. Nothing rounds until the tap. A tap never makes a
+  critical lipid line the typed dose did not have: above 4.0 g/kg/d, or g/kg/h above 0.17 (Vera on this PR: the
+  rate ceiling is a critical line too); there the whole mL below is used. Under 0.5 mL it leaves the dose as typed
+  (Vera: a 1 mL floor multiplied a small dose; for Pp to confirm). The dose keeps 2 decimals, else 3, whichever gives
+  the whole mL at 0.1 mL; the printed order now prints the lipid dose to 3 decimals so dose and mL agree (Vera: 3.5
+  kg on 1.5 g/kg/d taps to 1.486 = 26 mL, which printed as 1.49).
+- **Both pumps at 0.1 mL/hr, with the hours they run** (`CR-R-PUMP-RATE`). The TPN pump (its volume over 24 h) and
+  the lipid pump (its bag over the hours typed) show the nearest 0.1 mL/hr; where that would run the volume past
+  24 h, the next 0.1 up. Step 3, the step chips, the copied order, the printed lipid line and Center Point show the
+  rate and "infusion N h" (volume ÷ rate): 100 mL is 4.2 mL/hr for 23.8 h; the lipid bag of 22.8 mL is 1 mL/hr for
+  22.8 h. No volume and no dose changes; a pump set up runs out a little before 24 h.
+- **Lipid g/kg/h is over the hours the pump runs** (`CR-LIPID-RATE`). Rounding a rate up shortens the run, so a dose
+  can grade higher than before: at 1 kg over 24 h, 3.05 g/kg/d is 0.9 mL/hr for 21.4 h = 0.14 (amber; it was 0.13),
+  and over 20 h, 3.4 g/kg/d is 1.1 mL/hr for 19.1 h = 0.18 (critical; it was 0.17). The rule's cases moved to the new
+  edges, with Pp's answer as their source.
+- **Printed figures**: on every order with lipid, the lipid line's two figures change ("over 24 h … Rate 0.84" →
+  "Rate 0.9, infusion 22.3 h"); `verify-review-0917-calc.cjs`'s five digests were recaptured after a figure-by-figure
+  comparison with `main` showed nothing else moved. No constant moves, so `CONSTANTS_VERSION` stays; the change is in
+  how the rates are rounded and shown, recorded here and in the two new rules.
+- **Harnesses that pinned the old rates**, updated to the new rule: `verify-calc-clicks.cjs` (lipid over 16/20/24 h,
+  Volume 100 → Rate 4.2), `verify-calc-oracle.cjs` (its own pump rule, written out), `verify-tpn-meeting-0928.cjs` §5 and
+  `verify-tpn-team-0922.cjs` §2 (they pinned "the pump rate keeps its 2 decimals", Praew 2026-09-28, which this
+  replaces). `tools/reference-tabs.json` gains `PUMP_MAX_HOURS`.
+- No second clinician reviewed this; Pp's request and her answers only. The skill's other line numbers were not
+  refreshed with `--fix-lines`, so this PR does not collide with #223's refresh.
 
 ## Session 2026-11-06 — CI pins jsdom to 30
 

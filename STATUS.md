@@ -1,7 +1,8 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-06 — Step 3's Lipid volume tap (this PR): in review.** A tap rounds the lipid syringe to the nearest
-> whole mL/day and sets the dose from it (never across 4.0 g/kg/d). **#218** (Indication for PN and the Liver/Renal
+> ⏳ **2026-11-06 — the lipid pump (this PR): in review.** A tap on Lipid volume rounds the syringe to the nearest
+> whole mL/day and sets the dose from it; both pumps show 0.1 mL/hr and the hours they run, and lipid g/kg/h is over
+> those hours. The printed lipid line changes on every order with lipid. **#218** (Indication for PN and the Liver/Renal
 > Dysfunction ticks, the frontend half of backend `@68`) is merged into `main` (2026-11-06, 23:08 ICT), not live until
 > a release. Recorded here by this PR.
 >

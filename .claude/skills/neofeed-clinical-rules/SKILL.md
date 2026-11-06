@@ -356,19 +356,24 @@ band and fired on every infant.
 
 ### CR-LIPID-RATE · lipid infusion rate
 
-g/kg/h = IV lipid g/kg/d ÷ hours infused (16, 20 or 24), rounded to 2 decimals as the pump card shows it,
-then graded: amber above 0.13, critical above 0.17.
+g/kg/h = IV lipid g/kg/d ÷ the hours the lipid pump actually runs, rounded to 2 decimals as the pump card
+shows it, then graded: amber above 0.13, critical above 0.17. The hours are the lipid bag (20 % lipid +
+Vitalipid) ÷ its rate at 0.1 mL/hr (`CR-R-PUMP-RATE`), not the 16, 20 or 24 typed: rounding the rate up
+shortens the run, so a dose can grade higher than over the hours typed (1 kg over 24 h: 3.05 g/kg/d is
+0.9 mL/hr for 21.4 h, 0.14; over the 24 h typed it was 0.13).
 Source: TPN team 2026-09-28, Pp: "lipid เพดาน 0.13-0.17 g/kg/h". Koletzko 2005 (p. S20): infants at most
 3–4 g/kg/d "(0.13–0.17 g/kg per hour)". ESPGHAN 2018 gives no hourly limit and advises lipid over 24 h in
 newborns (Lapillonne R 4.10). Thai CPG Table 3.2: 0.17 for preterm, term and infants, 0.13 only over
-1 year; so the amber at 0.13 fires from about 3.1 g/kg/d over 24 h, a dose R 4.3 allows: Q11.
+1 year; so the amber at 0.13 fires from about 3.05 g/kg/d over 24 h at 1 kg, a dose R 4.3 allows: Q11.
+The actual hours: Pp, 2026-11-06, asked with the rate rounding ("Actual hours"); until then the hours typed.
 
 ```rule
-{"rule": "CR-LIPID-RATE", "kind": "critical", "coded": {"LIPID_GKGH": {"warn": 0.13, "max": 0.17}}, "where": [{"file": "data.js", "line": 825, "has": "const LIPID_GKGH = { warn: 0.13, max: 0.17 };"}, {"file": "calculator.jsx", "line": 1958, "has": "const lipidGkgh = lipidPerKg > 0 && lipidDripHours > 0 ? Math.round(lipidPerKg / lipidDripHours * 100) / 100 : 0;"}]}
-{"case": "3.1 g over 24 h = 0.13: no caution", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.1}, "expect": {"no_alert": "Lipid rate near the ceiling"}}
-{"case": "3.25 g over 24 h = 0.14: caution", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.25}, "expect": {"alert": "Lipid rate near the ceiling", "level": "warn"}}
-{"case": "3.4 g over 20 h = 0.17: not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.4}, "expect": {"no_alert": "Lipid rate above the ceiling"}}
-{"case": "3.5 g over 20 h = 0.18: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.5}, "expect": {"alert": "Lipid rate above the ceiling", "level": "crit", "submit": "asks_reason"}}
+{"rule": "CR-LIPID-RATE", "kind": "critical", "coded": {"LIPID_GKGH": {"warn": 0.13, "max": 0.17}}, "where": [{"file": "data.js", "line": 825, "has": "const LIPID_GKGH = { warn: 0.13, max: 0.17 };"}, {"file": "data.js", "line": 1076, "has": "function lipidGkghAt(lipidPerKg, bagMl, hours) {"}, {"file": "calculator.jsx", "line": 1997, "has": "const lipidGkgh = D.lipidGkghAt(lipidPerKg, calc.lipidBagVol, lipidDripHours);"}]}
+{"case": "3.0 g over 24 h: 19 mL at 0.8 mL/hr runs 23.75 h = 0.13: no caution", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3}, "expect": {"no_alert": "Lipid rate near the ceiling"}}
+{"case": "3.05 g over 24 h: 19.25 mL at 0.9 mL/hr runs 21.4 h = 0.14: caution", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.05}, "expect": {"alert": "Lipid rate near the ceiling", "level": "warn", "shows": "0.14 g/kg/h over 21.4 h"}}
+{"case": "3.35 g over 20 h: 20.75 mL at 1 mL/hr runs 20.75 h = 0.16: not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.35}, "expect": {"no_alert": "Lipid rate above the ceiling"}}
+{"case": "3.4 g over 20 h: 21 mL at 1.1 mL/hr runs 19.1 h = 0.18: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.4}, "expect": {"alert": "Lipid rate above the ceiling", "level": "crit", "submit": "asks_reason"}}
+{"case": "0.17 is not above the ceiling", "side": "inside", "fn": "lipidGkghAt", "args": [4, 24, 24], "want": 0.17}
 ```
 
 ### CR-K-IV-MAX · IV potassium ceiling
@@ -1191,26 +1196,59 @@ Source: NF-17, Pp, 2026-10-11 (130.45 mL used to print 87.5 + 42.9 = 130.5).
 ### CR-R-LIPID-WHOLE-ML · the lipid syringe to a whole mL, on a tap
 
 Tapping Step 3's "Lipid volume" rounds the 20 % lipid syringe (`CR-U-FLUID`'s 0.2 g/mL, no overfill) to the
-nearest whole mL/day, half up, at least 1 mL, and sets 20 % lipid to the dose that volume gives: mL × 0.2 ÷ kg.
-The pump rate, g/kg/h (`CR-LIPID-RATE`), lipid kcal and the printed order follow from that dose. It never
-takes a dose at or under 4.0 g/kg/d above it (`CR-LIPID-IV-MAX`): there the whole mL below is used. A dose
-already above 4.0 rounds to the nearest mL like any other, and its critical alert stays. The dose is kept to
-the fewest decimals (2, else 3, else 4) that still give that whole mL at 0.1 mL (`CR-R-STOCK-ML`), so the box
-reads 2.02, not 2.0238095. Nothing rounds until the tap; a toast names the mL and the dose before and after.
+nearest whole mL/day, half up, and sets 20 % lipid to the dose that volume gives: mL × 0.2 ÷ kg. The pump
+rate (`CR-R-PUMP-RATE`), g/kg/h (`CR-LIPID-RATE`), lipid kcal and the printed order follow from that dose. A
+tap never makes a critical lipid line the typed dose did not have: where the nearest mL would take the dose
+above 4.0 g/kg/d (`CR-LIPID-IV-MAX`) or the g/kg/h above 0.17, the whole mL below is used (again, until
+neither holds). A line the typed dose already had stays, and that dose rounds to the nearest mL. Under 0.5 mL
+there is no whole mL and the dose is left as typed. The dose is kept to 2 decimals, else 3, whichever still
+gives that whole mL at 0.1 mL (`CR-R-STOCK-ML`); 3 always does up to 8 kg, and the order prints the lipid dose
+to 3 decimals so the printed dose and mL agree. Nothing rounds until the tap; a toast names the mL and the
+dose before and after.
 Source: Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ"; asked, she
-chose the nearest whole mL, and the whole mL below where rounding would cross 4.0. Not a clinical threshold.
+chose the nearest whole mL, and the whole mL below where rounding would cross 4.0 ("so a tap never creates a
+critical alert"). The g/kg/h ceiling, the 0.5 mL floor and the 3-decimal print: Vera on this PR, for Pp to
+confirm. Not a clinical threshold.
 
 ```rule
-{"rule": "CR-R-LIPID-WHOLE-ML", "kind": "round", "where": [{"file": "data.js", "line": 1068, "has": "function lipidDoseAtWholeMl(lipidPerKg, wtKg, gPerMl = KCMH_STOCK.smof20.gPerMl) {"}, {"file": "calculator.jsx", "line": 976, "has": "const roundLipidToWholeMl = () => {"}]}
-{"case": "1.68 kg, 2 g/kg/d = 16.8 mL: 17 mL, 2.02 g/kg/d", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [2, 1.68], "want": 2.02}
-{"case": "1.68 kg, 2.02 g/kg/d is 17 mL already: unchanged", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [2.02, 1.68], "want": 2.02}
-{"case": "1.68 kg, 3.9 g/kg/d = 32.8 mL: 33 mL, 3.93", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [3.9, 1.68], "want": 3.93}
-{"case": "1.68 kg, 4 g/kg/d = 33.6 mL: 34 mL would be 4.05, so 33 mL, 3.93", "side": "outside", "fn": "lipidDoseAtWholeMl", "args": [4, 1.68], "want": 3.93}
-{"case": "1.71 kg, 4 g/kg/d = 34.2 mL: 34 mL, 3.98", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [4, 1.71], "want": 3.98}
-{"case": "1.68 kg, 4.5 g/kg/d (already over 4) = 37.8 mL: 38 mL, 4.52", "side": "outside", "fn": "lipidDoseAtWholeMl", "args": [4.5, 1.68], "want": 4.52}
-{"case": "430 g, 1 g/kg/d = 2.15 mL: 2 mL, 0.93", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [1, 0.43], "want": 0.93}
+{"rule": "CR-R-LIPID-WHOLE-ML", "kind": "round", "where": [{"file": "data.js", "line": 1093, "has": "function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = {}) {"}, {"file": "calculator.jsx", "line": 976, "has": "const roundLipidToWholeMl = () => {"}]}
+{"case": "1.68 kg, 2 g/kg/d = 16.8 mL: 17 mL, 2.02 g/kg/d", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [2, 1.68, {"vitalipidMl": 6}], "want": 2.02}
+{"case": "1.68 kg, 2.02 g/kg/d is 17 mL already: unchanged", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [2.02, 1.68, {"vitalipidMl": 6}], "want": 2.02}
+{"case": "1.68 kg, 3.9 g/kg/d = 32.8 mL: 33 mL, 3.93", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [3.9, 1.68, {"vitalipidMl": 6}], "want": 3.93}
+{"case": "1.68 kg, 4 g/kg/d = 33.6 mL: 34 mL would be 4.05, so 33 mL, 3.93", "side": "outside", "fn": "lipidDoseAtWholeMl", "args": [4, 1.68, {"vitalipidMl": 6}], "want": 3.93}
+{"case": "1.71 kg, 4 g/kg/d = 34.2 mL: 34 mL, 3.98", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [4, 1.71, {"vitalipidMl": 6}], "want": 3.98}
+{"case": "1.68 kg, 4.5 g/kg/d (already over 4) = 37.8 mL: 38 mL, 4.52", "side": "outside", "fn": "lipidDoseAtWholeMl", "args": [4.5, 1.68, {"vitalipidMl": 6}], "want": 4.52}
+{"case": "400 g, 3.4 g/kg/d over 20 h (0.17): 7 mL would be 0.18, so 6 mL, 3", "side": "outside", "fn": "lipidDoseAtWholeMl", "args": [3.4, 0.4, {"hours": 20, "vitalipidMl": 1}], "want": 3}
+{"case": "3.5 kg, 1.5 g/kg/d = 26.25 mL: 26 mL needs 3 decimals, 1.486", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [1.5, 3.5, {"vitalipidMl": 10}], "want": 1.486}
+{"case": "400 g, 0.2 g/kg/d = 0.4 mL: under 0.5 mL, left as typed", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [0.2, 0.4, {"vitalipidMl": 1}], "want": 0.2}
+{"case": "430 g, 1 g/kg/d = 2.15 mL: 2 mL, 0.93", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [1, 0.43, {"vitalipidMl": 1}], "want": 0.93}
 {"case": "no lipid: nothing to round", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [0, 1.68], "want": null}
 {"case": "1,680 g on 2.02 g/kg/d prints 17 mL", "infant": {"g": 1680}, "route": "Central", "order": {"Volume(mL/day)": 200, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2.02}, "expect": {"shows": "17 mL/day", "prints": "2.02 g/kg/d = 17 mL"}}
+{"case": "3,500 g on 1.486 g/kg/d prints 1.486 = 26 mL", "infant": {"g": 3500}, "route": "Central", "order": {"Volume(mL/day)": 400, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1.486}, "expect": {"prints": "1.486 g/kg/d = 26 mL"}}
+```
+
+### CR-R-PUMP-RATE · pump rates at 0.1 mL/hr, and how long they run
+
+Both pumps set to 0.1 mL/hr: the TPN aqueous pump (its delivered volume over 24 h) and the lipid pump (the
+lipid bag over the hours typed). The rate is the nearest 0.1 (half up); where that would run the volume past
+24 h, it is rounded up to the next 0.1 instead. Step 3, the copied order, the printed order and Center Point
+show the rate and the hours it actually runs (volume ÷ rate, 1 decimal): 100 mL is 4.2 mL/hr for 23.8 h,
+130 mL is 5.5 mL/hr for 23.6 h (5.4 would run 24.1 h). The TPN pump's volume and every dose are unchanged; the
+pump stops when the bag is empty. Lipid g/kg/h is graded on those hours (`CR-LIPID-RATE`).
+Source: Pp, 2026-11-06: "Pump rate ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง infusion in กี่ hr ให้ ถ้าเกิน 24 ชม.
+ให้ปัดเพิ่ม rate แทน ให้ไม่เกิน"; asked, she chose 24 h as the limit (not the hours typed) and both pumps.
+Not a clinical threshold.
+
+```rule
+{"rule": "CR-R-PUMP-RATE", "kind": "round", "coded": {"PUMP_MAX_HOURS": 24}, "where": [{"file": "data.js", "line": 1064, "has": "const PUMP_MAX_HOURS = 24;"}, {"file": "data.js", "line": 1065, "has": "function pumpRate(volMl, hours = 24) {"}, {"file": "calculator.jsx", "line": 1995, "has": "const tpnPump = D.pumpRate(totalTPN_mL, 24);"}]}
+{"case": "100 mL over 24 h: 4.2 mL/hr", "side": "inside", "fn": "pumpRate", "args": [100, 24], "want": {"rate": 4.2, "hours": 23.80952380952381}}
+{"case": "130 mL: 5.4 would run 24.07 h, so 5.5", "side": "outside", "fn": "pumpRate", "args": [130, 24], "want": {"rate": 5.5, "hours": 23.636363636363637}}
+{"case": "lipid bag 22.8 mL over 24 h: 0.95 rounds half up to 1, 22.8 h", "side": "inside", "fn": "pumpRate", "args": [22.8, 24], "want": {"rate": 1, "hours": 22.8}}
+{"case": "lipid bag 22.8 mL over 16 h: 1.4 mL/hr runs 16.3 h (only 24 h forces it up)", "side": "inside", "fn": "pumpRate", "args": [22.8, 16], "want": {"rate": 1.4, "hours": 16.28571428571429}}
+{"case": "1 mL over 24 h: 0.04 is 0.0, so 0.1 mL/hr, 10 h", "side": "outside", "fn": "pumpRate", "args": [1, 24], "want": {"rate": 0.1, "hours": 10}}
+{"case": "no volume: no pump", "side": "inside", "fn": "pumpRate", "args": [0, 24], "want": null}
+{"case": "1 kg, TPN 100 mL: Step 3 shows 4.2 mL/hr, infusion 23.8 h", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "= 100 mL/day · infusion 23.8 h"}}
+{"case": "1.68 kg, lipid 2 g/kg/d: 16.8 + 6 = 22.8 mL, 1 mL/hr, infusion 22.8 h, printed", "infant": {"g": 1680}, "route": "Central", "order": {"Volume(mL/day)": 200, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "22.8 mL/day · infusion 22.8 h", "prints": "Rate 1 mL/hr, infusion 22.8 h"}}
 ```
 
 ---

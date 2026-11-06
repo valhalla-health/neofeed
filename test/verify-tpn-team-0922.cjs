@@ -263,7 +263,8 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     baseOrder();
     const rate = () => text(container.querySelector('.lipid-gkgh'));
     // 2 decimals since the TPN team's 2026-09-28 meeting (verify-tpn-meeting-0928 §5).
-    ok('2 g/kg/d over 24 h = 0.08 g/kg/h', /(^|[^\d.])0\.08 g\/kg\/h/.test(rate()), rate());
+    // Over the hours the pump actually runs since 2026-11-06 (Pp): 28 mL at 1.2 mL/hr is 23.3 h.
+    ok('2 g/kg/d over 24 h: 1.2 mL/hr runs 23.3 h = 0.09 g/kg/h', /(^|[^\d.])0\.09 g\/kg\/h/.test(rate()), rate());
     lipidHours(20);
     ok('…over 20 h = 0.1 g/kg/h', /(^|[^\d.])0\.1 g\/kg\/h/.test(rate()), rate());
     lipidHours(16);
