@@ -395,6 +395,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const [printJob, setPrintJob] = React.useState(null);
   const [autoPrint, setAutoPrint] = React.useState(null);
   const [printQueue, setPrintQueue] = React.useState(null);
+  const printQueueRef = React.useRef(null);
+  printQueueRef.current = printQueue;
+  const [printBatch, setPrintBatch] = React.useState(null);
+  const printTokenSeq = React.useRef(0);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local");
   const [lastSync, setLastSync] = React.useState(null);
@@ -419,6 +423,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setAutoPrint(null);
     setPrintWard(null);
     setPrintQueue(null);
+    setPrintBatch(null);
     setView(v);
   };
   React.useEffect(() => {
@@ -426,6 +431,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setPrintJob(null);
     const entry = (log[activeId] || []).find((e) => e.entryId === printJob.entryId);
     if (!entry) {
+      if (printQueueRef.current?.token === printJob.token) {
+        printAllResult(printJob.token, { reason: "ไม่พบใบสั่งนี้แล้ว" });
+        return;
+      }
       showToast("ไม่พบใบสั่งนี้แล้ว — กด Sync แล้วลองใหม่", "error");
       return;
     }
@@ -438,47 +447,90 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (view !== "calculator") setAutoPrint(null);
   }, [view]);
   const openOrderToPrint = (sessionId, entryId) => {
-    setPrintJob({ sessionId, entryId, token: Date.now() });
+    const token = `${Date.now()}-${++printTokenSeq.current}`;
+    setPrintJob({ sessionId, entryId, token });
     setActiveId(sessionId);
+    return token;
   };
   React.useEffect(() => {
     if (view !== "registry" || !printWard || !printQueue?.opening) return;
     const item = printQueue.items[printQueue.index];
     if (!item) {
+      setPrintBatch({
+        ward: printWard,
+        sheets: printQueue.sheets,
+        skipped: printQueue.skipped,
+        total: printQueue.items.length,
+        day: D_A.todayLocal(),
+        token: `${Date.now()}-${++printTokenSeq.current}`
+      });
       setPrintQueue(null);
       return;
     }
     const p = patients.find((x) => x.sessionId === item.sessionId);
     const order = wardPrintableOrder(p, log[item.sessionId], printWard, D_A.todayLocal());
     if (!order || order.entryId !== item.entryId) {
-      showToast(`ข้าม ${item.label || "ใบสั่งนี้"} — ไม่อยู่ในรายการ Print order แล้ว`, "error");
-      setPrintQueue({ ...printQueue, index: printQueue.index + 1 });
+      setPrintQueue({
+        ...printQueue,
+        index: printQueue.index + 1,
+        skipped: [...printQueue.skipped, { item, reason: "ไม่อยู่ในรายการ Print order แล้ว" }]
+      });
       return;
     }
-    setPrintQueue({ ...printQueue, opening: false });
-    openOrderToPrint(item.sessionId, item.entryId);
+    const token = openOrderToPrint(item.sessionId, item.entryId);
+    setPrintQueue({ ...printQueue, opening: false, token });
   }, [view, printWard, printQueue]);
   React.useEffect(() => {
-    if (!printWard) setPrintQueue(null);
+    if (!printWard) {
+      setPrintQueue(null);
+      setPrintBatch(null);
+    }
   }, [printWard]);
+  React.useEffect(() => {
+    if (view !== "registry" && view !== "calculator") {
+      setPrintQueue(null);
+      setPrintBatch(null);
+    }
+  }, [view]);
   const startPrintAll = (items) => {
-    if (items?.length) setPrintQueue({ items, index: 0, opening: true });
+    if (!items?.length) return;
+    setPrintBatch(null);
+    setPrintQueue({ items, index: 0, opening: true, token: null, sheets: [], skipped: [] });
   };
-  const printNextInQueue = () => {
-    if (printQueue) setPrintQueue({ ...printQueue, index: printQueue.index + 1, opening: true });
+  const printAllResult = (token, result) => {
+    const q = printQueueRef.current;
+    if (!q || q.opening || !token || q.token !== token) return;
+    const item = q.items[q.index];
+    const sheet = result?.sheet;
+    const sheetOk = !!sheet && !!item && sheet.getAttribute("data-session-id") === item.sessionId && sheet.getAttribute("data-entry-id") === item.entryId;
+    const next = {
+      ...q,
+      index: q.index + 1,
+      opening: true,
+      token: null,
+      sheets: sheetOk ? [...q.sheets, { item, sheet, basis: result.basis || "" }] : q.sheets,
+      skipped: sheetOk ? q.skipped : [...q.skipped, { item, reason: !sheet && result?.reason || "ใบที่ได้ไม่ตรงกับใบสั่งที่เปิด" }]
+    };
+    printQueueRef.current = next;
+    setPrintQueue(next);
     setView("registry");
   };
+  React.useEffect(() => {
+    const token = printQueue && !printQueue.opening ? printQueue.token : null;
+    if (!token) return;
+    const t = setTimeout(() => printAllResult(
+      token,
+      { reason: "เปิดใบสั่งไม่สำเร็จภายในเวลา (เครือข่ายช้า?)" }
+    ), PRINT_ALL_STEP_MS);
+    return () => clearTimeout(t);
+  }, [printQueue?.token, printQueue?.opening]);
   const backToPrintList = () => {
     setPrintQueue(null);
+    setPrintBatch(null);
     setView("registry");
   };
   const queuedOrder = printQueue && !printQueue.opening ? printQueue.items[printQueue.index] : null;
-  const printAllStep = queuedOrder && view === "calculator" && autoPrint && printWard && editEntry && editEntry.entryId === queuedOrder.entryId && activeId === queuedOrder.sessionId ? {
-    position: printQueue.index + 1,
-    total: printQueue.items.length,
-    hasNext: printQueue.index + 1 < printQueue.items.length,
-    next: printQueue.items[printQueue.index + 1]?.label || ""
-  } : null;
+  const printAllStep = queuedOrder && view === "calculator" && autoPrint && printWard && editEntry && autoPrint === printQueue.token && editEntry.entryId === queuedOrder.entryId && activeId === queuedOrder.sessionId ? { position: printQueue.index + 1, total: printQueue.items.length, label: queuedOrder.label || "" } : null;
   const active = patients.find((p) => p.sessionId === activeId);
   const dol = D_A.liveDol(active);
   const [ackVersion, setAckVersion] = React.useState(0);
@@ -1381,7 +1433,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return /* @__PURE__ */ React.createElement(SyncGate, { online, failed: syncState === "error", detail: syncError, onRetry: () => syncFromGAS() });
   }
   shellReadyRef.current = true;
-  const showQuickFab = view === "registry" && !printWard;
+  const showQuickFab = view === "registry" && !printWard && !ward;
   return /* @__PURE__ */ React.createElement("div", { className: showQuickFab ? "app has-quick-fab" : "app" }, /* @__PURE__ */ React.createElement("div", { className: "topbar" }, /* @__PURE__ */ React.createElement("div", { className: "brandmark" }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, null)), /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -1536,7 +1588,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       mergeBaseFor,
       onDelete: role === "admin" ? handleDeletePatient : void 0
     }
-  ), view === "registry" && /* @__PURE__ */ React.createElement(
+  ), view === "registry" && printBatch && printWard === printBatch.ward && /* @__PURE__ */ React.createElement(WardPrintBatch, { batch: printBatch, patients, log, onBack: () => setPrintBatch(null) }), view === "registry" && !(printBatch && printWard === printBatch.ward) && /* @__PURE__ */ React.createElement(
     PatientRegistry,
     {
       patients,
@@ -1596,7 +1648,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       autoPrint,
       onBackToPrintList: autoPrint && printWard ? backToPrintList : null,
       printAll: printAllStep,
-      onPrintAllNext: printNextInQueue,
+      onPrintAllResult: printAllResult,
       goTo
     }
   ), view === "fenton" && active && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Fenton 2025 growth chart"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)"))), /* @__PURE__ */ React.createElement(FentonChart, { patient: active, entries: log[activeId] || [], currentDol: dol, onUpdate: (weights) => handleWeightUpdate(active.sessionId, weights) })), view === "log" && active && /* @__PURE__ */ React.createElement(
@@ -1674,6 +1726,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   ));
 }
 const LOG_LOCK_HEARTBEAT_MS = 45e3;
+const PRINT_ALL_STEP_MS = 4e4;
 function useDailyLogLock(sessionId, dateStr, token) {
   const [holder, setHolder] = React.useState(null);
   const [checked, setChecked] = React.useState(false);
@@ -1736,7 +1789,7 @@ function CalculatorView({
   autoPrint = null,
   onBackToPrintList = null,
   printAll = null,
-  onPrintAllNext = null
+  onPrintAllResult = null
 }) {
   const today = D_A.todayLocal();
   const [reportedOrderDate, setReportedOrderDate] = React.useState(null);
@@ -1752,21 +1805,39 @@ function CalculatorView({
   };
   const [autoPrintHeld, setAutoPrintHeld] = React.useState(null);
   const autoPrintSent = React.useRef(null);
-  const autoRequestPrint = () => {
+  const captureSheet = (token2, reason) => {
+    const sid = active.sessionId, eid = editEntry?.entryId;
+    const basis = printSheetBasis(active, log[activeId] || []);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const form = document.getElementById("print-form");
+      if (reason || !form || !eid || form.getAttribute("data-session-id") !== sid || form.getAttribute("data-entry-id") !== eid) {
+        onPrintAllResult?.(token2, { reason: reason || "ยังพิมพ์ไม่ได้ — เปิดใบสั่งนี้เพื่อดูเหตุผล" });
+        return;
+      }
+      const sheet = form.cloneNode(true);
+      sheet.removeAttribute("id");
+      sheet.classList.add("print-batch-sheet");
+      sheet.style.display = "";
+      onPrintAllResult?.(token2, { sheet, basis });
+    }));
+  };
+  const autoRequestPrint = (reason) => {
     autoPrintSent.current = autoPrint;
-    requestPrint();
+    if (printAll) captureSheet(autoPrint, reason);
+    else requestPrint();
   };
   React.useEffect(() => {
     if (!autoPrint || !holder || autoPrintHeld === autoPrint || autoPrintSent.current === autoPrint) return;
     setAutoPrintHeld(autoPrint);
-    showToast(`ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — ${holder.name || holder.email || "ผู้ใช้งานอื่น"} กำลังเปิดบันทึกนี้อยู่ ตรวจสอบก่อนกด Print order`, "error");
+    const who = holder.name || holder.email || "ผู้ใช้งานอื่น";
+    if (printAll) {
+      onPrintAllResult?.(autoPrint, { reason: `${who} กำลังเปิดบันทึกนี้อยู่` });
+      return;
+    }
+    showToast(`ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — ${who} กำลังเปิดบันทึกนี้อยู่ ตรวจสอบก่อนกด Print order`, "error");
   }, [autoPrint, holder]);
   const autoPrintNow = editEntry && autoPrint && lockChecked && !holder && autoPrintHeld !== autoPrint ? autoPrint : null;
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && (onBackToPrintList ? /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBackToPrintList }, "← กลับไปรายการ Print order") : /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard")), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol, orderDate !== today ? ` · ${fmtDate(orderDate)}` : "")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: requestPrint }, /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }), " Print order"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => goTo("guidelines") }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14 }), " Reference values"))), printAll && /* @__PURE__ */ React.createElement("div", { className: "print-all-bar", role: "status" }, /* @__PURE__ */ React.createElement("span", null, "Print ทั้งหมด · ใบที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.position), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.total)), printAll.hasNext ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn primary", onClick: onPrintAllNext }, "ถัดไป: ", printAll.next, " ", /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: "#fff" })) : (
-    // "ใบสุดท้าย", not "ครบ N ใบ": the run cannot know a sheet printed —
-    // a held order or a cancelled dialog looks the same from here (Vera).
-    /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: onBackToPrintList }, "ใบสุดท้าย · กลับไปรายการ")
-  )), holder && /* @__PURE__ */ React.createElement("div", { style: {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, editEntry && (onBackToPrintList ? /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: onBackToPrintList }, "← กลับไปรายการ Print order") : /* @__PURE__ */ React.createElement("button", { className: "login-alt-link", style: { padding: 0, marginBottom: 4 }, onClick: () => goTo("log") }, "← กลับไป Dashboard")), /* @__PURE__ */ React.createElement("h1", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, editEntry ? "แก้ไขบันทึกโภชนาการ" : "TPN + Enteral nutrition order", /* @__PURE__ */ React.createElement("span", { className: "chip brand", style: { fontSize: 13, fontWeight: 700 } }, "DOL ", displayDol, orderDate !== today ? ` · ${fmtDate(orderDate)}` : "")), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Real-time targets vs. ESPGHAN 2018 thresholds")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, !printAll && /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: requestPrint }, /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14 }), " Print order"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => goTo("guidelines") }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14 }), " Reference values"))), printAll && /* @__PURE__ */ React.createElement("div", { className: "print-all-bar", role: "status" }, /* @__PURE__ */ React.createElement("span", null, "กำลังเตรียม Print ทั้งหมด · ใบที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.position), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, printAll.total), printAll.label ? ` · ${printAll.label}` : "", /* @__PURE__ */ React.createElement("span", { className: "print-all-hint" }, " — ไม่ต้องกดอะไร จะเปิดหน้าพิมพ์ครั้งเดียวเมื่อครบ")), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: onBackToPrintList }, "ยกเลิก")), holder && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 12px",
     background: "var(--warn-bg)",
     border: "1px solid var(--warn-line)",

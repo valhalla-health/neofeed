@@ -173,9 +173,13 @@ async function visit(browser, BASE, file, [name, W, H, touch], only) {
     await look('register');
     await page.locator('.picker .icon-btn').first().click({ timeout: 5000 });
     await page.waitForTimeout(200);
+    // The quick calc's button is on the ward gate only (Pp, 2026-11-06), so
+    // out to the gate for it, and back into the ward after.
+    await page.locator('button', { hasText: 'เปลี่ยน ward' }).click({ timeout: 5000 });
     await page.locator('.quick-fab').click({ timeout: 5000 });
     await look('quick calc');
     await page.locator('button', { hasText: 'กลับไป Ward' }).click({ timeout: 5000 });
+    await page.locator('.ward-tile').first().click({ timeout: 5000 });
     await page.waitForTimeout(300);
     await (W < 768 ? page.locator('.patient-mc').first().locator('button', { hasText: 'Open' })
                    : page.locator('tr button', { hasText: 'Open' }).first()).click({ timeout: 5000 });

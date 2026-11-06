@@ -1805,7 +1805,7 @@ that one by name and goes on (Vera's five tests, each failing on the first commi
 (`326bcd9`), every scenario fails. **`verify-phone-sweep.cjs`** measures the
 button on every device profile (at the head's right edge, level with its top, beside the title), the
 ticks at 44px or more, and no Calculator button. **`verify-quick-calc.cjs`** pins
-`showQuickFab = view === "registry" && !printWard`.
+`showQuickFab = view === "registry" && !printWard && !ward` (the ward gate only, Pp 2026-11-06).
 ## The reference tables, 2026-10-28 — one harness (NF-28)
 
 **`verify-reference-tabs.cjs`** (Node only, no jsdom) checks every cell of the tables the calculator
