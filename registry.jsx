@@ -280,6 +280,18 @@ function wardPrintableOrder(p, entries, ward, today) {
     && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;
 }
 
+// What one order's printed sheet is drawn from: the infant's record and every
+// row of its log, as the calculator that rendered it was given them (app.jsx
+// CalculatorView). A copy waiting in Print ทั้งหมด's job prints only while
+// this is unchanged (Vera, 2026-11-06, BLOCK): a correction to the record keeps
+// the entry id yet can move the dosing weight (a birth weight above the current
+// weight, UP-C2), the name or the bed on the sheet, and a revised earlier order
+// moves the sheet's "changes since" — any of them leaves the job, and the
+// order is opened again from the list.
+function printSheetBasis(p, entries) {
+  try { return p ? JSON.stringify([p, entries || []]) : ""; } catch { return ""; }
+}
+
 // Print ทั้งหมด's one print job (Pp, 2026-11-06: "ถ้ากดปริ้นท์ทั้งหมดแล้วไม่ต้อง
 // เข้ามากดทีละคนอีกได้ไหม ให้ปริ้นออกมาเลย"). `batch` is the finished run
 // (app.jsx printBatch): a copy of each order's sheet, taken from its own
@@ -294,19 +306,20 @@ function wardPrintableOrder(p, entries, ward, today) {
 // still the infant's order now (Vera, 2026-11-06, BLOCK): each is asked the
 // list's rule again (wardPrintableOrder) against the log as it is at every
 // render and again at the tap. One revised, deleted, moved or discharged since
-// it was copied leaves the job, named as changed. Past the day the job was
-// made, nothing in it prints: the user goes back to the list and starts again.
+// it was copied leaves the job, named as changed, and so does one whose
+// infant's record or log changed in any way since (printSheetBasis). Past the
+// day the job was made, nothing in it prints: back to the list to start again.
 function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
   const wardName = batch.ward === "other" ? "อื่นๆ" : batch.ward;
   const sheetsRef = React.useRef(null);
   const today = D_R.useTodayLocal();
-  const stillOrder = (item, day) => {
+  const stillOrder = ({ item, basis }, day) => {
     const p = patients.find(x => x.sessionId === item.sessionId);
     const order = wardPrintableOrder(p, log[item.sessionId], batch.ward, day);
-    return !!order && order.entryId === item.entryId;
+    return !!order && order.entryId === item.entryId && !!basis && basis === printSheetBasis(p, log[item.sessionId] || []);
   };
   const dayOver = today !== batch.day;
-  const fresh = dayOver ? [] : batch.sheets.filter(({ item }) => stillOrder(item, today));
+  const fresh = dayOver ? [] : batch.sheets.filter(s => stillOrder(s, today));
   const changed = dayOver ? [] : batch.sheets.filter(s => !fresh.includes(s));
   const freshKey = fresh.map(({ item }) => item.entryId).join("|");
   // Why the last tap printed nothing, when it did not.
@@ -330,7 +343,7 @@ function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
     if (now !== batch.day) { setRefused("day"); return; }
     const host = sheetsRef.current;
     const inHost = host ? [...host.children].map(el => el.getAttribute("data-entry-id")).join("|") : "";
-    const nowKey = batch.sheets.filter(({ item }) => stillOrder(item, now)).map(({ item }) => item.entryId).join("|");
+    const nowKey = batch.sheets.filter(s => stillOrder(s, now)).map(({ item }) => item.entryId).join("|");
     if (!host || inHost !== nowKey || !nowKey) { setRefused("changed"); return; }
     setRefused("");
     requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
@@ -342,7 +355,7 @@ function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
     print();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batch]);
-  const held = [...batch.skipped, ...changed.map(({ item }) => ({ item, reason: "เปลี่ยนไปหลังเตรียมชุดพิมพ์ (แก้ไข ลบ ย้าย หรือจำหน่าย)" }))];
+  const held = [...batch.skipped, ...changed.map(({ item }) => ({ item, reason: "เปลี่ยนไปหลังเตรียมชุดพิมพ์ (ใบสั่งหรือข้อมูลผู้ป่วยถูกแก้ไข ลบ ย้าย หรือจำหน่าย)" }))];
   const dayOverNow = dayOver || refused === "day";
 
   return (

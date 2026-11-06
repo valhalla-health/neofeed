@@ -508,7 +508,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       index: q.index + 1,
       opening: true,
       token: null,
-      sheets: sheetOk ? [...q.sheets, { item, sheet }] : q.sheets,
+      sheets: sheetOk ? [...q.sheets, { item, sheet, basis: result.basis || "" }] : q.sheets,
       skipped: sheetOk ? q.skipped : [...q.skipped, { item, reason: !sheet && result?.reason || "ใบที่ได้ไม่ตรงกับใบสั่งที่เปิด" }]
     };
     printQueueRef.current = next;
@@ -1807,6 +1807,7 @@ function CalculatorView({
   const autoPrintSent = React.useRef(null);
   const captureSheet = (token2, reason) => {
     const sid = active.sessionId, eid = editEntry?.entryId;
+    const basis = printSheetBasis(active, log[activeId] || []);
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const form = document.getElementById("print-form");
       if (reason || !form || !eid || form.getAttribute("data-session-id") !== sid || form.getAttribute("data-entry-id") !== eid) {
@@ -1817,7 +1818,7 @@ function CalculatorView({
       sheet.removeAttribute("id");
       sheet.classList.add("print-batch-sheet");
       sheet.style.display = "";
-      onPrintAllResult?.(token2, { sheet });
+      onPrintAllResult?.(token2, { sheet, basis });
     }));
   };
   const autoRequestPrint = (reason) => {

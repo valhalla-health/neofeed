@@ -46,15 +46,19 @@ ward, that is the follow-up").
 - **A waiting job prints only what is still the order now** (Vera's BLOCK, below). Each copy is asked
   `wardPrintableOrder` again against the log at every render and again at the tap. One revised, deleted, moved or
   discharged since it was copied leaves the job, named "เปลี่ยนไปหลังเตรียมชุดพิมพ์". Past the day the job was made
-  (`printBatch.day`), nothing prints and the page says "วันเปลี่ยนแล้ว", back to the list.
+  (`printBatch.day`), nothing prints and the page says "วันเปลี่ยนแล้ว", back to the list. Each copy also carries what
+  it was drawn from, the infant's record and log as its calculator had them (`registry.jsx` `printSheetBasis`); any
+  change to either since (a birth-weight correction, a name or bed, an earlier order revised) leaves the job too.
 
 - **"แพทย์" on the printed sheet is a blank line to sign** (Pp, in the same thread: "รายชื่อแพทย์ตรงหน้าปริ้น
   ไม่ต้องขึ้นตามล็อกอินก็ได้ เพราะต้องลงชื่อใหม่อยู่ดี"). It printed the name of whoever saved the order (TPN team,
   2026-09-22, "so pharmacy knows whom to call"); with a nurse printing the ward and each sheet checked and signed by
-  hand, that could name someone other than the signer. `nameOnlyOf` goes. The back sheet's "บันทึกโดย" and the saved
-  row still record the saver. `verify-tpn-team-0922`, `verify-tpn-meeting-0928` § 8 and `verify-print-one-page-1102`
-  now expect the blank line. ⚠️ The printed front no longer names a doctor in print: pharmacy reads the handwriting and
-  the รหัส line, and the TPN team's 2026-09-22 reason for the name has not been put back to them.
+  hand, that could name someone other than the signer. `nameOnlyOf` goes. `verify-tpn-team-0922`, `verify-tpn-meeting-0928`
+  § 8 and `verify-print-one-page-1102` now expect the blank line. ⚠️ **The saver's name no longer prints anywhere on
+  paper**: the back sheet's "บันทึกโดย" is on screen only, since `.print-back` does not print (2026-10-28), so the
+  second commit's "the back sheet still records who saved" holds for the screen and the saved row, not the paper.
+  Pharmacy reads the handwriting and the รหัส line. Open for Pp: whether pharmacy needs a printed name or code (the
+  TPN team asked for the name on 2026-09-22 "so pharmacy knows whom to call"), and telling the TPN team.
 
 ### Decisions
 
@@ -75,6 +79,12 @@ or a job left on screen past midnight, would reach pharmacy on the tap (fixed in
 in, `revised` 8.12–8.15 and `nextday` 8.16–8.17, and fail on the second commit). 🟠 Nothing laid the job out in a
 browser: `verify-print-one-page-1102.cjs` § 2c now prints the fullest sheets as one job in Chromium and finds one A4
 page per sheet, each signature on its own page. A real ward printer is still to come.
+
+Second review, of all three commits: BLOCK. 🔴 The re-check compared only the entry id, and a correction to the
+infant's record keeps it: a birth weight raised above the current weight moves the dosing weight (UP-C2), which holds
+Print on the single-order path, yet the waiting copy printed (fixed in the fourth commit with `printSheetBasis`; her
+test went in, `bwfix` 8.18–8.20, and fails on the third commit). 🟠 The second commit said the back sheet still names
+the saver, but the back does not print: corrected above, and left to Pp.
 
 ### Checked
 

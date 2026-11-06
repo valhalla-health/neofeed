@@ -736,7 +736,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const printQueueRef = React.useRef(null);
   printQueueRef.current = printQueue;
   // The finished run, shown in place of the list (registry.jsx WardPrintBatch):
-  // { ward, sheets: [{ item, sheet }], skipped: [{ item, reason }], total, day, token }.
+  // { ward, sheets: [{ item, sheet, basis }], skipped: [{ item, reason }], total, day, token }.
   const [printBatch, setPrintBatch] = React.useState(null);
   // One token per order opened to print: unique within the tab, whatever the clock says.
   const printTokenSeq = React.useRef(0);
@@ -849,7 +849,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const sheetOk = !!sheet && !!item && sheet.getAttribute("data-session-id") === item.sessionId
       && sheet.getAttribute("data-entry-id") === item.entryId;
     const next = { ...q, index: q.index + 1, opening: true, token: null,
-      sheets: sheetOk ? [...q.sheets, { item, sheet }] : q.sheets,
+      sheets: sheetOk ? [...q.sheets, { item, sheet, basis: result.basis || "" }] : q.sheets,
       skipped: sheetOk ? q.skipped
         : [...q.skipped, { item, reason: (!sheet && result?.reason) || "ใบที่ได้ไม่ตรงกับใบสั่งที่เปิด" }] };
     printQueueRef.current = next;
@@ -2821,6 +2821,8 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
   // instead, and the order is skipped by name.
   const captureSheet = (token, reason) => {
     const sid = active.sessionId, eid = editEntry?.entryId;
+    // What this render's sheet was drawn from (registry.jsx printSheetBasis).
+    const basis = printSheetBasis(active, log[activeId] || []);
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const form = document.getElementById("print-form");
       if (reason || !form || !eid || form.getAttribute("data-session-id") !== sid || form.getAttribute("data-entry-id") !== eid) {
@@ -2831,7 +2833,7 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
       sheet.removeAttribute("id");
       sheet.classList.add("print-batch-sheet");
       sheet.style.display = "";
-      onPrintAllResult?.(token, { sheet });
+      onPrintAllResult?.(token, { sheet, basis });
     }));
   };
   const autoRequestPrint = (reason) => {

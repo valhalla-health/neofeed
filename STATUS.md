@@ -3,7 +3,8 @@
 > ⏳ **2026-11-06 — Print ทั้งหมด as one print job (this PR): open, not merged.** One tap collects every ticked order's
 > sheet through its own calculator's Print gate and edit lock, then opens one print dialog (by itself when none was
 > held back; on a tap of "พิมพ์ N ใบ" after naming any that were). The sheet's "แพทย์" line is now blank, signed by
-> hand, no longer the saver's name (Pp, same thread). Frontend only (`app.jsx`, `registry.jsx`,
+> hand, no longer the saver's name (Pp, same thread); the saver's name now prints nowhere on paper — open for Pp whether
+> pharmacy needs one, and the TPN team to be told. Frontend only (`app.jsx`, `registry.jsx`,
 > `calculator.jsx` adds two attributes to the sheet, both shells), no figure changed, no `clasp` step. ⚠️ Not yet
 > printed on a ward printer or from a phone's print dialog. `CHANGELOG.md` 2026-11-06 (2).
 >

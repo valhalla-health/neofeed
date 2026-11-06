@@ -478,6 +478,29 @@ scenarios['revised'] = async (A) => {
   A.ok('8.15 …and names BB as changed since it was collected', /NICU 2 BB — เปลี่ยนไปหลังเตรียมชุดพิมพ์/.test(skipped()), skipped());
 };
 
+// Vera's third review (2026-11-06, BLOCK): a correction to the infant's own
+// record keeps the entry id, yet the calculator would now hold the order (a
+// birth weight above the current weight moves the dosing weight, UP-C2). A
+// waiting job drops the sheet as it would a revision.
+scenarios['bwfix'] = async (A) => {
+  console.log('\n── #8i a birth-weight correction after the sheet was copied ──');
+  const t = setup();
+  t.server.hooks.acquireLogLock = (b) => (b.sessionId === 'AA-1' ? { reply: { ok: true, locked: true, holder: { name: 'Dr B' } } } : undefined);
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await runDone(t);
+  A.ok('8.18 the job waits for its tap, with BB and DD in it', t.printed === 0 && sheetsMatch(['BB-1', 'e-bb'], ['DD-1', 'e-dd']));
+  t.server.patients.find(p => p.sessionId === 'BB-1').bw = 1200;
+  await t.click(t.syncButton());
+  await settle(t);
+  const go = t.btn(/พิมพ์ \d+ ใบ/);
+  if (go) await t.click(go);
+  await settle(t);
+  A.ok('8.19 the tap prints DD\'s alone, not BB\'s sheet dosed on the old weight', t.printed === 1 && t.printedSheets.join() === 'DD-1', [t.printed, t.printedSheets]);
+  A.ok('8.20 …and names BB as changed since it was collected', /NICU 2 BB — เปลี่ยนไปหลังเตรียมชุดพิมพ์/.test(skipped()), skipped());
+};
+
 scenarios['nextday'] = async (A) => {
   console.log('\n── #8h a job left on screen past midnight ──');
   const t = setup();

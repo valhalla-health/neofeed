@@ -143,17 +143,24 @@ function wardPrintableOrder(p, entries, ward, today) {
   const orders = todaysOrders(entries, today);
   return orders.length === 1 && !isPendingRow(orders[0]) && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;
 }
+function printSheetBasis(p, entries) {
+  try {
+    return p ? JSON.stringify([p, entries || []]) : "";
+  } catch {
+    return "";
+  }
+}
 function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
   const wardName = batch.ward === "other" ? "อื่นๆ" : batch.ward;
   const sheetsRef = React.useRef(null);
   const today = D_R.useTodayLocal();
-  const stillOrder = (item, day) => {
+  const stillOrder = ({ item, basis }, day) => {
     const p = patients.find((x) => x.sessionId === item.sessionId);
     const order = wardPrintableOrder(p, log[item.sessionId], batch.ward, day);
-    return !!order && order.entryId === item.entryId;
+    return !!order && order.entryId === item.entryId && !!basis && basis === printSheetBasis(p, log[item.sessionId] || []);
   };
   const dayOver = today !== batch.day;
-  const fresh = dayOver ? [] : batch.sheets.filter(({ item }) => stillOrder(item, today));
+  const fresh = dayOver ? [] : batch.sheets.filter((s) => stillOrder(s, today));
   const changed = dayOver ? [] : batch.sheets.filter((s) => !fresh.includes(s));
   const freshKey = fresh.map(({ item }) => item.entryId).join("|");
   const [refused, setRefused] = React.useState("");
@@ -175,7 +182,7 @@ function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
     }
     const host = sheetsRef.current;
     const inHost = host ? [...host.children].map((el) => el.getAttribute("data-entry-id")).join("|") : "";
-    const nowKey = batch.sheets.filter(({ item }) => stillOrder(item, now)).map(({ item }) => item.entryId).join("|");
+    const nowKey = batch.sheets.filter((s) => stillOrder(s, now)).map(({ item }) => item.entryId).join("|");
     if (!host || inHost !== nowKey || !nowKey) {
       setRefused("changed");
       return;
@@ -189,7 +196,7 @@ function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
     autoPrinted.current = batch.token;
     print();
   }, [batch]);
-  const held = [...batch.skipped, ...changed.map(({ item }) => ({ item, reason: "เปลี่ยนไปหลังเตรียมชุดพิมพ์ (แก้ไข ลบ ย้าย หรือจำหน่าย)" }))];
+  const held = [...batch.skipped, ...changed.map(({ item }) => ({ item, reason: "เปลี่ยนไปหลังเตรียมชุดพิมพ์ (ใบสั่งหรือข้อมูลผู้ป่วยถูกแก้ไข ลบ ย้าย หรือจำหน่าย)" }))];
   const dayOverNow = dayOver || refused === "day";
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head print-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("h1", null, "Print ทั้งหมด · ", wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "พร้อมพิมพ์ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, dayOverNow ? 0 : n), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, batch.total), " ใบ", !dayOverNow && held.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ข้าม ", /* @__PURE__ */ React.createElement("span", { className: "num" }, held.length), " ใบ")), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onBack, style: { fontSize: 12.5, marginTop: 10 } }, "← กลับไปรายการ")), n > 0 && !dayOverNow && /* @__PURE__ */ React.createElement(
     "button",
