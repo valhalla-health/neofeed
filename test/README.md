@@ -1356,8 +1356,8 @@ the requests that change what the screen and the form show and need no new numbe
   ticks the paper form's own "20% SMOF";
 - § 6, both phosphate notes give P per mL;
 - § 7, "สารน้ำเกินแผน" and "IV เกินแผนสารน้ำ" where "Over target" and "IV เกิน target" were;
-- § 8, no Nutritional Status on the front, "แพทย์" with the name only (blank for a row saved with an email
-  alone), and the back sheet still naming the saver with the email;
+- § 8, no Nutritional Status on the front, "แพทย์" a blank line to sign for every order since 2026-11-06 (#224; it
+  printed the saver's name until then), and the back sheet still naming the saver with the email;
 - § 9, preterm, post-discharge and high-energy feeds in their own groups, every feed still offered once,
   and the Formula page (a static read of `app.jsx`) grouped the same way with Pre Nan on it.
 
@@ -1790,18 +1790,19 @@ osmolarity graded `>` instead of `>=`) must fail: 7 and 4 failures. 607 checks w
 
 Pp: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด และไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง", then "ให้สามารถมีปุ่มซีเล็ก
 เป็น คน ๆ ไปได้หรือซีเล็กออลก็ได้" (`CHANGELOG.md` 2026-10-28 (2)). **`verify-print-all-1028.cjs`** drives the
-real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`), 83 checks in thirteen scenarios: the
-button sits after the title block and counts only what a tap would print (no `tmp_` row, no two-orders
-day); no Calculator button on the print list, still one on the gate and the ward list; a run opens the
-orders in bed order, each printed once on its own infant's sheet with another infant active first,
-afterprint moves nothing on, ถัดไป opens the next, the last reads "ใบสุดท้าย" and claims no count, a second
-Print ทั้งหมด starts over; a colleague's lock holds that order (the last one too) and ถัดไป still goes on;
-an order the Print gate holds back says why and ถัดไป still goes on; leaving by ← or the rail ends the run;
-nothing printable leaves the button off, no order leaves no button; a tick per printable row beside its
-card, เลือกทั้งหมด ticks, clears and shows part-ticked, the button reads Print ทั้งหมด or Print ที่เลือก with
-the count, the run is the ticked orders only, a tap on a row still prints one; a sync during the run that
-gives an infant a second order, deletes an order, discharges or moves an infant, or crosses midnight skips
-that one by name and goes on (Vera's five tests, each failing on the first commit). Against `main`
+real `<App/>` through `review-0917-boot` (jsdom; also against `compiled/`). Since 2026-11-06 (#224, one print job;
+`CHANGELOG.md` 2026-11-06 (2)) it is 90 checks in eighteen scenarios: the button sits after the title block and counts
+only what a tap would print (no `tmp_` row, no two-orders day); no Calculator button on the print list, nor on the
+ward list since #222, only on the gate; one tap collects each order in bed order, with nothing to tap and no print
+dialog while an order is open, and ends on one print job whose dialog opens once by itself, each sheet the doctor's
+sheet for its own infant and today's entry, with no `#print-form` or calculator left behind; afterprint, a re-render
+or a sync prints nothing again, "พิมพ์ N ใบ" prints the same job on a tap, ← กลับไปรายการ is the list again and a
+second Print ทั้งหมด starts over; a colleague's lock or the Print gate holds an order back and the page names it and
+why before "พิมพ์ N ใบ"; leaving ends the run; nothing printable, or no submitted order, leaves the button off; a tick
+per printable row, เลือกทั้งหมด, and Print ที่เลือก for the ticked orders only; a sync during the run that takes an
+order off the list, moves an infant to another ward, rolls the day over, never answers, hands back a sheet that is
+not the order opened, revises an order or corrects a birth weight after its sheet was copied, or leaves a job on
+screen past midnight, drops that sheet by name; a No TPN order is not printed. Against `main`
 (`326bcd9`), every scenario fails. **`verify-phone-sweep.cjs`** measures the
 button on every device profile (at the head's right edge, level with its top, beside the title), the
 ticks at 44px or more, and no Calculator button. **`verify-quick-calc.cjs`** pins
@@ -2083,7 +2084,8 @@ writes a revision; the unlocked order's press writes one too, and Submit stays e
 ## One A4 page for the doctor's order, 2026-11-02 — one harness
 
 The doctor's printed order is one A4 page at its fullest, with the signature on it (`CHANGELOG.md`
-2026-11-02). **`verify-print-one-page-1102.cjs`** (68 checks; the jsdom set, plus a Chromium section that
+2026-11-02). **`verify-print-one-page-1102.cjs`** (71 checks since § 2c, 2026-11-06: Print ทั้งหมด's one job prints N
+sheets as N pages, each with its own signature line; the jsdom set, plus a Chromium section that
 prints SKIP without playwright and that CI runs) saves three real orders through Submit, each with every
 stock line, a feed and five oral lines: no critical alert, one (KCl 6 mEq/kg/d), and several. §1a: with no
 alert there is no red box and the signature line is as it was (the doctor and the code, 14 px below what it

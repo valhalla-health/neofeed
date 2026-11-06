@@ -5,17 +5,19 @@
 > those hours. The printed lipid line changes on every order with lipid, so `CONSTANTS_VERSION` moves to `2026-11-06.1`:
 > once released, an order saved before it prints only after it is saved again.
 >
-> ⏳ **2026-11-06 — No Calculator button inside a ward, แสดงทั้งหมด on the filter's line (#222): merged into
-> `main` 2026-11-07 01:00 ICT on Praew's instruction, not live; in release PR #225 (open).** UI only, frontend only; no
-> calculation, printed figure or backend change.
+> ⏳ **2026-11-06 — Step 2's milk list (#223): merged into `main` 2026-11-07 03:36 ICT on Praew's instruction, not live.** "FBM 24 ↔
+> Infatrini 30 (alternating)" leaves the Feed type list (two feeds do it; orders saved on it still compute) and
+> "LF — HiQ LF" reads "HiQ LF". No figure moves. It goes out with the next release PR.
 >
-> ⏳ **2026-11-06 — Print ทั้งหมด as one print job (PR #224): merged into `main` 2026-11-07 00:25 ICT, not live; release PR #225 open.** One tap collects every ticked order's
-> sheet through its own calculator's Print gate and edit lock, then opens one print dialog (by itself when none was
-> held back; on a tap of "พิมพ์ N ใบ" after naming any that were). The sheet's "แพทย์" line is now blank, signed by
-> hand, no longer the saver's name (Pp, same thread); the saver's name now prints nowhere on paper, which Pp chose
-> on 2026-11-06 (blank, no printed name). ⚠️ The TPN team still has to be told. Frontend only (`app.jsx`, `registry.jsx`,
-> `calculator.jsx` adds two attributes to the sheet, both shells), no figure changed, no `clasp` step. ⚠️ Not yet
-> printed on a ward printer or from a phone's print dialog. `CHANGELOG.md` 2026-11-06 (2).
+> ✅ **2026-11-07, 02:52 ICT — frontend `release` = `f3a7771` (PR #225), on Pp's go-ahead** ("ถ้า CI ผ่านแล้ว merge
+> และ deploy เลย"; "1. Ok" for #222; "2. Wait" for #228). Released #224 (Print ทั้งหมด is one print job; the sheet's
+> "แพทย์" is a blank line to sign, and the saver's name prints nowhere on paper), #222 (no Calculator button inside a
+> ward; แสดงทั้งหมด on the filter's line) and #228 (no Print order button on the calculator while the run collects; a
+> review found a tap there printed that sheet twice). `node tools/verify-release.mjs f3a7771 --wait`: 0 failures,
+> 87 passes on both hosts (comment on #225). Tag `release-2026-11-07-pr225` pushed. Backend unchanged at `@68`;
+> `CONSTANTS_VERSION` unchanged. ⚠️ The TPN team still has to be told about the blank "แพทย์" line. ⚠️ Not yet printed
+> on a ward printer or from a phone's print dialog. Rollback: the frontend to `release-2026-11-06-pr221` (`96f393e`).
+> Recorded here by PR #223.
 >
 > ✅ **2026-11-06, 23:35 ICT — frontend `release` = `96f393e` (PR #221), on Pp's word** ("release ก่อน ให้เค้าเห็นภาพ
 > และทดลองใช้"). Released #218's frontend half (the Indication for PN dropdown and Liver/Renal Dysfunction ticks,

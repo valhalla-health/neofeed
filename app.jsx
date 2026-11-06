@@ -2877,9 +2877,14 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
           <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={requestPrint}>
-            <Icon name="pdf" size={14} /> Print order
-          </button>
+          {/* Not while Print ทั้งหมด collects this order (printAll): the run
+              puts its sheet in the one job, and a tap here printed it at once
+              as well, so pharmacy got it twice (Pp's review of #224). */}
+          {!printAll && (
+            <button className="btn" onClick={requestPrint}>
+              <Icon name="pdf" size={14} /> Print order
+            </button>
+          )}
           <button className="btn" onClick={() => goTo("guidelines")}><Icon name="info" size={14} /> Reference values</button>
         </div>
       </div>

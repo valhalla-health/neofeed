@@ -364,11 +364,14 @@ function baseOrder({ tf = 120 } = {}) {
     eq('preterm formula: PF 20, Enfalac Premature 22/24, Pre Nan 22/24, Hi-Q LBW 24', keysOf(/Preterm formula$/),
       ['BM_PF_20', 'FBM_PF_22', 'ENFALAC_PREM_24', 'PRENAN_22', 'PRENAN_24', 'FBM_PF_24']);
     eq('no post-discharge group any more', keysOf(/Post-discharge formula$/), undefined);
-    eq('high-energy: FBM ↔ Infatrini, Infatrini 30', keysOf(/High-energy formula$/), ['FBM_INF_MIX', 'INFATRINI_30']);
+    // FBM 24 ↔ Infatrini 30 left the list on 2026-11-06 (Pp: feed 1 + feed 2 give it).
+    eq('high-energy: Infatrini 30 alone', keysOf(/High-energy formula$/), ['INFATRINI_30']);
+    eq('lactose-free: "HiQ LF", not "LF — HiQ LF"', [...sel.querySelectorAll('optgroup')].find(g => /Lactose-free$/.test(g.label))
+      ?.querySelector('option')?.textContent, 'HiQ LF');
     ok('no group lumps preterm with high-energy', !groups.some(g => /Preterm \/ High-energy/.test(g.label)), groups.map(g => g.label));
     const offered = groups.flatMap(g => g.keys).sort();
-    eq('every feed offered before is still offered, once, with the new ones',
-      offered, ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27', 'ENFALAC_PREM_24', 'FBM_INF_MIX',
+    eq('every feed offered before is still offered, once, with the new ones, less FBM ↔ Infatrini',
+      offered, ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27', 'ENFALAC_PREM_24',
         'FBM_PF_22', 'FBM_PF_24', 'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'PRENAN_22', 'PRENAN_24']);
     // The Formula reference page (app.jsx, not mounted here): the same split, and Pre Nan at last.
     const src = R('app.jsx');

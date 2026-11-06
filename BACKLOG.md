@@ -411,6 +411,12 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] **product · Two leftovers of #223 (FBM 24 ↔ Infatrini 30 off Step 2's list, 2026-11-06), for Pp.**
+      1. The Formula reference page still lists FBM ↔ Infatrini under "High-energy / Mixed" (`app.jsx`
+         `FormulasPanel`). It is no longer orderable; taking it off is Pp's call.
+      2. Vera's 🟡 on #223: an order saved on `FBM_INF_MIX` reopens with a feed Step 2 does not offer, and
+         picking a milk then shows no "kcal/oz X → Y" notice (`calculator.jsx` `EnFeedPicker`, gated on `at`),
+         so the kcal/oz can change with only the kcal/100 mL hint to say so.
 - [ ] 🩺 **safety · Three growth questions from the 2026-10-17 provenance audit, for Pp.** The same audit
       found the Fenton rows drawn half a week early, fixed on 2026-10-17 (`CHANGELOG.md`). These three
       were left as they are until Pp decides:
@@ -531,6 +537,11 @@ clinical judgement. Everything else is engineering sequencing.
          live**: an old frontend has no I/O card, and its nurses would be refused order saves with
          nowhere to record I/O. To switch it off, delete the property (it takes effect on the next
          sync).
+      4. **Before step 3, fix Print ทั้งหมด for nurses** (Pp's review of #224, 2026-11-07). With the
+         switch on, a nurse takes no edit lock (`app.jsx` `CalculatorView`: `useDailyLogLock(…,
+         ordersReadOnly ? "" : token)`), so a nurse's Print ทั้งหมด run never sees that a doctor has an
+         order open, and collects it. A nurse may be the one who prints (Pp, 2026-11-06). The run
+         needs the lock's answer (a read-only check is enough) whatever the role.
 
       **Still open:**
       - D6: retention is indefinite for now, to settle with the DPO.
