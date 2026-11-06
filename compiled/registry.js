@@ -143,6 +143,75 @@ function wardPrintableOrder(p, entries, ward, today) {
   const orders = todaysOrders(entries, today);
   return orders.length === 1 && !isPendingRow(orders[0]) && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;
 }
+function printSheetBasis(p, entries) {
+  try {
+    return p ? JSON.stringify([p, entries || []]) : "";
+  } catch {
+    return "";
+  }
+}
+function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
+  const wardName = batch.ward === "other" ? "อื่นๆ" : batch.ward;
+  const sheetsRef = React.useRef(null);
+  const today = D_R.useTodayLocal();
+  const stillOrder = ({ item, basis }, day) => {
+    const p = patients.find((x) => x.sessionId === item.sessionId);
+    const order = wardPrintableOrder(p, log[item.sessionId], batch.ward, day);
+    return !!order && order.entryId === item.entryId && !!basis && basis === printSheetBasis(p, log[item.sessionId] || []);
+  };
+  const dayOver = today !== batch.day;
+  const fresh = dayOver ? [] : batch.sheets.filter((s) => stillOrder(s, today));
+  const changed = dayOver ? [] : batch.sheets.filter((s) => !fresh.includes(s));
+  const freshKey = fresh.map(({ item }) => item.entryId).join("|");
+  const [refused, setRefused] = React.useState("");
+  React.useEffect(() => {
+    const host = sheetsRef.current;
+    if (!host) return;
+    while (host.firstChild) host.removeChild(host.firstChild);
+    fresh.forEach(({ sheet }) => host.appendChild(sheet));
+    return () => {
+      while (host.firstChild) host.removeChild(host.firstChild);
+    };
+  }, [batch, freshKey]);
+  const n = fresh.length;
+  const print = () => {
+    const now = D_R.todayLocal();
+    if (now !== batch.day) {
+      setRefused("day");
+      return;
+    }
+    const host = sheetsRef.current;
+    const inHost = host ? [...host.children].map((el) => el.getAttribute("data-entry-id")).join("|") : "";
+    const nowKey = batch.sheets.filter((s) => stillOrder(s, now)).map(({ item }) => item.entryId).join("|");
+    if (!host || inHost !== nowKey || !nowKey) {
+      setRefused("changed");
+      return;
+    }
+    setRefused("");
+    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+  };
+  const autoPrinted = React.useRef(null);
+  React.useEffect(() => {
+    if (n === 0 || dayOver || changed.length > 0 || batch.skipped.length > 0 || autoPrinted.current === batch.token) return;
+    autoPrinted.current = batch.token;
+    print();
+  }, [batch]);
+  const held = [...batch.skipped, ...changed.map(({ item }) => ({ item, reason: "เปลี่ยนไปหลังเตรียมชุดพิมพ์ (ใบสั่งหรือข้อมูลผู้ป่วยถูกแก้ไข ลบ ย้าย หรือจำหน่าย)" }))];
+  const dayOverNow = dayOver || refused === "day";
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head print-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("h1", null, "Print ทั้งหมด · ", wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "พร้อมพิมพ์ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, dayOverNow ? 0 : n), " จาก ", /* @__PURE__ */ React.createElement("span", { className: "num" }, batch.total), " ใบ", !dayOverNow && held.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ข้าม ", /* @__PURE__ */ React.createElement("span", { className: "num" }, held.length), " ใบ")), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onBack, style: { fontSize: 12.5, marginTop: 10 } }, "← กลับไปรายการ")), n > 0 && !dayOverNow && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: "btn primary print-all print-batch-go",
+      onClick: print,
+      "aria-label": `พิมพ์ ${n} ใบในครั้งเดียว`
+    },
+    /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14, color: "#fff" }),
+    " พิมพ์ ",
+    /* @__PURE__ */ React.createElement("span", { className: "num" }, n),
+    " ใบ"
+  )), /* @__PURE__ */ React.createElement("div", { className: "card print-batch-summary", style: { padding: "12px 14px", maxWidth: 760 } }, dayOverNow ? /* @__PURE__ */ React.createElement("div", { className: "print-batch-skipped", role: "alert" }, "วันเปลี่ยนแล้ว — ชุดพิมพ์นี้เป็นใบสั่งของ ", window.NEOFEED_FMT_DATE?.(batch.day) || batch.day, " จึงไม่พิมพ์ กลับไปรายการแล้วกด Print ทั้งหมดใหม่") : /* @__PURE__ */ React.createElement(React.Fragment, null, refused === "changed" && /* @__PURE__ */ React.createElement("div", { className: "print-batch-skipped", role: "alert" }, "รายการเปลี่ยนขณะกดพิมพ์ — ตรวจสอบรายการด้านล่างแล้วกดพิมพ์อีกครั้ง"), held.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "print-batch-skipped", role: "alert" }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, marginBottom: 4 } }, "ไม่ได้อยู่ในชุดพิมพ์นี้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, held.length), " ใบ — เปิดจากรายการเพื่อตรวจสอบและพิมพ์ทีละใบ"), /* @__PURE__ */ React.createElement("ul", null, held.map(({ item, reason }) => /* @__PURE__ */ React.createElement("li", { key: item.entryId }, /* @__PURE__ */ React.createElement("strong", null, item.label || "ใบสั่ง"), " — ", reason)))), n > 0 ? /* @__PURE__ */ React.createElement("ul", { className: "print-batch-list" }, fresh.map(({ item }) => /* @__PURE__ */ React.createElement("li", { key: item.entryId }, "✓ ", item.label || "ใบสั่ง"))) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-3)" } }, "ไม่มีใบที่พิมพ์ได้ในชุดนี้"), n > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-3)", marginTop: 8 } }, "แพทย์ตรวจและลงนามในแต่ละใบก่อนส่งห้องยา"))), /* @__PURE__ */ React.createElement("div", { className: "print-batch", ref: sheetsRef }));
+}
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
   const wardName = ward === "other" ? "อื่นๆ" : ward;
   const active = patients.filter((p) => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
@@ -180,7 +249,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
       className: "btn primary print-all",
       disabled: queue.length === 0,
       onClick: () => onPrintAll(queue),
-      "aria-label": `${printWhat} ${queue.length} ใบ — เปิดทีละใบตามลำดับเตียง`
+      "aria-label": `${printWhat} ${queue.length} ใบ — พิมพ์ครั้งเดียวตามลำดับเตียง`
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 14, color: "#fff" }),
     " ",

@@ -1,8 +1,23 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-06 — TPN-room stickers, PR B (`tpn-room.html`, #219): merged into `main`, not live.** The page, its
+> ⏳ **2026-11-06 — Print ทั้งหมด as one print job (PR #224): open, not merged.** One tap collects every ticked order's
+> sheet through its own calculator's Print gate and edit lock, then opens one print dialog (by itself when none was
+> held back; on a tap of "พิมพ์ N ใบ" after naming any that were). The sheet's "แพทย์" line is now blank, signed by
+> hand, no longer the saver's name (Pp, same thread); the saver's name now prints nowhere on paper, which Pp chose
+> on 2026-11-06 (blank, no printed name). ⚠️ The TPN team still has to be told. Frontend only (`app.jsx`, `registry.jsx`,
+> `calculator.jsx` adds two attributes to the sheet, both shells), no figure changed, no `clasp` step. ⚠️ Not yet
+> printed on a ward printer or from a phone's print dialog. `CHANGELOG.md` 2026-11-06 (2).
+>
+> ⚠️ **2026-11-06, 23:35 ICT — frontend `release` = `96f393e` (PR #221): merged, verification not recorded.** PR #221
+> released `main` at `ce06e16`: #218's frontend half (the Indication for PN dropdown and the Liver/Renal Dysfunction
+> ticks, reading backend `@68`'s columns S–U) and #219 (`tpn-room.html`, whose print stays locked until the PN
+> label's fixed lines are in). Cloudflare's build of `ce06e16` succeeded; Pp walked dev local on the head (comment on
+> #221). No `verify-release` result or `release-2026-11-06-pr221` tag is on the PR yet. Rollback: the frontend to
+> `release-2026-11-05-pr217` (`a541271`). Recorded here by the next PR on the repo.
+>
+> ⏳ **2026-11-06 — TPN-room stickers, PR B (`tpn-room.html`, #219): served since #221 (above), print still locked.** The page, its
 > encrypted name file and the three stickers are built and tested on synthetic infants (`openspec/changes/tpn-room-stickers`
-> tasks.md § 2). It needs no backend change. **Three things hold the release** (tasks.md § 0): `tpn-room-check.html`
+> tasks.md § 2). It needs no backend change. **Three things hold its first print** (tasks.md § 0): `tpn-room-check.html`
 > passing on the TPN-room PC (0.1), the PN label's fixed lines from the unit (0.3 i; until then the page refuses to
 > print), and Pp's check of the sample PDF against a real sheet. IT and the DPO still have to hear about the new local
 > store of names, and its retention and erasure need a rule (0.2, 2.8a). Make the pharmacy account after that
