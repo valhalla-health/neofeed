@@ -48,6 +48,13 @@ const MODULES = ['icons', 'calculator', 'fenton', 'registry', 'log', 'app'];
 // data.js appVersion() stamps every Daily_Log row with "<first letter>=<token>"
 // per loaded script, so the first letters must stay unique.
 const STAMPED = ['boot', 'data', ...MODULES];
+// The TPN room's page has its own shell and its own load order. It shares boot.js
+// and React with the ward app and does not load data.js, so it has no dose code.
+// compiled/tpn-room-version.js carries the two versions it checks, read from data.js
+// here, so a CONSTANTS_VERSION bump reaches the page in the same build.
+const ROOM_SHELL = 'tpn-room.html';
+const ROOM_PLAIN = ['tpn-room-core.js', 'tpn-room-store.js'];
+const ROOM_CHECK_SHELL = 'tpn-room-check.html';
 
 // ── 0 · the pinned toolchain, from tools/node_modules only ──────────────────
 // Never resolve up the tree: a repo-root node_modules (the test harness deps)
@@ -92,6 +99,22 @@ for (const m of MODULES) {
   compiled[m] = r.code;
 }
 
+{
+  const r = await esbuild.transform(read('tpn-room.jsx'), {
+    loader: 'jsx', jsx: 'transform', jsxFactory: 'React.createElement', jsxFragment: 'React.Fragment',
+    target: 'es2020', charset: 'utf8', banner: '"use strict";', legalComments: 'none', minify: false,
+    sourcefile: 'tpn-room.jsx',
+  });
+  if (r.warnings.length) fail(`tpn-room.jsx: ${r.warnings.map(w => w.text).join('; ')}`);
+  compiled['tpn-room'] = r.code;
+  const dataJs = read('data.js');
+  const constantsVersion = (dataJs.match(/^const CONSTANTS_VERSION = "([^"]+)";/m) || [])[1];
+  const stickerSchema = (dataJs.match(/^const STICKER_SCHEMA_VERSION = (\d+);/m) || [])[1];
+  if (!constantsVersion || !stickerSchema) fail('data.js: CONSTANTS_VERSION or STICKER_SCHEMA_VERSION not found for the TPN room');
+  compiled['tpn-room-version'] = '"use strict";\n// Written by tools/build.mjs from data.js. Do not edit.\n'
+    + `window.TPN_ROOM_VERSIONS = { constantsVersion: ${JSON.stringify(constantsVersion)}, stickerSchema: ${Number(stickerSchema)} };\n`;
+}
+
 // ── 2 · one shared global scope ─────────────────────────────────────────────
 {
   // The window properties Chromium makes non-configurable (read from a live
@@ -123,6 +146,19 @@ for (const m of MODULES) {
   for (const k of RESTRICTED) {
     try { vm.runInContext(`typeof ${k}`, ctx); }
     catch { fail(`a script declares a top-level "${k}", which the browser's window already owns`); }
+  }
+  // The TPN room's scripts share a scope of their own.
+  const roomBox = {};
+  for (const k of RESTRICTED) Object.defineProperty(roomBox, k, { value: {}, configurable: false, writable: false, enumerable: true });
+  const roomCtx = vm.createContext(roomBox);
+  for (const [name, code] of [['boot.js', read('boot.js')], ['compiled/tpn-room-version.js', compiled['tpn-room-version']],
+    ...ROOM_PLAIN.map(f => [f, read(f)]), ['compiled/tpn-room.js', compiled['tpn-room']]]) {
+    const body = code.startsWith('"use strict";') ? '"use strict";throw 0;' + code.slice(13) : 'throw 0;' + code;
+    try { new vm.Script(body, { filename: name }).runInContext(roomCtx); }
+    catch (e) {
+      if (e === 0) continue;
+      fail(`${name} cannot load after the TPN room's scripts before it: ${e && e.message}`);
+    }
   }
 }
 
@@ -186,16 +222,56 @@ if (JSON.stringify(order) !== JSON.stringify(want))
     fail('the Google Fonts stylesheet <link> must come after the last <script> (a slow fonts request blocked every script)');
 }
 
+// ── 4b · the TPN room's shells ──
+// Same rules as the ward shells: a token on every same-origin script and stylesheet,
+// no inline script, no third party, boot.js first. Nothing from Google on this page.
+const roomAssets = [
+  { src: 'boot.js', text: read('boot.js') },
+  { src: 'compiled/tpn-room-version.js', text: compiled['tpn-room-version'] },
+  ...ROOM_PLAIN.map(f => ({ src: f, text: read(f) })),
+  { src: 'compiled/tpn-room.js', text: compiled['tpn-room'] },
+  { src: 'tpn-room.css', text: read('tpn-room.css'), link: true },
+];
+function roomShell(file, assetsHere, wantOrder) {
+  const raw = readFileSync(path.join(ROOT, file), 'utf8');
+  const nl = raw.includes('\r\n') ? '\r\n' : '\n';
+  let html = lf(raw);
+  for (const a of assetsHere) {
+    const re = a.link
+      ? new RegExp(`(<link rel="stylesheet" href="${a.src.replace(/[.]/g, '\\.')})(?:\\?v=[\\w.-]*)?(">)`, 'g')
+      : new RegExp(`(<script src="${a.src.replace(/[.]/g, '\\.')})(?:\\?v=[\\w.-]*)?("></script>)`, 'g');
+    if ((html.match(re) || []).length !== 1) fail(`${file} must load ${a.src} exactly once`);
+    html = html.replace(re, `$1?v=${token(a.text)}$2`);
+  }
+  const mark = html.replace(/<!--[\s\S]*?-->/g, '');
+  const scripts = [...mark.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
+  if (scripts.some(t => t[2].trim() !== '' || !/\bsrc="/.test(t[1]))) fail(`${file} has an inline <script>`);
+  const got = scripts.map(t => t[1].match(/\bsrc="([^"?]+)/)[1]);
+  if (JSON.stringify(got) !== JSON.stringify(wantOrder)) fail(`${file} script order is ${got.join(', ')}, expected ${wantOrder.join(', ')}`);
+  if (/https?:\/\//.test(mark)) fail(`${file} names a third-party address`);
+  return nl === '\n' ? html : html.replace(/\n/g, nl);
+}
+const roomHtml = roomShell(ROOM_SHELL, roomAssets, ['boot.js', ...vendor.map(v => `vendor/${v.file}`),
+  'compiled/tpn-room-version.js', ...ROOM_PLAIN, 'compiled/tpn-room.js']);
+const checkHtml = roomShell(ROOM_CHECK_SHELL, [
+  { src: 'boot.js', text: read('boot.js') },
+  { src: 'tpn-room-check.js', text: read('tpn-room-check.js') },
+  { src: 'tpn-room.css', text: read('tpn-room.css'), link: true },
+], ['boot.js', 'tpn-room-check.js']);
+
 // ── write ───────────────────────────────────────────────────────────────────
 mkdirSync(OUT, { recursive: true });
-for (const f of readdirSync(OUT)) if (!MODULES.some(m => f === `${m}.js`)) rmSync(path.join(OUT, f), { recursive: true });
-for (const m of MODULES) writeFileSync(path.join(OUT, `${m}.js`), compiled[m]);
+const OUTPUTS = [...MODULES, 'tpn-room', 'tpn-room-version'];
+for (const f of readdirSync(OUT)) if (!OUTPUTS.some(m => f === `${m}.js`)) rmSync(path.join(OUT, f), { recursive: true });
+for (const m of OUTPUTS) writeFileSync(path.join(OUT, `${m}.js`), compiled[m]);
 mkdirSync(VENDOR, { recursive: true });
 for (const f of readdirSync(VENDOR)) if (!vendor.some(v => v.file === f)) rmSync(path.join(VENDOR, f), { recursive: true });
 for (const v of vendor) writeFileSync(path.join(VENDOR, v.file), v.bytes);
 const out = eol === '\n' ? shell : shell.replace(/\n/g, eol);
 writeFileSync(path.join(ROOT, 'index.html'), out);
 writeFileSync(path.join(ROOT, 'NeoFeed.html'), out);   // identical by construction
+writeFileSync(path.join(ROOT, ROOM_SHELL), roomHtml);
+writeFileSync(path.join(ROOT, ROOM_CHECK_SHELL), checkHtml);
 
 console.log(`built with esbuild ${esbuild.version}:`);
 for (const a of assets) console.log(`  ${a.src.padEnd(22)} ${String(Buffer.byteLength(a.text)).padStart(7)} B  v=${token(a.text)}`);

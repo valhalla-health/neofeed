@@ -23,6 +23,7 @@
 //      and keep tools/, openspec/ and .agents/ private
 //   #6 the Google Fonts stylesheet comes after the last script
 //   #7 appVersion() still derives the provenance stamp from the loaded tokens
+//   #8 the TPN room's two shells: same rules, no data.js, nothing third-party
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
@@ -81,7 +82,7 @@ console.log('\n── #2 every ?v= token is the hash of the bytes it loads ─�
     const want = has(f) ? crypto.createHash('sha256').update(lf(read(f))).digest('hex').slice(0, 10) : '(missing file)';
     eq(`2.x ${f}`, s.src.split('?v=')[1], want);
   }
-  eq('2.9 compiled/ holds exactly the six modules', has('compiled') ? fs.readdirSync(path.join(ROOT, 'compiled')).sort() : [], MODULES.map(m => `${m}.js`).sort());
+  eq('2.9 compiled/ holds exactly the six modules and the TPN room\'s two', has('compiled') ? fs.readdirSync(path.join(ROOT, 'compiled')).sort() : [], [...MODULES, 'tpn-room', 'tpn-room-version'].map(m => `${m}.js`).sort());
   for (const m of MODULES) {
     const code = read(`compiled/${m}.js`);
     // Compiling (not running) as a classic script: leftover JSX is a SyntaxError.
@@ -174,6 +175,34 @@ console.log('\n── #7 the provenance stamp reads the new script list ──')
   eq('7.1 appVersion() = b;d;i;c;f;r;l;a tokens in load order', stamp,
     ['b=' + tok('boot.js'), 'd=' + tok('data.js'), ...MODULES.map(m => `${m[0]}=${tok(`compiled/${m}.js`)}`)].join(';'));
   ok('7.2 …which the sheet cannot read as a formula', stamp && !/^[=+\-@]/.test(stamp));
+}
+
+console.log('\n── #8 the TPN room\'s two shells ──');
+{
+  const shellOf = (f) => lf(read(f)).replace(/<!--[\s\S]*?-->/g, '');
+  const srcs = (html) => [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].map(m => ({ src: (m[1].match(/\bsrc="([^"]*)"/) || [])[1] || null, body: m[2] }));
+  const room = srcs(shellOf('tpn-room.html'));
+  eq('8.1 tpn-room.html load order: no data.js, no Google', room.map(s => base(s.src || 'INLINE')),
+    ['boot.js', ...Object.keys(VENDOR), 'compiled/tpn-room-version.js', 'tpn-room-core.js', 'tpn-room-store.js', 'compiled/tpn-room.js']);
+  const check = srcs(shellOf('tpn-room-check.html'));
+  eq('8.2 tpn-room-check.html loads only boot.js and its own script', check.map(s => base(s.src || 'INLINE')), ['boot.js', 'tpn-room-check.js']);
+  eq('8.3 no inline <script> in either', [...room, ...check].filter(s => s.body.trim()).length, 0);
+  ok('8.4 no third-party address in either', !/https?:\/\//.test(shellOf('tpn-room.html') + shellOf('tpn-room-check.html')));
+  for (const s of [...room, ...check].filter(x => /\?v=/.test(x.src || ''))) {
+    const f = base(s.src);
+    eq(`8.5 ${f} token`, s.src.split('?v=')[1], crypto.createHash('sha256').update(lf(read(f))).digest('hex').slice(0, 10));
+  }
+  const cssToken = (shellOf('tpn-room.html').match(/tpn-room\.css\?v=([\w-]+)/) || [])[1];
+  eq('8.6 tpn-room.css token', cssToken, crypto.createHash('sha256').update(lf(read('tpn-room.css'))).digest('hex').slice(0, 10));
+  for (const f of ['tpn-room.html', 'tpn-room-check.html', 'tpn-room-check.js', 'tpn-room-core.js', 'tpn-room-store.js', 'tpn-room.css',
+    'fonts/sarabun/sarabun-thai-400-normal.woff2', 'fonts/sarabun/sarabun-thai-700-normal.woff2',
+    'fonts/sarabun/sarabun-latin-400-normal.woff2', 'fonts/sarabun/sarabun-latin-700-normal.woff2', 'fonts/sarabun/OFL.txt']) ok(`8.7 ${f} exists`, has(f));
+  const ignore = read('.assetsignore').split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  for (const bad of ['tpn-room*', 'fonts/', 'tpn-room.html', '*.css']) ok(`8.8 .assetsignore does not list ${bad}`, !ignore.includes(bad));
+  ok('8.9 _config.yml does not exclude them from Pages either', !/tpn-room|fonts\//.test(read('_config.yml').split('exclude:')[1] || ''));
+  for (const f of ['tpn-room.html', 'tpn-room-core.js', 'compiled/tpn-room.js', 'fonts/sarabun/sarabun-thai-400-normal.woff2']) {
+    ok(`8.10 tools/verify-release.mjs checks ${f}`, read('tools/verify-release.mjs').includes(`"${f}"`));
+  }
 }
 
 console.log(`\nBUILD + SHELLS: ${fail === 0 ? 'ALL PASS' : `${fail} FAILED`} (${pass} passed, ${fail} failed)`);

@@ -593,9 +593,26 @@ characters on the live `Daily_Log`, for example `=SUMPRODUCT(--(LEN(Daily_Log!Y2
 that sends such a `calcInput` back is refused: the registry's unchanged-value pass has no twin there. Real saves are
 about 1,500 characters, so expect 0; if it is not 0, hold the push and tell Pp.
 
-### The TPN room: `pharmacy`, column AM, `pharmacyOrders` (not live)
+### The TPN room's page: `tpn-room.html`
 
-PR A of `openspec/changes/tpn-room-stickers`. The page that reads all this, PR B, is not built.
+PR B of `openspec/changes/tpn-room-stickers`. Not live: `STATUS.md` says what holds it.
+
+- **What loads.** `boot.js`, React, `compiled/tpn-room-version.js`, `tpn-room-core.js` (the rules, no DOM),
+  `tpn-room-store.js` (the name file, no DOM) and `compiled/tpn-room.js` (from `tpn-room.jsx`). It does not load `data.js`,
+  so it has no dose code; `tools/build.mjs` writes the two versions it checks. `tools/build.mjs` writes both room shells'
+  `?v=` tokens, and `index.html` does not link them, so `tools/verify-release.mjs` names their files. Sarabun is in `fonts/sarabun/`.
+- **`*.github.io`:** the page leaves for `moved.html` before it touches storage, on any such host. Use the Workers URL.
+- **Two things to fill in, in `tpn-room-core.js`:** `PN_FIXED`, the label's heading, storage line and extension, blank until
+  the unit gives them, and the page prints nothing until all three are set; `CONTACTS`, who to call. A release follows either change.
+- **`tpn-room-check.html`** checks a PC's browser: folder, rewrite, permission, device key, after a restart. Use it on a
+  new PC too. It calls no server and holds no patient data.
+- **The name file** is `neofeed-tpn-room-names.nfenc`, in a folder the room picks: never OneDrive, never one a restore clears. A
+  lost passphrase means a new file: the old one stays beside it, and a week of orders say to check the paper first.
+- **Dev local:** `node tools/dev-local.mjs` prints a pharmacy account and `/tpn-room.html`, under the hosts' real CSP.
+
+### The TPN room: `pharmacy`, column AM, `pharmacyOrders` (live, backend `@67`)
+
+PR A of `openspec/changes/tpn-room-stickers`.
 
 - **`Daily_Log` AM, `printJson`.** The figures for the TPN unit's three stickers, as `D.stickerFigures` made
   them at the save, drafts too. A save with none (no bag, a No TPN order, a tab from before the release) lands
@@ -631,7 +648,7 @@ go-ahead:
    notice asks doctors to press Submit for a page nobody has yet. Say what the line means in the ward's release notice.
 6. On the first new bag order after the release, AM starts `{"v":1` and `calcInput.printJsonV` is 1. A marker with a
    blank AM means D15 is broken, so roll the frontend back.
-7. Make no pharmacy account until PR B. For one, type the Staff row with role `pharmacy` and active TRUE, or name the
+7. Make no pharmacy account until `tpn-room.html` is live. For one, type the Staff row with role `pharmacy` and active TRUE, or name the
    role: `setInitialPassword(email, password, "pharmacy")`. Without a row and a role it writes nothing.
 
 **A later schema change** goes the same way: a backend on `v: 1` refuses a client on a new key or version.
@@ -663,6 +680,12 @@ secondary uses (e.g. research/QI exports) if those are ever added.
   `NF-` and six random digits (`data.js` `newSessionId`) and carries nothing.
 - *Access/rectification* — no self-service path yet; handled manually via
   admin editing the registry. Worth a real endpoint if request volume grows.
+
+**A store of names outside the Sheet (not live):** the TPN room's name file holds the name, AN and edit history on
+one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with the change request (tasks.md
+0.2):** `pseudonymizePatient()` cannot reach that PC, so an erasure leaves the name there until the 30-day purge, and
+an edit keeps the old name in the history until then; and a `.replaced-*` file left by "start a new file" has no end date,
+because the purge runs on the open file only. No retention rule or manual erasure step exists yet.
 
 **Accountability (Sec 39):** `Audit_Log` sheet (auto-created by
 `getSheetAudit()`) records registry reads and erasures with actor email +

@@ -107,6 +107,9 @@ function __refGetActivePatients(opts) {
       bedHistory:    _parseJson(p[15], []),
       statusDate:    _fmtDate(p[16]),
       multiplesCount: Number(p[17] || 0),
+      pnIndication:  String(p[18] || ""),
+      liverDysfunction: p[19] === true,
+      renalDysfunction: p[20] === true,
     });
   }
   return { patients: patients, log: logMap, ts: new Date().toISOString() };

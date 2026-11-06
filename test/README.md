@@ -317,8 +317,11 @@ they transpile the `.jsx` themselves, or read `compiled/` through
 and are **not** committed — install them into a scratch folder and point Node at it:
 
 ```bash
-npm install --no-save react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom
+npm install --no-save react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30
 ```
+
+jsdom is pinned to 30, as CI pins it. jsdom 31 (2026-11-05) keeps six significant digits of a percentage in
+`style`, so `verify-status-zones.cjs` reads tiled zones that no longer add up to 100 and fails 25 checks.
 
 Then, from the repo root:
 
@@ -2178,3 +2181,15 @@ Pp: "ต้องเหลือ 2 ตัวเท่านั้น ถ้า�
 and checks the failure that matters most, a pass it should not give: a third deployment stops, the wrong two stop,
 a list it cannot read stops, a `clasp` that fails stops even if it printed a good list, and the output never holds
 another deployment's whole ID. 27 checks, each seen to fail on a tool broken for it.
+
+## The TPN room's page, 2026-11-05 — three harnesses and a fixture
+
+`CHANGELOG.md` 2026-11-05; `openspec/changes/tpn-room-stickers`, PR B. **`verify-tpn-room-core-1105.cjs`** (Node, no
+dependency): every reason an order cannot print, what changed after a print, and a reply from the real `gas-backend.gs`
+through the same rules. **`verify-tpn-room-store-1105.cjs`** (Node, real WebCrypto, a fake folder): the silent open, a cleared
+device key, a wrong passphrase, a copy on another PC, a changed byte in each part of the file, a failed write, two saves at
+once, the purge, a lost passphrase. **`verify-tpn-room-page-1105.cjs`** (Playwright, SKIP without it; CI runs it): the whole
+flow under the real CSP on `tools/dev-local.mjs`, with an origin-private folder for the picker. Every number on the sheet
+is a `printJson` string, one A4 page, and the sentinel name reaches no request. `TPN_ROOM_PDF_OUT=<file>` keeps the sample sheet,
+`TPN_ROOM_SHOT_DIR=<dir>` keeps screenshots. **`tpn-room-fixture.cjs`** makes a synthetic order's figures with the real
+`stickerFigures`. `verify-build-shells.cjs` § 8 pins the two room shells.

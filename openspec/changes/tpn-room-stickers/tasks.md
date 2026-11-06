@@ -5,6 +5,8 @@
 - [ ] 0.1 Spike on the TPN-room PC with a throwaway test page: the Chrome/Edge version; whether File System
       Access can create and rewrite a file in a local folder; whether the permission survives closing the
       browser and restarting the PC; whether the page installs as an app.
+      **Pp, 2026-11-05: build first, spike after, and no release until it passes.** The test page is
+      `tpn-room-check.html`. It has no patient data and calls no server.
 - [ ] 0.2 Ask IT whether that PC runs Deep Freeze or a similar restore, or clears browser data on exit, and
       which local folder is neither restored nor synced. Put the new store of names in the planned change
       request so the DPO can add it to the record of processing.
@@ -83,20 +85,34 @@
 
 ## 2. PR B: `tpn-room.html`
 
-- [ ] 2.1 Page shell in both hosts' file lists, with the same `connect-src` as NeoFeed's pages and no
+Built 2026-11-05 on branch `claude/tpn-room-page`, ahead of 0.1 and 0.3 i on Pp's word. Harnesses:
+`test/verify-tpn-room-core-1105.cjs`, `verify-tpn-room-store-1105.cjs`, `verify-tpn-room-page-1105.cjs`, and § 8 of
+`verify-build-shells.cjs`.
+
+- [x] 2.1 Page shell in both hosts' file lists, with the same `connect-src` as NeoFeed's pages and no
       third-party script. Sarabun served with the page.
-- [ ] 2.2 Sign-in, and the date's counts and order list from `pharmacyOrders`, on open and on refresh only.
-- [ ] 2.3 The name file: folder picker, envelope encryption (device key and room passphrase), atomic
+- [x] 2.2 Sign-in, and the date's counts and order list from `pharmacyOrders`, on open and on refresh only.
+- [x] 2.3 The name file: folder picker, envelope encryption (device key and room passphrase), atomic
       rewrite, purge after 30 days, status line. Tests: wrong passphrase, tampered file, cleared device key.
-- [ ] 2.4 Mapping dialog with BW, bed and DOL, the AN pattern, the AN-reuse warning and the edit history.
-- [ ] 2.5 Printability rules and the revision warning; critical alerts on the row.
-- [ ] 2.6 The three stickers on A4 from `printJson`. Tests: every number on the stickers is in `printJson`;
+- [x] 2.4 Mapping dialog with BW, bed and DOL, the AN pattern, the AN-reuse warning and the edit history.
+- [x] 2.5 Printability rules and the revision warning; critical alerts on the row.
+- [x] 2.6 The three stickers on A4 from `printJson`. Tests: every number on the stickers is in `printJson`;
       zero rows print; iso prints `9B2(NICU)`. A headless Chrome PDF of a synthetic sheet for Pp to check
       against a real sticker sheet. The PN label's date made is the day the TPN is prepared (0.3 h), which the
       page cannot assume is the print day or the order date: settle where it comes from together with 0.3 k.
-- [ ] 2.7 The sentinel-name test: no request URL, header or body contains the mapped name.
-- [ ] 2.8 Vera's report in the PR; `CHANGELOG.md`; `STATUS.md`.
-- [ ] 2.9 From the cold readers (2026-10-30), each with a test where it can have one:
+      **Pp, 2026-11-05: a date box beside the print button, today by default (design D17).** The sticker's
+      other dates stay the order's date until 0.3 k is answered. **Still to do, Pp:** check the PDF against a
+      real sheet, since the layout follows the design's table and the sample photo was not opened. **Blocked on
+      0.3 i:** the PN label's heading, storage line and extension are blank in `tpn-room-core.js`, and the page
+      refuses to print until all three are filled in (design D18).
+- [x] 2.7 The sentinel-name test: no request URL, header or body contains the mapped name.
+- [x] 2.8 Vera's report in the PR (#219); `CHANGELOG.md`; `STATUS.md`. Run 2026-11-05: NO BLOCK, findings 1–4 fixed
+      with tests, 5 is the retention question below.
+- [ ] 2.8a For Pp and the DPO, with 0.2 (Vera, 2026-11-05): a retention rule for `.replaced-*` name files, and a manual
+      erasure step for the name file, which `pseudonymizePatient` cannot reach (`REFERENCE.md` § Thai PDPA).
+- [x] 2.9 From the cold readers (2026-10-30), each with a test where it can have one. **Contact line:** only
+      "order ผิด: โทรหาหมอผู้สั่ง" is filled in. Who to call about NeoFeed and the passphrase waits on Pp and 0.3 l,
+      in `CONTACTS` in `tpn-room-core.js`; a blank line stays off the page.
       - Served by the Workers host only. On `*.github.io`, which every Pages site in the org shares, the page
         redirects before it touches any storage, as `boot.js` does; Pages sends no CSP.
       - Its own session key, never `neofeed_session`. Sign-in by email and password only (no Google script on
@@ -113,7 +129,7 @@
       - A fixed contact line: who to call about NeoFeed, the passphrase, a wrong order.
       - The ward app's refusal line for a pharmacy account links to the page.
 
-- [ ] 2.10 From PR A's reviews:
+- [x] 2.10 From PR A's reviews:
       - Keep the highest revision per NeoFeed ID and date, and read twice before any polling: the server's
         read is uncached and whole-column, fine on demand, not on a short timer.
       - The date picker stays inside the server's window, today −7 to +1.
@@ -122,7 +138,8 @@
       - A cancelled order leaves the list. The doctor phones the room for a cancelled or a revised order
         (design D16).
       - The doctor's Print is held after a birth-weight correction (`dosingWeightChanged`), and AM keeps the
-        figures from the old weight. Should the page hold that order too?
+        figures from the old weight. Should the page hold that order too? **Pp, 2026-11-05: no (design D19).**
+        The row shows BW beside the weight used to calculate, and the doctor phones the room.
       - Refuse to print a `constantsVersion` other than the current one: the doctor's Print is held when a
         release moves a figure, and the page can reach an old order inside its window.
 
