@@ -1433,7 +1433,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return /* @__PURE__ */ React.createElement(SyncGate, { online, failed: syncState === "error", detail: syncError, onRetry: () => syncFromGAS() });
   }
   shellReadyRef.current = true;
-  const showQuickFab = view === "registry" && !printWard;
+  const showQuickFab = view === "registry" && !printWard && !ward;
   return /* @__PURE__ */ React.createElement("div", { className: showQuickFab ? "app has-quick-fab" : "app" }, /* @__PURE__ */ React.createElement("div", { className: "topbar" }, /* @__PURE__ */ React.createElement("div", { className: "brandmark" }, /* @__PURE__ */ React.createElement(NeoFeedWordmark, null)), /* @__PURE__ */ React.createElement(
     "button",
     {
