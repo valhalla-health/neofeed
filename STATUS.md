@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-06 — Print ทั้งหมด as one print job (this PR): open, not merged.** One tap collects every ticked order's
+> ⏳ **2026-11-06 — Print ทั้งหมด as one print job (PR #224): open, not merged.** One tap collects every ticked order's
 > sheet through its own calculator's Print gate and edit lock, then opens one print dialog (by itself when none was
 > held back; on a tap of "พิมพ์ N ใบ" after naming any that were). The sheet's "แพทย์" line is now blank, signed by
 > hand, no longer the saver's name (Pp, same thread); the saver's name now prints nowhere on paper — open for Pp whether
