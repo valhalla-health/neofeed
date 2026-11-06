@@ -360,7 +360,9 @@ g/kg/h = IV lipid g/kg/d ÷ the hours the lipid pump actually runs, rounded to 2
 shows it, then graded: amber above 0.13, critical above 0.17. The hours are the lipid bag (20 % lipid +
 Vitalipid) ÷ its rate at 0.1 mL/hr (`CR-R-PUMP-RATE`), not the 16, 20 or 24 typed: rounding the rate up
 shortens the run, so a dose can grade higher than over the hours typed (1 kg over 24 h: 3.05 g/kg/d is
-0.9 mL/hr for 21.4 h, 0.14; over the 24 h typed it was 0.13).
+0.9 mL/hr for 21.4 h, 0.14; over the 24 h typed it was 0.13). Under 24 h typed the nearest 0.1 can round
+the rate down and lengthen the run, so a dose can grade lower too (1 kg over 16 h: 2.85 g/kg/d is 1.1 mL/hr
+for 16.6 h, 0.17, amber; over the 16 h typed it was 0.18, critical; Vera on this change).
 Source: TPN team 2026-09-28, Pp: "lipid เพดาน 0.13-0.17 g/kg/h". Koletzko 2005 (p. S20): infants at most
 3–4 g/kg/d "(0.13–0.17 g/kg per hour)". ESPGHAN 2018 gives no hourly limit and advises lipid over 24 h in
 newborns (Lapillonne R 4.10). Thai CPG Table 3.2: 0.17 for preterm, term and infants, 0.13 only over
@@ -374,6 +376,7 @@ The actual hours: Pp, 2026-11-06, asked with the rate rounding ("Actual hours");
 {"case": "3.35 g over 20 h: 20.75 mL at 1 mL/hr runs 20.75 h = 0.16: not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.35}, "expect": {"no_alert": "Lipid rate above the ceiling"}}
 {"case": "3.4 g over 20 h: 21 mL at 1.1 mL/hr runs 19.1 h = 0.18: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.4}, "expect": {"alert": "Lipid rate above the ceiling", "level": "crit", "submit": "asks_reason"}}
 {"case": "0.17 is not above the ceiling", "side": "inside", "fn": "lipidGkghAt", "args": [4, 24, 24], "want": 0.17}
+{"case": "2.85 g over 16 h: 18.25 mL at 1.1 mL/hr runs 16.6 h = 0.17: amber, not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "hours": 16, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2.85}, "expect": {"alert": "Lipid rate near the ceiling", "level": "warn", "no_alert": "Lipid rate above the ceiling"}}
 ```
 
 ### CR-K-IV-MAX · IV potassium ceiling
@@ -1200,7 +1203,9 @@ nearest whole mL/day, half up, and sets 20 % lipid to the dose that volume gives
 rate (`CR-R-PUMP-RATE`), g/kg/h (`CR-LIPID-RATE`), lipid kcal and the printed order follow from that dose. A
 tap never makes a critical lipid line the typed dose did not have: where the nearest mL would take the dose
 above 4.0 g/kg/d (`CR-LIPID-IV-MAX`) or the g/kg/h above 0.17, the whole mL below is used (again, until
-neither holds). A line the typed dose already had stays, and that dose rounds to the nearest mL. Under 0.5 mL
+neither holds). Only these two lipid lines are guarded: a tap moves energy by under 1 kcal and NPE:AA a
+little, which could still tip a near-edge Energy or NPE:AA line (Q22). A line the typed dose already had stays,
+and that dose rounds to the nearest mL, up as well as down (4.5 → 4.52 g/kg/d at 1.68 kg; Q22). Under 0.5 mL
 there is no whole mL and the dose is left as typed. The dose is kept to 2 decimals, else 3, whichever still
 gives that whole mL at 0.1 mL (`CR-R-STOCK-ML`); 3 always does up to 8 kg, and the order prints the lipid dose
 to 3 decimals so the printed dose and mL agree. Nothing rounds until the tap; a toast names the mL and the
@@ -1234,7 +1239,10 @@ lipid bag over the hours typed). The rate is the nearest 0.1 (half up); where th
 24 h, it is rounded up to the next 0.1 instead. Step 3, the copied order, the printed order and Center Point
 show the rate and the hours it actually runs (volume ÷ rate, 1 decimal): 100 mL is 4.2 mL/hr for 23.8 h,
 130 mL is 5.5 mL/hr for 23.6 h (5.4 would run 24.1 h). The TPN pump's volume and every dose are unchanged; the
-pump stops when the bag is empty. Lipid g/kg/h is graded on those hours (`CR-LIPID-RATE`).
+pump stops when the bag is empty. Lipid g/kg/h is graded on those hours (`CR-LIPID-RATE`); GIR is still
+over 24 h (1,440 min). On a small TPN bag the round-up stops the pump hours early: 12.1 mL is 0.6 mL/hr for
+20.2 h, and while it runs the glucose rate is 24 ÷ 20.2 = 19 % above the GIR on screen (Vera on this change:
+show the gap, grade GIR over the pump's hours, or accept it, is Q21).
 Source: Pp, 2026-11-06: "Pump rate ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง infusion in กี่ hr ให้ ถ้าเกิน 24 ชม.
 ให้ปัดเพิ่ม rate แทน ให้ไม่เกิน"; asked, she chose 24 h as the limit (not the hours typed) and both pumps.
 Not a clinical threshold.
@@ -1247,6 +1255,7 @@ Not a clinical threshold.
 {"case": "lipid bag 22.8 mL over 16 h: 1.4 mL/hr runs 16.3 h (only 24 h forces it up)", "side": "inside", "fn": "pumpRate", "args": [22.8, 16], "want": {"rate": 1.4, "hours": 16.28571428571429}}
 {"case": "1 mL over 24 h: 0.04 is 0.0, so 0.1 mL/hr, 10 h", "side": "outside", "fn": "pumpRate", "args": [1, 24], "want": {"rate": 0.1, "hours": 10}}
 {"case": "no volume: no pump", "side": "inside", "fn": "pumpRate", "args": [0, 24], "want": null}
+{"case": "a small bag: 12.1 mL is 0.5 for 24.2 h, so 0.6 mL/hr, 20.2 h (Q21)", "side": "outside", "fn": "pumpRate", "args": [12.1, 24], "want": {"rate": 0.6, "hours": 20.166666666666668}}
 {"case": "1 kg, TPN 100 mL: Step 3 shows 4.2 mL/hr, infusion 23.8 h", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "= 100 mL/day · infusion 23.8 h"}}
 {"case": "1.68 kg, lipid 2 g/kg/d: 16.8 + 6 = 22.8 mL, 1 mL/hr, infusion 22.8 h, printed", "infant": {"g": 1680}, "route": "Central", "order": {"Volume(mL/day)": 200, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "22.8 mL/day · infusion 22.8 h", "prints": "Rate 1 mL/hr, infusion 22.8 h"}}
 ```
@@ -1321,6 +1330,13 @@ An answered question keeps its evidence, so it can be reopened.
   of 80 and the day's requirement, and does exactly 80 pass?~~ Answered by Pp, 2026-11-01: the lower of
   the two, as coded (a preterm on DOL 6 on clears the red line at 80, and `CR-NO-TPN-PLAN` names the gap to
   the plan), and 80 itself passes. Earlier the same day: below the bar Submit asks a reason, not a stop.
+
+- **Q21 · `CR-R-PUMP-RATE`:** rounding the TPN pump rate up stops a small bag hours early (12.1 mL: 0.6 mL/hr,
+  20.2 h), while GIR is still graded over 24 h, so the glucose rate while the pump runs is up to about a fifth
+  above the GIR shown. Show the gap ("หยุด N h ก่อนถุงใหม่"), grade GIR over the pump's hours, or accept it?
+- **Q22 · `CR-R-LIPID-WHOLE-ML`:** the tap guards only the two lipid lines (4.0 g/kg/d, 0.17 g/kg/h). Should it also
+  never tip Energy above 160 or NPE:AA below 12, and should a dose already above 4.0 round toward the limit (the
+  whole mL below) rather than to the nearest?
 
 ## Sources
 

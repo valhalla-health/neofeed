@@ -38,11 +38,18 @@ actually runs; one PR for both.
 - **Lipid g/kg/h is over the hours the pump runs** (`CR-LIPID-RATE`). Rounding a rate up shortens the run, so a dose
   can grade higher than before: at 1 kg over 24 h, 3.05 g/kg/d is 0.9 mL/hr for 21.4 h = 0.14 (amber; it was 0.13),
   and over 20 h, 3.4 g/kg/d is 1.1 mL/hr for 19.1 h = 0.18 (critical; it was 0.17). The rule's cases moved to the new
-  edges, with Pp's answer as their source.
+  edges, with Pp's answer as their source. Under 24 h typed it can also grade lower: at 1 kg over 16 h, 2.85 g/kg/d
+  is 1.1 mL/hr for 16.6 h = 0.17, amber, where it was 0.18, critical (Vera; pinned as a case).
+- **Small TPN bags stop early** (Vera; Q21 for Pp): 12.1 mL/day is 0.6 mL/hr for 20.2 h, and GIR is still over 24 h.
+- **The tap guards only the lipid lines** (Vera; Q22 for Pp): not Energy 160 or NPE:AA 12, and a dose already above
+  4.0 rounds to the nearest mL (4.5 → 4.52).
 - **Printed figures**: on every order with lipid, the lipid line's two figures change ("over 24 h … Rate 0.84" →
   "Rate 0.9, infusion 22.3 h"); `verify-review-0917-calc.cjs`'s five digests were recaptured after a figure-by-figure
-  comparison with `main` showed nothing else moved. No constant moves, so `CONSTANTS_VERSION` stays; the change is in
-  how the rates are rounded and shown, recorded here and in the two new rules.
+  comparison with `main` showed nothing else moved. **`CONSTANTS_VERSION` 2026-10-28.1 → 2026-11-06.1** (Vera: calculator
+  logic moves printed figures, the register's rule since 2026-09-18), with its rows in `docs/CLINICAL_CONSTANTS.md`:
+  the version history, `LIPID_GKGH` graded over the pump's hours, and `PUMP_MAX_HOURS`. So an order saved before this
+  release prints only after it is saved again. The backend's `MIN_SUBMIT_CONSTANTS_VERSION` stays 2026-10-28.1: no
+  `clasp` step.
 - **Harnesses that pinned the old rates**, updated to the new rule: `verify-calc-clicks.cjs` (lipid over 16/20/24 h,
   Volume 100 → Rate 4.2), `verify-calc-oracle.cjs` (its own pump rule, written out), `verify-tpn-meeting-0928.cjs` §5 and
   `verify-tpn-team-0922.cjs` §2 (they pinned "the pump rate keeps its 2 decimals", Praew 2026-09-28, which this

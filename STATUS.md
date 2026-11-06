@@ -2,7 +2,8 @@
 
 > ⏳ **2026-11-06 — the lipid pump (this PR): in review.** A tap on Lipid volume rounds the syringe to the nearest
 > whole mL/day and sets the dose from it; both pumps show 0.1 mL/hr and the hours they run, and lipid g/kg/h is over
-> those hours. The printed lipid line changes on every order with lipid. **#224** (Print ทั้งหมด as one print job;
+> those hours. The printed lipid line changes on every order with lipid, so `CONSTANTS_VERSION` moves to `2026-11-06.1`:
+> once released, an order saved before it prints only after it is saved again. **#224** (Print ทั้งหมด as one print job;
 > "แพทย์" left blank) is merged into `main` (2026-11-07, 00:25 ICT), not live until a release. Recorded here by this PR.
 >
 > ⏳ **2026-11-06 — Print ทั้งหมด as one print job (PR #224): merged into `main`, not live (above).** One tap collects every ticked order's
