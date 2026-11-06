@@ -1407,6 +1407,16 @@
     background: var(--brand-bg); border: 1px solid var(--brand-line); font-size: 13px; color: var(--brand-2);
   }
   .print-all-bar .btn { min-height: 44px; }
+  .print-all-bar .print-all-hint { color: var(--ink-3); }
+  /* Print ทั้งหมด's one print job (registry.jsx WardPrintBatch, Pp 2026-11-06):
+     what is in it and what was held back. The sheets are print only. */
+  .print-batch { display: none; }
+  .print-batch-skipped {
+    padding: 10px 12px; margin-bottom: 10px; border-radius: var(--r);
+    background: var(--crit-bg); border: 1px solid var(--crit-line); color: var(--crit); font-size: 13px;
+  }
+  .print-batch-skipped ul { margin: 0; padding-left: 18px; line-height: 1.7; }
+  .print-batch-list { margin: 0; padding: 0; list-style: none; font-size: 13.5px; line-height: 1.8; color: var(--ink-2); }
 
   /* Per-patient "has today's Daily_Log entry?" badge — registry cards + table.
      Same vocabulary as the Logged today / Needs entry tiles above the list, so
@@ -2120,7 +2130,7 @@
     /* Everything in the workspace except the order form itself — the edit/
        back-fill/prefill/lock/draft banners and the staleness banner sit
        outside .card and used to print above the pharmacy form. */
-    .work-inner > :not(#print-form), .bottom-nav, .quick-fab, .app > [role="status"] { display: none !important; }
+    .work-inner > :not(#print-form):not(.print-batch), .bottom-nav, .quick-fab, .app > [role="status"] { display: none !important; }
 
     html, body { height: auto; background: #fff; }
     .app { display: block; height: auto; min-height: auto; overflow: visible; }
@@ -2140,6 +2150,13 @@
        red box and the signature line never split across a page break. */
     #print-form td, #print-form th { line-height: 1.35; }
     #print-form .print-crit-box, #print-form .print-sign { break-inside: avoid; page-break-inside: avoid; }
+
+    /* Print ทั้งหมด (registry.jsx WardPrintBatch): each order's sheet as its
+       calculator rendered it, the same rules as #print-form, one per page. */
+    .print-batch, .print-batch-sheet { display: block !important; }
+    .print-batch-sheet + .print-batch-sheet { break-before: page; page-break-before: always; }
+    .print-batch-sheet td, .print-batch-sheet th { line-height: 1.35; }
+    .print-batch-sheet .print-crit-box, .print-batch-sheet .print-sign { break-inside: avoid; page-break-inside: avoid; }
 
     @page { size: A4 portrait; margin: 8mm 10mm; }
   }
@@ -2161,11 +2178,11 @@
        content hash the build writes: never edit one by hand. -->
   <script src="data.js?v=c6cdd985ae"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
-  <script src="compiled/calculator.js?v=f1bc83782c"></script>
+  <script src="compiled/calculator.js?v=bcff5598cd"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
-  <script src="compiled/registry.js?v=ccf6f07e29"></script>
+  <script src="compiled/registry.js?v=7d630b9003"></script>
   <script src="compiled/log.js?v=7b665ce3f8"></script>
-  <script src="compiled/app.js?v=32b8e00987"></script>
+  <script src="compiled/app.js?v=fe95becd3e"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

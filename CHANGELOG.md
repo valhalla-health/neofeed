@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-06 (3) — Step 2's milk list: no FBM ↔ Infatrini, "HiQ LF"
+## Session 2026-11-06 (4) — Step 2's milk list: no FBM ↔ Infatrini, "HiQ LF"
 
 `data.js` (`EN_PRODUCTS`), `test/verify-en-db-sources.cjs`, `test/verify-tpn-meeting-0928.cjs`,
 `test/verify-calc-oracle.cjs`, `test/verify-calc-fuzz.cjs`, `test/verify-calc-sum.cjs`, `test/verify-show-working-1028.cjs`, the `neofeed-clinical-rules` skill, `compiled/` and both
@@ -31,7 +31,7 @@ Pp, 2026-11-06, from a phone screenshot of the Feed type list: "หน้าก�
   a saved `FBM_INF_MIX` order (Vera), so the claim that it still computes and shows as saved is tested on screen. The skill's `--fix-lines` rewrote stale line
   numbers only.
 
-## Session 2026-11-06 (2) — No Calculator button inside a ward; แสดงทั้งหมด on the filter's line
+## Session 2026-11-06 (3) — No Calculator button inside a ward; แสดงทั้งหมด on the filter's line
 
 `app.jsx`, `registry.jsx`, `NeoFeed.html`, `index.html`, `compiled/app.js`, `compiled/registry.js`,
 `test/verify-quick-calc.cjs`, `test/verify-print-all-1028.cjs`, `test/verify-ios-input-zoom-1009.cjs`,
@@ -57,6 +57,93 @@ button shows in the ward (340 passed). No calculation, printed figure or backend
 
 `STATUS.md` also catches up on PR #221 (`release` = `96f393e`, 2026-11-06 23:35 ICT: #218's frontend, #219,
 #220), merged while this PR was open, and drops the two ⏳ entries it made live.
+
+## Session 2026-11-06 (2) — Print ทั้งหมด prints the ward's orders as one print job; "แพทย์" left blank to sign
+
+`app.jsx` (`printQueue`, `printBatch`, `CalculatorView` `captureSheet`), `registry.jsx` (`WardPrintBatch`),
+`calculator.jsx` (two attributes on `#print-form`, the auto-print request carries its block reason, and the
+signature line), `REFERENCE.md` § The printed order, both
+shells (CSS), `compiled/`, `test/verify-print-all-1028.cjs`. No calculation, limit, unit or printed figure changed,
+and the sheet is the one each order's calculator already renders.
+
+### Why
+
+Pp, on a phone screenshot of the calculator's "Print ทั้งหมด · ใบที่ 2 จาก 15 — ถัดไป: NICU 3 …" bar:
+"ถ้ากดปริ้นท์ทั้งหมดแล้วไม่ต้องเข้ามากดทีละคนอีกได้ไหม ให้ปริ้นออกมาเลย เพราะหมอต้องเช็ค บ่อนเซ็นชื่ออยู่แล้ว
+คนทําหน้าที่ปริ้นอาจจะเป็นพยาบาล จะได้ไม่ต้องกดหลายที". Fifteen orders took fifteen print dialogs and fourteen taps
+of ถัดไป. This is the follow-up the 2026-10-28 (2) entry left open ("If the ward wants one dialog for the whole
+ward, that is the follow-up").
+
+### What changed
+
+- **One tap, one print dialog.** Print ทั้งหมด (or Print ที่เลือก) still opens each ticked order in bed order exactly as
+  a tap on its row does, so each passes the calculator's Print gate and the edit lock. But the calculator no longer
+  prints it: it hands back a copy of its `#print-form` (`CalculatorView` `captureSheet`, two frames on, as the Print
+  handler prints), or the reason it holds the order back, and the run opens the next by itself. The bar reads
+  "กำลังเตรียม Print ทั้งหมด · ใบที่ 2 จาก 15 · NICU 2 … — ไม่ต้องกดอะไร", with ยกเลิก.
+- **The job** (`registry.jsx` `WardPrintBatch`) replaces the list when the run ends: "พร้อมพิมพ์ 13 จาก 15 ใบ", a ✓
+  line per sheet, and every order held back in red, by name, with why (a colleague has it open, a critical value
+  with no reason, off the list since, no answer). The copies print one per A4 page in bed order.
+- **When the dialog opens.** Every order made it: once, by itself. Any held back: not until the nurse taps
+  "พิมพ์ N ใบ", so the list of what is missing is seen before the stack goes to pharmacy. "พิมพ์ N ใบ" prints the
+  same job again; "← กลับไปรายการ" goes back to the list. A tap on one row still prints that one order at once.
+- **A sheet goes in only if it names the order opened.** `#print-form` now carries `data-session-id` and
+  `data-entry-id`; the copy is taken only when both match the order the run opened, and the run checks again before
+  keeping it. Anything else is that order skipped by name, never printed under it.
+- **An order that never answers** (the edit lock's reply lost) is skipped by name after 40 s
+  (`PRINT_ALL_STEP_MS`), so the run still ends.
+- **Leaving ends it.** ยกเลิก, the back link, the rail or the bottom bar end the run and drop any job; nothing pulls the
+  user back to the list.
+- **A waiting job prints only what is still the order now** (Vera's BLOCK, below). Each copy is asked
+  `wardPrintableOrder` again against the log at every render and again at the tap. One revised, deleted, moved or
+  discharged since it was copied leaves the job, named "เปลี่ยนไปหลังเตรียมชุดพิมพ์". Past the day the job was made
+  (`printBatch.day`), nothing prints and the page says "วันเปลี่ยนแล้ว", back to the list. Each copy also carries what
+  it was drawn from, the infant's record and log as its calculator had them (`registry.jsx` `printSheetBasis`); any
+  change to either since (a birth-weight correction, a name or bed, an earlier order revised) leaves the job too.
+
+- **"แพทย์" on the printed sheet is a blank line to sign** (Pp, in the same thread: "รายชื่อแพทย์ตรงหน้าปริ้น
+  ไม่ต้องขึ้นตามล็อกอินก็ได้ เพราะต้องลงชื่อใหม่อยู่ดี"). It printed the name of whoever saved the order (TPN team,
+  2026-09-22, "so pharmacy knows whom to call"); with a nurse printing the ward and each sheet checked and signed by
+  hand, that could name someone other than the signer. `nameOnlyOf` goes. `verify-tpn-team-0922`, `verify-tpn-meeting-0928`
+  § 8 and `verify-print-one-page-1102` now expect the blank line. ⚠️ **The saver's name no longer prints anywhere on
+  paper**: the back sheet's "บันทึกโดย" is on screen only, since `.print-back` does not print (2026-10-28), so the
+  second commit's "the back sheet still records who saved" holds for the screen and the saved row, not the paper.
+  Pharmacy reads the handwriting and the รหัส line. **Pp decided (2026-11-06): keep it blank**, after being asked
+  whether pharmacy needs a printed name or code (the TPN team asked for the name on 2026-09-22 "so pharmacy knows
+  whom to call"). Still to do: tell the TPN team. Pp also chose to keep both asks in one PR (#224).
+
+### Decisions
+
+- **Copies of the rendered sheet, not a second renderer.** The 2026-10-28 (2) entry ruled out a print-only mode inside
+  `Calculator`: a second path that decides what may print. The copy is the DOM the existing gate already allowed
+  (`PrintOrderForm` renders only while `printable` holds), so what may print is still decided in one place. The
+  copies are cloned nodes, never re-parsed HTML.
+- **Why it is now safe to go on without a tap.** The one-tap rule existed because moving the page on under an open
+  print dialog could put the next infant's order on this one's sheet. Now no dialog opens until every order is
+  collected, and the page holding the job does not change while it is open.
+- **A held order stops the automatic dialog.** One more tap when something is missing, so no one takes 13 sheets to
+  pharmacy believing they are the ward's 15.
+
+### Vera
+
+BLOCK on the first commit. 🔴 The job printed its copies with no re-check: a sheet copied before a colleague's revision,
+or a job left on screen past midnight, would reach pharmacy on the tap (fixed in the third commit; her two tests went
+in, `revised` 8.12–8.15 and `nextday` 8.16–8.17, and fail on the second commit). 🟠 Nothing laid the job out in a
+browser: `verify-print-one-page-1102.cjs` § 2c now prints the fullest sheets as one job in Chromium and finds one A4
+page per sheet, each signature on its own page. A real ward printer is still to come.
+
+Second review, of all three commits: BLOCK. 🔴 The re-check compared only the entry id, and a correction to the
+infant's record keeps it: a birth weight raised above the current weight moves the dosing weight (UP-C2), which holds
+Print on the single-order path, yet the waiting copy printed (fixed in the fourth commit with `printSheetBasis`; her
+test went in, `bwfix` 8.18–8.20, and fails on the third commit). 🟠 The second commit said the back sheet still names
+the saver, but the back does not print: corrected above, and left to Pp.
+
+### Checked
+
+`verify-print-all-1028.cjs` rewritten for the job: all pass on the sources (#2 one dialog with three sheets in bed order,
+each naming its own infant and entry, none opened while an order was open; #3–#4 held orders named, dialog on a tap;
+#5 ยกเลิก and the rail; #7 the ticked ones only; #8–#8d a sync during the run; #8e an order that never answers; #8f a
+sheet naming another entry is never taken; #9 No TPN orders). The whole suite, sources and `compiled/`: see the PR.
 
 ## Session 2026-11-06 — CI pins jsdom to 30
 
