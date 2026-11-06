@@ -1,5 +1,10 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-06 — Step 2's milk list (this PR): in review.** "FBM 24 ↔ Infatrini 30 (alternating)" leaves the Feed
+> type list (two feeds do it; orders saved on it still compute) and "LF — HiQ LF" reads "HiQ LF". No figure moves.
+> **#218** (Indication for PN dropdown and the Liver/Renal Dysfunction ticks, the frontend half of backend `@68`) is
+> merged into `main` (2026-11-06, 23:08 ICT), not live until a release. Recorded here by this PR.
+>
 > ⏳ **2026-11-06 — TPN-room stickers, PR B (`tpn-room.html`, #219): merged into `main`, not live.** The page, its
 > encrypted name file and the three stickers are built and tested on synthetic infants (`openspec/changes/tpn-room-stickers`
 > tasks.md § 2). It needs no backend change. **Three things hold the release** (tasks.md § 0): `tpn-room-check.html`

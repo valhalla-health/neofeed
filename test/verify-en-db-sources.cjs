@@ -164,8 +164,9 @@ const UNSOURCED = ['BM_PF_20'];
 const KEPT = { BM_PF_20: { kcal: 67, pro: 1.5, fat: 3.5, cho: 7.4, na: 1.0, k: 1.7, ca: 50, p: 28, osm: 290 } };
 // The Calculator's feed list for a new order (calculator.jsx, Step 2). The two
 // 24 kcal/oz rows and Enfalac LF joined on 2026-10-27 (nutrition unit).
+// FBM 24 ↔ Infatrini 30 left it on 2026-11-06 (Pp: two feeds do it).
 const CALC_OFFERS = ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
-  'FBM_INF_MIX', 'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27'];
+  'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27'];
 const FIELDS = ['kcal', 'pro', 'fat', 'cho', 'na', 'k', 'ca', 'p'];
 const close = (a, b) => typeof a === 'number' && Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
 
@@ -316,8 +317,8 @@ const scenarios = {
     A.eq('4.2 a new order offers the sourced feeds and PF 20', opts.map(o => o.strength.value).sort(), [...CALC_OFFERS].sort());
     A.eq('4.3 none of them is disabled', opts.filter(o => o.product.disabled || o.strength.disabled).map(o => o.strength.value), []);
     A.eq('4.4 each kcal/oz option is the strength its EN_DB row is labelled with',
-      opts.filter(o => !/^\d+$/.test(o.strength.textContent) ? o.strength.textContent !== '24 ↔ 30'
-        : !DB[o.strength.value]?.label.includes(`${o.strength.textContent} kcal/oz`)).map(o => o.strength.value), []);
+      opts.filter(o => !/^\d+$/.test(o.strength.textContent)
+        || !DB[o.strength.value]?.label.includes(`${o.strength.textContent} kcal/oz`)).map(o => o.strength.value), []);
     A.ok('4.5 Enfalac Premature keeps the ward\'s 22 kcal/oz',
       opts.some(o => o.strength.value === 'FBM_PF_22' && o.product.textContent === 'Enfalac Premature' && o.strength.textContent === '22'));
 
