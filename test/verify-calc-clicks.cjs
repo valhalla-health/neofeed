@@ -422,6 +422,12 @@ const openAll = () => click(btnExact('Open all'));
       ok('P 2 mg/kg (meant 2 mEq Na): critical, asking whether it was mEq Na', crit().some(t => t.includes(LOW)), crit());
       setField('Glycophos', 10);
       ok('P 10 mg/kg: no such line', !crit().some(t => t.includes(LOW)), crit());
+      // The high line is graded on the dose, so it fires from the P box too: 155 mg P = 10 mEq Na.
+      const HIGH = 'Glycophos 10 mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า';
+      setField('Glycophos', 155);
+      ok('P 155 mg/kg (= 10 mEq Na): the high line, not the low one', crit().some(t => t.includes(HIGH)) && !crit().some(t => t.includes(LOW)), crit());
+      setField('Glycophos', 154);
+      ok('P 154 mg/kg: no high line', !crit().some(t => t.includes(HIGH)), crit());
       setField('Glycophos', 2);
       click(glyBy('Na'));
       ok('the same dose shown on Na (0.13 mEq): no line', !crit().some(t => t.includes(LOW)), crit());

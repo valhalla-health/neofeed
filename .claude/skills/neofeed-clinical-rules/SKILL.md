@@ -1017,7 +1017,8 @@ label change what the box and its chips are in (Na 1–4 mEq/kg/d; P 15, 30, 45,
 dose. The order stores one figure, mL/kg/d (= mmol P/kg/d), whichever is typed; every Calculator opens
 on Na, and goes back to Na when the infant or the order changes (the header's "Switch patient"
 keeps it mounted; Vera), so a dose typed from habit is read as Na, as before. A P-typed dose shows to 4
-decimals of mL/kg at most on the order form and in the changes list.
+decimals of mL/kg at most on the order form and in the changes list; Center Point's packet keeps its own 3
+(`glycoKg`, 0.645 where the form prints 0.6452). Both compute the stock mL from the unrounded dose.
 
 ```rule
 {"rule": "CR-U-SALTS", "kind": "unit", "coded": {"KCMH_STOCK.naCl.naMeqPerMl": 3.42, "KCMH_STOCK.naAcetate.naMeqPerMl": 3, "KCMH_STOCK.naAcetate.acetateMeqPerMl": null, "KCMH_STOCK.glycophos.naMeqPerMl": 2, "KCMH_STOCK.glycophos.pMgPerMl": 31, "KCMH_STOCK.kCl.kMeqPerMl": 2, "KCMH_STOCK.k2hpo4.kMeqPerMl": 1, "KCMH_STOCK.k2hpo4.pMgPerKMeq": 15.5, "KCMH_STOCK.mgso4_10.mgMeqPerMl": 0.812, "KCMH_STOCK.caGluconate.caMgPerMl": 9.01755, "KCMH_STOCK.aminoven10.gPerMl": 0.1}, "where": [{"file": "calculator.jsx", "line": 940, "has": "const glycophosPerMl = glycophosBy === \"p\" ? S.glycophos.pMgPerMl : S.glycophos.naMeqPerMl;"}, {"file": "calculator.jsx", "line": 942, "has": "const setGlycophosTyped = (v) => setGlycophosP(v / glycophosPerMl);"}, {"file": "calculator.jsx", "line": 1575, "has": "const p_glycophos  = glycophosP * wtKg * 31;"}, {"file": "calculator.jsx", "line": 1577, "has": "const p_k2hpo4 = k2hpo4 * wtKg * 15.5;"}]}

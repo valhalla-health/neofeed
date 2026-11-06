@@ -130,7 +130,7 @@ Two harness contracts: the patient table stays the form's first direct `<table>`
 §6 figure sweeps skip it), and the provenance footer stays the form's last child.
 
 **One A4 page at its fullest (Pp, 2026-11-02).** The front must stay one page with the signature on it, also
-with a confirmed critical value (all 13 critical titles that take a reason, and the 300 characters Submit allows a reason). With a
+with a confirmed critical value (all 15 critical titles that take a reason, and the 300 characters Submit allows a reason). With a
 confirmation the signature line is **inside** the red box (`.print-crit-box`), and the box and the line never
 split (`break-inside: avoid` in both shells). In the box the line also carries "NeoFeed ID: … · วันที่ให้ TPN:
 …" (the strings the sheet prints at its top, "วันที่สั่ง" on a No TPN sheet) between the doctor and the code,
