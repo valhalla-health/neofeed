@@ -343,9 +343,10 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     eq('calcInput.savedByLabel is the saver\'s "Name (email)"', log.entry && log.entry.calcInput.savedByLabel, 'Dr Test (doc@kcmh.test)');
     const top = text(container.querySelector('#print-form .print-saved-by'));
     ok('the back page names the saver, with time and revision', /Dr Test \(doc@kcmh\.test\)/.test(top) && /ฉบับที่/.test(top), top);
-    // The name only since 2026-09-28: no email on the doctor's sheet (verify-tpn-meeting-0928 §8).
-    eq('the front names the doctor at "แพทย์", where the paper form asks',
-      text(container.querySelector('#print-form .print-doctor')), 'Dr Test');
+    // Blank since 2026-11-06: the doctor who checks the order writes and signs it (Pp; verify-tpn-meeting-0928 §8).
+    ok('the front leaves "แพทย์" blank to sign by hand, with no saver\'s name',
+      /^\.+$/.test(text(container.querySelector('#print-form .print-doctor')))
+      && !/Dr Test/.test(text(container.querySelector('#print-form .print-sign'))), text(container.querySelector('#print-form .print-sign')));
     ok('the Save card names the saver too', /Dr Test \(doc@kcmh\.test\)/.test(text(container.querySelector('.saved-by'))), text(container.querySelector('.saved-by')));
 
     const row = (id, extra, ci) => ({ entryId: id, lastModified: '2026-09-22T03:00:00.000Z', ts: '2026-09-22', dol: 1, weight: 2000,
@@ -540,7 +541,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('the paper form\'s other choices are there, unticked', ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 20% Intralipid', '☐ 20% Clinoleic', '☐ Addamel N', '8. Other'].every(s => front.includes(s)),
       ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 20% Intralipid', '☐ 20% Clinoleic', '☐ Addamel N', '8. Other'].filter(s => !front.includes(s)));
     ok('the oral orders are under 8. Other', /8\. Other.*Vitamin D/.test(front), front.match(/8\. Other.{0,120}/));
-    eq('the doctor\'s name is at "แพทย์", as on the paper form (no email since 2026-09-28)', text(frontEl.querySelector('.print-doctor')), 'Dr Test');
+    ok('"แพทย์" is a blank line to sign, as on the paper form (no name since 2026-11-06)', /^\.+$/.test(text(frontEl.querySelector('.print-doctor'))), text(frontEl.querySelector('.print-doctor')));
     // The lipid pump rate moved to the front on 2026-10-28 (the back no longer prints).
     ok('the front carries no pharmacy working and no alert text',
       !/Factor:|WFI|Components|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/.test(front), front.match(/Factor:|WFI|Components|สั่งทั้งที่มีค่าวิกฤต|เปลี่ยนแปลงจากคำสั่ง|DELIVERED/g));
