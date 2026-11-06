@@ -4820,7 +4820,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   // อยู่ดี"): a nurse may print the ward's orders, and the doctor who checks each one
   // signs it, who need not be the one logged in when it was saved. Until then it
   // printed the saver's name (TPN team, 2026-09-22; name only, 2026-09-28). The back
-  // sheet's "บันทึกโดย" still names the saver, and the saved row keeps who saved it. With a confirmed critical value the line sits
+  // sheet's "บันทึกโดย" names the saver on screen only: .print-back does not print
+  // (2026-10-28), so no saver's name reaches paper. The saved row keeps who saved it. With a confirmed critical value the line sits
   // inside the red box, so the signature is on the same page as the confirmation it signs
   // (Pp, 2026-11-02). The shells' @media print block keeps the box and the line unsplit.
   // Inside the box the line also names the infant and the day, the same strings the sheet prints at its
