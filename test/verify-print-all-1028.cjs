@@ -6,26 +6,29 @@
 //   — a Print all button at the top right, and no Calculator button at the
 //   bottom right.
 //
-// Print ทั้งหมด opens the list's orders one at a time, in bed order, each
-// exactly as a tap on its row does (verify-ward-print-1012.cjs #4–#6): the
-// calculator's own Print gate, the edit lock, one print preview per order.
-// The next order opens only on a tap, never on afterprint, because a browser
-// need not wait for its print dialog before handing the page back.
+// Print ทั้งหมด is one print job (Pp, 2026-11-06: "ถ้ากดปริ้นท์ทั้งหมดแล้วไม่ต้อง
+// เข้ามากดทีละคนอีกได้ไหม ให้ปริ้นออกมาเลย"). The run still opens the list's
+// orders one at a time, in bed order, each exactly as a tap on its row does
+// (verify-ward-print-1012.cjs #4–#6): the calculator's own Print gate and the
+// edit lock. But it takes a copy of each sheet instead of printing it, goes on
+// by itself, and opens one print dialog at the end. No dialog opens while an
+// order is open, so the page never moves on under one.
 //
 //   #1 list     the button: top right of the head, counting the orders a tap
 //               would print (no tmp_ row, no two-orders day); no Calculator
-//               button on the list, still one on the ward gate and ward list
-//   #2 run      each order prints once, on its own infant's sheet; afterprint
-//               moves nothing; ถัดไป opens the next; the last leads back
-//   #3 held     a colleague's lock holds that order's print, as a tap would;
-//               ถัดไป still goes on to the next
-//   #4 blocked  an order the Print gate holds back does not print, says why,
-//               and ถัดไป still goes on
-//   #5 leave    leaving the run ends it: a later tap on a row shows no bar
+//               button on the list, still one on the ward gate, none in the ward list (2026-11-06)
+//   #2 run      one tap: each order collected in bed order, the bar saying
+//               which; one dialog, by itself, with every sheet in bed order,
+//               each its own infant's and entry's; afterprint and a sync print
+//               nothing more; พิมพ์ N ใบ prints again; ← กลับไปรายการ
+//   #3 held     a colleague's lock keeps that order out, named with who; any
+//               order held back means the dialog waits for a tap
+//   #4 blocked  an order the Print gate holds back is left out, with why
+//   #5 leave    ยกเลิก, or leaving by the rail, ends the run with no job
 //   #6 none     nothing printable: the button is off; no orders: no button
 //   #7 pick     Pp's second ask, "ให้สามารถมีปุ่มซีเล็กเป็น คน ๆ ไปได้หรือ
 //               ซีเล็กออลก็ได้": a tick per printable row, เลือกทั้งหมด, and
-//               the run is the ticked orders only
+//               the job is the ticked orders only
 //   #9 no TPN   Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order". An order
 //               ticked "No TPN", or a submitted one from before the tick with
 //               no TPN, is marked "No TPN — ไม่ต้องพิมพ์" with no Print button,
@@ -36,10 +39,9 @@
 //   #8 resync   Vera, 2026-10-28: each queued order is asked the list's rule
 //               again before it opens; one a sync took off the list (a second
 //               order that day, discharged, deleted, moved ward, the day
-//               rolled over) is skipped by name
-//
-// The last bar reads "ใบสุดท้าย", never "ครบ N ใบ": the run cannot know a
-// sheet printed (Vera, 2026-10-28).
+//               rolled over) is skipped by name. #8e: an order that never
+//               answers is skipped by name. #8f: a sheet that does not name the
+//               order opened is never taken
 //
 // Drives the real <App/> through review-0917-boot (dev-only deps as in
 // test/README.md).
@@ -80,7 +82,8 @@ function setup() {
   const t = boot({ patients, log });
   t.quiet();
   t.printed = 0;
-  t.window.print = () => { t.printed++; };
+  t.printedSheets = [];
+  t.window.print = () => { t.printed++; t.printedSheets = batchSheets().map(s => s.getAttribute('data-session-id')); };
   return t;
 }
 const settle = async (t, n = 6) => { for (let i = 0; i < n; i++) await t.flush(); };
@@ -97,6 +100,39 @@ const sheetIs = (id) => new RegExp(`NeoFeed ID:\\s*${id}\\b`).test(sheetPatient(
 const openedIs = (id) => /แก้ไขบันทึกโภชนาการ/.test(document.body.textContent) && sheetIs(id);
 const pick = (name) => printRow(name)?.parentElement.querySelector('.print-pick input') || null;
 const pickAll = () => document.querySelector('.print-pick-all input');
+// Print ทั้งหมด's one job (registry.jsx WardPrintBatch).
+const batch = () => document.querySelector('.print-batch');
+const batchSheets = () => [...document.querySelectorAll('.print-batch > .print-batch-sheet')];
+const skipped = () => document.querySelector('.print-batch-skipped')?.textContent || '';
+const listed = () => [...document.querySelectorAll('.print-batch-list li')].map(li => li.textContent);
+// The job holds exactly these [sessionId, entryId] sheets, in this order, and
+// each one's own patient table names that infant.
+const sheetsMatch = (...want) => {
+  const got = batchSheets();
+  return got.length === want.length && got.every((s, i) => s.getAttribute('data-session-id') === want[i][0]
+    && s.getAttribute('data-entry-id') === want[i][1]
+    && new RegExp(`NeoFeed ID:\\s*${want[i][0]}\\b`).test(s.querySelector(':scope > table')?.textContent || ''));
+};
+// The run goes on by itself: wait for its job to show (a held order takes the
+// calculator's 1.5 s wait).
+const runDone = async (t, max = 120) => { for (let i = 0; i < max && !batch(); i++) await t.flush(30); await settle(t); };
+// Hold one infant's edit-lock reply until released, so the run waits on it.
+const holdLock = (t, sid) => {
+  let release, used = false;
+  const p = new Promise(r => { release = r; });
+  t.server.hooks.acquireLogLock = (b) => (b.sessionId === sid && !used ? (used = true, { hold: p }) : undefined);
+  return () => release();
+};
+// What the bar said during a run, and any print dialog opened while an order was open.
+const watchBar = (t) => {
+  const seen = { texts: [], printsWhileOpen: 0 };
+  const mo = new t.window.MutationObserver(() => { const b = bar(); if (b && seen.texts[seen.texts.length - 1] !== b.textContent) seen.texts.push(b.textContent); });
+  mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+  const print = t.window.print;
+  t.window.print = () => { if (document.getElementById('print-form')) seen.printsWhileOpen++; print(); };
+  seen.stop = () => { mo.disconnect(); t.window.print = print; };
+  return seen;
+};
 
 const scenarios = {
   async 'list'(A) {
@@ -105,7 +141,8 @@ const scenarios = {
     await t.start();
     A.ok('1.0 the ward gate still has the Calculator button', !!fab());
     await t.pickWard('NICU');
-    A.ok('1.1 …and so does the ward list', !!fab() && document.querySelector('.app').classList.contains('has-quick-fab'));
+    // Not inside a ward (Pp, 2026-11-06: "ถ้าเข้ามาในหน้าวอร์ดแล้ว ไม่ต้องมีแคลคูเลเตอร์").
+    A.ok('1.1 …but the ward list does not', !fab() && !document.querySelector('.app').classList.contains('has-quick-fab'));
     await t.click(t.btn(/เปลี่ยน ward/));
     await t.click(wardPrint('NICU'));
     A.ok('1.2 NICU\'s print list is open', /Print order · NICU/.test(t.text()));
@@ -123,7 +160,7 @@ const scenarios = {
   },
 
   async 'run'(A) {
-    console.log('\n── #2 one order after another ──');
+    console.log('\n── #2 one tap, one print job ──');
     const t = setup();
     await t.start();
     // Another infant is active first: the run must open the list's own orders.
@@ -132,46 +169,38 @@ const scenarios = {
     await t.rail(/Patients/);
     await t.click(t.btn(/เปลี่ยน ward/));
     await t.click(wardPrint('NICU'));
+    const seen = watchBar(t);
     await t.click(printAll());
-    await settle(t);
-    A.ok('2.0 the first order in bed order (AA) opens in the calculator', openedIs('AA-1'));
-    A.eq('2.1 …and its print preview opens once', t.printed, 1);
-    A.ok('2.2 the bar says which of the run it is', /Print ทั้งหมด · ใบที่ 1 จาก 3/.test(bar()?.textContent || ''));
-    A.ok('2.3 …and names the next one', /ถัดไป: NICU 2 BB/.test(bar()?.textContent || ''));
-    // The dialog closing hands nothing on: only a tap does.
+    await runDone(t);
+    seen.stop();
+    A.ok('2.0 the run collected each order in bed order, saying which, with nothing to tap',
+      seen.texts.some(x => /กำลังเตรียม Print ทั้งหมด · ใบที่ 1 จาก 3 · NICU 1 AA/.test(x))
+      && seen.texts.some(x => /ใบที่ 2 จาก 3 · NICU 2 BB/.test(x)) && seen.texts.some(x => /ใบที่ 3 จาก 3 · NICU 4 DD/.test(x))
+      && !seen.texts.some(x => /ถัดไป/.test(x)), seen.texts);
+    A.eq('2.1 no print dialog opened while an order was open', seen.printsWhileOpen, 0);
+    A.ok('2.2 the run ends on NICU\'s one print job', /Print ทั้งหมด · NICU/.test(t.text()) && !!batch() && !bar());
+    A.eq('2.3 its print dialog opened once, by itself', t.printed, 1);
+    A.eq('2.4 …holding the three sheets, in bed order', t.printedSheets, ['AA-1', 'BB-1', 'DD-1']);
+    A.ok('2.5 each sheet names its own infant and today\'s entry (DD\'s, not yesterday\'s)', sheetsMatch(['AA-1', 'e-aa'], ['BB-1', 'e-bb'], ['DD-1', 'e-dd']));
+    A.ok('2.6 each is the doctor\'s sheet as the calculator renders it', batchSheets().every(s => s.querySelector('.print-sign') && /PEDIATRIC PARENTERAL NUTRITION ORDER FORM|NeoFeed ID/.test(s.textContent)));
+    A.ok('2.7 no #print-form, and no calculator, is left behind', !document.getElementById('print-form') && !/แก้ไขบันทึกโภชนาการ/.test(t.text()));
+    A.ok('2.8 the page lists the three and holds nothing back',
+      listed().join('|') === '✓ NICU 1 AA|✓ NICU 2 BB|✓ NICU 4 DD' && !skipped() && /พร้อมพิมพ์ 3 จาก 3 ใบ/.test(t.text()), listed());
     t.window.onafterprint?.();
     t.window.dispatchEvent(new t.window.Event('afterprint'));
-    await settle(t);
-    await t.flush(1700);
-    await settle(t);
-    A.ok('2.4 afterprint does not move on to the next order', openedIs('AA-1') && t.printed === 1);
     await t.tick();
     await settle(t);
-    A.eq('2.5 a re-render or a sync prints nothing again', t.printed, 1);
-
-    await t.click(t.btn(/ถัดไป: NICU 2 BB/));
+    A.ok('2.9 afterprint, a re-render or a sync prints nothing again', t.printed === 1 && !!batch());
+    await t.click(t.btn(/พิมพ์ 3 ใบ/));
     await settle(t);
-    A.ok('2.6 ถัดไป opens BB\'s order', openedIs('BB-1') && !sheetIs('AA-1'));
-    A.eq('2.7 …and prints it once', t.printed, 2);
-    A.ok('2.8 the bar moved on', /ใบที่ 2 จาก 3/.test(bar()?.textContent || '') && /ถัดไป: NICU 4 DD/.test(bar().textContent));
-
-    await t.click(t.btn(/ถัดไป: NICU 4 DD/));
+    A.ok('2.10 พิมพ์ 3 ใบ prints the same job again, on a tap', t.printed === 2 && t.printedSheets.join() === 'AA-1,BB-1,DD-1');
+    await t.click(t.btn(/← กลับไปรายการ/));
     await settle(t);
-    A.ok('2.9 DD\'s order for today, not yesterday\'s', openedIs('DD-1')
-      && !/DOL \d+ · /.test(document.querySelector('.page-head h1')?.textContent || ''));
-    A.eq('2.10 …printed once', t.printed, 3);
-    const done = t.btn(/ใบสุดท้าย · กลับไปรายการ/);
-    A.ok('2.11 the last offers the way back, not a next', /ใบที่ 3 จาก 3/.test(bar()?.textContent || '') && !!done && !t.btn(/ถัดไป:/));
-    A.ok('2.11b …and claims no count of sheets printed', !/ครบ/.test(bar()?.textContent || ''));
-    await t.click(done);
-    await settle(t);
-    A.ok('2.12 …which is NICU\'s list again', /Print order · NICU/.test(t.text()) && printRows().length === 5);
-    A.ok('2.13 with no bar left and nothing more printed', !bar() && t.printed === 3);
-
+    A.ok('2.11 ← กลับไปรายการ is NICU\'s list again, with nothing more printed',
+      /Print order · NICU/.test(t.text()) && printRows().length === 5 && !batch() && t.printed === 2);
     await t.click(printAll());
-    await settle(t);
-    A.ok('2.14 Print ทั้งหมด again starts over from the first', openedIs('AA-1') && t.printed === 4
-      && /ใบที่ 1 จาก 3/.test(bar()?.textContent || ''));
+    await runDone(t);
+    A.ok('2.12 Print ทั้งหมด again starts over, and prints once more', t.printed === 3 && t.printedSheets.join() === 'AA-1,BB-1,DD-1');
   },
 
   async 'held'(A) {
@@ -182,23 +211,16 @@ const scenarios = {
     await t.start();
     await t.click(wardPrint('NICU'));
     await t.click(printAll());
+    await runDone(t);
+    A.ok('3.0 AA and DD are not in the job, as a tap on their rows would not print them',
+      sheetsMatch(['BB-1', 'e-bb']), batchSheets().map(s => s.getAttribute('data-session-id')));
+    A.ok('3.1 the page names each, and who has it open',
+      /NICU 1 AA — Dr B กำลังเปิดบันทึกนี้อยู่/.test(skipped()) && /NICU 4 DD — Dr B กำลังเปิดบันทึกนี้อยู่/.test(skipped()), skipped());
+    A.eq('3.2 with one held back, the dialog waits for a tap: the nurse sees the list first', t.printed, 0);
+    A.ok('3.3 …and the count says 1 of 3', /พร้อมพิมพ์ 1 จาก 3 ใบ · ข้าม 2 ใบ/.test(t.text()));
+    await t.click(t.btn(/พิมพ์ 1 ใบ/));
     await settle(t);
-    await t.flush(1700);
-    await settle(t);
-    A.eq('3.0 AA\'s preview is held, as a tap on its row would be', t.printed, 0);
-    A.ok('3.1 …the page says who has it open', /Dr B กำลังเปิดบันทึกวันที่/.test(t.text())
-      && t.toasts().some(m => /ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — Dr B/.test(m)));
-    A.ok('3.2 the bar still offers the next order', /ใบที่ 1 จาก 3/.test(bar()?.textContent || '') && !!t.btn(/ถัดไป: NICU 2 BB/));
-    await t.click(t.btn(/ถัดไป: NICU 2 BB/));
-    await settle(t);
-    A.ok('3.3 …which opens and prints BB\'s', openedIs('BB-1') && t.printed === 1);
-    await t.click(t.btn(/ถัดไป: NICU 4 DD/));
-    await settle(t);
-    await t.flush(1700);
-    await settle(t);
-    A.ok('3.4 the last order (DD) is held too', t.printed === 1 && /Dr B กำลังเปิดบันทึกวันที่/.test(t.text()));
-    A.ok('3.5 …and the last bar does not say all 3 printed (Vera)',
-      /ใบที่ 3 จาก 3/.test(bar()?.textContent || '') && !/ครบ/.test(bar().textContent) && !!t.btn(/ใบสุดท้าย · กลับไปรายการ/));
+    A.ok('3.4 พิมพ์ 1 ใบ prints BB\'s alone', t.printed === 1 && t.printedSheets.join() === 'BB-1');
   },
 
   async 'blocked'(A) {
@@ -208,41 +230,54 @@ const scenarios = {
     await t.click(wardPrint('SCN'));
     A.eq('4.0 SCN\'s list', printRows().map(r => r.querySelector('.pr-name').textContent), ['SS', 'TT']);
     await t.click(printAll());
+    await runDone(t);
+    A.ok('4.1 SS\'s critical value with no reason is not in the job', sheetsMatch(['TT-1', 'e-tt']));
+    A.ok('4.2 …and the page says why, as Print order inside does',
+      /SCN 1 SS — มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผลก่อนพิมพ์/.test(skipped()), skipped());
+    A.eq('4.3 nothing printed before the nurse has seen it', t.printed, 0);
+    await t.click(t.btn(/พิมพ์ 1 ใบ/));
     await settle(t);
-    await t.flush(1700);
-    await settle(t);
-    A.eq('4.1 SS\'s critical value with no reason does not print', t.printed, 0);
-    A.ok('4.2 …and says why, as Print order inside does',
-      t.toasts().some(m => /มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผลก่อนพิมพ์/.test(m)));
-    A.ok('4.3 ถัดไป still goes on', !!t.btn(/ถัดไป: SCN 2 TT/));
-    await t.click(t.btn(/ถัดไป: SCN 2 TT/));
-    await settle(t);
-    A.ok('4.4 …and TT\'s prints', openedIs('TT-1') && t.printed === 1);
+    A.ok('4.4 …then TT\'s prints', t.printed === 1 && t.printedSheets.join() === 'TT-1');
   },
 
   async 'leave'(A) {
     console.log('\n── #5 leaving the run ends it ──');
     const t = setup();
+    const release = holdLock(t, 'BB-1');
     await t.start();
     await t.click(wardPrint('NICU'));
     await t.click(printAll());
     await settle(t);
-    await t.click(t.btn(/กลับไปรายการ Print order/));
+    A.ok('5.0 mid-run, BB is open with the bar, and ยกเลิก on it', openedIs('BB-1') && /ใบที่ 2 จาก 3/.test(bar()?.textContent || '') && !!t.btn(/^ยกเลิก$/));
+    await t.click(t.btn(/^ยกเลิก$/));
+    release();
     await settle(t);
-    A.ok('5.0 ← back on the page returns to the list', /Print order · NICU/.test(t.text()) && !bar());
+    await t.flush(200);
+    A.ok('5.1 ยกเลิก returns to the list, prints nothing and leaves no job', /Print order · NICU/.test(t.text()) && !bar() && !batch() && t.printed === 0);
     await t.click(printRow('BB'));
     await settle(t);
-    A.ok('5.1 a tap on a row afterwards is a single order, with no bar', openedIs('BB-1') && !bar() && t.printed === 2);
+    A.ok('5.2 a tap on a row afterwards is a single order, with no bar, printed at once', openedIs('BB-1') && !bar() && t.printed === 1);
     await t.click(t.btn(/กลับไปรายการ Print order/));
+    const release2 = holdLock(t, 'BB-1');
     await t.click(printAll());
     await settle(t);
     await t.rail(/Patients/);
+    release2();
     await settle(t);
-    A.ok('5.2 the rail during a run goes to the ward gate', !!document.querySelector('.ward-gate') && !bar());
+    await t.flush(200);
+    A.ok('5.3 the rail during a run goes to the ward gate, and the run never comes back', !!document.querySelector('.ward-gate') && !bar() && !batch() && t.printed === 1);
     await t.click(wardPrint('NICU'));
     await t.click(printRow('AA'));
     await settle(t);
-    A.ok('5.3 …and the run is over there too', openedIs('AA-1') && !bar());
+    A.ok('5.4 …and the run is over there too', openedIs('AA-1') && !bar() && t.printed === 2);
+    await t.click(t.btn(/กลับไปรายการ Print order/));
+    await t.click(printAll());
+    await runDone(t);
+    await t.click(t.btn(/← กลับไปรายการ/));
+    await t.click(t.btn(/← กลับ$/));
+    await settle(t);
+    await t.click(wardPrint('NICU'));
+    A.ok('5.5 a finished job is gone once the list is left', /Print order · NICU/.test(t.text()) && !batch());
   },
 
   async 'none'(A) {
@@ -286,30 +321,27 @@ scenarios['pick'] = async (A) => {
   await t.click(pick('AA'));
   A.ok('7.9 ticked one by one: Print ที่เลือก (2)', /Print ที่เลือก \(2\)/.test(printAll().textContent) && !pick('BB').checked);
   await t.click(printAll());
+  await runDone(t);
+  A.ok('7.10 the job is the ticked ones, in bed order: AA then DD, never the unticked BB',
+    sheetsMatch(['AA-1', 'e-aa'], ['DD-1', 'e-dd']) && t.printed === 1 && t.printedSheets.join() === 'AA-1,DD-1');
+  await t.click(t.btn(/← กลับไปรายการ/));
   await settle(t);
-  A.ok('7.10 the run is the ticked ones, in bed order: AA first, DD next',
-    openedIs('AA-1') && t.printed === 1 && /ใบที่ 1 จาก 2/.test(bar()?.textContent || '') && !!t.btn(/ถัดไป: NICU 4 DD/));
-  await t.click(t.btn(/ถัดไป: NICU 4 DD/));
-  await settle(t);
-  A.ok('7.11 …then DD, never the unticked BB', openedIs('DD-1') && t.printed === 2
-    && /ใบที่ 2 จาก 2/.test(bar()?.textContent || '') && !!t.btn(/ใบสุดท้าย/));
-  await t.click(t.btn(/ใบสุดท้าย/));
-  await settle(t);
-  A.ok('7.12 back on the list, every order is ticked again', ['AA', 'BB', 'DD'].every(n => pick(n)?.checked)
+  A.ok('7.11 back on the list, every order is ticked again', ['AA', 'BB', 'DD'].every(n => pick(n)?.checked)
     && /Print ทั้งหมด \(3\)/.test(printAll().textContent));
   await t.click(printRow('BB'));
   await settle(t);
-  A.ok('7.13 a tap on a row still prints that one order', openedIs('BB-1') && t.printed === 3 && !bar());
+  A.ok('7.12 a tap on a row still prints that one order', openedIs('BB-1') && t.printed === 2 && !bar());
 };
 
 scenarios['resync'] = async (A) => {
   console.log('\n── #8 a sync during the run takes an order off the list ──');
   const t = setup();
+  const release = holdLock(t, 'AA-1');
   await t.start();
   await t.click(wardPrint('NICU'));
   await t.click(printAll());
   await settle(t);
-  A.ok('8.0 AA opens and prints', openedIs('AA-1') && t.printed === 1);
+  A.ok('8.0 AA is open, its lock reply not back yet', openedIs('AA-1') && /ใบที่ 1 จาก 3/.test(bar()?.textContent || ''));
   // BB gains a second Submitted order today: the list leaves that day for a
   // person to choose, so the run must not print e-bb on its own.
   t.server.log['BB-1'].push(order('e-bb2', { lastModified: TODAY + 'T04:00:00.000Z' }));
@@ -317,17 +349,17 @@ scenarios['resync'] = async (A) => {
   await t.click(t.syncButton());
   await settle(t);
   A.ok('8.1 (a sync brought it in)', t.syncCalls().length > before);
-  await t.click(t.btn(/ถัดไป: NICU 2 BB/));
-  await settle(t);
-  A.ok('8.2 BB is skipped, by name, and nothing prints for it',
-    t.toasts().some(m => /ข้าม NICU 2 BB — ไม่อยู่ในรายการ Print order แล้ว/.test(m)) && !sheetIs('BB-1'));
-  A.ok('8.3 …the run goes on to DD, which prints', openedIs('DD-1') && t.printed === 2
-    && /ใบที่ 3 จาก 3/.test(bar()?.textContent || ''));
+  release();
+  await runDone(t);
+  A.ok('8.2 BB is not in the job; AA and DD are', sheetsMatch(['AA-1', 'e-aa'], ['DD-1', 'e-dd']));
+  A.ok('8.3 …and the page names BB as skipped', /NICU 2 BB — ไม่อยู่ในรายการ Print order แล้ว/.test(skipped()), skipped());
+  A.eq('8.4 …so the dialog waits for a tap', t.printed, 0);
 };
 
 scenarios['gone'] = async (A) => {
   console.log('\n── #8b the rest of the run is gone by the time it is reached ──');
   const t = setup();
+  const release = holdLock(t, 'AA-1');
   await t.start();
   await t.click(wardPrint('NICU'));
   await t.click(printAll());
@@ -338,23 +370,22 @@ scenarios['gone'] = async (A) => {
   t.server.patients.find(p => p.sessionId === 'DD-1').statusDate = TODAY;
   await t.click(t.syncButton());
   await settle(t);
-  await t.click(t.btn(/ถัดไป: NICU 2 BB/));
-  await settle(t);
-  A.ok('8.4 both are skipped, each by name', t.toasts().some(m => /ข้าม NICU 2 BB/.test(m))
-    && t.toasts().some(m => /ข้าม NICU 4 DD/.test(m)));
-  A.ok('8.5 …nothing more prints, and the user is on the list with no bar',
-    t.printed === 1 && /Print order · NICU/.test(t.text()) && !bar());
+  release();
+  await runDone(t);
+  A.ok('8.5 only AA is in the job', sheetsMatch(['AA-1', 'e-aa']));
+  A.ok('8.6 BB and DD are each named as skipped', /NICU 2 BB — ไม่อยู่ในรายการ/.test(skipped()) && /NICU 4 DD — ไม่อยู่ในรายการ/.test(skipped()), skipped());
+  await t.click(t.btn(/← กลับไปรายการ/));
   await t.click(printRow('AA'));
   await settle(t);
-  A.ok('8.6 …and the run is over: a tap on AA is a single order', openedIs('AA-1') && !bar() && t.printed === 2);
+  A.ok('8.7 …and the run is over: a tap on AA is a single order', openedIs('AA-1') && !bar() && t.printed === 1);
 };
 
 // Vera's second review (2026-10-28): the two remaining claims of the re-check,
-// a move to another ward and the day rolling over. Each fails on the first
-// commit, which opened the queued order whatever had happened since.
+// a move to another ward and the day rolling over.
 scenarios['moved'] = async (A) => {
   console.log('\n── #8c an infant moved to another ward during the run ──');
   const t = setup();
+  const release = holdLock(t, 'AA-1');
   await t.start();
   await t.click(wardPrint('NICU'));
   await t.click(printAll());
@@ -362,29 +393,129 @@ scenarios['moved'] = async (A) => {
   t.server.patients.find(p => p.sessionId === 'BB-1').currentBed = 'SCN 3';
   await t.click(t.syncButton());
   await settle(t);
-  await t.click(t.btn(/ถัดไป: NICU 2 BB/));
-  await settle(t);
-  A.ok('8.7 BB, now in SCN, is skipped by name and not printed',
-    t.toasts().some(m => /ข้าม NICU 2 BB — ไม่อยู่ในรายการ Print order แล้ว/.test(m)) && !sheetIs('BB-1'));
-  A.ok('8.8 …and DD opens and prints as the last', openedIs('DD-1') && t.printed === 2
-    && /ใบที่ 3 จาก 3/.test(bar()?.textContent || ''));
+  release();
+  await runDone(t);
+  A.ok('8.8 BB, now in SCN, is skipped by name and not in the job',
+    sheetsMatch(['AA-1', 'e-aa'], ['DD-1', 'e-dd']) && /NICU 2 BB — ไม่อยู่ในรายการ Print order แล้ว/.test(skipped()), skipped());
 };
 
 scenarios['midnight'] = async (A) => {
   console.log('\n── #8d the day rolls over during the run ──');
   const t = setup();
+  const release = holdLock(t, 'AA-1');
   await t.start();
   await t.click(wardPrint('NICU'));
   await t.click(printAll());
   await settle(t);
-  A.ok('8.9 AA opens and prints', openedIs('AA-1') && t.printed === 1);
   t.clock.advance(24 * 3600e3);
-  await t.click(t.btn(/ถัดไป: NICU 2 BB/));
+  release();
+  await runDone(t);
+  A.ok('8.9 yesterday\'s BB and DD are each skipped by name',
+    /NICU 2 BB/.test(skipped()) && /NICU 4 DD/.test(skipped()) && !batchSheets().some(s => /BB-1|DD-1/.test(s.getAttribute('data-session-id'))), skipped());
+};
+
+// An order whose lock reply never comes is skipped after a while, by name, and
+// the run still finishes (app.jsx PRINT_ALL_STEP_MS, shrunk here).
+scenarios['stuck'] = async (A) => {
+  console.log('\n── #8e an order that never answers ──');
+  const t = setup();
+  // AA's lock request is under way when its reply is asked for, so the next
+  // two long timers set are AA's lock release, as its calculator closes, and
+  // the run's wait on BB, the order after it.
+  t.server.hooks.acquireLogLock = (b) => {
+    if (b.sessionId === 'AA-1') { t.timeouts.shrinkNext(2); return undefined; }
+    return b.sessionId === 'BB-1' ? { hang: true } : undefined;
+  };
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await runDone(t);
+  A.ok('8.10 BB is skipped by name; AA and DD are in the job',
+    sheetsMatch(['AA-1', 'e-aa'], ['DD-1', 'e-dd']) && /NICU 2 BB — เปิดใบสั่งไม่สำเร็จภายในเวลา/.test(skipped()), skipped());
+};
+
+// The run takes a sheet only if it names the order it opened. A sheet for any
+// other infant or entry is that order skipped, never printed under its name.
+scenarios['mismatch'] = async (A) => {
+  console.log('\n── #8f a sheet that is not the order opened ──');
+  const t = setup();
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  // Every #print-form BB's calculator renders claims another entry.
+  const realGet = t.window.document.getElementById.bind(t.window.document);
+  t.window.document.getElementById = (id) => {
+    const el = realGet(id);
+    if (id === 'print-form' && el && el.getAttribute('data-session-id') === 'BB-1') el.setAttribute('data-entry-id', 'e-other');
+    return el;
+  };
+  await t.click(printAll());
+  await runDone(t);
+  t.window.document.getElementById = realGet;
+  A.ok('8.11 BB\'s sheet is not in the job, and BB is named as skipped',
+    sheetsMatch(['AA-1', 'e-aa'], ['DD-1', 'e-dd']) && /NICU 2 BB — ยังพิมพ์ไม่ได้/.test(skipped()), skipped());
+};
+
+// Vera, 2026-11-06 (BLOCK): a job waiting for its tap prints only sheets that
+// are still the infant's order now. A sheet revised since it was copied, or a
+// job left on screen past midnight, must not reach pharmacy.
+scenarios['revised'] = async (A) => {
+  console.log('\n── #8g an order revised after its sheet was copied ──');
+  const t = setup();
+  t.server.hooks.acquireLogLock = (b) => (b.sessionId === 'AA-1' ? { reply: { ok: true, locked: true, holder: { name: 'Dr B' } } } : undefined);
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await runDone(t);
+  A.ok('8.12 the job waits for its tap, with BB and DD in it', t.printed === 0 && sheetsMatch(['BB-1', 'e-bb'], ['DD-1', 'e-dd']));
+  // Dr C saves over BB's order: a revision replaces e-bb.
+  t.server.log['BB-1'] = [order('e-bb-r2', { revisionNumber: 2, revisionOf: 'e-bb', lastModified: TODAY + 'T05:00:00.000Z' })];
+  await t.click(t.syncButton());
   await settle(t);
-  A.ok('8.10 yesterday\'s BB and DD are each skipped by name',
-    t.toasts().some(m => /ข้าม NICU 2 BB/.test(m)) && t.toasts().some(m => /ข้าม NICU 4 DD/.test(m)));
-  A.ok('8.11 …nothing more prints, and the user is on the list with no bar',
-    t.printed === 1 && /Print order · NICU/.test(t.text()) && !bar());
+  const go = t.btn(/พิมพ์ \d+ ใบ/);
+  if (go) await t.click(go);
+  await settle(t);
+  A.ok('8.13 the tap does not print BB\'s superseded sheet', !t.printedSheets.includes('BB-1') && !batchSheets().some(s => s.getAttribute('data-entry-id') === 'e-bb'), t.printedSheets);
+  A.ok('8.14 …it prints DD\'s alone', t.printed === 1 && t.printedSheets.join() === 'DD-1', [t.printed, t.printedSheets]);
+  A.ok('8.15 …and names BB as changed since it was collected', /NICU 2 BB — เปลี่ยนไปหลังเตรียมชุดพิมพ์/.test(skipped()), skipped());
+};
+
+// Vera's third review (2026-11-06, BLOCK): a correction to the infant's own
+// record keeps the entry id, yet the calculator would now hold the order (a
+// birth weight above the current weight moves the dosing weight, UP-C2). A
+// waiting job drops the sheet as it would a revision.
+scenarios['bwfix'] = async (A) => {
+  console.log('\n── #8i a birth-weight correction after the sheet was copied ──');
+  const t = setup();
+  t.server.hooks.acquireLogLock = (b) => (b.sessionId === 'AA-1' ? { reply: { ok: true, locked: true, holder: { name: 'Dr B' } } } : undefined);
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await runDone(t);
+  A.ok('8.18 the job waits for its tap, with BB and DD in it', t.printed === 0 && sheetsMatch(['BB-1', 'e-bb'], ['DD-1', 'e-dd']));
+  t.server.patients.find(p => p.sessionId === 'BB-1').bw = 1200;
+  await t.click(t.syncButton());
+  await settle(t);
+  const go = t.btn(/พิมพ์ \d+ ใบ/);
+  if (go) await t.click(go);
+  await settle(t);
+  A.ok('8.19 the tap prints DD\'s alone, not BB\'s sheet dosed on the old weight', t.printed === 1 && t.printedSheets.join() === 'DD-1', [t.printed, t.printedSheets]);
+  A.ok('8.20 …and names BB as changed since it was collected', /NICU 2 BB — เปลี่ยนไปหลังเตรียมชุดพิมพ์/.test(skipped()), skipped());
+};
+
+scenarios['nextday'] = async (A) => {
+  console.log('\n── #8h a job left on screen past midnight ──');
+  const t = setup();
+  t.server.hooks.acquireLogLock = (b) => (b.sessionId === 'AA-1' ? { reply: { ok: true, locked: true, holder: { name: 'Dr B' } } } : undefined);
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await runDone(t);
+  t.clock.advance(24 * 3600e3);
+  const go = t.btn(/พิมพ์ \d+ ใบ/);
+  if (go) await t.click(go);
+  await settle(t);
+  A.eq('8.16 yesterday\'s job does not print', t.printed, 0);
+  A.ok('8.17 …and the page says to go back to the list', /วันเปลี่ยนแล้ว/.test(t.text()) && !!t.btn(/← กลับไปรายการ/));
 };
 
 // A ward with no order today shows no button at all: SCN once its two infants
@@ -444,8 +575,10 @@ scenarios['notpn'] = async (A) => {
     A.ok(`9.4 ${name}: a tap on the row opens nothing and prints nothing`, /Print order · NICU/.test(t.text()) && t.printed === 0);
   }
   await t.click(printAll());
-  await settle(t);
-  A.ok('9.5 Print ทั้งหมด opens the TPN order first and only', openedIs('NA-1'));
+  await runDone(t);
+  A.ok('9.5 Print ทั้งหมด prints the TPN order and the three short sheets, never NB or NC',
+    sheetsMatch(['NA-1', 'e-na'], ['ND-1', 'e-nd'], ['NE-1', 'e-ne'], ['NF-1', 'e-nf2']) && t.printed === 1,
+    batchSheets().map(s => s.getAttribute('data-session-id')));
 };
 
 runScenarios(__filename, 'PRINT ALL + NO CALCULATOR ON THE PRINT LIST', scenarios);

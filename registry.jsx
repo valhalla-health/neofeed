@@ -280,6 +280,146 @@ function wardPrintableOrder(p, entries, ward, today) {
     && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;
 }
 
+// What one order's printed sheet is drawn from: the infant's record and every
+// row of its log, as the calculator that rendered it was given them (app.jsx
+// CalculatorView). A copy waiting in Print ทั้งหมด's job prints only while
+// this is unchanged (Vera, 2026-11-06, BLOCK): a correction to the record keeps
+// the entry id yet can move the dosing weight (a birth weight above the current
+// weight, UP-C2), the name or the bed on the sheet, and a revised earlier order
+// moves the sheet's "changes since" — any of them leaves the job, and the
+// order is opened again from the list.
+function printSheetBasis(p, entries) {
+  try { return p ? JSON.stringify([p, entries || []]) : ""; } catch { return ""; }
+}
+
+// Print ทั้งหมด's one print job (Pp, 2026-11-06: "ถ้ากดปริ้นท์ทั้งหมดแล้วไม่ต้อง
+// เข้ามากดทีละคนอีกได้ไหม ให้ปริ้นออกมาเลย"). `batch` is the finished run
+// (app.jsx printBatch): a copy of each order's sheet, taken from its own
+// calculator through the Print gate and the edit lock (app.jsx CalculatorView
+// captureSheet), and every order held back, with why. The copies print one
+// after another, one A4 page each, in the list's bed order.
+// Every order made it: the print dialog opens by itself, once per run. Any held
+// back: the page names them first, and the nurse prints the rest with one tap,
+// so no one takes the stack to pharmacy thinking it is the whole ward.
+//
+// A job can wait on screen for its tap, so a copy is printed only while it is
+// still the infant's order now (Vera, 2026-11-06, BLOCK): each is asked the
+// list's rule again (wardPrintableOrder) against the log as it is at every
+// render and again at the tap. One revised, deleted, moved or discharged since
+// it was copied leaves the job, named as changed, and so does one whose
+// infant's record or log changed in any way since (printSheetBasis). Past the
+// day the job was made, nothing in it prints: back to the list to start again.
+function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
+  const wardName = batch.ward === "other" ? "อื่นๆ" : batch.ward;
+  const sheetsRef = React.useRef(null);
+  const today = D_R.useTodayLocal();
+  const stillOrder = ({ item, basis }, day) => {
+    const p = patients.find(x => x.sessionId === item.sessionId);
+    const order = wardPrintableOrder(p, log[item.sessionId], batch.ward, day);
+    return !!order && order.entryId === item.entryId && !!basis && basis === printSheetBasis(p, log[item.sessionId] || []);
+  };
+  const dayOver = today !== batch.day;
+  const fresh = dayOver ? [] : batch.sheets.filter(s => stillOrder(s, today));
+  const changed = dayOver ? [] : batch.sheets.filter(s => !fresh.includes(s));
+  const freshKey = fresh.map(({ item }) => item.entryId).join("|");
+  // Why the last tap printed nothing, when it did not.
+  const [refused, setRefused] = React.useState("");
+  // The copies are DOM nodes, not React elements: each is exactly what its
+  // calculator rendered. They go into the host as they are, never re-parsed,
+  // and only those still the order now.
+  React.useEffect(() => {
+    const host = sheetsRef.current;
+    if (!host) return;
+    while (host.firstChild) host.removeChild(host.firstChild);
+    fresh.forEach(({ sheet }) => host.appendChild(sheet));
+    return () => { while (host.firstChild) host.removeChild(host.firstChild); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batch, freshKey]);
+  const n = fresh.length;
+  // Asked again at the tap, with the clock as it is then: the day can turn
+  // between the last render and the tap.
+  const print = () => {
+    const now = D_R.todayLocal();
+    if (now !== batch.day) { setRefused("day"); return; }
+    const host = sheetsRef.current;
+    const inHost = host ? [...host.children].map(el => el.getAttribute("data-entry-id")).join("|") : "";
+    const nowKey = batch.sheets.filter(s => stillOrder(s, now)).map(({ item }) => item.entryId).join("|");
+    if (!host || inHost !== nowKey || !nowKey) { setRefused("changed"); return; }
+    setRefused("");
+    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+  };
+  const autoPrinted = React.useRef(null);
+  React.useEffect(() => {
+    if (n === 0 || dayOver || changed.length > 0 || batch.skipped.length > 0 || autoPrinted.current === batch.token) return;
+    autoPrinted.current = batch.token;
+    print();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batch]);
+  const held = [...batch.skipped, ...changed.map(({ item }) => ({ item, reason: "เปลี่ยนไปหลังเตรียมชุดพิมพ์ (ใบสั่งหรือข้อมูลผู้ป่วยถูกแก้ไข ลบ ย้าย หรือจำหน่าย)" }))];
+  const dayOverNow = dayOver || refused === "day";
+
+  return (
+    <>
+      <div className="page-head print-head" style={{ marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <h1>Print ทั้งหมด · {wardName}</h1>
+          <div className="sub">
+            พร้อมพิมพ์ <span className="num">{dayOverNow ? 0 : n}</span> จาก <span className="num">{batch.total}</span> ใบ
+            {!dayOverNow && held.length > 0 && <> · ข้าม <span className="num">{held.length}</span> ใบ</>}
+          </div>
+          <button className="btn" onClick={onBack} style={{ fontSize: 12.5, marginTop: 10 }}>← กลับไปรายการ</button>
+        </div>
+        {n > 0 && !dayOverNow && (
+          <button type="button" className="btn primary print-all print-batch-go" onClick={print}
+            aria-label={`พิมพ์ ${n} ใบในครั้งเดียว`}>
+            <Icon name="pdf" size={14} color="#fff" /> พิมพ์ <span className="num">{n}</span> ใบ
+          </button>
+        )}
+      </div>
+
+      <div className="card print-batch-summary" style={{ padding: "12px 14px", maxWidth: 760 }}>
+        {dayOverNow ? (
+          <div className="print-batch-skipped" role="alert">
+            วันเปลี่ยนแล้ว — ชุดพิมพ์นี้เป็นใบสั่งของ {window.NEOFEED_FMT_DATE?.(batch.day) || batch.day} จึงไม่พิมพ์
+            กลับไปรายการแล้วกด Print ทั้งหมดใหม่
+          </div>
+        ) : <>
+        {refused === "changed" && (
+          <div className="print-batch-skipped" role="alert">รายการเปลี่ยนขณะกดพิมพ์ — ตรวจสอบรายการด้านล่างแล้วกดพิมพ์อีกครั้ง</div>
+        )}
+        {held.length > 0 && (
+          <div className="print-batch-skipped" role="alert">
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>
+              ไม่ได้อยู่ในชุดพิมพ์นี้ <span className="num">{held.length}</span> ใบ — เปิดจากรายการเพื่อตรวจสอบและพิมพ์ทีละใบ
+            </div>
+            <ul>
+              {held.map(({ item, reason }) => (
+                <li key={item.entryId}><strong>{item.label || "ใบสั่ง"}</strong> — {reason}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {n > 0 ? (
+          <ul className="print-batch-list">
+            {fresh.map(({ item }) => <li key={item.entryId}>✓ {item.label || "ใบสั่ง"}</li>)}
+          </ul>
+        ) : (
+          <div style={{ fontSize: 13, color: "var(--ink-3)" }}>ไม่มีใบที่พิมพ์ได้ในชุดนี้</div>
+        )}
+        {n > 0 && (
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
+            แพทย์ตรวจและลงนามในแต่ละใบก่อนส่งห้องยา
+          </div>
+        )}
+        </>}
+      </div>
+
+      {/* The sheets themselves: never on screen, the only thing printed. */}
+      <div className="print-batch" ref={sheetsRef} />
+    </>
+  );
+}
+
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
   const wardName = ward === "other" ? "อื่นๆ" : ward;
   const active = patients.filter(p => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
@@ -291,10 +431,11 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
   // every row a tap would open straight to print, in the list's bed order.
   // App opens them one at a time, each as a tap on its row would (app.jsx
   // printQueue), so each still passes the calculator's Print gate and the edit
-  // lock. A row still saving, or a day with two orders, is left out: a tap on
-  // it does not print either (wardPrintableOrder). The label names the next infant on the
-  // calculator's ถัดไป button as the row does: bed (รอเตียง when parked, as
-  // BedChip says), name and twin label.
+  // lock, and prints them all as one job at the end (WardPrintBatch). A row
+  // still saving, or a day with two orders, is left out: a tap on it does not
+  // print either (wardPrintableOrder). The label names the infant on the run's
+  // bar and its summary as the row does: bed (รอเตียง when parked, as BedChip
+  // says), name and twin label.
   const printable = rows.flatMap(({ p }) => {
     const order = wardPrintableOrder(p, log[p.sessionId], ward, today);
     return order ? [{ sessionId: p.sessionId, entryId: order.entryId,
@@ -335,7 +476,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         {onPrintAll && rows.length > 0 && (
           <button type="button" className="btn primary print-all" disabled={queue.length === 0}
             onClick={() => onPrintAll(queue)}
-            aria-label={`${printWhat} ${queue.length} ใบ — เปิดทีละใบตามลำดับเตียง`}>
+            aria-label={`${printWhat} ${queue.length} ใบ — พิมพ์ครั้งเดียวตามลำดับเตียง`}>
             <Icon name="pdf" size={14} color="#fff" /> {printWhat} <span className="num">({queue.length})</span>
           </button>
         )}
@@ -675,8 +816,8 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
           a list missing infants with nothing saying why reads as the ward. */}
       {statFilter && (
         <div className="reg-filter-note" role="status">
-          <span>แสดงเฉพาะ <strong>{STAT_FILTER_LABEL[statFilter]}</strong> · <span className="num">{shownActive.length}</span> จาก <span className="num">{activeSorted.length}</span> ราย</span>
-          <button type="button" className="btn sm" onClick={() => setStatFilter(null)}>แสดงทั้งหมด</button>
+          <span className="reg-filter-text">แสดงเฉพาะ <strong>{STAT_FILTER_LABEL[statFilter]}</strong> · <span className="num">{shownActive.length}</span> จาก <span className="num">{activeSorted.length}</span> ราย</span>
+          <button type="button" className="btn sm reg-filter-all" onClick={() => setStatFilter(null)}>แสดงทั้งหมด</button>
         </div>
       )}
 

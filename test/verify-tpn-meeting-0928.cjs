@@ -332,7 +332,8 @@ function baseOrder({ tf = 120 } = {}) {
     const front = text(frontSheet());
     ok('the front has no Nutritional Status row', !/Nutritional Status|malnutrition/.test(front), front.match(/.{0,40}Nutritional.{0,60}/));
     ok('…and keeps the rest of the paper form\'s header (liver / renal still ticked by hand)', /☐ Liver Dysfunction/.test(front) && /Route of Delivery/.test(front), front.slice(0, 300));
-    eq('"แพทย์" carries the name only', text(printForm()?.querySelector('.print-doctor')), 'Dr Test');
+    // Pp, 2026-11-06: no name at all, the doctor who checks the order signs it.
+    ok('"แพทย์" is left blank to sign by hand', /^\.+$/.test(text(printForm()?.querySelector('.print-doctor'))), text(printForm()?.querySelector('.print-doctor')));
     ok('…no email anywhere on the front', !/@/.test(front), front.match(/[^\s]+@[^\s]+/));
     ok('the back still says who to call, with the email', /บันทึกโดย Dr Test \(doc@kcmh\.test\)/.test(text(printForm()?.querySelector('.print-saved-by'))),
       text(printForm()?.querySelector('.print-saved-by')));
@@ -344,7 +345,7 @@ function baseOrder({ tf = 120 } = {}) {
         constantsVersion: D.CONSTANTS_VERSION, tpnWtG: 2000 } };
     mount({ patient: pt('PO-2000', 2000), onLog: logger().onLog, editEntry: row });
     ok('reopened old row: it prints', !!printForm());
-    eq('…"แพทย์" is left blank to sign', text(printForm()?.querySelector('.print-doctor')), '');
+    ok('…"แพทย์" is left blank to sign', /^\.+$/.test(text(printForm()?.querySelector('.print-doctor'))), text(printForm()?.querySelector('.print-doctor')));
     ok('…and the back gives the email', /old@kcmh\.test/.test(text(printForm()?.querySelector('.print-saved-by'))), text(printForm()?.querySelector('.print-saved-by')));
   });
 

@@ -241,7 +241,7 @@ const topStrings = (form) => {
       sign[0]?.parentElement === form && FOLLOWS(form.querySelector('.print-lipid-rate'), sign[0]));
     ok('…with the doctor\'s name slot and the ลงนาม dots', !!sign[0]?.querySelector('.print-doctor') && /\(ลงนาม\)/.test(sign[0].textContent));
     eq('…and only the doctor and the code, as before: the ID and date stay in the box', [...(sign[0]?.children || [])].map(c => squash(c.textContent).replace(/\.{4,}/g, '…')),
-      [squash(`แพทย์ ${sign[0]?.querySelector('.print-doctor')?.textContent} … (ลงนาม)`), 'รหัส …']);
+      ['แพทย์ … (ลงนาม)', 'รหัส …']);
     ok('…14 px below what it signs, as before', sign[0]?.style.marginTop === '14px', sign[0]?.style.marginTop);
     ok('the provenance footer is still the form\'s last child', /NeoFeed · constants/.test(form.lastElementChild.textContent) && !form.lastElementChild.closest('.print-back'));
     forms['no critical alert'] = form.outerHTML;
@@ -270,7 +270,7 @@ const topStrings = (form) => {
     // Pp, 2026-11-02: if the box moves whole to page 2, that page must still name the infant and the day.
     const top = topStrings(form), sign = box?.querySelector('.print-sign');
     eq('the signature line names the infant and the day, between the doctor and the code', [...(sign?.children || [])].map(c => squash(c.textContent).replace(/\.{4,}/g, '…')),
-      [squash(`แพทย์ ${sign?.querySelector('.print-doctor')?.textContent} … (ลงนาม)`), `NeoFeed ID: ${top.id} · วันที่ให้ TPN: ${top.date}`, 'รหัส …']);
+      ['แพทย์ … (ลงนาม)', `NeoFeed ID: ${top.id} · วันที่ให้ TPN: ${top.date}`, 'รหัส …']);
     ok('…the same ID and date strings the sheet prints at its top', top.id === 'OP-1' && /^\d\d\/\d\d\/\d{4}$/.test(top.date), top);
     ok('…as plain text, not <strong>, so no figure sweep reads them', !sign?.querySelector('strong'));
     ok('…and the doctor\'s name slot is still the only .print-doctor', form.querySelectorAll('.print-doctor').length === 1);
@@ -467,6 +467,30 @@ const topStrings = (form) => {
       const split = await marked(`@media print { #print-form .print-crit-box, #print-form .print-sign { break-inside: auto !important; page-break-inside: auto !important; } }`);
       ok('…and with break-inside switched off the same order splits the box between the pages (the check can see a split)',
         split.pages === 2 && split.on.confirmed?.[0] === 1 && split.on.signature?.[0] === 2, split.on);
+
+      // §2c Print ทั้งหมด's one job (registry.jsx WardPrintBatch; Vera, 2026-11-06): the fullest sheets as the job
+      // holds them, copies with no #print-form id, one after another. N sheets must print as N pages, each sheet's
+      // signature line on its own page, and the hidden pharmacy sheet must add no page.
+      const fullest = Object.entries(forms).filter(([k]) => k !== 'overflow' && !/layout only/.test(k)).map(([, h]) => h);
+      const job = fullest.map(h => h.replace('id="print-form"', 'class="print-batch-sheet"')).join('');
+      const page = await open(`<div class="print-batch">${job}</div>`,
+        `@media print { .print-batch-sheet, .print-batch-sheet * { font-family: 'DejaVu Sans', Verdana, sans-serif !important; } }`);
+      const jobInfo = await page.evaluate(() => {
+        const sheets = [...document.querySelectorAll('.print-batch > .print-batch-sheet')];
+        sheets.forEach((sh, i) => {
+          sh.style.display = '';
+          const sign = sh.querySelector('.print-sign > div:first-child');
+          const a = document.createElement('a'); a.href = 'https://marker.invalid/sign' + i; a.style.cssText = 'color:inherit;text-decoration:none';
+          while (sign.firstChild) a.appendChild(sign.firstChild); sign.appendChild(a);
+        });
+        return { n: sheets.length, shown: sheets.every(sh => getComputedStyle(sh).display === 'block'),
+          backHidden: [...document.querySelectorAll('.print-batch-sheet .print-back')].every(b => getComputedStyle(b).display === 'none') };
+      });
+      const res = pagesOfMarkers(await page.pdf({ format: 'A4', preferCSSPageSize: true, printBackground: true }));
+      await page.close();
+      ok(`the job's ${jobInfo.n} fullest sheets show in print, their pharmacy sheets hidden`, jobInfo.n === fullest.length && jobInfo.n >= 3 && jobInfo.shown && jobInfo.backHidden, jobInfo);
+      eq(`…and print as ${jobInfo.n} A4 pages`, res.pages, jobInfo.n);
+      eq('…each sheet\'s signature line on its own page, in order', fullest.map((_, i) => res.on['sign' + i]), fullest.map((_, i) => [i + 1]));
     } finally { await browser.close(); }
   });
 

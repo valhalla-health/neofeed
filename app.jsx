@@ -721,15 +721,25 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // asks for the print preview once (token-checked in calculator.jsx) and
   // gives the page its way back to the list. Any navigation clears it.
   const [autoPrint, setAutoPrint] = React.useState(null);
-  // Print ทั้งหมด on that list (Pp, 2026-10-28): { items, index, opening },
-  // items being the orders ticked on the list, in bed order ({ sessionId,
-  // entryId, label }). Each is opened from the list exactly as a tap on its
-  // row opens it (openOrderToPrint), so each passes the calculator's Print
-  // gate and the edit lock on its own. The next one opens only when the user
-  // taps ถัดไป, never on afterprint: a browser need not wait for its print
-  // dialog before handing the page back, and moving the page on under an open
-  // dialog could put the next infant's order on this one's sheet.
+  // Print ทั้งหมด on that list (Pp, 2026-10-28), as one print job (Pp,
+  // 2026-11-06: "ถ้ากดปริ้นท์ทั้งหมดแล้วไม่ต้องเข้ามากดทีละคนอีกได้ไหม ให้ปริ้น
+  // ออกมาเลย"): { items, index, opening, token, sheets, skipped }, items being
+  // the orders ticked on the list, in bed order ({ sessionId, entryId, label }).
+  // Each is opened from the list exactly as a tap on its row opens it
+  // (openOrderToPrint), so each passes the calculator's Print gate and the
+  // edit lock on its own. Instead of a print preview, the calculator hands back
+  // a copy of the sheet it would print (CalculatorView captureSheet), or why it
+  // holds the order back, and the run opens the next by itself. When the last
+  // is done, the copies print as one job (printBatch). No print dialog opens
+  // while an order is open, so the page never moves on under one.
   const [printQueue, setPrintQueue] = React.useState(null);
+  const printQueueRef = React.useRef(null);
+  printQueueRef.current = printQueue;
+  // The finished run, shown in place of the list (registry.jsx WardPrintBatch):
+  // { ward, sheets: [{ item, sheet, basis }], skipped: [{ item, reason }], total, day, token }.
+  const [printBatch, setPrintBatch] = React.useState(null);
+  // One token per order opened to print: unique within the tab, whatever the clock says.
+  const printTokenSeq = React.useRef(0);
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [syncState, setSyncState] = React.useState(GAS_ON ? "loading" : "local"); // local | loading | ok | error
   const [lastSync, setLastSync] = React.useState(null);
@@ -761,7 +771,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // user picks "เลือกวันที่ย้อนหลัง" on the Dashboard's log button.
   const [logDate, setLogDate] = React.useState(null);
   React.useEffect(() => { setEditEntry(null); setLogDate(null); setAutoPrint(null); }, [activeId]);
-  const goTo = (v) => { setEditEntry(null); setLogDate(null); setAutoPrint(null); setPrintWard(null); setPrintQueue(null); setView(v); };
+  const goTo = (v) => { setEditEntry(null); setLogDate(null); setAutoPrint(null); setPrintWard(null); setPrintQueue(null); setPrintBatch(null); setView(v); };
   // Declared after the [activeId] reset above on purpose: effects run in
   // order, so when picking an order also switched the patient, the reset's
   // nulls land first and this effect's editEntry wins.
@@ -769,7 +779,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (!printJob || printJob.sessionId !== activeId) return;
     setPrintJob(null);
     const entry = (log[activeId] || []).find(e => e.entryId === printJob.entryId);
-    if (!entry) { showToast("ไม่พบใบสั่งนี้แล้ว — กด Sync แล้วลองใหม่", "error"); return; }
+    if (!entry) {
+      if (printQueueRef.current?.token === printJob.token) { printAllResult(printJob.token, { reason: "ไม่พบใบสั่งนี้แล้ว" }); return; }
+      showToast("ไม่พบใบสั่งนี้แล้ว — กด Sync แล้วลองใหม่", "error"); return;
+    }
     setEditEntry(entry); setLogDate(null); setAutoPrint(printJob.token); setView("calculator");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [printJob, activeId]);
@@ -778,8 +791,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // calculator later never opens a print preview on its own.
   React.useEffect(() => { if (view !== "calculator") setAutoPrint(null); }, [view]);
   const openOrderToPrint = (sessionId, entryId) => {
-    setPrintJob({ sessionId, entryId, token: Date.now() });
+    const token = `${Date.now()}-${++printTokenSeq.current}`;
+    setPrintJob({ sessionId, entryId, token });
     setActiveId(sessionId);
+    return token;
   };
   // Print ทั้งหมด: the queue's current order is opened from the list, and
   // only from the list, so the calculator that held the previous one has
@@ -788,39 +803,79 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // against the data as it is now: an order a tap on the list could no longer
   // reach — the infant discharged or moved, a second order that day, the
   // order deleted, the day rolled over — is skipped, by name, and the run
-  // goes on (Vera, 2026-10-28).
+  // goes on (Vera, 2026-10-28). Past the last, the sheets collected go to
+  // the one print job.
   React.useEffect(() => {
     if (view !== "registry" || !printWard || !printQueue?.opening) return;
     const item = printQueue.items[printQueue.index];
-    if (!item) { setPrintQueue(null); return; }
+    if (!item) {
+      setPrintBatch({ ward: printWard, sheets: printQueue.sheets, skipped: printQueue.skipped,
+        total: printQueue.items.length, day: D_A.todayLocal(), token: `${Date.now()}-${++printTokenSeq.current}` });
+      setPrintQueue(null);
+      return;
+    }
     const p = patients.find(x => x.sessionId === item.sessionId);
     const order = wardPrintableOrder(p, log[item.sessionId], printWard, D_A.todayLocal());
     if (!order || order.entryId !== item.entryId) {
-      showToast(`ข้าม ${item.label || "ใบสั่งนี้"} — ไม่อยู่ในรายการ Print order แล้ว`, "error");
-      setPrintQueue({ ...printQueue, index: printQueue.index + 1 });
+      setPrintQueue({ ...printQueue, index: printQueue.index + 1,
+        skipped: [...printQueue.skipped, { item, reason: "ไม่อยู่ในรายการ Print order แล้ว" }] });
       return;
     }
-    setPrintQueue({ ...printQueue, opening: false });
-    openOrderToPrint(item.sessionId, item.entryId);
+    const token = openOrderToPrint(item.sessionId, item.entryId);
+    setPrintQueue({ ...printQueue, opening: false, token });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, printWard, printQueue]);
-  // Back at the ward gate by any route, the queue is over.
-  React.useEffect(() => { if (!printWard) setPrintQueue(null); }, [printWard]);
-  const startPrintAll = (items) => { if (items?.length) setPrintQueue({ items, index: 0, opening: true }); };
-  const printNextInQueue = () => {
-    if (printQueue) setPrintQueue({ ...printQueue, index: printQueue.index + 1, opening: true });
+  // Back at the ward gate by any route, the queue and its sheets are over.
+  React.useEffect(() => { if (!printWard) { setPrintQueue(null); setPrintBatch(null); } }, [printWard]);
+  // So is a run the user leaves for any other page (the phone's bottom bar
+  // sets the view without goTo): the run never pulls them back to the list.
+  React.useEffect(() => {
+    if (view !== "registry" && view !== "calculator") { setPrintQueue(null); setPrintBatch(null); }
+  }, [view]);
+  const startPrintAll = (items) => {
+    if (!items?.length) return;
+    setPrintBatch(null);
+    setPrintQueue({ items, index: 0, opening: true, token: null, sheets: [], skipped: [] });
+  };
+  // What the calculator hands back for the queue's open order: { sheet } (a
+  // copy of its #print-form) or { reason } it is held back. Taken only for the
+  // order open now (its token), and a sheet only if it names that order's
+  // infant and entry; anything else is that order skipped, by name.
+  const printAllResult = (token, result) => {
+    const q = printQueueRef.current;
+    if (!q || q.opening || !token || q.token !== token) return;
+    const item = q.items[q.index];
+    const sheet = result?.sheet;
+    const sheetOk = !!sheet && !!item && sheet.getAttribute("data-session-id") === item.sessionId
+      && sheet.getAttribute("data-entry-id") === item.entryId;
+    const next = { ...q, index: q.index + 1, opening: true, token: null,
+      sheets: sheetOk ? [...q.sheets, { item, sheet, basis: result.basis || "" }] : q.sheets,
+      skipped: sheetOk ? q.skipped
+        : [...q.skipped, { item, reason: (!sheet && result?.reason) || "ใบที่ได้ไม่ตรงกับใบสั่งที่เปิด" }] };
+    printQueueRef.current = next;
+    setPrintQueue(next);
     setView("registry");
   };
-  const backToPrintList = () => { setPrintQueue(null); setView("registry"); };
-  // The calculator's Print ทั้งหมด bar: shown only while it holds the queue's
-  // current order, opened from the list, so a stale queue can never offer
-  // "next" over some other order.
+  // An order that never answers (the edit lock's first reply lost on a slow
+  // network, the order gone before it opened) is skipped after a while, by
+  // name, so the run still finishes.
+  React.useEffect(() => {
+    const token = printQueue && !printQueue.opening ? printQueue.token : null;
+    if (!token) return;
+    const t = setTimeout(() => printAllResult(token,
+      { reason: "เปิดใบสั่งไม่สำเร็จภายในเวลา (เครือข่ายช้า?)" }), PRINT_ALL_STEP_MS);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printQueue?.token, printQueue?.opening]);
+  const backToPrintList = () => { setPrintQueue(null); setPrintBatch(null); setView("registry"); };
+  // The calculator's Print ทั้งหมด bar, and the copy of its sheet: only while it
+  // holds the queue's current order, opened from the list, so a stale queue
+  // can never collect some other order.
   const queuedOrder = printQueue && !printQueue.opening ? printQueue.items[printQueue.index] : null;
   const printAllStep = queuedOrder && view === "calculator" && autoPrint && printWard && editEntry
+    && autoPrint === printQueue.token
     && editEntry.entryId === queuedOrder.entryId && activeId === queuedOrder.sessionId
-    ? { position: printQueue.index + 1, total: printQueue.items.length,
-        hasNext: printQueue.index + 1 < printQueue.items.length,
-        next: printQueue.items[printQueue.index + 1]?.label || "" }
+    ? { position: printQueue.index + 1, total: printQueue.items.length, label: queuedOrder.label || "" }
     : null;
 
   const active = patients.find((p) => p.sessionId === activeId);
@@ -2250,8 +2305,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // root's class, which pads the workspace so the button never sits over the
   // last rows of the list it floats above. Not on a ward's Print order list
   // (Pp, 2026-10-28: "ไม่ต้องมีแคลคูเลเตอร์ด้านขวาล่าง"): that page is for
-  // printing only.
-  const showQuickFab = view === "registry" && !printWard;
+  // printing only. Nor inside a ward (Pp, 2026-11-06: "ถ้าเข้ามาในหน้าวอร์ดแล้ว
+  // ไม่ต้องมีแคลคูเลเตอร์"): it floated over the patient cards' Open buttons.
+  // The ward gate keeps it.
+  const showQuickFab = view === "registry" && !printWard && !ward;
   return (
     <div className={showQuickFab ? "app has-quick-fab" : "app"}>
       {/* Top bar */}
@@ -2490,7 +2547,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             onSubmit={handleEditPatient} mergeBaseFor={mergeBaseFor}
             onDelete={role === "admin" ? handleDeletePatient : undefined} />}
 
-          {view === "registry" && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard}
+          {/* Print ทั้งหมด's one print job, in place of the list it came from. */}
+          {view === "registry" && printBatch && printWard === printBatch.ward &&
+            <WardPrintBatch batch={printBatch} patients={patients} log={log} onBack={() => setPrintBatch(null)} />}
+          {view === "registry" && !(printBatch && printWard === printBatch.ward) && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard}
             printWard={printWard} onPrintWard={setPrintWard} onPrintOrder={openOrderToPrint} onPrintAll={startPrintAll}
             onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
           {/* Role-checked here as well as in the rail: `view` is plain state,
@@ -2519,7 +2579,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
               handleDeleteEntry={handleDeleteEntry}
               autoPrint={autoPrint}
               onBackToPrintList={autoPrint && printWard ? backToPrintList : null}
-              printAll={printAllStep} onPrintAllNext={printNextInQueue}
+              printAll={printAllStep} onPrintAllResult={printAllResult}
               goTo={goTo} />
           )}
           {view === "fenton" && active &&
@@ -2653,6 +2713,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
 // action) is silently treated as "no lock info" — fails open, no toast,
 // never blocks clinical work over a courtesy feature.
 const LOG_LOCK_HEARTBEAT_MS = 45000;
+// How long Print ทั้งหมด waits for one order to open and answer before it skips
+// it by name: the edit lock's first reply (gasRequest's own timeout is 30 s on
+// a bad line) plus the calculator's 1.5 s wait for a held order.
+const PRINT_ALL_STEP_MS = 40000;
 // Returns { holder, checked }: `checked` turns true once the first answer is
 // in (or there is no lock to ask about), so a caller that must not act before
 // knowing whether a colleague has this order open — the print list's
@@ -2710,7 +2774,7 @@ function useDialogOpen() {
 function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token, role, userLabel, userEmail,
   handleLogToGAS, handleUpdateToGAS, handlePublishToGAS, handleDeleteEntry, goTo,
   nursing = [], ordersReadOnly = false, autoPrint = null, onBackToPrintList = null,
-  printAll = null, onPrintAllNext = null }) {
+  printAll = null, onPrintAllResult = null }) {
   // The day this order is for, as the Calculator reports it (onOrderDate): an
   // edit's own date, a back-fill's, or the day a new order was opened on —
   // which stays put if the form is left open past midnight. The header chip
@@ -2750,11 +2814,40 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
   // The request the Calculator has already sent: a lock taken by a colleague
   // AFTER it printed is the ordinary banner, not a held print.
   const autoPrintSent = React.useRef(null);
-  const autoRequestPrint = () => { autoPrintSent.current = autoPrint; requestPrint(); };
+  // Print ทั้งหมด (app.jsx printQueue): the order's sheet is copied for the one
+  // print job instead of printed here. The copy is the #print-form the
+  // Calculator renders only while the order may print (calculator.jsx
+  // `printable`), taken two frames on as the Print handler prints, and only if
+  // it names this infant and this entry. No sheet, or a reason given (the
+  // Calculator's 1.5 s wait ran out on a held order): the reason goes back
+  // instead, and the order is skipped by name.
+  const captureSheet = (token, reason) => {
+    const sid = active.sessionId, eid = editEntry?.entryId;
+    // What this render's sheet was drawn from (registry.jsx printSheetBasis).
+    const basis = printSheetBasis(active, log[activeId] || []);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const form = document.getElementById("print-form");
+      if (reason || !form || !eid || form.getAttribute("data-session-id") !== sid || form.getAttribute("data-entry-id") !== eid) {
+        onPrintAllResult?.(token, { reason: reason || "ยังพิมพ์ไม่ได้ — เปิดใบสั่งนี้เพื่อดูเหตุผล" });
+        return;
+      }
+      const sheet = form.cloneNode(true);
+      sheet.removeAttribute("id");
+      sheet.classList.add("print-batch-sheet");
+      sheet.style.display = "";
+      onPrintAllResult?.(token, { sheet, basis });
+    }));
+  };
+  const autoRequestPrint = (reason) => {
+    autoPrintSent.current = autoPrint;
+    if (printAll) captureSheet(autoPrint, reason); else requestPrint();
+  };
   React.useEffect(() => {
     if (!autoPrint || !holder || autoPrintHeld === autoPrint || autoPrintSent.current === autoPrint) return;
     setAutoPrintHeld(autoPrint);
-    showToast(`ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — ${holder.name || holder.email || "ผู้ใช้งานอื่น"} กำลังเปิดบันทึกนี้อยู่ ตรวจสอบก่อนกด Print order`, "error");
+    const who = holder.name || holder.email || "ผู้ใช้งานอื่น";
+    if (printAll) { onPrintAllResult?.(autoPrint, { reason: `${who} กำลังเปิดบันทึกนี้อยู่` }); return; }
+    showToast(`ไม่ได้เปิดหน้าพิมพ์อัตโนมัติ — ${who} กำลังเปิดบันทึกนี้อยู่ ตรวจสอบก่อนกด Print order`, "error");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPrint, holder]);
   const autoPrintNow = editEntry && autoPrint && lockChecked && !holder && autoPrintHeld !== autoPrint ? autoPrint : null;
@@ -2792,22 +2885,17 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
       </div>
 
       {/* Print ทั้งหมด from the ward's list (app.jsx printQueue): which order
-          of the run this is, and the next one a tap away. Never printed: it is
-          a .work-inner child other than #print-form. */}
+          of the run is being collected. Nothing to tap: the run goes on by
+          itself and prints once at the end. ยกเลิก ends it. Never printed: it
+          is a .work-inner child other than #print-form. */}
       {printAll && (
         <div className="print-all-bar" role="status">
-          <span>Print ทั้งหมด · ใบที่ <span className="num">{printAll.position}</span> จาก <span className="num">{printAll.total}</span></span>
-          {printAll.hasNext ? (
-            <button type="button" className="btn primary" onClick={onPrintAllNext}>
-              ถัดไป: {printAll.next} <Icon name="arrow" size={11} color="#fff" />
-            </button>
-          ) : (
-            // "ใบสุดท้าย", not "ครบ N ใบ": the run cannot know a sheet printed —
-            // a held order or a cancelled dialog looks the same from here (Vera).
-            <button type="button" className="btn" onClick={onBackToPrintList}>
-              ใบสุดท้าย · กลับไปรายการ
-            </button>
-          )}
+          <span>
+            กำลังเตรียม Print ทั้งหมด · ใบที่ <span className="num">{printAll.position}</span> จาก <span className="num">{printAll.total}</span>
+            {printAll.label ? ` · ${printAll.label}` : ""}
+            <span className="print-all-hint"> — ไม่ต้องกดอะไร จะเปิดหน้าพิมพ์ครั้งเดียวเมื่อครบ</span>
+          </span>
+          <button type="button" className="btn" onClick={onBackToPrintList}>ยกเลิก</button>
         </div>
       )}
 
@@ -2932,10 +3020,11 @@ function QuickCalcView({ onBack }) {
 }
 
 // ── Quick-calc floating button ───────────────────────────────
-// Bottom-right, and on the WARD PAGE ONLY — the ward gate and the ward's
-// patient list, both `view === "registry"` (Praew, 2026-09-22, second round:
-// "ให้ calculator มาอยู่หน้า patient ward แทน"), but not a ward's Print order
-// list, which is for printing only (Pp, 2026-10-28). Earlier that day it had gone
+// Bottom-right, and on the WARD GATE ONLY — `view === "registry"` with no ward
+// open (Praew, 2026-09-22, second round: "ให้ calculator มาอยู่หน้า patient
+// ward แทน"). Not a ward's Print order list, which is for printing only (Pp,
+// 2026-10-28), and not a ward's patient list, where it sat over the cards'
+// Open buttons (Pp, 2026-11-06: "ถ้าเข้ามาในหน้าวอร์ดแล้ว ไม่ต้องมีแคลคูเลเตอร์"). Earlier that day it had gone
 // to the Dashboard alone ("calculator ให้มีเฉพาะหน้าแรก ต้องกลับมาที่ dashboard
 // เท่านั้น"); before that it rode every view except the two calculators, which
 // put a second, unsaveable calculator in the corner of the growth chart and

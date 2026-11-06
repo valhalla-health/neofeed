@@ -144,7 +144,8 @@ const scenarios = {
     const t = boot({ patients: [ACTIVE, LEFT] });
     t.quiet();
     await t.start();
-    await t.pickWard('NICU');
+    // The quick calc's button is on the ward gate only (Pp, 2026-11-06), so
+    // no ward is picked first.
     await t.click(document.querySelector('[aria-label="Calculator — ไม่บันทึก"]'));
     const dol = () => document.getElementById('quick-dol-input');
     A.ok('5.1 on the quick calc', !!dol());
