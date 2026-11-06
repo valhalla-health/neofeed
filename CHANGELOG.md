@@ -71,6 +71,28 @@ button shows in the ward (340 passed). No calculation, printed figure or backend
 #220), merged while this PR was open, and drops the two ⏳ entries it made live. It also records #224 (2026-11-06
 (2)) as merged into `main`, with release PR #225 open; #224 merged first, so this entry is (3).
 
+## Session 2026-11-07 — Print ทั้งหมด: no Print order button while the run collects
+
+`app.jsx` (`CalculatorView`), `compiled/`, both shells' `?v=`, `test/verify-print-all-1028.cjs` (#8j), `BACKLOG.md`.
+No calculation, limit or printed figure changed.
+
+### Why
+
+Pp's review of #224 from her PC (comment on release PR #225, 2026-11-07 ~01:50 ICT): while the run waits on an
+order's edit-lock reply or its 1.5 s hold, the calculator's own **Print order** button stayed on screen beside the
+bar's "ไม่ต้องกดอะไร". A tap printed that sheet at once, and the run then collected the same order into the job, so
+pharmacy got it twice (same infant, same figures). On a browser whose dialog does not block, the run also moved on
+under the open dialog. Her probe reproduced it; no harness covered it.
+
+### What changed
+
+- The header's Print order button is not rendered while `printAll` is set (the calculator holds the run's current
+  order). A single order opened from its row keeps it.
+- `verify-print-all-1028.cjs` #8j: mid-run, no such button; the job holds BB once and prints once; a single order
+  still has the button. 8.22–8.24 fail on `main` `5a6306b` and pass here.
+- Her latent finding goes beside D7 in `BACKLOG.md`: with `NURSING_LOG_ENABLED` on, a nurse takes no edit lock, so a
+  nurse's run would collect an order a doctor has open. It is off today.
+
 ## Session 2026-11-06 (2) — Print ทั้งหมด prints the ward's orders as one print job; "แพทย์" left blank to sign
 
 `app.jsx` (`printQueue`, `printBatch`, `CalculatorView` `captureSheet`), `registry.jsx` (`WardPrintBatch`),

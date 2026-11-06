@@ -537,6 +537,11 @@ clinical judgement. Everything else is engineering sequencing.
          live**: an old frontend has no I/O card, and its nurses would be refused order saves with
          nowhere to record I/O. To switch it off, delete the property (it takes effect on the next
          sync).
+      4. **Before step 3, fix Print ทั้งหมด for nurses** (Pp's review of #224, 2026-11-07). With the
+         switch on, a nurse takes no edit lock (`app.jsx` `CalculatorView`: `useDailyLogLock(…,
+         ordersReadOnly ? "" : token)`), so a nurse's Print ทั้งหมด run never sees that a doctor has an
+         order open, and collects it. A nurse may be the one who prints (Pp, 2026-11-06). The run
+         needs the lock's answer (a read-only check is enough) whatever the role.
 
       **Still open:**
       - D6: retention is indefinite for now, to settle with the DPO.
