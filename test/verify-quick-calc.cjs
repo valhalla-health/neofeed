@@ -298,7 +298,8 @@ ok('the view is headed Calculator', /<h1[^>]*>\s*\n?\s*Calculator\n/.test(quickV
 // 2026-09-22, then the Dashboard alone ("calculator ให้มีเฉพาะหน้าแรก ต้องกลับ
 // มาที่ dashboard เท่านั้น"), and on the second round that day the Ward page
 // alone ("ให้ calculator มาอยู่หน้า patient ward แทน") — the ward gate and the
-// ward's list, both view === "registry". Its ← lands back on the Ward page
+// ward's list, both view === "registry"; since 2026-11-06 (#222) the gate only,
+// with no ward chosen. Its ← lands back on the gate
 // rather than on whichever page the user happened to open it from. Both
 // halves are pinned, because either one alone is a door that only opens one way.
 // A ward's Print order list is without it (Pp, 2026-10-28: "ไม่ต้องมีแคลคูเล

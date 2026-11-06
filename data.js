@@ -387,6 +387,11 @@ const EN_DB = {
 // and the nutrition unit: add its EN_DB row from the book's per-100-kcal
 // column (_enFromChula), then its [kcalOz, key] pair here. Product ids are
 // lower case so they can never be read as an EN_DB key.
+// Pp, 2026-11-06: "FBM 24 ↔ Infatrini 30 (alternating)" is no longer offered:
+// feed 1 and feed 2 give FBM with HMF and Infatrini as two feeds. Its EN_DB row
+// stays, so an order saved on it still computes and its picker shows it as
+// saved (EnFeedPicker never swaps a key it does not offer). The HiQ LF product
+// reads "HiQ LF", not "LF — HiQ LF": the group already says Lactose-free.
 const EN_PRODUCTS = [
   { id: "bm",          group: "Breast Milk",         label: "Breast Milk (mature)",          strengths: [[20, "BM_20"]] },
   { id: "bmHmf",       group: "Breast Milk",         label: "FBM with HMF",                  strengths: [[24, "BM_HMF_24"]] },
@@ -394,9 +399,8 @@ const EN_PRODUCTS = [
   { id: "enfalacPrem", group: "Preterm formula",     label: "Enfalac Premature",             strengths: [[22, "FBM_PF_22"], [24, "ENFALAC_PREM_24"]] },
   { id: "preNan",      group: "Preterm formula",     label: "Pre Nan",                       strengths: [[22, "PRENAN_22"], [24, "PRENAN_24"]] },
   { id: "hiQLbw",      group: "Preterm formula",     label: "Hi-Q LBW",                      strengths: [[24, "FBM_PF_24"]] },
-  { id: "fbmInfMix",   group: "High-energy formula", label: "FBM 24 ↔ Infatrini 30 (alternating)", strengths: [["24 ↔ 30", "FBM_INF_MIX"]] },
   { id: "infatrini",   group: "High-energy formula", label: "Infatrini",                     strengths: [[30, "INFATRINI_30"]] },
-  { id: "hiQLf",       group: "Lactose-free",        label: "LF — HiQ LF",                   strengths: [[20, "LF_20"], [24, "LF_24"], [27, "LF_27"]] },
+  { id: "hiQLf",       group: "Lactose-free",        label: "HiQ LF",                        strengths: [[20, "LF_20"], [24, "LF_24"], [27, "LF_27"]] },
   { id: "enfalacLf",   group: "Lactose-free",        label: "Enfalac LF",                    strengths: [[20, "ENFALAC_20"], [24, "ENFALAC_24"], [27, "ENFALAC_27"]] },
 ];
 // Feed 1 + feed 2 together, at most 8 feeds a day (q3h); q4h is 6 (Pp,

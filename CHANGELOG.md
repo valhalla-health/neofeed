@@ -7,6 +7,42 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-06 (4) — Step 2's milk list: no FBM ↔ Infatrini, "HiQ LF"
+
+`data.js` (`EN_PRODUCTS`), `test/verify-en-db-sources.cjs`, `test/verify-tpn-meeting-0928.cjs`,
+`test/verify-calc-oracle.cjs`, `test/verify-calc-fuzz.cjs`, `test/verify-calc-sum.cjs`, `test/verify-show-working-1028.cjs`, the `neofeed-clinical-rules` skill, `compiled/` and both
+shells' `?v=` tokens. With `main` (#222, #224) merged in: `STATUS.md`, `BACKLOG.md`, `test/README.md`,
+`app-walkthrough.md`, `test/verify-quick-calc.cjs` (a comment).
+
+Pp, 2026-11-06, from a phone screenshot of the Feed type list: "หน้าการ์ดนมไม่ต้องมีฟอติฟายเบสมิลค์สำหรับอินฟราแล้ว
+เพราะมีช่องให้เลือกนมได้สองช่อง ส่วน LF เอา LF ก่อน HiQ ออก มันดูซ้ำกัน".
+
+- **"FBM 24 ↔ Infatrini 30 (alternating)" is no longer offered.** Since #182 (2026-10-28) an order can give two feeds,
+  so FBM with HMF as feed 1 and Infatrini as feed 2 does what the fixed 50 : 50 row did, with the real volumes and
+  counts. Its `EN_DB` row (`FBM_INF_MIX`) stays: an order saved on it still computes, its picker shows it as saved
+  and never swaps it (`EnFeedPicker`), and `CR-EN-FEED-UNKNOWN` never fires on it. The Formula reference page still
+  lists it under "High-energy / Mixed"; taking it off there is Pp's call.
+- **The Lactose-free product reads "HiQ LF"**, not "LF — HiQ LF": the group above it already says Lactose-free. Only
+  the picker's product label changed. The `EN_DB` row labels (`LF_20` "LF — HiQ LF (20 kcal/oz)" and the rest) are
+  what the printed order, the changes list and Center Point's copy (`center-point/tpn-document.mjs`) show, and are
+  unchanged, so no printed line and no Center Point sync moves.
+- No figure moves: every remaining feed computes as before (`verify-calc-oracle.cjs`, `verify-calc-fuzz.cjs`,
+  `verify-calc-sum.cjs` pass). Three harnesses that drove a new order on `FBM_INF_MIX` now drive only what Step 2
+  offers; `verify-en-db-sources.cjs` still pins the row's values. `verify-show-working-1028.cjs`'s order E now reopens
+  a saved `FBM_INF_MIX` order (Vera), so the claim that it still computes and shows as saved is tested on screen. The skill's `--fix-lines` rewrote stale line
+  numbers only.
+- **Docs caught up with #222 and #224**, from a cold-reader review on Pp's PC (2026-11-07). `STATUS.md`: #222 and #224
+  merged into `main`, not live, in release PR #225. `BACKLOG.md`: this PR's two leftovers for Pp (the Formula page
+  still lists FBM ↔ Infatrini; Vera's 🟡, no "kcal/oz X → Y" notice on a reopened `FBM_INF_MIX` order).
+  `test/README.md`: `verify-print-all-1028.cjs` as one print job (90 checks, eighteen scenarios), 1102 at 71 checks
+  with § 2c, and "แพทย์" a blank line to sign. `app-walkthrough.md` and a `verify-quick-calc.cjs` comment: the quick
+  calc is on the ward gate only. `--fix-lines` again after #224 moved `calculator.jsx`.
+- **Corrections to earlier entries** (this file is append-only, so they stay as written): 2026-11-06 (3) dropped the
+  ⏳ entry for #219 and #220, not "the two ⏳ entries", and also changed `test/verify-readmit-1022.cjs`; 2026-11-06 (2)
+  also changed `test/verify-print-one-page-1102.cjs`, `test/verify-tpn-meeting-0928.cjs` and
+  `test/verify-tpn-team-0922.cjs`. Some Thai quotes in earlier entries (2026-11-06 (2)'s "คนทำหน้าที่", for one) were
+  typed with ํ + า (U+0E4D U+0E32) rather than ำ (U+0E33): a search for either spelling misses the other.
+
 ## Session 2026-11-06 (3) — No Calculator button inside a ward; แสดงทั้งหมด on the filter's line
 
 `app.jsx`, `registry.jsx`, `NeoFeed.html`, `index.html`, `compiled/app.js`, `compiled/registry.js`,

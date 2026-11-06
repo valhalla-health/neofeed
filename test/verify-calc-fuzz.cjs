@@ -70,10 +70,12 @@ const T5_HIQ_LBW = [3.3, 4.8, 11.5, 86, 99, 123, 69], T7_HIQ_LF = [2.4, 5.2, 10.
 const T16_INFATRINI = [2.6, 5.4, 10.3, 37, 100, 99, 54];
 const MILK = [67, 1.2, 3.4, 6.7, 0.9, 1.39, 6.5 * 40.08 / 10, 4.8 * 30.97 / 10];
 const MILK_HMF = MILK.map((v, i) => v + 1.1 * [13, 1, 0.9, 0.4, 14.5 / 22.99, 26.4 / 39.10, 81.8, 40.9][i]);
+// FBM_INF_MIX left Step 2 on 2026-11-06 (Pp: feed 1 + feed 2 give it), so a new
+// order cannot pick it; verify-en-db-sources.cjs still pins its EN_DB row.
 const FEED = { // per 100 mL: kcal, pro, fat, cho, Na mmol, K mmol, Ca mg, P mg
   BM_20: MILK, BM_HMF_24: MILK_HMF, BM_PF_20: [67, 1.5, 3.5, 7.4, 1, 1.7, 50, 28],
   FBM_PF_22: at(73, T5_ENFALAC), PRENAN_22: at(73, T5_PRENAN), FBM_PF_24: at(80, T5_HIQ_LBW),
-  FBM_INF_MIX: MILK_HMF.map((v, i) => (v + at(100, T16_INFATRINI)[i]) / 2), INFATRINI_30: at(100, T16_INFATRINI),
+  INFATRINI_30: at(100, T16_INFATRINI),
   LF_20: at(67, T7_HIQ_LF), LF_24: at(80, T7_HIQ_LF), LF_27: at(90, T7_HIQ_LF) };
 function recompute(s) {
   const kg = s.wG / 1000, Vd = s.tpn, Vp = Vd > 0 ? Vd + s.dead : 0, ov = Vd > 0 ? Vp / Vd : 1, F = kg * ov;
