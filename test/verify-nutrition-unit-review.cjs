@@ -146,14 +146,15 @@ for (const [label, perKg, divisor, dp, head] of SALTS) {
   const delivered = mlPerKg * WT;
 
   const wantHead = `${fmt(perKg, 1)} ${head} = ${fmt(mlPerKg, 2)} mL/kg/d`;
-  // Since 2026-09-28 the caption shows the prepared mL only: the split into what
+  // Since 2026-09-28 the caption showed the prepared mL only: the split into what
   // reaches the infant and what stays in the line is calculated, not shown
-  // (Praew: "เก็บเป็นเลขคำนวณไว้หลังบ้าน ไม่โชว์ในหน้า UI").
+  // (Praew: "เก็บเป็นเลขคำนวณไว้หลังบ้าน ไม่โชว์ในหน้า UI"). Since 2026-11-06 the
+  // prepared mL is not shown either (Pp: not for doctors and nurses).
   const wantPrepared = `${TRIEM} ${fmt(prepared, dp)} mL/d`;
   const unwanted = `${TUENG} ${fmt(delivered, dp)}`;
 
   check(`${label} — conversion shown`, t1.includes(wantHead), wantHead);
-  check(`${label} — the prepared mL is shown`, t1.includes(wantPrepared), wantPrepared);
+  check(`${label} — the prepared mL is not shown`, !t1.includes(wantPrepared) && !t1.includes(TRIEM + ' '), wantPrepared);
   check(`${label} — no to-patient / in-line split`, !t1.includes(unwanted) && !t1.includes('+ ' + KASAI), unwanted);
 }
 
@@ -161,14 +162,13 @@ for (const [label, perKg, divisor, dp, head] of SALTS) {
 check('Glycophos reports P mg/kg/d', /P 47 mg\/kg\/d/.test(t1));
 check('K₂HPO₄ reports P mg/kg/d', /P 16 mg\/kg\/d/.test(t1));
 
-// Canary. Three arrow captions are deliberately left in the old form:
-//   MgSO4 (their slide 5 asks for mg/kg here, so it changes with that item),
-//   Ca gluconate (input is already mg/kg — no mEq→mL ambiguity to remove),
-//   the heparin hint (states both units either side of the arrow).
-// A NEW bare-arrow caption under a mEq/kg input is the regression to catch.
+// Canary. One arrow caption is deliberately left in the old form: the heparin
+// hint (states both units either side of the arrow). MgSO4's and Ca gluconate's
+// "→ x mL/d" were the prepared mL, and left the screen with the เตรียม lines on
+// 2026-11-06 (Pp). A NEW bare-arrow caption under a mEq/kg input is the regression to catch.
 const arrows = t1.match(/→ \d/g) || [];
-check('only the 3 known arrow captions remain', arrows.length === 3,
-      `3, got ${arrows.length} :: ${JSON.stringify(t1.match(/.{18}→ \d.{8}/g))}`);
+check('only the 1 known arrow caption remains', arrows.length === 1,
+      `1, got ${arrows.length} :: ${JSON.stringify(t1.match(/.{18}→ \d.{8}/g))}`);
 
 // ── with no dead space there is nothing to split ───────────────────────────
 console.log('\n── no dead space ──');

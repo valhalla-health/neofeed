@@ -2206,6 +2206,19 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     body: `${fmt(mgMgPerKg, 2)} mg/kg/d — ช่องนี้รับ mg/kg/d (1 mEq = ${fmt(D.MG_MG_PER_MEQ, 2)} mg); target ${tMg[0]}–${tMg[1]} mg/kg/d.`,
     ref: "Pp, 2026-10-29 · ESPGHAN 2018 (parenteral)" });
   else pushTile(sMg, "Magnesium", mgMgPerKg, 2, tMg, "mg/kg/d", null, "ESPGHAN 2018 (parenteral)");
+  // Glycophos typed in the wrong unit (CR-GLYCO-UNIT-HABIT; Pp, 2026-11-06,
+  // after Vera): mEq Na and mg P differ 15.5-fold, and Na and P have no hard
+  // limit, so nothing else would ask. The high line is graded on the dose
+  // itself, whichever unit the box shows, so reopening an order (on Na) never
+  // raises a line its saved reason did not name; the low line only on P.
+  const glycoNaKg = Number((glycophosP * S.glycophos.naMeqPerMl).toPrecision(12));
+  const glycoPMgKg = Number((glycophosP * S.glycophos.pMgPerMl).toPrecision(12));
+  if (glycoNaKg >= D.GLYCO_NA_HABIT_MEQ) alerts.push({ level: "crit", title: `Glycophos ${D.GLYCO_NA_HABIT_MEQ} mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า`,
+    body: `Glycophos ${fmt(glycoNaKg, 2)} mEq Na/kg/d = P ${fmt(glycoPMgKg, 0)} mg/kg/d = ${fmt(glycophosP, 2)} mL/kg/d — ช่อง Na รับ mEq Na/kg/d (1–4); ถ้าตั้งใจสั่งเป็น P กดปุ่ม P แล้วใส่ mg P/kg/d`,
+    ref: "Pp, 2026-11-06" });
+  else if (glycophosBy === "p" && glycoPMgKg > 0 && glycoPMgKg < D.GLYCO_P_HABIT_MG) alerts.push({ level: "crit", title: `Glycophos below ${D.GLYCO_P_HABIT_MG} mg P/kg/d: พิมพ์เป็น mEq Na หรือเปล่า`,
+    body: `Glycophos P ${fmt(glycoPMgKg, 1)} mg/kg/d = Na ${fmt(glycoNaKg, 2)} mEq/kg/d — ช่อง P รับ mg P/kg/d (15–60); ถ้าตั้งใจสั่งเป็น Na กดปุ่ม Na แล้วใส่ mEq Na/kg/d`,
+    ref: "Pp, 2026-11-06" });
   // A bag with no amino acid in it (Pp, 2026-10-21). Its tile reads 0 as
   // "empty", not off target, and the form prints "—", so amino acid left out
   // by mistake reached pharmacy as "not ordered" with nothing on screen. A
@@ -3597,18 +3610,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           <TwoCol>
             <div>
               {/* ── Na ── */}
-              {/* Each salt shows its conversion and the mL the pharmacy prepares
-                  (เตรียม). The split into what reaches the infant and what stays in
-                  the line is calculated but not shown (Praew, 2026-09-28). */}
+              {/* Each salt shows its conversion to mL/kg/d. The mL the pharmacy
+                  prepares (เตรียม) is not shown on this screen, which doctors and
+                  nurses use (Pp, 2026-11-06); it is on the printed order's
+                  "For Pharmacist Only" column. The split into what reaches the infant and what
+                  stays in the line is calculated but not shown (Praew, 2026-09-28). */}
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 4 }}>Na (mEq/kg)</div>
               <SaltRow label={S.naCl.label} note={`${S.naCl.naMeqPerMl} mEq Na/mL`} perKg={naCl} onChange={setNaCl} wtKg={wtKg} />
               <PresetChips values={[1, 2, 3, 4]} current={naCl} onSelect={setNaCl} />
               {calc.solVol.naCl > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {fmt(naCl, 1)} mEq Na/kg/d = {fmt(naCl / S.naCl.naMeqPerMl, 2)} mL/kg/d
-                  <div style={{ color:"var(--ink-3)" }}>
-                    เตรียม {fmt(calc.solVol.naCl, 1)} mL/d
-                  </div>
                 </div>
               )}
 
@@ -3621,9 +3633,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {fmt(naAcet, 1)} mEq Na/kg/d = {fmt(naAcet / S.naAcetate.naMeqPerMl, 2)} mL/kg/d
                   {S.naAcetate.acetateMeqPerMl ? ` · acetate ${fmt(naAcet / S.naAcetate.naMeqPerMl * S.naAcetate.acetateMeqPerMl, 1)} mEq/kg/d` : ""}
-                  <div style={{ color:"var(--ink-3)" }}>
-                    เตรียม {fmt(calc.solVol.naAcet, 1)} mL/d
-                  </div>
                 </div>
               )}
 
@@ -3636,7 +3645,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {/* Or typed as phosphorus, mg P/kg/d (Pp, 2026-11-06): the Na / P
                   buttons switch what the box and its chips are in, never the
                   dose. Whichever is typed, the other is shown on the line below. */}
-              <SaltRow
+              {/* key: a switch remounts the row, so a box still focused shows the
+                  dose in the new unit, never the old number under the new label (Vera). */}
+              <SaltRow key={glycophosBy}
                 label={<>Glycophos® (ใส่เป็น {glycophosBy === "p" ? "P" : "Na"})
                   <span className="seg glycophos-by" style={{ padding:1, marginLeft:8, display:"inline-flex", verticalAlign:"middle" }}>
                     <button type="button" className={glycophosBy === "na" ? "on" : ""} onClick={() => setGlycophosBy("na")}>Na</button>
@@ -3659,9 +3670,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {glycophosBy === "p"
                     ? <>P {fmt(glycophosP * 31, 1)} mg/kg/d = {fmt(glycophosP, 2)} mL/kg/d · Na {fmt(glycophosP * 2, 2)} mEq/kg/d</>
                     : <>{fmt(glycophosP * 2, 1)} mEq Na/kg/d = {fmt(glycophosP, 2)} mL/kg/d · P {fmt(glycophosP * 31, 0)} mg/kg/d</>}
-                  <div style={{ color:"var(--ink-3)" }}>
-                    เตรียม {fmt(calc.solVol.glycophos, 1)} mL/d
-                  </div>
                 </div>
               )}
 
@@ -3672,9 +3680,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {calc.solVol.kCl > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {fmt(kCl, 1)} mEq K/kg/d = {fmt(kCl / S.kCl.kMeqPerMl, 2)} mL/kg/d
-                  <div style={{ color:"var(--ink-3)" }}>
-                    เตรียม {fmt(calc.solVol.kCl, 1)} mL/d
-                  </div>
                 </div>
               )}
 
@@ -3683,9 +3688,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {calc.solVol.k2hpo4 > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {fmt(k2hpo4, 1)} mEq K/kg/d = {fmt(k2hpo4 / S.k2hpo4.kMeqPerMl, 2)} mL/kg/d · P {fmt(k2hpo4 * S.k2hpo4.pMgPerKMeq, 0)} mg/kg/d
-                  <div style={{ color:"var(--ink-3)" }}>
-                    เตรียม {fmt(calc.solVol.k2hpo4, 1)} mL/d
-                  </div>
                 </div>
               )}
 
@@ -3706,14 +3708,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {/* KCMH compounds from 10% MgSO₄ only (Pp, 2026-10-27). */}
               <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3, flexWrap:"wrap" }}>
                 <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Vial 10%</span>
-                {calc.solVol.mg > 0 && (
-                  <span style={{ fontSize:10.5, color:"var(--brand-2)", fontWeight:600 }}>→ {calc.solVol.mg} mL/d</span>
-                )}
               </div>
 
               <SaltRow label={S.caGluconate.label} note={`Elemental Ca ${fmt(S.caGluconate.caMgPerMl, 1)} mg/mL · Ca:P ~1.7:1`} perKg={caPerKg} onChange={setCaPerKg} wtKg={wtKg} unit="mg/kg/d" />
               <PresetChips values={[32, 60, 80, 100]} current={caPerKg} onSelect={setCaPerKg} />
-              {calc.solVol.ca > 0 && <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>→ {calc.solVol.ca} mL/d</div>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <Tile label="Sodium" value={calc.naTotalDelivered} unit=" mEq/kg/d" target={tNa} status={sNa} decimals={1} max={7} />

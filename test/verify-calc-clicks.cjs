@@ -219,9 +219,9 @@ const openAll = () => click(btnExact('Open all'));
   const vialLbl = [...container.querySelectorAll('span')].find(s => s.textContent === 'Vial 10%');
   ok('MgSO₄ vial reads 10%, with no strength toggle', !!vialLbl && !vialLbl.parentElement.querySelector('.seg'));
   ok('no 50% MgSO₄ figure anywhere on the card', !/50% =|MgSO₄ 50%/.test(text()));
-  // 0.4 × factor(1.2 × 130/100 = 1.56) = 0.624 mEq ÷ 0.812 = 0.768 → 0.8 mL
-  // (one decimal since 2026-10-27; it printed 0.77)
-  ok('Mg 10% vial → 0.8 mL', /→ 0\.8 mL\/d/.test(text()));
+  // The vial's prepared mL (0.4 × 1.56 ÷ 0.812 → 0.8 mL) left the screen on
+  // 2026-11-06 (Pp: not for doctors and nurses); the printed order still has it.
+  ok('Mg 10% vial: no prepared mL on screen', !/→ 0\.8 mL\/d/.test(text()) && !/เตรียม [\d.]+ mL\/d/.test(text()), text().match(/→ [\d.]+ mL\/d/g));
 
   // ── 4 · checkboxes ────────────────────────────────────────────
   const chk = (start) => [...container.querySelectorAll('label.chk-label')].find(l => l.textContent.trim().startsWith(start)).querySelector('input');
@@ -411,6 +411,33 @@ const openAll = () => click(btnExact('Open all'));
     ok('infant B: the label says ใส่เป็น Na and the chips are 1–4', /Glycophos® \(ใส่เป็น Na\)/.test(text()) && chipsAfter('Glycophos').map(c => num(c.textContent)).join() === '1,2,3,4');
     setField('Glycophos', 2);
     ok('infant B: a habitual 2 is 2 mEq Na = 1 mmol P/kg', /→ P 1 mmol\/kg\/d = 31 mg\/kg\/d/.test(text()), container.querySelector('.glycophos-p')?.textContent);
+
+    // CR-GLYCO-UNIT-HABIT's low line, which only the P button reaches (Pp, 2026-11-06):
+    // on P, a dose above 0 and below 10 mg P/kg/d asks whether it was mEq Na.
+    {
+      const LOW = 'Glycophos below 10 mg P/kg/d: พิมพ์เป็น mEq Na หรือเปล่า';
+      const crit = () => [...container.querySelectorAll('.alert-row.crit')].map(r => r.textContent);
+      click(glyBy('P'));
+      setField('Glycophos', 2);
+      ok('P 2 mg/kg (meant 2 mEq Na): critical, asking whether it was mEq Na', crit().some(t => t.includes(LOW)), crit());
+      setField('Glycophos', 10);
+      ok('P 10 mg/kg: no such line', !crit().some(t => t.includes(LOW)), crit());
+      setField('Glycophos', 2);
+      click(glyBy('Na'));
+      ok('the same dose shown on Na (0.13 mEq): no line', !crit().some(t => t.includes(LOW)), crit());
+      setField('Glycophos', 2);
+    }
+
+    // Na/P pressed while the box still has focus (a phone may not blur it): the
+    // box shows the dose in the new unit, not the old number under the new label.
+    {
+      const inp = inputFor('Glycophos');
+      act(() => { inp.dispatchEvent(new window.FocusEvent('focusin', { bubbles: true })); valueSetter.call(inp, '30'); inp.dispatchEvent(new window.Event('input', { bubbles: true })); });
+      click(glyBy('P'));
+      ok('typed 30 on Na, P pressed with no blur: the box reads 465 (mg P)', inputFor('Glycophos').value === '465', inputFor('Glycophos').value);
+      click(glyBy('Na'));
+      ok('…and Na again reads 30', inputFor('Glycophos').value === '30', inputFor('Glycophos').value);
+    }
 
     // The changes list against yesterday's Glycophos 1 mL/kg/d: today 20 mg P reads 0.6452, not 12 digits.
     const yesterday = { entryId: 'prev-1', ts: '2026-09-22', weight: 1000, status: 'submitted',

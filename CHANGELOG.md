@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-06 (2) — Calculator: Glycophos typed by P, no Factor on screen, Dextrose chips on one line
+## Session 2026-11-06 (2) — Calculator: Glycophos typed by P, no Factor or prepared mL on screen, Dextrose chips on one line
 
 `calculator.jsx`, `compiled/calculator.js`, `index.html` and `NeoFeed.html` (one CSS rule each), the
 `neofeed-clinical-rules` skill (`CR-U-SALTS`, `CR-U-FACTOR`), `test/verify-calc-clicks.cjs`, `test/verify-calc-sum.cjs`
@@ -39,8 +39,25 @@ Pp sent three requests from her phone the same evening, each with a screenshot o
    เลย เพื่อให้กดง่ายมากขึ้น". Below 768 px the Dextrose final + GIR row stacks (`.dex-gir-row`), so the five chips
    have the card's width and sit on one line at 44 px or more each; GIR follows under D50W. Desktop is unchanged.
 
-Three pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
-No constant, limit or `CONSTANTS_VERSION` moved. Asked in the same thread, not built: which amino-acid stocks to
+4. **No prepared mL under the Step 4 components.** "เตรียมเป็น ml เท่าไหร่ ไม่ต้องขึ้นในหน้าจอของแพทย์และพยาบาล ที่ขึ้นว่า
+   เตรียม กี่ ml ใต้ทุก component ไม่ต้องโชว์". The "เตรียม x mL/d" line under 20 % NaCl, Na acetate, Glycophos, KCl
+   and K₂HPO₄ is gone, and so is the same figure shown as "→ x mL/d" under MgSO₄ and Ca gluconate. Each still shows
+   its dose as mL/kg/d. The prepared mL stays on the printed order's "For Pharmacist Only" column. Step 3's Prepared
+   (เตรียมจริง) bag volume, D50W and amino-acid volume stay: they were not named. `verify-calc-fuzz.cjs` read NaCl's
+   mL off that line for its I1 round-trip; it now checks the line is gone (the oracle and `verify-calc-sum.cjs` check
+   the printed stock mL).
+5. **A guard against the wrong unit (`CR-GLYCO-UNIT-HABIT`).** Vera's second review (BLOCK): with the box back on Na
+   for every infant and P chips of 15–60 beside it, a "30" typed on Na is 30 mEq Na = 465 mg P/kg/d, and Na and P
+   have no hard limit, so only amber fired. Pp chose the thresholds (of 10 / 10, 5 / 15 or none): a Glycophos dose
+   of 10 mEq Na/kg/d or more (P 155 mg/kg/d), in either unit, is critical and asks "พิมพ์เป็น mg P หรือเปล่า"; on P,
+   above 0 and below 10 mg/kg/d asks "พิมพ์เป็น mEq Na หรือเปล่า". The high line is graded on the dose, so a reopened
+   order (on Na) never raises a line its saved reason did not name. Two alert thresholds, `GLYCO_NA_HABIT_MEQ` and
+   `GLYCO_P_HABIT_MG` (register row in `docs/CLINICAL_CONSTANTS.md`); they move no dose, so `CONSTANTS_VERSION` stays.
+   Same review: a Na/P press while the box still had focus left the old number under the new unit; the row now
+   remounts on a switch.
+
+Five pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
+No dose constant, limit or `CONSTANTS_VERSION` moved (5 adds two alert thresholds). Asked in the same thread, not built: which amino-acid stocks to
 offer older children (`BACKLOG.md` item 14, Amiparen 10 % and Aminoplasmal 15 %) — a proposal went back to Pp.
 
 ## Session 2026-11-06 — CI pins jsdom to 30

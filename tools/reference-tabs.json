@@ -157,7 +157,9 @@
     "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": { "unit": "kcal per g of HMF protein", "sign": "positive" },
     "MG_MG_PER_MEQ": { "unit": "mg Mg/mEq", "sign": "positive",
       "range": { "lo": 12.1525, "hi": 12.1525, "proposed": "Mg 24.305 g/mol / valence 2 (data.js); display only, no rule codes it" } },
-    "MG_MEQ_HABIT_MG": { "unit": "mg Mg/kg/d", "sign": "positive" }
+    "MG_MEQ_HABIT_MG": { "unit": "mg Mg/kg/d", "sign": "positive" },
+    "GLYCO_NA_HABIT_MEQ": { "unit": "mEq Na/kg/d from Glycophos", "sign": "positive" },
+    "GLYCO_P_HABIT_MG": { "unit": "mg P/kg/d from Glycophos", "sign": "positive" }
   },
   "bands": {
     "TPN_TARGETS": {

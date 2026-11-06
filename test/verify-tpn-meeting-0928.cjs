@@ -306,7 +306,8 @@ function baseOrder({ tf = 120 } = {}) {
     // dead space of a new NICU order overfills the bag, which is when it showed.
     setField('20% NaCl', 2); setField('KCl', 1); setField('Glycophos', 2);
     const step4 = text([...container.querySelectorAll('.salt-row-grid')][0]?.closest('.card-b'));
-    ok('Step 4 still gives the prepared mL of each salt (เตรียม … mL/d)', /เตรียม [\d.]+ mL\/d/.test(step4), step4.slice(0, 200));
+    // The prepared mL left Step 4 on 2026-11-06 (Pp: not for doctors and nurses).
+    ok('Step 4 gives no prepared mL of any salt (เตรียม … mL/d)', !/เตรียม [\d.]+ mL\/d/.test(step4), step4.match(/เตรียม [\d.]+ mL\/d/));
     ok('…with no "= ถึงผู้ป่วย … + คาสาย …" split', !/ถึงผู้ป่วย [\d.]+ \+ คาสาย/.test(step4), step4.match(/.{20}ถึงผู้ป่วย.{30}/));
   });
 

@@ -1,7 +1,8 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-06 — Calculator ward feedback (Glycophos by P, no Factor on screen, Dextrose chips on one line): open
-> PR, not merged, not live.** Frontend only; no backend change and no constant moved. Recorded here by its own PR.
+> ⏳ **2026-11-06 — Calculator ward feedback (Glycophos by P with a wrong-unit guard, no Factor or prepared mL on
+> screen, Dextrose chips on one line): open PR, not merged, not live.** Frontend only; no backend change; two new
+> alert thresholds, no dose constant moved. Recorded here by its own PR.
 >
 > ⏳ **2026-11-06 — TPN-room stickers, PR B (`tpn-room.html`, #219): merged into `main`, not live.** The page, its
 > encrypted name file and the three stickers are built and tested on synthetic infants (`openspec/changes/tpn-room-stickers`

@@ -844,6 +844,16 @@ const MG_MG_PER_MEQ = 12.1525;
 // habit, it is a twelfth of the dose meant (Pp, 2026-10-29). An alert
 // threshold: it moves no dose, so CONSTANTS_VERSION stays.
 const MG_MEQ_HABIT_MG = 1;
+// Glycophos typed in the wrong unit (Pp, 2026-11-06, after Vera). Its box takes
+// mEq Na/kg/d (chips 1–4) or, with the P button, mg P/kg/d (chips 15–60), and
+// one unit is 15.5 times the other. A Glycophos dose of this many mEq Na/kg/d
+// or more (= P 155 mg/kg/d), whichever unit it was typed in, is critical and
+// asks "พิมพ์เป็น mg P หรือเปล่า". Alert thresholds: they move no dose, so
+// CONSTANTS_VERSION stays.
+const GLYCO_NA_HABIT_MEQ = 10;
+// …and one typed on P above 0 and below this many mg P/kg/d asks
+// "พิมพ์เป็น mEq Na หรือเปล่า" (graded only while the box is on P).
+const GLYCO_P_HABIT_MG = 10;
 // Ceiling of minimal enteral / trophic feeding, mL/kg/day — the "MEF (trophic)
 // 12–24 mL/kg/day" step of the app's own Feeding Advancement card. A feed
 // ticked MEN counts toward neither fluid nor nutrition, and orders prefill
@@ -2945,7 +2955,7 @@ window.NEOFEED_DATA = {
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, GLYCO_NA_HABIT_MEQ, GLYCO_P_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,

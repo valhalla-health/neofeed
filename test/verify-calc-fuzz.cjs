@@ -261,15 +261,11 @@ for (let i = 0; i < COUNT; i++) {
     checks++; if (Math.abs(tileVal('Osmolarity') - osm1) > 1) fail(s, 'I2 dead space moved osmolarity', tileVal('Osmolarity'), osm1);
     checks++; if (Math.abs(tileVal('Energy (total)') - kcal1) > 1) fail(s, 'I2 dead space moved kcal/kg', tileVal('Energy (total)'), kcal1);
     setField('ปริมาตรคาสาย', s.dead);
-    // I1: mL of stock × (delivered/prepared) ÷ weight = the ordered per-kg dose
-    if (s.naCl > 0) {
-      const ml = grab(/เตรียม ([\d.]+) mL\/d/);
-      const deliveredPerKg = ml * (s.tpn / e.Vp) * 3.42 / e.kg;
-      // the recipe is drawn up to 0.1 mL, so the round-trip can only be as
-      // exact as half that step — anything beyond it is a real error
-      const step = 0.05 * (s.tpn / e.Vp) * 3.42 / e.kg + 1e-6;
-      checks++; if (Math.abs(deliveredPerKg - s.naCl) > step) fail(s, 'I1 NaCl round-trip beyond 0.05 mL', deliveredPerKg, s.naCl);
-    }
+    // I1 read the NaCl stock mL off Step 4's "เตรียม … mL/d" line. That line left
+    // the screen on 2026-11-06 (Pp: not for doctors and nurses); the printed stock
+    // mL are checked against an independent recomputation by verify-calc-oracle
+    // and summed by verify-calc-sum. What is left here: the line stays gone.
+    checks++; if (/เตรียม [\d.]+ mL\/d/.test(text())) fail(s, 'I1 Step 4 shows no prepared mL (เตรียม)', text().match(/เตรียม [\d.]+ mL\/d/)[0], 'none');
   }
 }
 
