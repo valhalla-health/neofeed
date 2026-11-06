@@ -317,8 +317,11 @@ they transpile the `.jsx` themselves, or read `compiled/` through
 and are **not** committed — install them into a scratch folder and point Node at it:
 
 ```bash
-npm install --no-save react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom
+npm install --no-save react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30
 ```
+
+jsdom is pinned to 30, as CI pins it. jsdom 31 (2026-11-05) keeps six significant digits of a percentage in
+`style`, so `verify-status-zones.cjs` reads tiled zones that no longer add up to 100 and fails 25 checks.
 
 Then, from the repo root:
 

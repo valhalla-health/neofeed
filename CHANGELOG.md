@@ -7,6 +7,21 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-06 — CI pins jsdom to 30
+
+`.github/workflows/test.yml`, `test/README.md`.
+
+`main` went red after #219 merged: `verify-status-zones.cjs` failed 25 of 163, the same 25 on a rerun. #219 did not
+cause it. CI installed `jsdom` with no version, and jsdom 31.0.0 was published at 12:15 UTC on 2026-11-05, 23 minutes
+before `main`'s run began; #219's own run, earlier, got 30.1.x and passed. jsdom 31 keeps six significant digits of a
+percentage in `style` (`45.4545%`), so the zone widths sum to 99.9999 against the test's 1e-6 tolerance. Proven both
+ways on `main`'s tree: jsdom 30.1.0 passes 163 of 163, sources and compiled; jsdom 31.0.0 fails the same 25 as CI. The
+app is unchanged, and a real browser still lays the zones out edge to edge.
+
+The fix pins `jsdom@30`, the version CI ran on Node 22.23 until that day. `react`, `react-dom` and Babel were already
+pinned to a major. Moving to 31 is a separate change: the test would read the zones with a tolerance that fits six
+significant digits. STATUS catches up in #218, which already carries it.
+
 ## Session 2026-11-05 — The TPN room's page: stickers from NeoFeed, names on the room's PC (PR B, #219)
 
 `tpn-room.html`, `tpn-room.jsx`, `compiled/tpn-room.js`, `compiled/tpn-room-version.js`, `tpn-room-core.js`,
