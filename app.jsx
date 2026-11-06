@@ -2877,9 +2877,14 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
           <div className="sub">Real-time targets vs. ESPGHAN 2018 thresholds</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={requestPrint}>
-            <Icon name="pdf" size={14} /> Print order
-          </button>
+          {/* Not during Print ทั้งหมด: the run copies this sheet into its one
+              job, so a tap here would print it a second time, and on a phone
+              the run could move on under the open dialog (review, 2026-11-07). */}
+          {!printAll && (
+            <button className="btn" onClick={requestPrint}>
+              <Icon name="pdf" size={14} /> Print order
+            </button>
+          )}
           <button className="btn" onClick={() => goTo("guidelines")}><Icon name="info" size={14} /> Reference values</button>
         </div>
       </div>

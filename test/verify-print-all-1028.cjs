@@ -36,6 +36,9 @@
 //               oral orders, on the day TPN stopped, or cancelling a TPN order
 //               of the same day (a No TPN revision, calcInput.replacesTpn)
 //               prints its short sheet
+//   #10 header  while the run is collecting an order, its calculator shows no
+//               Print order button: a tap there printed that sheet once more
+//               (review, 2026-11-07); a row opened on its own still has it
 //   #8 resync   Vera, 2026-10-28: each queued order is asked the list's rule
 //               again before it opens; one a sync took off the list (a second
 //               order that day, discharged, deleted, moved ward, the day
@@ -221,6 +224,28 @@ const scenarios = {
     await t.click(t.btn(/พิมพ์ 1 ใบ/));
     await settle(t);
     A.ok('3.4 พิมพ์ 1 ใบ prints BB\'s alone', t.printed === 1 && t.printedSheets.join() === 'BB-1');
+  },
+
+  async 'header'(A) {
+    console.log('\n── #10 no Print order button on the calculator during the run ──');
+    const t = setup();
+    const release = holdLock(t, 'BB-1');
+    await t.start();
+    await t.click(wardPrint('NICU'));
+    await t.click(printAll());
+    await settle(t);
+    A.ok('10.0 the run waits on BB, with the bar', !!bar() && /ใบที่ 2 จาก 3/.test(bar().textContent), bar() && bar().textContent);
+    const header = () => [...document.querySelectorAll('.page-head button')].find(b => /^\s*Print order\s*$/.test(b.textContent));
+    A.ok('10.1 …and BB\'s calculator shows no Print order button to print it a second time', !header(), header() && header().outerHTML.slice(0, 120));
+    release();
+    await runDone(t);
+    A.ok('10.2 the job holds AA, BB and DD once each, in one dialog',
+      sheetsMatch(['AA-1', 'e-aa'], ['BB-1', 'e-bb'], ['DD-1', 'e-dd']) && t.printed === 1, [t.printed, t.printedSheets]);
+    await t.click(t.btn(/← กลับไปรายการ/));
+    await settle(t);
+    await t.click(printRow('BB'));
+    await settle(t);
+    A.ok('10.3 BB opened from its own row still has its Print order button', openedIs('BB-1') && !!header());
   },
 
   async 'blocked'(A) {

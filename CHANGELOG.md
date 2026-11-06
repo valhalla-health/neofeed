@@ -7,6 +7,22 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-07 — Print ทั้งหมด: no Print order button on the calculator during the run
+
+`app.jsx` (`CalculatorView` header), `test/verify-print-all-1028.cjs` (#10), `compiled/app.js` and both shells'
+`?v=` tokens.
+
+Found by a review of #224 on Pp's PC the night it merged (comment on #225). While Print ทั้งหมด waited on an
+order's edit-lock reply or its 1.5 s hold, that order's calculator still showed its header **Print order**
+button beside the bar saying "ไม่ต้องกดอะไร". A tap printed the sheet at once, and the run then collected
+the same order into the job, so pharmacy got it twice. On a phone whose print dialog does not block, the run
+could also move on under the open dialog.
+
+- **The header Print order button is not rendered while `printAll` is set.** A row opened on its own keeps it.
+- No figure, gate or printed line changes: the sheet each order prints is the one its calculator already renders.
+- `verify-print-all-1028.cjs` #10: the run waits on BB, BB's calculator has no Print order button (10.1, red on
+  `main` `5a6306b`), the job holds AA, BB and DD once each in one dialog, and BB opened from its row still has it.
+
 ## Session 2026-11-06 (3) — No Calculator button inside a ward; แสดงทั้งหมด on the filter's line
 
 `app.jsx`, `registry.jsx`, `NeoFeed.html`, `index.html`, `compiled/app.js`, `compiled/registry.js`,
