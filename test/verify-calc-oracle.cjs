@@ -423,8 +423,9 @@ const SCEN = [
     naCl: 5, kCl: 4, ca: 100, zn: 6.5, hep: 1, feed: 'INFATRINI_30', enVol: 3, enFreq: 8, men: true },
   { name: 'F caps: 16 kg, Soluvit/Peditrace/Vitalipid ceilings', bw: 3000, cur: 16000, dol: 40, fluid: 100, tpn: 1000, dead: 30,
     dex: 10, aa: 2, lip: 2, naCl: 2, kCl: 1, soluvit: true, pedi: true, hep: 0.5, feed: 'BM_20', enVol: 0, enFreq: 0 },
-  // every remaining feed type, no TPN, full-ish feeds on 1.5 kg
-  ...['BM_PF_20', 'PRENAN_22', 'ENFALAC_PREM_24', 'PRENAN_24', 'FBM_PF_24', 'FBM_INF_MIX', 'LF_20', 'LF_27',
+  // every remaining feed type Step 2 offers, no TPN, full-ish feeds on 1.5 kg
+  // (FBM_INF_MIX left it on 2026-11-06: feed 1 + feed 2 give it)
+  ...['BM_PF_20', 'PRENAN_22', 'ENFALAC_PREM_24', 'PRENAN_24', 'FBM_PF_24', 'LF_20', 'LF_27',
     'ENFALAC_20', 'ENFALAC_27'].map((k) => ({
     name: `G feed ${k} (feeds only)`, bw: 1200, cur: 1500, dol: 12, fluid: 160, ioOut: 70, tpn: 0,
     feed: k, enVol: 28, enFreq: 8, weights: [{ dol: 11, w: 1490 }] })),
