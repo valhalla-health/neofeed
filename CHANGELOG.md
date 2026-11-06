@@ -31,6 +31,9 @@ the ward list; `verify-ios-input-zoom-1009.cjs` goes out to the gate for the qui
 `verify-phone-sweep.cjs` checks, on all 24 profiles, that แสดงทั้งหมด is level with its words and no Calculator
 button shows in the ward (340 passed). No calculation, printed figure or backend changed.
 
+`STATUS.md` also catches up on PR #221 (`release` = `96f393e`, 2026-11-06 23:35 ICT: #218's frontend, #219,
+#220), merged while this PR was open, and drops the two ⏳ entries it made live.
+
 ## Session 2026-11-06 — CI pins jsdom to 30
 
 `.github/workflows/test.yml`, `test/README.md`.
