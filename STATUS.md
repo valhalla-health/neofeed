@@ -1,6 +1,11 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-06 — Step 2's milk list (#223): merged into `main` on Praew's instruction, not live.** "FBM 24 ↔
+> ⏳ **2026-11-06 — the lipid pump (this PR): in review.** A tap on Lipid volume rounds the syringe to the nearest
+> whole mL/day and sets the dose from it; both pumps show 0.1 mL/hr and the hours they run, and lipid g/kg/h is over
+> those hours. The printed lipid line changes on every order with lipid, so `CONSTANTS_VERSION` moves to `2026-11-06.1`:
+> once released, an order saved before it prints only after it is saved again.
+>
+> ⏳ **2026-11-06 — Step 2's milk list (#223): merged into `main` 2026-11-07 03:36 ICT on Praew's instruction, not live.** "FBM 24 ↔
 > Infatrini 30 (alternating)" leaves the Feed type list (two feeds do it; orders saved on it still compute) and
 > "LF — HiQ LF" reads "HiQ LF". No figure moves. It goes out with the next release PR.
 >

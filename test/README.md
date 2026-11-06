@@ -2195,3 +2195,12 @@ flow under the real CSP on `tools/dev-local.mjs`, with an origin-private folder 
 is a `printJson` string, one A4 page, and the sentinel name reaches no request. `TPN_ROOM_PDF_OUT=<file>` keeps the sample sheet,
 `TPN_ROOM_SHOT_DIR=<dir>` keeps screenshots. **`tpn-room-fixture.cjs`** makes a synthetic order's figures with the real
 `stickerFigures`. `verify-build-shells.cjs` § 8 pins the two room shells.
+
+## The lipid pump, 2026-11-06 — one harness added
+
+Pp: "ถ้ากดที่ลิพิตโวลุ่มจะ rounding ให้ หน่วยเป็น ml/day" and "Pump rate ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง infusion in กี่ hr"
+(`CHANGELOG.md` 2026-11-06 (5); `CR-R-LIPID-WHOLE-ML`, `CR-R-PUMP-RATE`). **`verify-lipid-whole-ml-1106.cjs`** (jsdom; it
+also runs against `compiled/`) taps the real box: 1,680 g on 2 g/kg/d goes 16.8 → 17 mL, the 20 % lipid box reads 2.02,
+the pump 1 mL/hr for 23 h and 0.09 g/kg/h; 4 g/kg/d goes to 33 mL (3.93), not 34 (4.05); 400 g on 3.4 g/kg/d over 20 h
+goes to 6 mL, not 7 (0.18 g/kg/h); under 0.5 mL nothing moves; the TPN pump's Rate box reads 8.4 for 200 mL with
+"infusion 23.8 h". 25 checks. It fails on `ce06e16` (no box to tap; rates at 2 decimals).

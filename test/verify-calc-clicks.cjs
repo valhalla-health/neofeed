@@ -189,9 +189,13 @@ const openAll = () => click(btnExact('Open all'));
   for (const h of [16, 20, 24]) {
     click([...container.querySelectorAll('button')].find(b => b.textContent === `${h}h`));
     // 2 g/kg × 1.2 kg = 2.4 g = 12 mL SMOF + Vitalipid 4.8 mL, rounded down to 4 since 2026-10-28 = 16 mL
+    // Since 2026-11-06 (Pp) the pump is set to 0.1 mL/hr, rounded up where the
+    // nearest would run past 24 h, and g/kg/h is over the hours it actually runs.
+    let want = Math.round(16 / h * 10 + 1e-9) / 10;
+    if (!(want > 0) || 16 / want > 24 + 1e-9) want = Math.ceil(16 / h * 10 - 1e-9) / 10;
     const rate = num(text().match(/PUMP RATE([\d.]+)mL\/hr/)?.[1]);
-    ok(`lipid over ${h}h → rate ${(16 / h).toFixed(2)}`, Math.abs(rate - 16 / h) <= 0.005, rate);
-    ok(`lipid over ${h}h → g/kg/h`, Math.abs(num(container.querySelector('.lipid-gkgh').textContent) - 2 / h) <= 0.005 + 1e-9);   // 2 decimals since 2026-09-28 (0.125 shows 0.13)
+    ok(`lipid over ${h}h → rate ${want}`, rate === want, rate);
+    ok(`lipid over ${h}h → g/kg/h over ${(16 / want).toFixed(2)} h`, Math.abs(num(container.querySelector('.lipid-gkgh').textContent) - 2 / (16 / want)) <= 0.005 + 1e-9);
   }
   setField('MgSO₄', 4.861);   // 0.4 mEq/kg/d, typed in mg since 2026-10-28
   // KCMH stocks 10% MgSO₄ only (Praew, 2026-09-23): no vial choice, no 50% mL.
@@ -243,7 +247,7 @@ const openAll = () => click(btnExact('Open all'));
   typeChars('Volume(mL/day)', '120');
   ok('Volume 120 → Rate 5', inputFor('Rate').value === '5', inputFor('Rate').value);
   typeChars('Volume(mL/day)', '100');
-  ok('Volume 100 → Rate 4.17', inputFor('Rate').value === '4.17', inputFor('Rate').value);
+  ok('Volume 100 → Rate 4.2 (the pump at 0.1 mL/hr, 2026-11-06)', inputFor('Rate').value === '4.2', inputFor('Rate').value);
   typeChars('Dextrose final', '12.5');
   ok('typed 12.5 stays 12.5', inputFor('Dextrose final').value === '12.5');
   typeChars('Amino acid', '0.05');
