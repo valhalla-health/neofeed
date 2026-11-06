@@ -32,10 +32,11 @@
 //   4. Deploy → Web app · Execute as: Me · Access: Anyone
 //   5. Copy URL → NeoFeed.html window.NEOFEED_GAS_URL
 //
-// Patient_Registry (A–R): sessionId|name|initials|bw|ga|sex|dob|admissionDate|
+// Patient_Registry (A–U): sessionId|name|initials|bw|ga|sex|dob|admissionDate|
 //   twinSuffix|status|currentBed|diagnosis|weights|lengths|hcs|bedHistory|statusDate|
 //   multiplesCount (R, added 2026-08-14 — 2/3/4, disambiguates twinSuffix's
-//   A–D: "A" alone doesn't say whether the set is twins or triplets)
+//   A–D: "A" alone doesn't say whether the set is twins or triplets) |
+//   pnIndication|liverDysfunction|renalDysfunction (S–U, added 2026-11-05)
 // Daily_Log (A–AM): ts|sessionId|dol|weight|fluid|gir|pro|kcal|na|k|ca|p|
 //   enVolPerKg|route|status|submittedBy|suppMTV..suppFeType|
 //   calcInputJson|entryId|lastModified|lastModifiedBy|ioInput|ioOutput|drainContent|
@@ -923,7 +924,12 @@ var PAT_HEADERS = [
   "sessionId","name","initials","bw","ga","sex",
   "dob","admissionDate","twinSuffix","status",
   "currentBed","diagnosis","weights","lengths","hcs","bedHistory",
-  "statusDate","multiplesCount"
+  "statusDate","multiplesCount",
+  // S–U, added 2026-11-05 (Pp, 2026-10-28 nutrition meeting): "Indication for
+  // PN" and the Liver/Renal Dysfunction ticks next to Diagnosis. Blank on
+  // every row until applyPatientRegistryHeaderColumns() is run — see its
+  // comment — same as Daily_Log's AC–AE before applyLogHeaderColumns.
+  "pnIndication","liverDysfunction","renalDysfunction"
 ];
 var LOG_HEADERS = [
   "ts","sessionId","dol","weight","fluid","gir",
@@ -1930,6 +1936,9 @@ function getActivePatients(opts) {
       bedHistory:    _parseJson(p[15], []),
       statusDate:    _fmtDate(p[16]),
       multiplesCount: Number(p[17] || 0),
+      pnIndication:  String(p[18] || ""),
+      liverDysfunction: p[19] === true,
+      renalDysfunction: p[20] === true,
     });
   }
   var out = { patients: patients, log: logMap, ts: new Date().toISOString() };
@@ -2150,6 +2159,9 @@ var PATIENT_TEXT_MAX = {
   diagnosis: { max: 2000, label: "Diagnosis" }, currentBed: { max: 60, label: "Bed" },
   twinSuffix: { max: 20, label: "Twin letter" }, dob: { max: 40, label: "Date of birth" },
   admissionDate: { max: 40, label: "Admit date" }, statusDate: { max: 40, label: "Status date" },
+  // The dropdown's own 8 options top out at 21 characters ("Feeding intolerance");
+  // 60 leaves room without opening this one up into a free-text box.
+  pnIndication: { max: 60, label: "Indication for PN" },
 };
 function _checkPatientText(m, storedRow) {
   var same = function (v) { return String(v == null ? "" : v).trim().replace(/\s+/g, " "); };
@@ -3666,18 +3678,19 @@ function applyLogHeaderColumns() {
 // Same gap as ensureLogHeaderColumns above, one tab over: getSheetPat() only
 // writes the full header row when it creates Patient_Registry from scratch,
 // so a live tab predating multiplesCount (added 2026-08-14, R) never gained
-// that label. It still widens the grid to 18 columns before labelling, but
-// that part is now belt-and-braces: registerPatient() widens on demand
-// itself (2026-08-17), so a too-narrow grid no longer makes editing an
-// existing patient throw and this helper is effectively cosmetic — see the
-// caveat about unlabelled columns in ensureStaffHeaderColumns's comment.
+// that label, and the same now holds for S–U (pnIndication, liverDysfunction,
+// renalDysfunction, added 2026-11-05). It still widens the grid to 21 columns
+// before labelling, but that part is now belt-and-braces: registerPatient()
+// widens on demand itself (2026-08-17), so a too-narrow grid no longer makes
+// editing an existing patient throw and this helper is effectively cosmetic —
+// see the caveat about unlabelled columns in ensureStaffHeaderColumns's comment.
 //
 // Dry-run by default: call with no arguments to see what it WOULD do. Pass
 // true to actually write. Only ever fills a BLANK header cell — if R1
 // already contains anything it reports and changes nothing, so it is safe
 // to re-run.
 function ensurePatHeaderColumns(apply) {
-  var WANT = { 18: "multiplesCount" };
+  var WANT = { 18: "multiplesCount", 19: "pnIndication", 20: "liverDysfunction", 21: "renalDysfunction" };
   var sh   = getSheetPat();
   var out  = {
     applied: apply === true,
@@ -3685,9 +3698,9 @@ function ensurePatHeaderColumns(apply) {
     changes: [], skipped: []
   };
 
-  var need = 18 - sh.getMaxColumns();
+  var need = 21 - sh.getMaxColumns();
   if (need > 0) {
-    out.changes.push("grid: " + sh.getMaxColumns() + " -> 18 columns (+" + need + ")");
+    out.changes.push("grid: " + sh.getMaxColumns() + " -> 21 columns (+" + need + ")");
     if (apply === true) sh.insertColumnsAfter(sh.getMaxColumns(), need);
   } else {
     out.skipped.push("grid: already " + sh.getMaxColumns() + " columns — wide enough");
@@ -3711,7 +3724,7 @@ function ensurePatHeaderColumns(apply) {
     out.skipped.push("headers: dry run on a too-narrow grid — re-run with apply to see them");
   }
 
-  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(18, sh.getLastColumn())).getValues()[0];
+  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(21, sh.getLastColumn())).getValues()[0];
   Logger.log(JSON.stringify(out, null, 2));
   return out;
 }
@@ -4026,7 +4039,8 @@ function _bedConflict(data, p) {
 //     client added (in incoming, not in base) are appended.
 // No base (older clients, new registrations) → the old whole-record write.
 var PATIENT_SCALAR_FIELDS = ["name", "initials", "bw", "ga", "sex", "dob", "admissionDate",
-  "twinSuffix", "status", "currentBed", "diagnosis", "statusDate", "multiplesCount"];
+  "twinSuffix", "status", "currentBed", "diagnosis", "statusDate", "multiplesCount",
+  "pnIndication", "liverDysfunction", "renalDysfunction"];
 function _patientFieldNorm(field, v) {
   switch (field) {
     case "bw": case "ga": case "multiplesCount": return _numSafe(v, 0);
@@ -4034,6 +4048,7 @@ function _patientFieldNorm(field, v) {
     case "currentBed": return _normBed(v);
     case "sex": return String(v == null ? "" : v).trim() || "boys";
     case "status": return _readStatus(v);
+    case "liverDysfunction": case "renalDysfunction": return v === true;
     default: return String(v == null ? "" : v).trim();
   }
 }
@@ -4050,6 +4065,7 @@ function _storedPatient(r) {
     hcs: _asArray(_parseJson(r[14], [])),
     bedHistory: _asArray(_parseJson(r[15], [])),
     statusDate: _fmtDate(r[16]), multiplesCount: Number(r[17] || 0),
+    pnIndication: String(r[18] || ""), liverDysfunction: r[19] === true, renalDysfunction: r[20] === true,
   };
 }
 function _asArray(v) { return Array.isArray(v) ? v : []; }
@@ -4231,7 +4247,7 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
       var lookalike = _possibleDuplicate(data, m, seesArchive === true);
       if (lookalike) return { needsConfirm: true, code: "PossibleDuplicate", error: lookalike.message, matchedId: lookalike.matchedId };
     }
-    var row18 = [
+    var row21 = [
       _sheetSafe(m.sessionId), _sheetSafe(m.name || ""), _sheetSafe(m.initials || ""),
       _numSafe(m.bw, 0), _numSafe(m.ga, 0), _sheetSafe(m.sex || "boys"),
       _sheetSafe(m.dob || ""), _sheetSafe(m.admissionDate || ""), _sheetSafe(m.twinSuffix || ""),
@@ -4242,25 +4258,28 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
       _sheetSafe(JSON.stringify(m.bedHistory || [])),
       _sheetSafe(m.statusDate || ""),
       _numSafe(m.multiplesCount, 0),
+      // S–U, 2026-11-05: no formula-injection risk (a fixed enum and two
+      // booleans, never free text), so plain values rather than _sheetSafe.
+      _sheetSafe(m.pnIndication || ""), m.liverDysfunction === true, m.renalDysfunction === true,
     ];
     if (stored) {
-      // A Patient_Registry tab narrower than 18 columns would make this
+      // A Patient_Registry tab narrower than 21 columns would make this
       // getRange() out of bounds and throw — surfacing at the bedside as a
       // failed save when EDITING an existing patient. Widen on demand so the
-      // upsert can't depend on whether the one-off ensurePatHeaderColumns
+      // upsert can't depend on whether the one-off applyPatientRegistryHeaderColumns
       // migration has been run yet, exactly as updateDailyNutrition does for
       // Daily_Log's AC–AE. No-op once wide enough (a sheet created by
       // insertSheet() starts at Sheets' 26-column default, so in practice
       // this only fires on a tab whose columns were trimmed by hand).
       // Creating is fine either way — appendRow widens the sheet itself.
-      if (sheet.getMaxColumns() < row18.length) {
-        sheet.insertColumnsAfter(sheet.getMaxColumns(), row18.length - sheet.getMaxColumns());
+      if (sheet.getMaxColumns() < row21.length) {
+        sheet.insertColumnsAfter(sheet.getMaxColumns(), row21.length - sheet.getMaxColumns());
       }
       _assertRowStillHolds(sheet, rowIndex + 1, 1, p.sessionId);
-      sheet.getRange(rowIndex + 1, 1, 1, row18.length).setValues([row18]);
+      sheet.getRange(rowIndex + 1, 1, 1, row21.length).setValues([row21]);
       return;
     }
-    sheet.appendRow(row18);
+    sheet.appendRow(row21);
   } finally {
     _bumpDataVersion();
     lock.releaseLock();

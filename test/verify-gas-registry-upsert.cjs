@@ -60,10 +60,10 @@ function makeSheet(header, rows, maxColumns) {
 const PAT_HEADER = [
   'sessionId','name','initials','bw','ga','sex','dob','admissionDate','twinSuffix',
   'status','currentBed','diagnosis','weights','lengths','hcs','bedHistory',
-  'statusDate','multiplesCount',
+  'statusDate','multiplesCount','pnIndication','liverDysfunction','renalDysfunction',
 ];
 const EXISTING = ['FO-1','Fo','Fo',2025,33.1,'girls','2026-07-01','2026-08-01','',
-  'Active','NICU 11','RDS','[]','[]','[]','[]','',0];
+  'Active','NICU 11','RDS','[]','[]','[]','[]','',0,'',false,false];
 
 let sheet = null;
 const sandbox = {
@@ -93,21 +93,25 @@ const patient = {
   dob: '2026-07-01', admissionDate: '2026-08-01', twinSuffix: '', status: 'Active',
   currentBed: 'NICU 11', diagnosis: 'RDS', weights: [], lengths: [], hcs: [],
   bedHistory: [], statusDate: '', multiplesCount: 0,
+  pnIndication: 'NEC', liverDysfunction: true, renalDysfunction: false,
 };
 
-// ── 1. Narrow grid (pre-multiplesCount tab, never migrated) ───────────────
-console.log('\n── upsert onto a 17-column Patient_Registry ──');
-sheet = makeSheet(PAT_HEADER.slice(0, 17), [EXISTING.slice(0, 17)], 17);
+// ── 1. Narrow grid (today's live tab, pre-pnIndication migration) ─────────
+console.log('\n── upsert onto an 18-column Patient_Registry ──');
+sheet = makeSheet(PAT_HEADER.slice(0, 18), [EXISTING.slice(0, 18)], 18);
 let threw = null;
 try { sandbox.registerPatient(patient); } catch (e) { threw = e.message; }
 eq('editing an existing patient does not throw', threw, null);
-eq('grid widened 17 → 18',                       sheet.maxColumns, 18);
+eq('grid widened 18 → 21',                       sheet.maxColumns, 21);
 eq('widened by inserting once',                  sheet.insertedColumns.length, 1);
 eq('wrote the row in place, not appended',       sheet.appended.length, 0);
-eq('wrote all 18 columns',                       sheet.writes[0]?.numCols, 18);
+eq('wrote all 21 columns',                       sheet.writes[0]?.numCols, 21);
 eq('wrote to the matching row',                  sheet.writes[0]?.row, 2);
 eq('multiplesCount lands in column R',           sheet.writes[0]?.values[0][17], 0);
 eq('currentBed lands in column K',               sheet.writes[0]?.values[0][10], 'NICU 11');
+eq('pnIndication lands in column S',             sheet.writes[0]?.values[0][18], 'NEC');
+eq('liverDysfunction lands in column T, a real boolean', sheet.writes[0]?.values[0][19], true);
+eq('renalDysfunction lands in column U, a real boolean', sheet.writes[0]?.values[0][20], false);
 
 // ── 2. Wide-enough grid — the widen must be a no-op ───────────────────────
 console.log('\n── upsert onto an already-wide (26-column) tab ──');
@@ -115,27 +119,28 @@ sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
 sandbox.registerPatient({ ...patient, currentBed: 'NICU 1', multiplesCount: 2 });
 eq('no columns inserted',                sheet.insertedColumns.length, 0);
 eq('grid untouched',                     sheet.maxColumns, 26);
-eq('still writes exactly 18 columns',    sheet.writes[0]?.numCols, 18);
+eq('still writes exactly 21 columns',    sheet.writes[0]?.numCols, 21);
 eq('normalized bed reaches the sheet',   sheet.writes[0]?.values[0][10], 'NICU 1');
 eq('multiplesCount reaches the sheet',   sheet.writes[0]?.values[0][17], 2);
 
 // ── 3. A brand-new patient still appends (appendRow self-widens) ──────────
 console.log('\n── registering a patient not already on the sheet ──');
-sheet = makeSheet(PAT_HEADER.slice(0, 17), [EXISTING.slice(0, 17)], 17);
+sheet = makeSheet(PAT_HEADER.slice(0, 18), [EXISTING.slice(0, 18)], 18);
 // On a free bed: EXISTING is active in NICU 11 and the one-patient-per-bed
 // guard (section 6) would otherwise refuse this registration.
 sandbox.registerPatient({ ...patient, sessionId: 'NF-000001', currentBed: 'NICU 4' });
 eq('appended rather than written in place', sheet.appended.length, 1);
-eq('appended row is 18 wide',               sheet.appended[0]?.length, 18);
+eq('appended row is 21 wide',               sheet.appended[0]?.length, 21);
 eq('no in-place write',                     sheet.writes.length, 0);
 
 // ── 4. Formula-injection guard still applies on the widened path ──────────
 console.log('\n── _sheetSafe still applied ──');
-sheet = makeSheet(PAT_HEADER.slice(0, 17), [EXISTING.slice(0, 17)], 17);
+sheet = makeSheet(PAT_HEADER.slice(0, 18), [EXISTING.slice(0, 18)], 18);
 // Same sessionId as EXISTING, so this is an edit of that row — its own bed is
 // never a conflict with itself.
-sandbox.registerPatient({ ...patient, diagnosis: '=IMPORTXML("evil","//a")' });
-ok('leading = is escaped', String(sheet.writes[0]?.values[0][11]).startsWith("'="));
+sandbox.registerPatient({ ...patient, diagnosis: '=IMPORTXML("evil","//a")', pnIndication: '=IMPORTXML("evil","//a")' });
+ok('leading = is escaped (diagnosis)',     String(sheet.writes[0]?.values[0][11]).startsWith("'="));
+ok('leading = is escaped (pnIndication)',  String(sheet.writes[0]?.values[0][18]).startsWith("'="));
 
 // ── 5. sessionId collision guard ──────────────────────────────────────────
 // sessionId is initials+BW+twinSuffix, so two unrelated infants sharing both

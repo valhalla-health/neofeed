@@ -1,16 +1,26 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-05 — TPN-room stickers, PR B (`tpn-room.html`, #219): not live, not merged.** The page, its encrypted name
-> file and the three stickers are built and tested on synthetic infants (`openspec/changes/tpn-room-stickers`
-> tasks.md § 2). It needs no backend change. **Three things hold the release:** `tpn-room-check.html` passing on
-> the TPN-room PC (0.1), the PN label's fixed lines from the unit (0.3 i; until then the page refuses to print), and
-> Pp's check of the sample PDF against a real sheet. IT and the DPO still have to hear about the new local store of
-> names, and its retention and erasure need a rule (0.2, 2.8a). Make the pharmacy account after that (`REFERENCE.md` § The TPN room).
+> ⏳ **2026-11-06 — TPN-room stickers, PR B (`tpn-room.html`, #219): merged into `main`, not live.** The page, its
+> encrypted name file and the three stickers are built and tested on synthetic infants (`openspec/changes/tpn-room-stickers`
+> tasks.md § 2). It needs no backend change. **Three things hold the release** (tasks.md § 0): `tpn-room-check.html`
+> passing on the TPN-room PC (0.1), the PN label's fixed lines from the unit (0.3 i; until then the page refuses to
+> print), and Pp's check of the sample PDF against a real sheet. IT and the DPO still have to hear about the new local
+> store of names, and its retention and erasure need a rule (0.2, 2.8a). Make the pharmacy account after that
+> (`REFERENCE.md` § The TPN room). **#220** (CI pins `jsdom@30` after jsdom 31 broke `verify-status-zones.cjs`) is
+> merged too; it changes nothing either host serves, so no release follows. Recorded here by PR #218.
 >
-> ✅ **2026-11-05 — frontend `release` = `a541271` (PR #217), with backend `@67`.** Released #216, the line telling
-> the doctor to phone the TPN room when changing a submitted order. `node tools/verify-release.mjs --wait` passed on
-> both hosts from Pp's PC (comment on #217), and the tag `release-2026-11-05-pr217` is pushed. No ward device has
-> tried it. Rollback: the frontend to `release-2026-11-03-pr214` (`42fa2bc`); the backend is unchanged.
+> ✅ **2026-11-05 — frontend `release` = `a541271` (PR #217), with backend `@68`.** PR #217 released #216 (a
+> line telling the doctor to phone the TPN room when changing a submitted order). `node tools/verify-release.mjs
+> --wait` passed both hosts (0 failures, 61 passes, comment on #217). Tag `release-2026-11-05-pr217` pushed.
+> #210 (locked No TPN order's Submit), #212 (TPN-room sticker figures PR A) and #213 (printed order one A4 page)
+> went live with PR #214 on 2026-11-03; their ⏳ entries are gone.
+> **Backend `@68`** (PR #218, backend-first, on Pp's go-ahead): `Patient_Registry` gains columns S–U —
+> `pnIndication`, `liverDysfunction`, `renalDysfunction` — for the Indication for PN dropdown and the Liver/Renal
+> Dysfunction ticks next to Diagnosis. Additive only; nothing reads them until #218's frontend half merges and
+> releases. `clasp deploy` verified: `clasp pull --versionNumber 68` is byte-identical to the committed
+> `gas-backend.gs`, and a no-credential `ping` answered. ⚠️ No ward device has tried this release. Rollback: the
+> frontend to `release-2026-11-03-pr214` (`42fa2bc`); the backend `clasp update-deployment AKfycbz8Nt… -V 67`
+> first. Recorded here by PR #218, the next PR on the repo.
 >
 > ✅ **2026-11-03, by 09:30 ICT — backend: only the ward's deployment and `@HEAD` remain.** On Pp's word, the 24
 > old deployments (`@2`–`@25`) were removed after each version's code was read. `clasp list-deployments` went
