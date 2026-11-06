@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-06 — Step 2's milk list: no FBM ↔ Infatrini, "HiQ LF"
+## Session 2026-11-06 (3) — Step 2's milk list: no FBM ↔ Infatrini, "HiQ LF"
 
 `data.js` (`EN_PRODUCTS`), `test/verify-en-db-sources.cjs`, `test/verify-tpn-meeting-0928.cjs`,
 `test/verify-calc-oracle.cjs`, `test/verify-calc-fuzz.cjs`, `test/verify-calc-sum.cjs`, `test/verify-show-working-1028.cjs`, the `neofeed-clinical-rules` skill, `compiled/` and both
@@ -30,6 +30,33 @@ Pp, 2026-11-06, from a phone screenshot of the Feed type list: "หน้าก�
   offers; `verify-en-db-sources.cjs` still pins the row's values. `verify-show-working-1028.cjs`'s order E now reopens
   a saved `FBM_INF_MIX` order (Vera), so the claim that it still computes and shows as saved is tested on screen. The skill's `--fix-lines` rewrote stale line
   numbers only.
+
+## Session 2026-11-06 (2) — No Calculator button inside a ward; แสดงทั้งหมด on the filter's line
+
+`app.jsx`, `registry.jsx`, `NeoFeed.html`, `index.html`, `compiled/app.js`, `compiled/registry.js`,
+`test/verify-quick-calc.cjs`, `test/verify-print-all-1028.cjs`, `test/verify-ios-input-zoom-1009.cjs`,
+`test/verify-phone-sweep.cjs`, `test/README.md`.
+
+Pp, from two phone screenshots of the NICU list: "ถ้าเข้ามาในหน้าวอร์ดแล้ว ไม่ต้องมีแคลคูเลเตอร์", and the
+Logged today filter's แสดงทั้งหมด should sit on the same line as its words, as it already did under Needs entry
+("เอาเล็กลงก็ได้").
+
+1. **The quick-calc button is on the ward gate only.** `showQuickFab` adds `&& !ward`: a ward's patient list,
+   like its Print order list since 2026-10-28, has no Calculator button. It floated over the cards' Open
+   buttons. The gate (no ward chosen) keeps it, and its ← still lands back on the gate. The bottom nav's Calc
+   (a patient's calculator) is unchanged.
+2. **The filter line never wraps the button.** It wrapped only for the longer label: `.reg-filter-note` had
+   `flex-wrap: wrap`, and "แสดงเฉพาะ Logged today · 17 จาก 18 ราย" left no room beside it at phone width. Now
+   `nowrap`: the words wrap inside their own `.reg-filter-text` and `.reg-filter-all` stays at the right, in
+   12px type with tighter padding. Its 44px tap height on a phone is kept.
+
+Tests: `verify-quick-calc.cjs` pins the new condition; `verify-print-all-1028.cjs` 1.1 now expects no button on
+the ward list; `verify-ios-input-zoom-1009.cjs` goes out to the gate for the quick calc and back into the ward;
+`verify-phone-sweep.cjs` checks, on all 24 profiles, that แสดงทั้งหมด is level with its words and no Calculator
+button shows in the ward (340 passed). No calculation, printed figure or backend changed.
+
+`STATUS.md` also catches up on PR #221 (`release` = `96f393e`, 2026-11-06 23:35 ICT: #218's frontend, #219,
+#220), merged while this PR was open, and drops the two ⏳ entries it made live.
 
 ## Session 2026-11-06 — CI pins jsdom to 30
 
