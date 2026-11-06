@@ -10,7 +10,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-11-06 — Step 2's milk list: no FBM ↔ Infatrini, "HiQ LF"
 
 `data.js` (`EN_PRODUCTS`), `test/verify-en-db-sources.cjs`, `test/verify-tpn-meeting-0928.cjs`,
-`test/verify-calc-oracle.cjs`, `test/verify-calc-fuzz.cjs`, `test/verify-calc-sum.cjs`, the `neofeed-clinical-rules` skill, `compiled/` and both
+`test/verify-calc-oracle.cjs`, `test/verify-calc-fuzz.cjs`, `test/verify-calc-sum.cjs`, `test/verify-show-working-1028.cjs`, the `neofeed-clinical-rules` skill, `compiled/` and both
 shells' `?v=` tokens.
 
 Pp, 2026-11-06, from a phone screenshot of the Feed type list: "หน้าการ์ดนมไม่ต้องมีฟอติฟายเบสมิลค์สําหรับอินฟราแล้ว
@@ -26,8 +26,9 @@ Pp, 2026-11-06, from a phone screenshot of the Feed type list: "หน้าก�
   what the printed order, the changes list and Center Point's copy (`center-point/tpn-document.mjs`) show, and are
   unchanged, so no printed line and no Center Point sync moves.
 - No figure moves: every remaining feed computes as before (`verify-calc-oracle.cjs`, `verify-calc-fuzz.cjs`,
-  `verify-calc-sum.cjs` pass). The three harnesses that drove a new order on `FBM_INF_MIX` now drive only what Step 2
-  offers; `verify-en-db-sources.cjs` still pins the row's values. The skill's `--fix-lines` rewrote stale line
+  `verify-calc-sum.cjs` pass). Three harnesses that drove a new order on `FBM_INF_MIX` now drive only what Step 2
+  offers; `verify-en-db-sources.cjs` still pins the row's values. `verify-show-working-1028.cjs`'s order E now reopens
+  a saved `FBM_INF_MIX` order (Vera), so the claim that it still computes and shows as saved is tested on screen. The skill's `--fix-lines` rewrote stale line
   numbers only.
 
 ## Session 2026-11-06 — CI pins jsdom to 30
