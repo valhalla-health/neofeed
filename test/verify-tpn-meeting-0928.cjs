@@ -196,7 +196,8 @@ function baseOrder({ tf = 120 } = {}) {
     eq('the 100 chip sets 100 mL', inputFor('ปริมาตรคาสาย')?.value, '100');
     ok('…and the bag is prepared at 180 + 100 = 280 mL', /Prepared \(เตรียมจริง\)\s*280 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
     setField('ปริมาตรคาสาย', 0);
-    ok('0 is still typed by hand: no overfill', /no overfill — doses use actual weight/.test(screenText()), screenText().match(/Factor.{0,60}/));
+    // The Factor box that said "no overfill" left the screen on 2026-11-06 (Pp).
+    ok('0 is still typed by hand: prepared = delivered 180 mL', /Prepared \(เตรียมจริง\)\s*180 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
     setField('ปริมาตรคาสาย', 45);
     ok('…and so is any other value (45 mL → 225 mL prepared)', /Prepared \(เตรียมจริง\)\s*225 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
   });

@@ -180,6 +180,27 @@ const openAll = () => click(btnExact('Open all'));
   // the dependents of a few chips, as numbers
   click(chipsAfter('Glycophos').find(c => num(c.textContent) === 2));
   ok('Glycophos chip 2 (mEq Na) = 1 mmol P/kg', /→ P 1 mmol\/kg\/d = 31 mg\/kg\/d/.test(text()));
+  // Typed by P (Pp, 2026-11-06): the P button switches the box and its chips
+  // to mg P/kg/d, never the dose; switching back shows it in Na again.
+  const glyBy = (t) => [...container.querySelectorAll('.glycophos-by button')].find(b => b.textContent === t);
+  ok('Glycophos opens on Na', glyBy('Na')?.classList.contains('on') && !glyBy('P')?.classList.contains('on'));
+  click(glyBy('P'));
+  ok('P on: the label says ใส่เป็น P', /Glycophos® \(ใส่เป็น P\)/.test(text()));
+  ok('P on: the same 1 mmol P/kg reads 31 mg in the box', inputFor('Glycophos').value === '31', inputFor('Glycophos').value);
+  ok('P on: chips 15 / 30 / 45 / 60', chipsAfter('Glycophos').map(c => num(c.textContent)).join() === '15,30,45,60', chipsAfter('Glycophos').map(c => c.textContent));
+  for (const v of [15, 30, 45, 60]) {
+    click(chipsAfter('Glycophos').find(c => num(c.textContent) === v));
+    ok(`P chip ${v} → field shows ${v}`, num(inputFor('Glycophos').value) === v, inputFor('Glycophos').value);
+    ok(`P chip ${v} is the active chip`, chipsAfter('Glycophos').filter(c => c.classList.contains('active')).map(c => num(c.textContent)).join() === String(v));
+  }
+  // 60 mg P = 60/31 mmol = 1.94 mL/kg, bringing 3.87 mEq Na/kg
+  ok('P 60 mg/kg → Na 3.87 mEq/kg/d · P 1.94 mmol/kg/d', /→ Na 3\.87 mEq\/kg\/d · P 1\.94 mmol\/kg\/d/.test(text()), container.querySelector('.glycophos-p')?.textContent);
+  setField('Glycophos', 20);
+  ok('P typed 20 → P 20 mg/kg/d = 0.65 mL/kg/d', /P 20 mg\/kg\/d = 0\.65 mL\/kg\/d · Na 1\.29 mEq\/kg\/d/.test(text()), text().match(/P [\d.]+ mg\/kg\/d = [^เ]*/)?.[0]);
+  click(glyBy('Na'));
+  ok('back on Na: 20 mg P reads 1.29 mEq Na (3 decimals at most)', inputFor('Glycophos').value === '1.29', inputFor('Glycophos').value);
+  ok('back on Na: chips 1–4 again, none lit', chipsAfter('Glycophos').map(c => num(c.textContent)).join() === '1,2,3,4' && !chipsAfter('Glycophos').some(c => c.classList.contains('active')));
+  click(chipsAfter('Glycophos').find(c => num(c.textContent) === 2));
   click(chipsAfter('Dextrose final').find(c => num(c.textContent) === 10));
   // 100 mL delivered, dead 30 (last chip set above was 30), D10 → 13 g in the bag → 26 mL D50W
   ok('D10 chip → D50W 26 mL/d on a 130 mL bag', /D50W: 26 mL\/d/.test(text()), text().match(/D50W: [\d.]+ mL\/d/)?.[0]);

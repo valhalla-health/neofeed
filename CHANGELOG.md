@@ -7,6 +7,39 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-06 (2) — Calculator: Glycophos typed by P, no Factor on screen, Dextrose chips on one line
+
+`calculator.jsx`, `compiled/calculator.js`, `index.html` and `NeoFeed.html` (one CSS rule each), the
+`neofeed-clinical-rules` skill (`CR-U-SALTS`, `CR-U-FACTOR`), `test/verify-calc-clicks.cjs`, `test/verify-calc-sum.cjs`
+(order S9), and five harnesses that read the Factor off the screen.
+
+Pp sent three requests from her phone the same evening, each with a screenshot of the Calculator:
+
+1. **Glycophos by Na or by P.** "ช่อง glycophos มีปุ่มให้กดเลือกว่าจะใส่เป็นโซเดียมหรือใส่เป็นฟอสฟอรัส หากใส่เป็นฟอสเฟต
+   ตัวเลือก ให้ปรับเป็นค่าใกล้ๆกันกับโซเดียม เช่น 15, 30, 45, 60 mg/kg/day". The code had no such button: the box took
+   mEq Na/kg/d only. Now Na / P buttons sit beside the label. P makes the box mg P/kg/d with chips 15, 30, 45, 60
+   (Na 1–4 mEq is 15.5–62 mg P, so the chips sit beside the Na ones), and the line under it shows the Na it brings.
+   The buttons change what the box is typed in, never the dose: the order still stores one figure, `glycophosP`
+   (mL/kg/d = mmol P/kg/d), so nothing saved, synced, printed or sent to Center Point changes shape, and switching
+   back and forth leaves the order unchanged (not dirty). The choice is not saved and every Calculator opens on Na,
+   so a number typed from habit is read as Na as before; on a shared ward PC one doctor's P cannot become the next
+   doctor's unit (Omen's case). A dose typed by P has no end to its decimals (20 mg is 0.6451… mL/kg), so the three
+   places that printed `glycophosP` raw now round it to 3 decimals at most: the order form's mL/kg cell, the Step 4
+   summary chip and the copied text. Values typed in Na print as before (0.5, 0.55, 0.625). The stock mL was always
+   rounded once (`CR-R-STOCK-ML`); order S9 in `verify-calc-sum.cjs` proves the bag still adds up at 20 mg P/kg.
+2. **No Factor on the Calculator.** "แฟคเตอร์ก็ไม่ต้องขึ้นโชว์หน้านี้ สำหรับแพทย์และพยาบาล". The Factor box beside
+   Prepared is gone; the pharmacy back sheet keeps the Factor (`CR-U-FACTOR`). The fuzz and the oracle checked the
+   on-screen Factor: they now check it is absent, the oracle still checks the printed one, and every stock mL is
+   × Factor, so a wrong Factor still fails both. Three other harnesses read it there too and now read the prepared
+   volume or the stock it scales instead. The "× Factor" notes on the Soluvit, Peditrace and ZnSO₄ hints stay.
+3. **Dextrose % chips on one line on a phone.** "เปอร์เซ็นต์เด็กโต [dextrose %] ในหน้าจอของโมบายให้เรียงยาวต่อกันไป
+   เลย เพื่อให้กดง่ายมากขึ้น". Below 768 px the Dextrose final + GIR row stacks (`.dex-gir-row`), so the five chips
+   have the card's width and sit on one line at 44 px or more each; GIR follows under D50W. Desktop is unchanged.
+
+Three pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
+No constant, limit or `CONSTANTS_VERSION` moved. Asked in the same thread, not built: which amino-acid stocks to
+offer older children (`BACKLOG.md` item 14, Amiparen 10 % and Aminoplasmal 15 %) — a proposal went back to Pp.
+
 ## Session 2026-11-06 — CI pins jsdom to 30
 
 `.github/workflows/test.yml`, `test/README.md`.

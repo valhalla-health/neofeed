@@ -217,7 +217,9 @@ for (let i = 0; i < COUNT; i++) {
   near(s, 'NPC:Protein', tileVal('NPC : Protein'), e.npe, 0);
   near(s, 'Prescribed fluid', grab(/· Prescribed ([\d.]+) mL\/d/), e.prescribed, 0);
   near(s, 'Prepared volume', grab(/Prepared \(เตรียมจริง\)([\d.]+) mL\/day/), e.Vp, 1);
-  near(s, 'Factor', grab(/Factor([\d.]+)/), e.F, 3);
+  // The Factor is pharmacy's: off the screen since 2026-11-06 (Pp). Every stock
+  // mL below is × Factor, so a wrong Factor still fails here.
+  near(s, 'no Factor figure on screen', grab(/Factor([\d.]+)/) === null ? 1 : 0, 1, 0);
   // stock mL: 0.1 mL tolerance — an exactly-.x5 value is a float tie, and
   // toFixed and Math.round can land on either side of it (10.45 → 10.4 / 10.5)
   if (e.d50 > 0) nearTol(s, 'D50W mL', grab(/D50W: ([\d.]+) mL\/d/), e.d50, 0.1001);

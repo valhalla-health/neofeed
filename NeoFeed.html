@@ -1700,6 +1700,9 @@
        Small fixed font (not ellipsis/wrap) so a dose value never gets
        truncated or split across lines where a digit could be misread. */
     .preset-chips { flex-wrap: wrap; gap: 3px; }
+    /* Dextrose final + GIR stack, so the five % chips have the card's width
+       and sit on one line, easier to tap (Pp, 2026-11-06). */
+    .dex-gir-row { grid-template-columns: minmax(0, 1fr) !important; }
     .preset-chip {
       flex: 1 1 44px; min-width: 44px; padding: 5px 1px; font-size: 10px;
       letter-spacing: -0.3px; white-space: nowrap; text-align: center;
@@ -2155,7 +2158,7 @@
        content hash the build writes: never edit one by hand. -->
   <script src="data.js?v=999d66acff"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
-  <script src="compiled/calculator.js?v=f1bc83782c"></script>
+  <script src="compiled/calculator.js?v=7d4dee8ea4"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
   <script src="compiled/registry.js?v=763f8e00f9"></script>
   <script src="compiled/log.js?v=7b665ce3f8"></script>

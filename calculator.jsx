@@ -927,6 +927,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Glycophos® dosed by P (mmol P/kg/day = mL/kg/day since 1 mL = 1 mmol P)
   // Auto-contributes 2 mmol Na per mmol P — shown as computed readout, not input
   const [glycophosP, setGlycophosP] = useState(0);
+  // How the Glycophos box is typed: "na" (mEq Na/kg/d, the KCMH worksheet's
+  // way and the default) or "p" (mg P/kg/d, chips 15/30/45/60; Pp, 2026-11-06).
+  // A view of the one stored dose, glycophosP: switching never changes the
+  // order, so it is not saved, and every Calculator opens on Na.
+  const [glycophosBy, setGlycophosBy] = useState("na");
+  // The dose in the unit the box is typed in. Shown to 3 decimals at most, so
+  // 15 mg P (15/31 mL/kg) reads 15 and its Na 0.968, never a float tail.
+  const glycophosPerMl = glycophosBy === "p" ? S.glycophos.pMgPerMl : S.glycophos.naMeqPerMl;
+  const glycophosTyped = Number(D.displayNum(glycophosP * glycophosPerMl, 3)) || 0;
+  const setGlycophosTyped = (v) => setGlycophosP(v / glycophosPerMl);
   const [kCl, setKCl] = useState(0);
   const [k2hpo4, setK2HPO4] = useState(0);
   const [mgPerKg, setMgPerKg] = useState(0);
@@ -3317,12 +3327,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   hint={totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day` : "ใส่ rate pump"} />
               </div>
 
-              {/* ── Overfill: dead space → prepared volume → Factor ──────────
-                  The worksheet's C7 / G8 / G7 / H9. Dead space is the state
+              {/* ── Overfill: dead space → prepared volume ──────────────────
+                  The worksheet's C7 / G8 / G7. Dead space is the state
                   (it is a property of the giving set, not of today's volume),
                   so prepared volume follows automatically and can never fall
-                  below delivered.                                            */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, alignItems:"start" }}>
+                  below delivered. The Factor (H9) is pharmacy's figure: it is
+                  on the printed back sheet, not on this screen, which doctors
+                  and nurses use (Pp, 2026-11-06).                            */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, alignItems:"start" }}>
                 <div>
                   <NumField label="ปริมาตรคาสาย (dead space)" unit="mL/day"
                     value={deadVol_mL} onChange={setDeadVol_mL} step={1}
@@ -3340,23 +3352,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     delivered {fmt(totalTPN_mL,1)} mL
                   </div>
                 </div>
-                <div style={{ padding:"8px 10px", borderRadius:6, fontSize:12,
-                  background: calc.overfill > 1.001 ? "var(--brand-bg)" : "var(--bg-2)" }}>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Factor</div>
-                  <div className="num" style={{ fontWeight:700, fontSize:15,
-                    color: calc.overfill > 1.001 ? "var(--brand-2)" : "var(--ink)" }}>
-                    {fmt(calc.factor,3)}
-                  </div>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, marginTop:1 }}>
-                    {calc.overfill > 1.001
-                      ? `= ${fmt(wtKg,2)} kg × ${fmt(calc.overfill,3)} overfill`
-                      : "no overfill — doses use actual weight"}
-                  </div>
-                </div>
               </div>
 
-              {/* Dextrose + GIR row */}
-              <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)", gap:10, alignItems:"start" }}>
+              {/* Dextrose + GIR row. On a phone it stacks (.dex-gir-row), so the
+                  five % chips get the full width and sit on one line (Pp, 2026-11-06). */}
+              <div className="dex-gir-row" style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)", gap:10, alignItems:"start" }}>
                 <div>
                   {/* g/kg/d only: grams delivered and in the bag are for the TPN
                       room, which works in mL and has them on the form (TPN team,
@@ -3578,7 +3578,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {naCl > 0    && <span className="step-summary-chip">Na {fmt(calc.naKg,1)} mEq/kg</span>}
               {kCl > 0     && <span className="step-summary-chip">K {fmt(calc.kKg,1)} mEq/kg</span>}
               {caPerKg > 0 && <span className="step-summary-chip">Ca {caPerKg} mg/kg</span>}
-              {glycophosP > 0 && <span className="step-summary-chip">P {glycophosP} mL/kg Glycophos</span>}
+              {glycophosP > 0 && <span className="step-summary-chip">P {fmt(glycophosP, 3)} mL/kg Glycophos</span>}
             </div>
           )}
           <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
@@ -3626,16 +3626,32 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   shown, even at 0, so "Glycophos 1" can't silently mean half
                   the intended P (2026-09-11 review, F7). */}
               {/* P per mL, as the K₂HPO₄ note below (TPN team, 2026-09-28). */}
-              <SaltRow label="Glycophos® (ใส่เป็น Na)" note={`ใส่ mEq Na/kg · ${S.glycophos.naMeqPerMl} mEq Na/mL · P ${S.glycophos.pMgPerMl} mg/mL (1 mmol)`}
-                perKg={glycophosP * 2} onChange={(v) => setGlycophosP(v / 2)} wtKg={wtKg} unit="mEq Na/kg"
+              {/* Or typed as phosphorus, mg P/kg/d (Pp, 2026-11-06): the Na / P
+                  buttons switch what the box and its chips are in, never the
+                  dose. Whichever is typed, the other is shown on the line below. */}
+              <SaltRow
+                label={<>Glycophos® (ใส่เป็น {glycophosBy === "p" ? "P" : "Na"})
+                  <span className="seg glycophos-by" style={{ padding:1, marginLeft:8, display:"inline-flex", verticalAlign:"middle" }}>
+                    <button type="button" className={glycophosBy === "na" ? "on" : ""} onClick={() => setGlycophosBy("na")}>Na</button>
+                    <button type="button" className={glycophosBy === "p" ? "on" : ""} onClick={() => setGlycophosBy("p")}>P</button>
+                  </span></>}
+                note={glycophosBy === "p"
+                  ? `ใส่ mg P/kg · P ${S.glycophos.pMgPerMl} mg/mL (1 mmol) · ${S.glycophos.naMeqPerMl} mEq Na/mL`
+                  : `ใส่ mEq Na/kg · ${S.glycophos.naMeqPerMl} mEq Na/mL · P ${S.glycophos.pMgPerMl} mg/mL (1 mmol)`}
+                perKg={glycophosTyped} onChange={setGlycophosTyped} wtKg={wtKg}
+                unit={glycophosBy === "p" ? "mg P/kg" : "mEq Na/kg"}
                 mlPerKg={glycophosP} />
-              <PresetChips values={[1, 2, 3, 4]} current={glycophosP * 2} onSelect={(v) => setGlycophosP(v / 2)} />
+              <PresetChips values={glycophosBy === "p" ? [15, 30, 45, 60] : [1, 2, 3, 4]} current={glycophosTyped} onSelect={setGlycophosTyped} />
               <div className="glycophos-p" style={{ fontSize:11.5, fontWeight:700, color: glycophosP > 0 ? "var(--brand-2)" : "var(--ink-3)", paddingLeft:2, marginTop:1 }}>
-                → P {fmt(glycophosP, 2)} mmol/kg/d = {fmt(glycophosP * 31, 0)} mg/kg/d
+                {glycophosBy === "p"
+                  ? <>→ Na {fmt(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq/kg/d · P {fmt(glycophosP, 2)} mmol/kg/d</>
+                  : <>→ P {fmt(glycophosP, 2)} mmol/kg/d = {fmt(glycophosP * 31, 0)} mg/kg/d</>}
               </div>
               {glycophosP > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
-                  {fmt(glycophosP * 2, 1)} mEq Na/kg/d = {fmt(glycophosP, 2)} mL/kg/d · P {fmt(glycophosP * 31, 0)} mg/kg/d
+                  {glycophosBy === "p"
+                    ? <>P {fmt(glycophosP * 31, 1)} mg/kg/d = {fmt(glycophosP, 2)} mL/kg/d · Na {fmt(glycophosP * 2, 2)} mEq/kg/d</>
+                    : <>{fmt(glycophosP * 2, 1)} mEq Na/kg/d = {fmt(glycophosP, 2)} mL/kg/d · P {fmt(glycophosP * 31, 0)} mg/kg/d</>}
                   <div style={{ color:"var(--ink-3)" }}>
                     เตรียม {fmt(calc.solVol.glycophos, 1)} mL/d
                   </div>
@@ -4225,7 +4241,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `ELECTROLYTES (ordered per kg → amount IN BAG → mL of stock):`,
                 naCl>0 ? `  ${S.naCl.label}:    ${naCl} mEq/kg → ${fmt(naCl*calc.factor, 1)} mEq → ${calc.solVol.naCl} mL` : "",
                 naAcet>0 ? `  Na Acetate:   ${naAcet} mEq/kg → ${fmt(naAcet*calc.factor, 1)} mEq → ${calc.solVol.naAcet} mL${S.naAcetate.acetateMeqPerMl ? ` (acetate ${fmt(naAcet*calc.factor / S.naAcetate.naMeqPerMl * S.naAcetate.acetateMeqPerMl, 1)} mEq)` : ""}` : "",
-                glycophosP>0 ? `  Glycophos®:   ${glycophosP} mL/kg → ${calc.solVol.glycophos} mL (Na ${fmt(glycophosP*2*calc.factor, 1)} mEq | P ${fmt(glycophosP*31*calc.factor, 0)} mg)` : "",
+                glycophosP>0 ? `  Glycophos®:   ${fmt(glycophosP, 3)} mL/kg → ${calc.solVol.glycophos} mL (Na ${fmt(glycophosP*2*calc.factor, 1)} mEq | P ${fmt(glycophosP*31*calc.factor, 0)} mg)` : "",
                 `  Total Na:     ${fmt(calc.bag.na_mEq, 1)} mEq in bag = ${fmt(calc.naKg, 1)} mEq/kg/d delivered`,
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
                 k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*15.5*calc.factor, 0)} mg)` : "",
@@ -5014,7 +5030,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td style={tdRx(glycophosP > 0)}>{chk(glycophosP > 0)} Disodium glycerophosphate<br/><span style={plain}>(Na = {S.glycophos.naMeqPerMl} mEq/mL, P = {S.glycophos.pMgPerMl} mg/mL)</span></td>
             {/* The paper form's "{ mL · Na mEq · P mg }": the mL is the dose;
                 Na and P are what it brings, so plain text (not figures). */}
-            <td style={tdr}>{glycophosP > 0 ? <><strong>{glycophosP}</strong> mL<br/><span style={note}>Na {f(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq · P {f(glycophosP * S.glycophos.pMgPerMl, 1)} mg</span></> : "—"}</td>
+            <td style={tdr}>{glycophosP > 0 ? <><strong>{f(glycophosP, 3)}</strong> mL<br/><span style={note}>Na {f(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq · P {f(glycophosP * S.glycophos.pMgPerMl, 1)} mg</span></> : "—"}</td>
             <td style={tdr}>{glycophosP > 0 ? <><strong>{f(calc.solVol?.glycophos,1)}</strong> mL</> : "—"}</td>
           </tr>
           <tr>

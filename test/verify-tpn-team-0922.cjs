@@ -576,7 +576,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('…while the Factor is computed from 1234 g: 1.234', /Factor:1\.234 = weight/.test(t), t.match(/Factor:[^(]{0,40}/));
     ok('…and says the weight to 2 decimals where it names it', !/1\.234 kg/.test(t), t.match(/[\d.]+ kg ×/g));
     ok('a typed ZnSO₄ 0.125 prints as typed, unrounded', /0\.125 mg Zn\/kg/.test(t), t.match(/[\d.—]+ mg Zn\/kg/));
-    ok('…and the Factor box on screen names 1.23 kg', /= 1\.23 kg/.test(text(container)) || !/1\.234 kg/.test(text(container)), text(container).match(/= [\d.]+ kg/g));
+    ok('…and the screen never names 1.234 kg (it has no Factor box since 2026-11-06)', !/1\.234 kg/.test(text(container)), text(container).match(/= [\d.]+ kg/g));
   });
 
   // ═══════════════════ the shared display helper ═══════════════════════════
