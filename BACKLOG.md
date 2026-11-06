@@ -411,6 +411,12 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] **product · Two leftovers of #223 (FBM 24 ↔ Infatrini 30 off Step 2's list, 2026-11-06), for Pp.**
+      1. The Formula reference page still lists FBM ↔ Infatrini under "High-energy / Mixed" (`app.jsx`
+         `FormulasPanel`). It is no longer orderable; taking it off is Pp's call.
+      2. Vera's 🟡 on #223: an order saved on `FBM_INF_MIX` reopens with a feed Step 2 does not offer, and
+         picking a milk then shows no "kcal/oz X → Y" notice (`calculator.jsx` `EnFeedPicker`, gated on `at`),
+         so the kcal/oz can change with only the kcal/100 mL hint to say so.
 - [ ] 🩺 **safety · Three growth questions from the 2026-10-17 provenance audit, for Pp.** The same audit
       found the Fenton rows drawn half a week early, fixed on 2026-10-17 (`CHANGELOG.md`). These three
       were left as they are until Pp decides:

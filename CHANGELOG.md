@@ -11,9 +11,10 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 `data.js` (`EN_PRODUCTS`), `test/verify-en-db-sources.cjs`, `test/verify-tpn-meeting-0928.cjs`,
 `test/verify-calc-oracle.cjs`, `test/verify-calc-fuzz.cjs`, `test/verify-calc-sum.cjs`, `test/verify-show-working-1028.cjs`, the `neofeed-clinical-rules` skill, `compiled/` and both
-shells' `?v=` tokens.
+shells' `?v=` tokens. With `main` (#222, #224) merged in: `STATUS.md`, `BACKLOG.md`, `test/README.md`,
+`app-walkthrough.md`, `test/verify-quick-calc.cjs` (a comment).
 
-Pp, 2026-11-06, from a phone screenshot of the Feed type list: "หน้าการ์ดนมไม่ต้องมีฟอติฟายเบสมิลค์สําหรับอินฟราแล้ว
+Pp, 2026-11-06, from a phone screenshot of the Feed type list: "หน้าการ์ดนมไม่ต้องมีฟอติฟายเบสมิลค์สำหรับอินฟราแล้ว
 เพราะมีช่องให้เลือกนมได้สองช่อง ส่วน LF เอา LF ก่อน HiQ ออก มันดูซ้ำกัน".
 
 - **"FBM 24 ↔ Infatrini 30 (alternating)" is no longer offered.** Since #182 (2026-10-28) an order can give two feeds,
@@ -30,6 +31,17 @@ Pp, 2026-11-06, from a phone screenshot of the Feed type list: "หน้าก�
   offers; `verify-en-db-sources.cjs` still pins the row's values. `verify-show-working-1028.cjs`'s order E now reopens
   a saved `FBM_INF_MIX` order (Vera), so the claim that it still computes and shows as saved is tested on screen. The skill's `--fix-lines` rewrote stale line
   numbers only.
+- **Docs caught up with #222 and #224**, from a cold-reader review on Pp's PC (2026-11-07). `STATUS.md`: #222 and #224
+  merged into `main`, not live, in release PR #225. `BACKLOG.md`: this PR's two leftovers for Pp (the Formula page
+  still lists FBM ↔ Infatrini; Vera's 🟡, no "kcal/oz X → Y" notice on a reopened `FBM_INF_MIX` order).
+  `test/README.md`: `verify-print-all-1028.cjs` as one print job (90 checks, eighteen scenarios), 1102 at 71 checks
+  with § 2c, and "แพทย์" a blank line to sign. `app-walkthrough.md` and a `verify-quick-calc.cjs` comment: the quick
+  calc is on the ward gate only. `--fix-lines` again after #224 moved `calculator.jsx`.
+- **Corrections to earlier entries** (this file is append-only, so they stay as written): 2026-11-06 (3) dropped the
+  ⏳ entry for #219 and #220, not "the two ⏳ entries", and also changed `test/verify-readmit-1022.cjs`; 2026-11-06 (2)
+  also changed `test/verify-print-one-page-1102.cjs`, `test/verify-tpn-meeting-0928.cjs` and
+  `test/verify-tpn-team-0922.cjs`. Some Thai quotes in earlier entries (2026-11-06 (2)'s "คนทำหน้าที่", for one) were
+  typed with ํ + า (U+0E4D U+0E32) rather than ำ (U+0E33): a search for either spelling misses the other.
 
 ## Session 2026-11-06 (3) — No Calculator button inside a ward; แสดงทั้งหมด on the filter's line
 
@@ -56,7 +68,8 @@ the ward list; `verify-ios-input-zoom-1009.cjs` goes out to the gate for the qui
 button shows in the ward (340 passed). No calculation, printed figure or backend changed.
 
 `STATUS.md` also catches up on PR #221 (`release` = `96f393e`, 2026-11-06 23:35 ICT: #218's frontend, #219,
-#220), merged while this PR was open, and drops the two ⏳ entries it made live.
+#220), merged while this PR was open, and drops the two ⏳ entries it made live. It also records #224 (2026-11-06
+(2)) as merged into `main`, with release PR #225 open; #224 merged first, so this entry is (3).
 
 ## Session 2026-11-06 (2) — Print ทั้งหมด prints the ward's orders as one print job; "แพทย์" left blank to sign
 
