@@ -736,7 +736,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const printQueueRef = React.useRef(null);
   printQueueRef.current = printQueue;
   // The finished run, shown in place of the list (registry.jsx WardPrintBatch):
-  // { ward, sheets: [{ item, sheet }], skipped: [{ item, reason }], total, token }.
+  // { ward, sheets: [{ item, sheet }], skipped: [{ item, reason }], total, day, token }.
   const [printBatch, setPrintBatch] = React.useState(null);
   // One token per order opened to print: unique within the tab, whatever the clock says.
   const printTokenSeq = React.useRef(0);
@@ -810,7 +810,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const item = printQueue.items[printQueue.index];
     if (!item) {
       setPrintBatch({ ward: printWard, sheets: printQueue.sheets, skipped: printQueue.skipped,
-        total: printQueue.items.length, token: `${Date.now()}-${++printTokenSeq.current}` });
+        total: printQueue.items.length, day: D_A.todayLocal(), token: `${Date.now()}-${++printTokenSeq.current}` });
       setPrintQueue(null);
       return;
     }
@@ -2547,7 +2547,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
 
           {/* Print ทั้งหมด's one print job, in place of the list it came from. */}
           {view === "registry" && printBatch && printWard === printBatch.ward &&
-            <WardPrintBatch batch={printBatch} onBack={() => setPrintBatch(null)} />}
+            <WardPrintBatch batch={printBatch} patients={patients} log={log} onBack={() => setPrintBatch(null)} />}
           {view === "registry" && !(printBatch && printWard === printBatch.ward) && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard}
             printWard={printWard} onPrintWard={setPrintWard} onPrintOrder={openOrderToPrint} onPrintAll={startPrintAll}
             onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={role === "admin" ? handleDeletePatient : undefined} />}

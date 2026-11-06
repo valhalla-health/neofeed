@@ -43,6 +43,10 @@ ward, that is the follow-up").
   (`PRINT_ALL_STEP_MS`), so the run still ends.
 - **Leaving ends it.** ยกเลิก, the back link, the rail or the bottom bar end the run and drop any job; nothing pulls the
   user back to the list.
+- **A waiting job prints only what is still the order now** (Vera's BLOCK, below). Each copy is asked
+  `wardPrintableOrder` again against the log at every render and again at the tap. One revised, deleted, moved or
+  discharged since it was copied leaves the job, named "เปลี่ยนไปหลังเตรียมชุดพิมพ์". Past the day the job was made
+  (`printBatch.day`), nothing prints and the page says "วันเปลี่ยนแล้ว", back to the list.
 
 - **"แพทย์" on the printed sheet is a blank line to sign** (Pp, in the same thread: "รายชื่อแพทย์ตรงหน้าปริ้น
   ไม่ต้องขึ้นตามล็อกอินก็ได้ เพราะต้องลงชื่อใหม่อยู่ดี"). It printed the name of whoever saved the order (TPN team,
@@ -64,9 +68,17 @@ ward, that is the follow-up").
 - **A held order stops the automatic dialog.** One more tap when something is missing, so no one takes 13 sheets to
   pharmacy believing they are the ward's 15.
 
+### Vera
+
+BLOCK on the first commit. 🔴 The job printed its copies with no re-check: a sheet copied before a colleague's revision,
+or a job left on screen past midnight, would reach pharmacy on the tap (fixed in the third commit; her two tests went
+in, `revised` 8.12–8.15 and `nextday` 8.16–8.17, and fail on the second commit). 🟠 Nothing laid the job out in a
+browser: `verify-print-one-page-1102.cjs` § 2c now prints the fullest sheets as one job in Chromium and finds one A4
+page per sheet, each signature on its own page. A real ward printer is still to come.
+
 ### Checked
 
-`verify-print-all-1028.cjs` rewritten for the job: 82/82 on the sources (#2 one dialog with three sheets in bed order,
+`verify-print-all-1028.cjs` rewritten for the job: all pass on the sources (#2 one dialog with three sheets in bed order,
 each naming its own infant and entry, none opened while an order was open; #3–#4 held orders named, dialog on a tap;
 #5 ยกเลิก and the rail; #7 the ticked ones only; #8–#8d a sync during the run; #8e an order that never answers; #8f a
 sheet naming another entry is never taken; #9 No TPN orders). The whole suite, sources and `compiled/`: see the PR.

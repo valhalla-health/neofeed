@@ -289,27 +289,61 @@ function wardPrintableOrder(p, entries, ward, today) {
 // Every order made it: the print dialog opens by itself, once per run. Any held
 // back: the page names them first, and the nurse prints the rest with one tap,
 // so no one takes the stack to pharmacy thinking it is the whole ward.
-function WardPrintBatch({ batch, onBack }) {
+//
+// A job can wait on screen for its tap, so a copy is printed only while it is
+// still the infant's order now (Vera, 2026-11-06, BLOCK): each is asked the
+// list's rule again (wardPrintableOrder) against the log as it is at every
+// render and again at the tap. One revised, deleted, moved or discharged since
+// it was copied leaves the job, named as changed. Past the day the job was
+// made, nothing in it prints: the user goes back to the list and starts again.
+function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
   const wardName = batch.ward === "other" ? "อื่นๆ" : batch.ward;
   const sheetsRef = React.useRef(null);
+  const today = D_R.useTodayLocal();
+  const stillOrder = (item, day) => {
+    const p = patients.find(x => x.sessionId === item.sessionId);
+    const order = wardPrintableOrder(p, log[item.sessionId], batch.ward, day);
+    return !!order && order.entryId === item.entryId;
+  };
+  const dayOver = today !== batch.day;
+  const fresh = dayOver ? [] : batch.sheets.filter(({ item }) => stillOrder(item, today));
+  const changed = dayOver ? [] : batch.sheets.filter(s => !fresh.includes(s));
+  const freshKey = fresh.map(({ item }) => item.entryId).join("|");
+  // Why the last tap printed nothing, when it did not.
+  const [refused, setRefused] = React.useState("");
   // The copies are DOM nodes, not React elements: each is exactly what its
-  // calculator rendered. They go into the host as they are, never re-parsed.
+  // calculator rendered. They go into the host as they are, never re-parsed,
+  // and only those still the order now.
   React.useEffect(() => {
     const host = sheetsRef.current;
     if (!host) return;
     while (host.firstChild) host.removeChild(host.firstChild);
-    batch.sheets.forEach(({ sheet }) => host.appendChild(sheet));
+    fresh.forEach(({ sheet }) => host.appendChild(sheet));
     return () => { while (host.firstChild) host.removeChild(host.firstChild); };
-  }, [batch]);
-  const n = batch.sheets.length;
-  const print = () => requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batch, freshKey]);
+  const n = fresh.length;
+  // Asked again at the tap, with the clock as it is then: the day can turn
+  // between the last render and the tap.
+  const print = () => {
+    const now = D_R.todayLocal();
+    if (now !== batch.day) { setRefused("day"); return; }
+    const host = sheetsRef.current;
+    const inHost = host ? [...host.children].map(el => el.getAttribute("data-entry-id")).join("|") : "";
+    const nowKey = batch.sheets.filter(({ item }) => stillOrder(item, now)).map(({ item }) => item.entryId).join("|");
+    if (!host || inHost !== nowKey || !nowKey) { setRefused("changed"); return; }
+    setRefused("");
+    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+  };
   const autoPrinted = React.useRef(null);
   React.useEffect(() => {
-    if (n === 0 || batch.skipped.length > 0 || autoPrinted.current === batch.token) return;
+    if (n === 0 || dayOver || changed.length > 0 || batch.skipped.length > 0 || autoPrinted.current === batch.token) return;
     autoPrinted.current = batch.token;
     print();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batch]);
+  const held = [...batch.skipped, ...changed.map(({ item }) => ({ item, reason: "เปลี่ยนไปหลังเตรียมชุดพิมพ์ (แก้ไข ลบ ย้าย หรือจำหน่าย)" }))];
+  const dayOverNow = dayOver || refused === "day";
 
   return (
     <>
@@ -317,12 +351,12 @@ function WardPrintBatch({ batch, onBack }) {
         <div style={{ minWidth: 0 }}>
           <h1>Print ทั้งหมด · {wardName}</h1>
           <div className="sub">
-            พร้อมพิมพ์ <span className="num">{n}</span> จาก <span className="num">{batch.total}</span> ใบ
-            {batch.skipped.length > 0 && <> · ข้าม <span className="num">{batch.skipped.length}</span> ใบ</>}
+            พร้อมพิมพ์ <span className="num">{dayOverNow ? 0 : n}</span> จาก <span className="num">{batch.total}</span> ใบ
+            {!dayOverNow && held.length > 0 && <> · ข้าม <span className="num">{held.length}</span> ใบ</>}
           </div>
           <button className="btn" onClick={onBack} style={{ fontSize: 12.5, marginTop: 10 }}>← กลับไปรายการ</button>
         </div>
-        {n > 0 && (
+        {n > 0 && !dayOverNow && (
           <button type="button" className="btn primary print-all print-batch-go" onClick={print}
             aria-label={`พิมพ์ ${n} ใบในครั้งเดียว`}>
             <Icon name="pdf" size={14} color="#fff" /> พิมพ์ <span className="num">{n}</span> ใบ
@@ -331,13 +365,22 @@ function WardPrintBatch({ batch, onBack }) {
       </div>
 
       <div className="card print-batch-summary" style={{ padding: "12px 14px", maxWidth: 760 }}>
-        {batch.skipped.length > 0 && (
+        {dayOverNow ? (
+          <div className="print-batch-skipped" role="alert">
+            วันเปลี่ยนแล้ว — ชุดพิมพ์นี้เป็นใบสั่งของ {window.NEOFEED_FMT_DATE?.(batch.day) || batch.day} จึงไม่พิมพ์
+            กลับไปรายการแล้วกด Print ทั้งหมดใหม่
+          </div>
+        ) : <>
+        {refused === "changed" && (
+          <div className="print-batch-skipped" role="alert">รายการเปลี่ยนขณะกดพิมพ์ — ตรวจสอบรายการด้านล่างแล้วกดพิมพ์อีกครั้ง</div>
+        )}
+        {held.length > 0 && (
           <div className="print-batch-skipped" role="alert">
             <div style={{ fontWeight: 700, marginBottom: 4 }}>
-              ไม่ได้อยู่ในชุดพิมพ์นี้ <span className="num">{batch.skipped.length}</span> ใบ — เปิดจากรายการเพื่อตรวจสอบและพิมพ์ทีละใบ
+              ไม่ได้อยู่ในชุดพิมพ์นี้ <span className="num">{held.length}</span> ใบ — เปิดจากรายการเพื่อตรวจสอบและพิมพ์ทีละใบ
             </div>
             <ul>
-              {batch.skipped.map(({ item, reason }) => (
+              {held.map(({ item, reason }) => (
                 <li key={item.entryId}><strong>{item.label || "ใบสั่ง"}</strong> — {reason}</li>
               ))}
             </ul>
@@ -345,7 +388,7 @@ function WardPrintBatch({ batch, onBack }) {
         )}
         {n > 0 ? (
           <ul className="print-batch-list">
-            {batch.sheets.map(({ item }) => <li key={item.entryId}>✓ {item.label || "ใบสั่ง"}</li>)}
+            {fresh.map(({ item }) => <li key={item.entryId}>✓ {item.label || "ใบสั่ง"}</li>)}
           </ul>
         ) : (
           <div style={{ fontSize: 13, color: "var(--ink-3)" }}>ไม่มีใบที่พิมพ์ได้ในชุดนี้</div>
@@ -355,6 +398,7 @@ function WardPrintBatch({ batch, onBack }) {
             แพทย์ตรวจและลงนามในแต่ละใบก่อนส่งห้องยา
           </div>
         )}
+        </>}
       </div>
 
       {/* The sheets themselves: never on screen, the only thing printed. */}

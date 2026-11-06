@@ -461,6 +461,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         sheets: printQueue.sheets,
         skipped: printQueue.skipped,
         total: printQueue.items.length,
+        day: D_A.todayLocal(),
         token: `${Date.now()}-${++printTokenSeq.current}`
       });
       setPrintQueue(null);
@@ -1587,7 +1588,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       mergeBaseFor,
       onDelete: role === "admin" ? handleDeletePatient : void 0
     }
-  ), view === "registry" && printBatch && printWard === printBatch.ward && /* @__PURE__ */ React.createElement(WardPrintBatch, { batch: printBatch, onBack: () => setPrintBatch(null) }), view === "registry" && !(printBatch && printWard === printBatch.ward) && /* @__PURE__ */ React.createElement(
+  ), view === "registry" && printBatch && printWard === printBatch.ward && /* @__PURE__ */ React.createElement(WardPrintBatch, { batch: printBatch, patients, log, onBack: () => setPrintBatch(null) }), view === "registry" && !(printBatch && printWard === printBatch.ward) && /* @__PURE__ */ React.createElement(
     PatientRegistry,
     {
       patients,

@@ -454,6 +454,46 @@ scenarios['mismatch'] = async (A) => {
     sheetsMatch(['AA-1', 'e-aa'], ['DD-1', 'e-dd']) && /NICU 2 BB — ยังพิมพ์ไม่ได้/.test(skipped()), skipped());
 };
 
+// Vera, 2026-11-06 (BLOCK): a job waiting for its tap prints only sheets that
+// are still the infant's order now. A sheet revised since it was copied, or a
+// job left on screen past midnight, must not reach pharmacy.
+scenarios['revised'] = async (A) => {
+  console.log('\n── #8g an order revised after its sheet was copied ──');
+  const t = setup();
+  t.server.hooks.acquireLogLock = (b) => (b.sessionId === 'AA-1' ? { reply: { ok: true, locked: true, holder: { name: 'Dr B' } } } : undefined);
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await runDone(t);
+  A.ok('8.12 the job waits for its tap, with BB and DD in it', t.printed === 0 && sheetsMatch(['BB-1', 'e-bb'], ['DD-1', 'e-dd']));
+  // Dr C saves over BB's order: a revision replaces e-bb.
+  t.server.log['BB-1'] = [order('e-bb-r2', { revisionNumber: 2, revisionOf: 'e-bb', lastModified: TODAY + 'T05:00:00.000Z' })];
+  await t.click(t.syncButton());
+  await settle(t);
+  const go = t.btn(/พิมพ์ \d+ ใบ/);
+  if (go) await t.click(go);
+  await settle(t);
+  A.ok('8.13 the tap does not print BB\'s superseded sheet', !t.printedSheets.includes('BB-1') && !batchSheets().some(s => s.getAttribute('data-entry-id') === 'e-bb'), t.printedSheets);
+  A.ok('8.14 …it prints DD\'s alone', t.printed === 1 && t.printedSheets.join() === 'DD-1', [t.printed, t.printedSheets]);
+  A.ok('8.15 …and names BB as changed since it was collected', /NICU 2 BB — เปลี่ยนไปหลังเตรียมชุดพิมพ์/.test(skipped()), skipped());
+};
+
+scenarios['nextday'] = async (A) => {
+  console.log('\n── #8h a job left on screen past midnight ──');
+  const t = setup();
+  t.server.hooks.acquireLogLock = (b) => (b.sessionId === 'AA-1' ? { reply: { ok: true, locked: true, holder: { name: 'Dr B' } } } : undefined);
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await runDone(t);
+  t.clock.advance(24 * 3600e3);
+  const go = t.btn(/พิมพ์ \d+ ใบ/);
+  if (go) await t.click(go);
+  await settle(t);
+  A.eq('8.16 yesterday\'s job does not print', t.printed, 0);
+  A.ok('8.17 …and the page says to go back to the list', /วันเปลี่ยนแล้ว/.test(t.text()) && !!t.btn(/← กลับไปรายการ/));
+};
+
 // A ward with no order today shows no button at all: SCN once its two infants
 // are discharged would be empty, so it is checked on a fixture of its own.
 scenarios['empty'] = async (A) => {

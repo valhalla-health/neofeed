@@ -465,6 +465,30 @@ const topStrings = (form) => {
       const split = await marked(`@media print { #print-form .print-crit-box, #print-form .print-sign { break-inside: auto !important; page-break-inside: auto !important; } }`);
       ok('…and with break-inside switched off the same order splits the box between the pages (the check can see a split)',
         split.pages === 2 && split.on.confirmed?.[0] === 1 && split.on.signature?.[0] === 2, split.on);
+
+      // §2c Print ทั้งหมด's one job (registry.jsx WardPrintBatch; Vera, 2026-11-06): the fullest sheets as the job
+      // holds them, copies with no #print-form id, one after another. N sheets must print as N pages, each sheet's
+      // signature line on its own page, and the hidden pharmacy sheet must add no page.
+      const fullest = Object.entries(forms).filter(([k]) => k !== 'overflow' && !/layout only/.test(k)).map(([, h]) => h);
+      const job = fullest.map(h => h.replace('id="print-form"', 'class="print-batch-sheet"')).join('');
+      const page = await open(`<div class="print-batch">${job}</div>`,
+        `@media print { .print-batch-sheet, .print-batch-sheet * { font-family: 'DejaVu Sans', Verdana, sans-serif !important; } }`);
+      const jobInfo = await page.evaluate(() => {
+        const sheets = [...document.querySelectorAll('.print-batch > .print-batch-sheet')];
+        sheets.forEach((sh, i) => {
+          sh.style.display = '';
+          const sign = sh.querySelector('.print-sign > div:first-child');
+          const a = document.createElement('a'); a.href = 'https://marker.invalid/sign' + i; a.style.cssText = 'color:inherit;text-decoration:none';
+          while (sign.firstChild) a.appendChild(sign.firstChild); sign.appendChild(a);
+        });
+        return { n: sheets.length, shown: sheets.every(sh => getComputedStyle(sh).display === 'block'),
+          backHidden: [...document.querySelectorAll('.print-batch-sheet .print-back')].every(b => getComputedStyle(b).display === 'none') };
+      });
+      const res = pagesOfMarkers(await page.pdf({ format: 'A4', preferCSSPageSize: true, printBackground: true }));
+      await page.close();
+      ok(`the job's ${jobInfo.n} fullest sheets show in print, their pharmacy sheets hidden`, jobInfo.n === fullest.length && jobInfo.n >= 3 && jobInfo.shown && jobInfo.backHidden, jobInfo);
+      eq(`…and print as ${jobInfo.n} A4 pages`, res.pages, jobInfo.n);
+      eq('…each sheet\'s signature line on its own page, in order', fullest.map((_, i) => res.on['sign' + i]), fullest.map((_, i) => [i + 1]));
     } finally { await browser.close(); }
   });
 
