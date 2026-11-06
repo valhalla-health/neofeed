@@ -73,7 +73,7 @@ jobs:
           node tools/ci_bans.js
 
       - name: Install dev-only test dependencies (not committed)
-        run: npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom
+        run: npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30
 
       - name: Run every verify-*.cjs harness (sources)
         run: |
