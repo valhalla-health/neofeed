@@ -1,5 +1,10 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-06 — Step 3's Lipid volume tap (this PR): in review.** A tap rounds the lipid syringe to the nearest
+> whole mL/day and sets the dose from it (never across 4.0 g/kg/d). **#218** (Indication for PN and the Liver/Renal
+> Dysfunction ticks, the frontend half of backend `@68`) is merged into `main` (2026-11-06, 23:08 ICT), not live until
+> a release. Recorded here by this PR.
+>
 > ⏳ **2026-11-06 — TPN-room stickers, PR B (`tpn-room.html`, #219): merged into `main`, not live.** The page, its
 > encrypted name file and the three stickers are built and tested on synthetic infants (`openspec/changes/tpn-room-stickers`
 > tasks.md § 2). It needs no backend change. **Three things hold the release** (tasks.md § 0): `tpn-room-check.html`

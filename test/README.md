@@ -2193,3 +2193,10 @@ flow under the real CSP on `tools/dev-local.mjs`, with an origin-private folder 
 is a `printJson` string, one A4 page, and the sentinel name reaches no request. `TPN_ROOM_PDF_OUT=<file>` keeps the sample sheet,
 `TPN_ROOM_SHOT_DIR=<dir>` keeps screenshots. **`tpn-room-fixture.cjs`** makes a synthetic order's figures with the real
 `stickerFigures`. `verify-build-shells.cjs` § 8 pins the two room shells.
+
+## Step 3's Lipid volume tap, 2026-11-06 — one harness added
+
+Pp: "ถ้ากดที่ลิพิตโวลุ่มจะ rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ" (`CHANGELOG.md` 2026-11-06;
+`CR-R-LIPID-WHOLE-ML`). **`verify-lipid-whole-ml-1106.cjs`** (jsdom; it also runs against `compiled/`) taps the real box:
+1,680 g on 2 g/kg/d goes 16.8 → 17 mL, the 20 % lipid box reads 2.02 and the pump rate and g/kg/h are worked out again; 4
+g/kg/d goes to 33 mL (3.93), not 34 (4.05); nothing rounds until the tap. 17 checks. It fails on `ce06e16` (no box to tap).

@@ -1188,6 +1188,31 @@ Source: NF-17, Pp, 2026-10-11 (130.45 mL used to print 87.5 + 42.9 = 130.5).
 {"case": "700 g: ten stocks of 47.4 mL, WFI 52.6", "infant": {"g": 700}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "KCl": 1, "K₂HPO₄": 0.5, "MgSO₄": 4.861, "ZnSO₄": 0.4, "Heparin": 0.5, "10% Ca gluconate": 40}, "expect": {"prints": "Components 47.4 mL + WFI 52.6 mL = 100 mL prepared"}}
 ```
 
+### CR-R-LIPID-WHOLE-ML · the lipid syringe to a whole mL, on a tap
+
+Tapping Step 3's "Lipid volume" rounds the 20 % lipid syringe (`CR-U-FLUID`'s 0.2 g/mL, no overfill) to the
+nearest whole mL/day, half up, at least 1 mL, and sets 20 % lipid to the dose that volume gives: mL × 0.2 ÷ kg.
+The pump rate, g/kg/h (`CR-LIPID-RATE`), lipid kcal and the printed order follow from that dose. It never
+takes a dose at or under 4.0 g/kg/d above it (`CR-LIPID-IV-MAX`): there the whole mL below is used. A dose
+already above 4.0 rounds to the nearest mL like any other, and its critical alert stays. The dose is kept to
+the fewest decimals (2, else 3, else 4) that still give that whole mL at 0.1 mL (`CR-R-STOCK-ML`), so the box
+reads 2.02, not 2.0238095. Nothing rounds until the tap; a toast names the mL and the dose before and after.
+Source: Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ"; asked, she
+chose the nearest whole mL, and the whole mL below where rounding would cross 4.0. Not a clinical threshold.
+
+```rule
+{"rule": "CR-R-LIPID-WHOLE-ML", "kind": "round", "where": [{"file": "data.js", "line": 1068, "has": "function lipidDoseAtWholeMl(lipidPerKg, wtKg, gPerMl = KCMH_STOCK.smof20.gPerMl) {"}, {"file": "calculator.jsx", "line": 976, "has": "const roundLipidToWholeMl = () => {"}]}
+{"case": "1.68 kg, 2 g/kg/d = 16.8 mL: 17 mL, 2.02 g/kg/d", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [2, 1.68], "want": 2.02}
+{"case": "1.68 kg, 2.02 g/kg/d is 17 mL already: unchanged", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [2.02, 1.68], "want": 2.02}
+{"case": "1.68 kg, 3.9 g/kg/d = 32.8 mL: 33 mL, 3.93", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [3.9, 1.68], "want": 3.93}
+{"case": "1.68 kg, 4 g/kg/d = 33.6 mL: 34 mL would be 4.05, so 33 mL, 3.93", "side": "outside", "fn": "lipidDoseAtWholeMl", "args": [4, 1.68], "want": 3.93}
+{"case": "1.71 kg, 4 g/kg/d = 34.2 mL: 34 mL, 3.98", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [4, 1.71], "want": 3.98}
+{"case": "1.68 kg, 4.5 g/kg/d (already over 4) = 37.8 mL: 38 mL, 4.52", "side": "outside", "fn": "lipidDoseAtWholeMl", "args": [4.5, 1.68], "want": 4.52}
+{"case": "430 g, 1 g/kg/d = 2.15 mL: 2 mL, 0.93", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [1, 0.43], "want": 0.93}
+{"case": "no lipid: nothing to round", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [0, 1.68], "want": null}
+{"case": "1,680 g on 2.02 g/kg/d prints 17 mL", "infant": {"g": 1680}, "route": "Central", "order": {"Volume(mL/day)": 200, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2.02}, "expect": {"shows": "17 mL/day", "prints": "2.02 g/kg/d = 17 mL"}}
+```
+
 ---
 
 ## Not in this file

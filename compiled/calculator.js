@@ -548,6 +548,18 @@ function Calculator({
   const [suppFerdek, setSuppFerdek] = useState(0);
   const [suppFeType, setSuppFeType] = useState("FE_FERDEK");
   const [openSteps, setOpenSteps] = useState(/* @__PURE__ */ new Set([1]));
+  const roundLipidToWholeMl = () => {
+    const dose = D.lipidDoseAtWholeMl(lipidPerKg, wtKg);
+    if (dose == null) return;
+    const mlNow = Number(D.displayNum(lipidPerKg * wtKg / D.KCMH_STOCK.smof20.gPerMl, 1));
+    const mlNew = Number(D.displayNum(dose * wtKg / D.KCMH_STOCK.smof20.gPerMl, 1));
+    if (dose === lipidPerKg) {
+      showToast(`Lipid ${D.displayNum(mlNow, 1)} mL/day เป็น mL เต็มแล้ว`, "info");
+      return;
+    }
+    setLipidPerKg(dose);
+    showToast(`Lipid ${D.displayNum(mlNow, 1)} → ${D.displayNum(mlNew, 1)} mL/day · 20% lipid ${D.displayNum(lipidPerKg, 4)} → ${D.displayNum(dose, 4)} g/kg/d`, "info");
+  };
   const tickNoTpn = (on) => {
     const fields = [
       ["TPN volume", totalTPN_mL, setTotalTPN_mL],
@@ -2443,7 +2455,32 @@ function Calculator({
     fontWeight: 600,
     marginTop: 2,
     color: sLipidGkgh === "crit" ? "var(--crit)" : sLipidGkgh === "warn" ? "var(--warn-ink)" : "var(--ink-2)"
-  } }, "= ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(lipidGkgh, 2)), " g/kg/h", /* @__PURE__ */ React.createElement("span", { className: "lipid-ceiling", style: { fontWeight: 400, color: "var(--ink-3)", marginLeft: 6 } }, "เพดาน ", D.LIPID_GKGH.warn, "–", D.LIPID_GKGH.max))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "Infuse over", unit: "h", value: lipidDripHours, onChange: setLipidHoursTyped, step: 1, hint: "1–24 h" }), /* @__PURE__ */ React.createElement("div", { className: "seg", style: { padding: 1 } }, [16, 20, 24].map((h) => /* @__PURE__ */ React.createElement("button", { key: h, className: lipidDripHours === h ? "on" : "", onClick: () => setLipidDripHours(h) }, h, "h"))))), /* @__PURE__ */ React.createElement("div", { className: "s2-lip-row", style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "20% lipid", unit: "g/kg/d", value: lipidPerKg, onChange: setLipidPerKg, step: 0.1 }), /* @__PURE__ */ React.createElement(PresetChips, { values: [0.5, 1, 2, 3, 4], current: lipidPerKg, onSelect: setLipidPerKg })), /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6, fontSize: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" } }, "Lipid volume"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontWeight: 700, fontSize: 15, color: "var(--ink)" } }, lipidPerKg > 0 ? fmt(calc.solVol.lipidSMOF, 1) : "—", " mL/day"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, marginTop: 1 } }, lipidPerKg > 0 ? `${fmt(calc.lipidG, 1)} g/day` : "", lipidPerKg > 0 && wtKg > 0 && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 6, color: "var(--brand-2)", fontWeight: 600 } }, "= ", fmt(lipidPerKg * 5, 1), " mL/kg/d"))), /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6, fontSize: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" } }, "+ Vitalipid N"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontWeight: 700, fontSize: 15, color: "var(--ink)" } }, fmt(calc.vitalipidVol, 1), " mL/day"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, marginTop: 1 } }, "4 mL/kg (max 10)"))), calc.lipidBagVol > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+  } }, "= ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(lipidGkgh, 2)), " g/kg/h", /* @__PURE__ */ React.createElement("span", { className: "lipid-ceiling", style: { fontWeight: 400, color: "var(--ink-3)", marginLeft: 6 } }, "เพดาน ", D.LIPID_GKGH.warn, "–", D.LIPID_GKGH.max))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "Infuse over", unit: "h", value: lipidDripHours, onChange: setLipidHoursTyped, step: 1, hint: "1–24 h" }), /* @__PURE__ */ React.createElement("div", { className: "seg", style: { padding: 1 } }, [16, 20, 24].map((h) => /* @__PURE__ */ React.createElement("button", { key: h, className: lipidDripHours === h ? "on" : "", onClick: () => setLipidDripHours(h) }, h, "h"))))), /* @__PURE__ */ React.createElement("div", { className: "s2-lip-row", style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "20% lipid", unit: "g/kg/d", value: lipidPerKg, onChange: setLipidPerKg, step: 0.1 }), /* @__PURE__ */ React.createElement(PresetChips, { values: [0.5, 1, 2, 3, 4], current: lipidPerKg, onSelect: setLipidPerKg })), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: "lipid-vol-round",
+      onClick: roundLipidToWholeMl,
+      disabled: !(lipidPerKg > 0 && wtKg > 0),
+      title: "แตะเพื่อปัดเป็น mL เต็ม แล้วคำนวณ g/kg/d ย้อนกลับ",
+      style: {
+        padding: "8px 10px",
+        background: "var(--bg-2)",
+        borderRadius: 6,
+        fontSize: 12,
+        border: "none",
+        textAlign: "left",
+        font: "inherit",
+        color: "inherit",
+        width: "100%",
+        cursor: lipidPerKg > 0 && wtKg > 0 ? "pointer" : "default"
+      }
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" } }, "Lipid volume"),
+    /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontWeight: 700, fontSize: 15, color: "var(--ink)" } }, lipidPerKg > 0 ? fmt(calc.solVol.lipidSMOF, 1) : "—", " mL/day"),
+    /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, marginTop: 1 } }, lipidPerKg > 0 ? `${fmt(calc.lipidG, 1)} g/day` : "", lipidPerKg > 0 && wtKg > 0 && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 6, color: "var(--brand-2)", fontWeight: 600 } }, "= ", fmt(lipidPerKg * 5, 1), " mL/kg/d")),
+    lipidPerKg > 0 && wtKg > 0 && !Number.isInteger(calc.solVol.lipidSMOF) && /* @__PURE__ */ React.createElement("div", { className: "lipid-vol-round-hint", style: { color: "var(--brand-2)", fontSize: 10, marginTop: 2 } }, "แตะเพื่อปัดเป็น mL เต็ม")
+  ), /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6, fontSize: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" } }, "+ Vitalipid N"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontWeight: 700, fontSize: 15, color: "var(--ink)" } }, fmt(calc.vitalipidVol, 1), " mL/day"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, marginTop: 1 } }, "4 mL/kg (max 10)"))), calc.lipidBagVol > 0 && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "7px 10px",
     background: "var(--bg-2)",
     borderRadius: 6,

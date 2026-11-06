@@ -969,6 +969,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Only Step 1 open by default; others collapsed until user opens them
   const [openSteps, setOpenSteps] = useState(new Set([1]));
 
+  // Step 3's Lipid volume, tapped: the 20% lipid syringe to the nearest whole
+  // mL/day, and 20% lipid set to the dose that volume gives, so the pump rate
+  // and g/kg/h follow (Pp, 2026-11-06). D.lipidDoseAtWholeMl never takes a dose
+  // across 4.0 g/kg/d; the toast says what moved, so a dose that changed is seen.
+  const roundLipidToWholeMl = () => {
+    const dose = D.lipidDoseAtWholeMl(lipidPerKg, wtKg);
+    if (dose == null) return;
+    const mlNow = Number(D.displayNum(lipidPerKg * wtKg / D.KCMH_STOCK.smof20.gPerMl, 1));
+    const mlNew = Number(D.displayNum(dose * wtKg / D.KCMH_STOCK.smof20.gPerMl, 1));
+    if (dose === lipidPerKg) { showToast(`Lipid ${D.displayNum(mlNow, 1)} mL/day เป็น mL เต็มแล้ว`, "info"); return; }
+    setLipidPerKg(dose);
+    showToast(`Lipid ${D.displayNum(mlNow, 1)} → ${D.displayNum(mlNew, 1)} mL/day · 20% lipid ${D.displayNum(lipidPerKg, 4)} → ${D.displayNum(dose, 4)} g/kg/d`, "info");
+  };
+
   // ── "No TPN" (Pp, 2026-11-01) ─────────────────────────────────────
   // Ticking it says the day has no TPN: no aqueous bag and no lipid. It clears
   // everything that would make one (Step 3's volume, dextrose, amino acid and
@@ -3510,7 +3524,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   <NumField label="20% lipid" unit="g/kg/d" value={lipidPerKg} onChange={setLipidPerKg} step={0.1} />
                   <PresetChips values={[0.5, 1, 2, 3, 4]} current={lipidPerKg} onSelect={setLipidPerKg} />
                 </div>
-                <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
+                {/* Tap to round the syringe to a whole mL/day; the dose is set
+                    back from it, so the pump rate and g/kg/h above follow (Pp,
+                    2026-11-06; D.lipidDoseAtWholeMl, never across 4.0 g/kg/d). */}
+                <button type="button" className="lipid-vol-round" onClick={roundLipidToWholeMl}
+                  disabled={!(lipidPerKg > 0 && wtKg > 0)}
+                  title="แตะเพื่อปัดเป็น mL เต็ม แล้วคำนวณ g/kg/d ย้อนกลับ"
+                  style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12, border:"none",
+                    textAlign:"left", font:"inherit", color:"inherit", width:"100%",
+                    cursor: lipidPerKg > 0 && wtKg > 0 ? "pointer" : "default" }}>
                   <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Lipid volume</div>
                   <div className="num" style={{ fontWeight:700, fontSize:15, color:"var(--ink)" }}>
                     {lipidPerKg > 0 ? fmt(calc.solVol.lipidSMOF,1) : "—"} mL/day
@@ -3519,7 +3541,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     {lipidPerKg > 0 ? `${fmt(calc.lipidG,1)} g/day` : ""}
                     {lipidPerKg > 0 && wtKg > 0 && <span style={{ marginLeft:6, color:"var(--brand-2)", fontWeight:600 }}>= {fmt(lipidPerKg*5,1)} mL/kg/d</span>}
                   </div>
-                </div>
+                  {lipidPerKg > 0 && wtKg > 0 && !Number.isInteger(calc.solVol.lipidSMOF) && (
+                    <div className="lipid-vol-round-hint" style={{ color:"var(--brand-2)", fontSize:10, marginTop:2 }}>แตะเพื่อปัดเป็น mL เต็ม</div>
+                  )}
+                </button>
                 <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
                   <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>+ Vitalipid N</div>
                   <div className="num" style={{ fontWeight:700, fontSize:15, color:"var(--ink)" }}>

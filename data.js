@@ -1054,6 +1054,31 @@ const LIPID_IV_HARD_HI = 4.0;
 const K_IV_HARD_HI = 5.0;
 const NPE_IV_CRIT_LO = 12;
 const OSM_PERIPHERAL_MAX = 900;
+// The 20% lipid syringe to a whole mL/day (Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ
+// rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ"). Tapping Step 3's "Lipid
+// volume" rounds the syringe to the nearest whole mL (half up) and sets the dose
+// that volume gives, so the pump rate and g/kg/h follow it. It never takes a dose
+// across the IV lipid ceiling (CR-LIPID-IV-MAX): where the nearest mL would put a
+// dose at or under 4.0 g/kg/d above it, the whole mL below is used (Pp, the same
+// day). A dose already above 4.0 rounds to the nearest mL like any other. At least
+// 1 mL. The dose is kept to the fewest decimals (2, else 3, else 4) that still give
+// exactly that mL at the 0.1 mL the TPN room measures (CR-R-STOCK-ML), so the box
+// reads a short number and the printed mL is the whole one. Returns the dose in
+// g/kg/d, or null when there is no lipid or no weight.
+function lipidDoseAtWholeMl(lipidPerKg, wtKg, gPerMl = KCMH_STOCK.smof20.gPerMl) {
+  if (!(lipidPerKg > 0) || !(wtKg > 0) || !(gPerMl > 0)) return null;
+  const mlOf = (dose) => Number(displayNum(dose * wtKg / gPerMl, 1));
+  let ml = Math.max(1, Number(displayNum(lipidPerKg * wtKg / gPerMl, 0)));
+  if (lipidPerKg <= LIPID_IV_HARD_HI && Number((ml * gPerMl / wtKg).toPrecision(12)) > LIPID_IV_HARD_HI) {
+    ml = Math.max(1, Math.floor(LIPID_IV_HARD_HI * wtKg / gPerMl + 1e-9));
+  }
+  const exact = ml * gPerMl / wtKg;
+  for (const d of [2, 3, 4]) {
+    const dose = Math.round(exact * 10 ** d) / 10 ** d;
+    if (mlOf(dose) === ml) return dose;
+  }
+  return exact;
+}
 function girStatus(gir) {
   return rangeStatus(gir, TARGETS.gir(), { hardHi: GIR_HARD_HI });
 }
@@ -2942,6 +2967,8 @@ window.NEOFEED_DATA = {
   // the same saved GIR can never be amber on one screen and red on the other.
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
+  // Step 3's Lipid volume tap: the syringe to a whole mL, the dose from it
+  lipidDoseAtWholeMl,
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings

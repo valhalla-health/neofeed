@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-06 (2) — Step 3: tap Lipid volume to round it to a whole mL
+
+`data.js` (`lipidDoseAtWholeMl`), `calculator.jsx` (Step 3's Lipid volume box, `roundLipidToWholeMl`),
+`test/verify-lipid-whole-ml-1106.cjs` (new), `test/README.md`, the `neofeed-clinical-rules` skill
+(`CR-R-LIPID-WHOLE-ML`), `compiled/` and both shells' `?v=` tokens.
+
+Pp, 2026-11-06, from a phone screenshot of the Lipid Pump card (1,680 g, 2 g/kg/d, 16.8 mL/day): "ถ้ากดที่ลิพิตโวลุ่ม
+จะ rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ ml/kg/hr ข้างบนอีกที". Asked, she chose the nearest whole mL, and
+the whole mL below where rounding would take a dose across 4.0 g/kg/d, so a tap never makes a critical alert.
+
+- The Lipid volume box is now a button. A tap rounds the 20 % lipid syringe to the nearest whole mL/day (half up, at
+  least 1 mL) and sets 20 % lipid to the dose that volume gives (mL × 0.2 ÷ kg): 16.8 → 17 mL, 2 → 2.02 g/kg/d. The pump
+  rate, g/kg/h, energy and the printed order all follow from that dose, as from a typed one. A toast names the mL and
+  the dose before and after. Nothing rounds until the tap, and a typed dose is never changed on its own.
+- The dose is kept to the fewest decimals (2, else 3, else 4) that still give the whole mL at 0.1 mL, so the box reads
+  2.02 and the printed order reads "2.02 g/kg/d = 17 mL".
+- Never across the IV lipid ceiling (`CR-LIPID-IV-MAX`): at 1,680 g, 4 g/kg/d is 33.6 mL; 34 mL would be 4.05, so the
+  tap gives 33 mL (3.93). A dose already above 4.0 rounds to the nearest mL and keeps its critical alert.
+- No constant moves and no saved order changes, so `CONSTANTS_VERSION` stays; a tapped order prints the dose it holds.
+  The skill's line numbers were not refreshed with `--fix-lines` here, so this PR does not collide with #223's refresh.
+
 ## Session 2026-11-06 — CI pins jsdom to 30
 
 `.github/workflows/test.yml`, `test/README.md`.
