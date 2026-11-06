@@ -7,10 +7,11 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-06 (2) — Print ทั้งหมด prints the ward's orders as one print job
+## Session 2026-11-06 (2) — Print ทั้งหมด prints the ward's orders as one print job; "แพทย์" left blank to sign
 
 `app.jsx` (`printQueue`, `printBatch`, `CalculatorView` `captureSheet`), `registry.jsx` (`WardPrintBatch`),
-`calculator.jsx` (two attributes on `#print-form`, and the auto-print request carries its block reason), both
+`calculator.jsx` (two attributes on `#print-form`, the auto-print request carries its block reason, and the
+signature line), `REFERENCE.md` § The printed order, both
 shells (CSS), `compiled/`, `test/verify-print-all-1028.cjs`. No calculation, limit, unit or printed figure changed,
 and the sheet is the one each order's calculator already renders.
 
@@ -42,6 +43,14 @@ ward, that is the follow-up").
   (`PRINT_ALL_STEP_MS`), so the run still ends.
 - **Leaving ends it.** ยกเลิก, the back link, the rail or the bottom bar end the run and drop any job; nothing pulls the
   user back to the list.
+
+- **"แพทย์" on the printed sheet is a blank line to sign** (Pp, in the same thread: "รายชื่อแพทย์ตรงหน้าปริ้น
+  ไม่ต้องขึ้นตามล็อกอินก็ได้ เพราะต้องลงชื่อใหม่อยู่ดี"). It printed the name of whoever saved the order (TPN team,
+  2026-09-22, "so pharmacy knows whom to call"); with a nurse printing the ward and each sheet checked and signed by
+  hand, that could name someone other than the signer. `nameOnlyOf` goes. The back sheet's "บันทึกโดย" and the saved
+  row still record the saver. `verify-tpn-team-0922`, `verify-tpn-meeting-0928` § 8 and `verify-print-one-page-1102`
+  now expect the blank line. ⚠️ The printed front no longer names a doctor in print: pharmacy reads the handwriting and
+  the รหัส line, and the TPN team's 2026-09-22 reason for the name has not been put back to them.
 
 ### Decisions
 

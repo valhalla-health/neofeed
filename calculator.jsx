@@ -265,13 +265,6 @@ function savedByOf(entry) {
   const label = String(entry?.calcInput?.savedByLabel || "").trim();
   return label && email && draftOwnerOf("", label) === email.toLowerCase() ? label : email;
 }
-// The name in a savedByOf() label, for the front sheet's "แพทย์" line, which
-// carries no email (TPN team, 2026-09-28): "Dr A (a@kcmh)" → "Dr A". A bare
-// email gives "", and the line is left to be signed.
-function nameOnlyOf(label) {
-  const name = String(label || "").replace(/\s*\([^()]*@[^()]*\)\s*$/, "").trim();
-  return name.includes("@") ? "" : name;
-}
 // When a row was saved, in Bangkok time ("22/09/2569 10:30"), or "—".
 function savedAtLabelOf(at) {
   return at && isFinite(Date.parse(at))
@@ -4822,9 +4815,12 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   const AA_CHOICES = [["aminoven10", "10% Aminoven infant / PED AMINE (0-1 yr.)"], [null, "10% Amiparen (>1 Yr.)"], [null, "8% Aminoleban"],
     [null, "7% Nephrosteril"], ["aminoplasmal15", "15% Aminoplasmal"]];
 
-  // Who signs — the paper form's own line, with the saver's name printed so pharmacy
-  // knows whom to call (TPN team, 2026-09-22). The name only: no email on the doctor's
-  // sheet (2026-09-28); the back keeps it. With a confirmed critical value the line sits
+  // Who signs — the paper form's own line, left blank for the doctor to write and sign
+  // (Pp, 2026-11-06: "รายชื่อแพทย์ตรงหน้าปริ้น ไม่ต้องขึ้นตามล็อกอินก็ได้ เพราะต้องลงชื่อใหม่
+  // อยู่ดี"): a nurse may print the ward's orders, and the doctor who checks each one
+  // signs it, who need not be the one logged in when it was saved. Until then it
+  // printed the saver's name (TPN team, 2026-09-22; name only, 2026-09-28). The back
+  // sheet's "บันทึกโดย" still names the saver, and the saved row keeps who saved it. With a confirmed critical value the line sits
   // inside the red box, so the signature is on the same page as the confirmation it signs
   // (Pp, 2026-11-02). The shells' @media print block keeps the box and the line unsplit.
   // Inside the box the line also names the infant and the day, the same strings the sheet prints at its
@@ -4835,7 +4831,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   const signRow = (
     <div className="print-sign" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", gap:"4px 12px",
       marginTop:critOverride ? 18 : 14, flexWrap:critOverride ? "wrap" : undefined }}>
-      <div>แพทย์ <span className="print-doctor" style={{ fontWeight:700 }}>{nameOnlyOf(savedMeta?.by)}</span> ........................................ (ลงนาม)</div>
+      <div>แพทย์ <span className="print-doctor">..............................................................</span> (ลงนาม)</div>
       {critOverride && (
         <div className="print-sign-id">NeoFeed ID: <span style={{ fontWeight:700 }}>{patient?.sessionId || "—"}</span> · {noTpnSheet ? "วันที่สั่ง" : "วันที่ให้ TPN"}: <span style={{ fontWeight:700 }}>{orderDateLabel}</span></div>
       )}

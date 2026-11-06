@@ -239,7 +239,7 @@ const topStrings = (form) => {
       sign[0]?.parentElement === form && FOLLOWS(form.querySelector('.print-lipid-rate'), sign[0]));
     ok('…with the doctor\'s name slot and the ลงนาม dots', !!sign[0]?.querySelector('.print-doctor') && /\(ลงนาม\)/.test(sign[0].textContent));
     eq('…and only the doctor and the code, as before: the ID and date stay in the box', [...(sign[0]?.children || [])].map(c => squash(c.textContent).replace(/\.{4,}/g, '…')),
-      [squash(`แพทย์ ${sign[0]?.querySelector('.print-doctor')?.textContent} … (ลงนาม)`), 'รหัส …']);
+      ['แพทย์ … (ลงนาม)', 'รหัส …']);
     ok('…14 px below what it signs, as before', sign[0]?.style.marginTop === '14px', sign[0]?.style.marginTop);
     ok('the provenance footer is still the form\'s last child', /NeoFeed · constants/.test(form.lastElementChild.textContent) && !form.lastElementChild.closest('.print-back'));
     forms['no critical alert'] = form.outerHTML;
@@ -268,7 +268,7 @@ const topStrings = (form) => {
     // Pp, 2026-11-02: if the box moves whole to page 2, that page must still name the infant and the day.
     const top = topStrings(form), sign = box?.querySelector('.print-sign');
     eq('the signature line names the infant and the day, between the doctor and the code', [...(sign?.children || [])].map(c => squash(c.textContent).replace(/\.{4,}/g, '…')),
-      [squash(`แพทย์ ${sign?.querySelector('.print-doctor')?.textContent} … (ลงนาม)`), `NeoFeed ID: ${top.id} · วันที่ให้ TPN: ${top.date}`, 'รหัส …']);
+      ['แพทย์ … (ลงนาม)', `NeoFeed ID: ${top.id} · วันที่ให้ TPN: ${top.date}`, 'รหัส …']);
     ok('…the same ID and date strings the sheet prints at its top', top.id === 'OP-1' && /^\d\d\/\d\d\/\d{4}$/.test(top.date), top);
     ok('…as plain text, not <strong>, so no figure sweep reads them', !sign?.querySelector('strong'));
     ok('…and the doctor\'s name slot is still the only .print-doctor', form.querySelectorAll('.print-doctor').length === 1);

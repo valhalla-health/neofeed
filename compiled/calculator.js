@@ -173,10 +173,6 @@ function savedByOf(entry) {
   const label = String(entry?.calcInput?.savedByLabel || "").trim();
   return label && email && draftOwnerOf("", label) === email.toLowerCase() ? label : email;
 }
-function nameOnlyOf(label) {
-  const name = String(label || "").replace(/\s*\([^()]*@[^()]*\)\s*$/, "").trim();
-  return name.includes("@") ? "" : name;
-}
 function savedAtLabelOf(at) {
   return at && isFinite(Date.parse(at)) ? new Date(at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
 }
@@ -3147,7 +3143,7 @@ function PrintOrderForm({
     gap: "4px 12px",
     marginTop: critOverride ? 18 : 14,
     flexWrap: critOverride ? "wrap" : void 0
-  } }, /* @__PURE__ */ React.createElement("div", null, "แพทย์ ", /* @__PURE__ */ React.createElement("span", { className: "print-doctor", style: { fontWeight: 700 } }, nameOnlyOf(savedMeta?.by)), " ........................................ (ลงนาม)"), critOverride && /* @__PURE__ */ React.createElement("div", { className: "print-sign-id" }, "NeoFeed ID: ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700 } }, patient?.sessionId || "—"), " · ", noTpnSheet ? "วันที่สั่ง" : "วันที่ให้ TPN", ": ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700 } }, orderDateLabel)), /* @__PURE__ */ React.createElement("div", null, "รหัส ................................"));
+  } }, /* @__PURE__ */ React.createElement("div", null, "แพทย์ ", /* @__PURE__ */ React.createElement("span", { className: "print-doctor" }, ".............................................................."), " (ลงนาม)"), critOverride && /* @__PURE__ */ React.createElement("div", { className: "print-sign-id" }, "NeoFeed ID: ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700 } }, patient?.sessionId || "—"), " · ", noTpnSheet ? "วันที่สั่ง" : "วันที่ให้ TPN", ": ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700 } }, orderDateLabel)), /* @__PURE__ */ React.createElement("div", null, "รหัส ................................"));
   return (
     // data-session-id and data-entry-id name the order on this sheet, so the
     // ward's Print ทั้งหมด can check each sheet it collects is the order it
