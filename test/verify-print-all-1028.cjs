@@ -14,7 +14,7 @@
 //
 //   #1 list     the button: top right of the head, counting the orders a tap
 //               would print (no tmp_ row, no two-orders day); no Calculator
-//               button on the list, still one on the ward gate and ward list
+//               button on the list, still one on the ward gate, none in the ward list (2026-11-06)
 //   #2 run      each order prints once, on its own infant's sheet; afterprint
 //               moves nothing; ถัดไป opens the next; the last leads back
 //   #3 held     a colleague's lock holds that order's print, as a tap would;
@@ -105,7 +105,8 @@ const scenarios = {
     await t.start();
     A.ok('1.0 the ward gate still has the Calculator button', !!fab());
     await t.pickWard('NICU');
-    A.ok('1.1 …and so does the ward list', !!fab() && document.querySelector('.app').classList.contains('has-quick-fab'));
+    // Not inside a ward (Pp, 2026-11-06: "ถ้าเข้ามาในหน้าวอร์ดแล้ว ไม่ต้องมีแคลคูเลเตอร์").
+    A.ok('1.1 …but the ward list does not', !fab() && !document.querySelector('.app').classList.contains('has-quick-fab'));
     await t.click(t.btn(/เปลี่ยน ward/));
     await t.click(wardPrint('NICU'));
     A.ok('1.2 NICU\'s print list is open', /Print order · NICU/.test(t.text()));

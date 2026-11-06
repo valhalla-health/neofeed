@@ -1,5 +1,10 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-06 — No Calculator button inside a ward, แสดงทั้งหมด on the filter's line (this PR): open, not
+> live.** UI only, frontend only. **#218** (Indication for PN dropdown, Liver/Renal Dysfunction ticks; the
+> frontend half of backend `@68`) is merged into `main`, not live: it goes out with the next frontend release.
+> Recorded here by this PR.
+>
 > ⏳ **2026-11-06 — TPN-room stickers, PR B (`tpn-room.html`, #219): merged into `main`, not live.** The page, its
 > encrypted name file and the three stickers are built and tested on synthetic infants (`openspec/changes/tpn-room-stickers`
 > tasks.md § 2). It needs no backend change. **Three things hold the release** (tasks.md § 0): `tpn-room-check.html`
