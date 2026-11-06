@@ -82,8 +82,9 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
     /className="en-fields-row" style=\{\{ display: "grid", gridTemplateColumns: "repeat\(3, minmax\(0, 1fr\)\)"/.test(calc)
     && /gridTemplateColumns:"minmax\(0,1fr\) 28px minmax\(0,1fr\)"/.test(calc)
     && /gridTemplateColumns:"minmax\(0,1fr\) minmax\(0,1fr\)", gap:10, alignItems:"start"/.test(calc)
-    // Two columns since 2026-09-28: the grams column left the AA row (TPN team).
-    && /className="s2-aa-row" style=\{\{ display:"grid", gridTemplateColumns:"repeat\(2, minmax\(0, 1fr\)\)"/.test(calc));
+    // Two columns since 2026-09-28 (the grams column left, TPN team); one since
+    // 2026-11-06 (the stock Volume left, Pp: "Hide them all").
+    && /className="s2-aa-row" style=\{\{ display:"grid", gridTemplateColumns:"minmax\(0, 1fr\)"/.test(calc));
   ok('app.jsx: the patient strip\'s weights wrap rather than clip',
     /flexDirection:"row", flexWrap:"wrap", overflow:"hidden"/.test(app) && !/whiteSpace:"nowrap" \}\}>\s*\{delta >= 0/.test(app));
   ok('app.jsx: a long diagnosis breaks inside the strip', /overflowWrap:"anywhere"/.test(app));

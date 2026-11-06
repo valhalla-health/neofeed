@@ -162,13 +162,13 @@ for (const [label, perKg, divisor, dp, head] of SALTS) {
 check('Glycophos reports P mg/kg/d', /P 47 mg\/kg\/d/.test(t1));
 check('K₂HPO₄ reports P mg/kg/d', /P 16 mg\/kg\/d/.test(t1));
 
-// Canary. One arrow caption is deliberately left in the old form: the heparin
-// hint (states both units either side of the arrow). MgSO4's and Ca gluconate's
-// "→ x mL/d" were the prepared mL, and left the screen with the เตรียม lines on
-// 2026-11-06 (Pp). A NEW bare-arrow caption under a mEq/kg input is the regression to catch.
+// Canary. No bare-arrow caption is left: MgSO4's and Ca gluconate's "→ x mL/d"
+// (the prepared mL) left the screen with the เตรียม lines, and the heparin hint's
+// "→ x mL of 100 U/mL" with the other stock mL (Pp, 2026-11-06). A NEW bare-arrow
+// caption under a mEq/kg input is the regression to catch.
 const arrows = t1.match(/→ \d/g) || [];
-check('only the 1 known arrow caption remains', arrows.length === 1,
-      `1, got ${arrows.length} :: ${JSON.stringify(t1.match(/.{18}→ \d.{8}/g))}`);
+check('no bare-arrow caption remains', arrows.length === 0,
+      `0, got ${arrows.length} :: ${JSON.stringify(t1.match(/.{18}→ \d.{8}/g))}`);
 
 // ── with no dead space there is nothing to split ───────────────────────────
 console.log('\n── no dead space ──');

@@ -627,7 +627,8 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     ok('a stored 98.39999999999999 is described as 98.4', /TPN volume: 98\.4 → 100 mL\/d/.test(changeLines()), changeLines());
     setField('ปริมาตรคาสาย', 20); setField('Heparin', 1);
     const hint = inputFor('Heparin').closest('.field').querySelector('.field-hint')?.textContent || '';
-    ok('heparin hint: units from the prepared 120 mL, matching its mL', /total 120 U\/day → 1\.2 mL of 100 U\/mL/.test(hint), hint);
+    // The "→ 1.2 mL of 100 U/mL" half left the screen on 2026-11-06 (Pp: "Hide them all").
+    ok('heparin hint: units from the prepared 120 mL, and no stock mL', /total 120 U\/day/.test(hint) && !/mL of 100 U\/mL/.test(hint), hint);
   });
 
   await section('§14 SEC-F7 · the NeoFeed reason prompt keeps names and HNs out', async () => {

@@ -661,29 +661,33 @@ she chose more than 20 mL/kg/d (the margin `CR-FLUID-PLAN` uses) and amber.
 
 1 mL/kg/d to the infant, at most 10 mL/day, then × the overfill so the infant receives it; rounded to
 1 decimal. With no TPN volume, 0. The 10 mL cap needs more than 10 kg, above the 8 kg weight limit, so
-no orderable infant reaches it.
+no orderable infant reaches it; the cap is `D.vitaminMlPerDay` and is tested as a function. Since 2026-11-06 the
+Calculator shows the dose (1 mL/kg/day), not the mL (Pp: "Hide them all"); the order prints the mL.
 Source: the KCMH worksheet, row 43 (1 mL/kg, max 10); Soluvit N datasheet (Medsafe, 2021) §4.2: under
 10 kg 1 mL/kg, from 10 kg one 10 mL vial; Thai CPG PDF p. 116. The overfill is Pp's, 2026-09-18 (the sheet
 uses actual weight).
 
 ```rule
-{"rule": "CR-SOLUVIT-CAP", "kind": "cap", "coded": {"KCMH_STOCK.soluvit.mlPerKg": 1, "KCMH_STOCK.soluvit.maxMl": 10}, "where": [{"file": "data.js", "line": 778, "has": "mlPerKg: 1.0, maxMl: 10 },"}, {"file": "calculator.jsx", "line": 1673, "has": "Math.min(S.soluvit.mlPerKg   * wtKg, S.soluvit.maxMl  ) * overfill"}]}
-{"case": "1 kg, 100 + 30 mL: 1.3 mL in the bag", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Soluvit N (water-sol.)1.3mL/day"}}
-{"case": "8 kg, no dead space: 8 mL", "side": "inside", "infant": {"g": 8000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Soluvit N (water-sol.)8mL/day"}}
-{"case": "11 kg (refused by CR-WT-RANGE): capped at 10 mL", "side": "outside", "infant": {"g": 11000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Soluvit N (water-sol.)10mL/day"}}
+{"rule": "CR-SOLUVIT-CAP", "kind": "cap", "coded": {"KCMH_STOCK.soluvit.mlPerKg": 1, "KCMH_STOCK.soluvit.maxMl": 10}, "where": [{"file": "data.js", "line": 778, "has": "mlPerKg: 1.0, maxMl: 10 },"}, {"file": "data.js", "line": 2375, "has": "return Math.min(s.mlPerKg * wtKg, s.maxMl);"}, {"file": "calculator.jsx", "line": 1673, "has": "roundMl(D.vitaminMlPerDay(\"soluvit\",   wtKg) * overfill)"}]}
+{"case": "1 kg, 100 + 30 mL: 1.3 mL in the bag", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Soluvit N1.3 mL/day", "hides": "Soluvit N (water-sol.)1.3"}}
+{"case": "8 kg, no dead space: 8 mL", "side": "inside", "infant": {"g": 8000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Soluvit N8 mL/day"}}
+{"case": "10 kg (refused by CR-WT-RANGE): 10 mL, the cap itself", "side": "inside", "fn": "vitaminMlPerDay", "args": ["soluvit", 10], "want": 10}
+{"case": "11 kg (refused by CR-WT-RANGE): capped at 10 mL", "side": "outside", "fn": "vitaminMlPerDay", "args": ["soluvit", 11], "want": 10}
 ```
 
 ### CR-PEDITRACE-CAP · Peditrace
 
 1 mL/kg/d, at most 15 mL/day, × the overfill, 1 decimal; 0 with no TPN volume. Its zinc counts toward
-`CR-ZN-MAX` at the mL delivered. The 15 mL cap is out of reach of an orderable weight, as for Soluvit.
+`CR-ZN-MAX` at the mL delivered. The 15 mL cap is out of reach of an orderable weight, as for Soluvit, and is
+tested the same way (`D.vitaminMlPerDay`).
 Source: the KCMH worksheet, row 45 (1 mL/kg, max 15); Peditrace SmPC (HPRA, 2019) §4.2: 1 mL/kg/d "to a
 maximum daily dose of 15 ml"; Thai CPG PDF p. 116. Zn 250 µg/mL, pharmacy, 2026-10-25.
 
 ```rule
-{"rule": "CR-PEDITRACE-CAP", "kind": "cap", "coded": {"KCMH_STOCK.peditrace.mlPerKg": 1, "KCMH_STOCK.peditrace.maxMl": 15}, "where": [{"file": "data.js", "line": 780, "has": "mlPerKg: 1.0, maxMl: 15, znMgPerMl: 0.25 },"}, {"file": "calculator.jsx", "line": 1674, "has": "Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl) * overfill"}]}
-{"case": "8 kg, no dead space: 8 mL", "side": "inside", "infant": {"g": 8000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Peditrace8mL/day"}}
-{"case": "16 kg (refused by CR-WT-RANGE): capped at 15 mL", "side": "outside", "infant": {"g": 16000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Peditrace (Zn 250 µg/mL)15 mL/day in bag"}}
+{"rule": "CR-PEDITRACE-CAP", "kind": "cap", "coded": {"KCMH_STOCK.peditrace.mlPerKg": 1, "KCMH_STOCK.peditrace.maxMl": 15}, "where": [{"file": "data.js", "line": 780, "has": "mlPerKg: 1.0, maxMl: 15, znMgPerMl: 0.25 },"}, {"file": "data.js", "line": 2373, "has": "function vitaminMlPerDay(stockKey, wtKg) {"}, {"file": "calculator.jsx", "line": 1674, "has": "roundMl(D.vitaminMlPerDay(\"peditrace\", wtKg) * overfill)"}]}
+{"case": "8 kg, no dead space: 8 mL", "side": "inside", "infant": {"g": 8000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Peditrace (Zn 250 µg/mL)8 mL/day"}}
+{"case": "15 kg (refused by CR-WT-RANGE): 15 mL, the cap itself", "side": "inside", "fn": "vitaminMlPerDay", "args": ["peditrace", 15], "want": 15}
+{"case": "16 kg (refused by CR-WT-RANGE): capped at 15 mL", "side": "outside", "fn": "vitaminMlPerDay", "args": ["peditrace", 16], "want": 15}
 ```
 
 ### CR-VITALIPID-CAP · Vitalipid N Infant
@@ -933,7 +937,7 @@ Source: the KCMH worksheet (C7 delivered, G7 prepared, G8 dead space, H9 Factor)
 
 ```rule
 {"rule": "CR-U-FACTOR", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1532, "has": "const preparedVol = totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0;"}, {"file": "calculator.jsx", "line": 1534, "has": "const factor = wtKg * overfill;                                     // H9"}]}
-{"case": "1 kg, 100 mL + 30 mL dead space: Factor 1.3", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": ["Prepared (เตรียมจริง)130 mL/daydelivered 100 mL", "Lipid volume10 mL/day"], "hides": "Factor1.3", "prints": ["Dextrose Final Conc.10% = 13 g in bag = 26 mL (D50W) · delivered 10 g = 10 g/kg/d", "Factor:1.3"]}}
+{"case": "1 kg, 100 mL + 30 mL dead space: Factor 1.3", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": ["Prepared (เตรียมจริง)130 mL/daydelivered 100 mL", "14 mL/day over 24 h"], "hides": ["Factor1.3", "Lipid volume"], "prints": ["Dextrose Final Conc.10% = 13 g in bag = 26 mL (D50W) · delivered 10 g = 10 g/kg/d", "Factor:1.3"]}}
 ```
 
 ### CR-U-DEAD-SPACE · dead space default
@@ -1140,7 +1144,7 @@ real milk varies. It reads these values when it renders, so they change here and
 printed, and not in the quick calc's copied text.
 
 ```rule
-{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 195, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 187, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 210, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 4597, "has": "function MilkAssumption({ keys }) {"}]}
+{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 195, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 187, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 210, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 4584, "has": "function MilkAssumption({ keys }) {"}]}
 {"case": "breast milk: 67 kcal/100 mL", "fn": "EN_DB.BM_20.kcal", "want": 67}
 {"case": "breast milk: 1.2 g protein/100 mL", "fn": "EN_DB.BM_20.pro", "want": 1.2, "within": 1e-9}
 {"case": "BM + HMF: 2.3 g protein/100 mL", "fn": "EN_DB.BM_HMF_24.pro", "want": 2.3, "within": 1e-9}

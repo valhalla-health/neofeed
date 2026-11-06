@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-06 (4) — Calculator: Glycophos typed by P, no Factor or prepared mL on screen, Dextrose chips on one line
+## Session 2026-11-06 (4) — Calculator: Glycophos typed by P, no Factor or stock mL on screen, Dextrose and amino-acid chips on one line
 
 `calculator.jsx`, `compiled/calculator.js`, `index.html` and `NeoFeed.html` (one CSS rule each), the
 `neofeed-clinical-rules` skill (`CR-U-SALTS`, `CR-U-FACTOR`), `test/verify-calc-clicks.cjs`, `test/verify-calc-sum.cjs`
@@ -56,7 +56,22 @@ Pp sent three requests from her phone the same evening, each with a screenshot o
    Same review: a Na/P press while the box still had focus left the old number under the new unit; the row now
    remounts on a switch.
 
-Five pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
+6. **No stock mL anywhere on the Calculator.** Asked whether the rest of Step 3's and Step 5's mL should go too (the
+   D50W box, the amino-acid Volume, the lipid volume, Soluvit and Peditrace in the bag, ZnSO₄'s and heparin's mL),
+   Pp: "Hide them all". Gone from the screen: "D50W: x mL/d" (its box now holds only "Central only!" when that
+   applies), the amino-acid Volume (the row is one column, so its five chips sit on one line on a phone too),
+   SMOF's own mL/day (its tile now reads "Lipid (20%)" with mL/kg/d and g/day), the lipid bag total line, Soluvit's
+   and Peditrace's "x mL/day in bag (× Factor → delivers …)" and their Additives Summary mL (now the dose, 1 mL/kg/day),
+   ZnSO₄'s "= x mL of 1 mg/mL" and heparin's "→ x mL of 100 U/mL" and its volume readout. Kept: both pump rates and
+   the lipid syringe's "x mL/day over N h" (what a nurse sets and hangs), Vitalipid's mL/day (it is ordered in mL;
+   the form prints "Vitalipid N infant = x mL"), the bag total and components panel, and every mL/kg/d dose. The
+   printed order has every stock mL as before. The Soluvit and Peditrace caps (10 and 15 mL a day) were checked on
+   screen at 11 and 16 kg, weights no order can have; they are now `D.vitaminMlPerDay` in `data.js`, the same
+   arithmetic in the same order, and `CR-SOLUVIT-CAP` / `CR-PEDITRACE-CAP` test it as a function. Nine harnesses
+   that read these figures off the screen now check they are gone and read them on the print (the oracle already
+   held every one there); the fuzz still checks the lipid syringe, SMOF + Vitalipid, on screen.
+
+Six pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
 No dose constant, limit or `CONSTANTS_VERSION` moved (5 adds two alert thresholds). No second clinician has
 reviewed the P entry path or `CR-GLYCO-UNIT-HABIT`: Pp only; asked, she wanted none ("ไม่", 2026-11-06). Asked
 whether "ฟอสเฟต" means elemental mg P (as built, the form's 31 mg/mL) rather than mg of phosphate ion, she said yes. Center Point's packet keeps Glycophos mL/kg to 3

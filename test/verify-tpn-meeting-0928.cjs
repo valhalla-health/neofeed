@@ -220,7 +220,9 @@ function baseOrder({ tf = 120 } = {}) {
     const row = text(container.querySelector('.s2-aa-row'));
     ok('no "In bag / delivered" column', !/In bag|delivered/.test(row), row);
     ok('…and no g/day figure', !/g\/day/.test(row), row);
-    ok('the volume stays: 4 g × 1.167 overfill = 46.7 mL/day', /Volume\s*46\.7 mL\/day/.test(row), row);
+    // The stock volume (46.7 mL/day) left the row on 2026-11-06 too (Pp: "Hide
+    // them all"); the printed order carries it.
+    ok('…and, since 2026-11-06, no stock volume either', !/Volume\s*[\d.]+ mL\/day/.test(row), row);
     setField('ปริมาตรคาสาย', 0);
     const flat = text(container.querySelector('.s2-aa-row'));
     ok('with no overfill, no "Total … g/day" either', !/Total|g\/day/.test(flat), flat);

@@ -658,9 +658,10 @@ async function run(scIn) {
     // back sheet's Factor (rendered, not printed) is checked below ('print Factor').
     near(sc, 'no Factor figure on screen', grabT(/Factor([\d.]+)/) === null ? 1 : 0, 1, 0);
     near(sc, 'GIR readout', num(container.querySelector('.gir-readout .num')?.firstChild?.textContent), e.gir, 1);
-    near(sc, 'AA stock mL/day', grabT(/Volume([\d.]+) mL\/day/), e.aaMl, 1);
+    // The amino-acid and D50W stock mL left the screen on 2026-11-06 (Pp: "Hide
+    // them all"); 'print AA mL' and 'print D50W mL' below hold them to the oracle.
+    near(sc, 'no AA / D50W stock mL on screen', /Volume[\d.]+ mL\/day|D50W: [\d.]+ mL/.test(t) ? 0 : 1, 1, 0);
   }
-  if (e.d50 > 0) near(sc, 'D50W mL/d', grabT(/D50W: ([\d.]+) mL\/d/), e.d50, 1);
   if (e.Vd > 0) {
     near(sc, 'Components mL', grabT(/Components([\d.]+) mL/), e.components, 1);
     // WFI q.s. left the screen on 2026-09-28 (TPN team); the print and copy
@@ -669,7 +670,9 @@ async function run(scIn) {
   if (sc.lip > 0) {
     near(sc, 'Lipid pump rate mL/hr', grabT(/PUMP RATE([\d.]+)mL\/hr/), e.lipRate, 2);
     near(sc, 'Lipid g/kg/h', num(container.querySelector('.lipid-gkgh')?.textContent), e.lipGkgh, 2);   // 2 decimals since 2026-09-28
-    near(sc, 'Lipid mL/day', grabT(/Lipid volume([\d.]+) mL\/day/), e.smof, 1);
+    // SMOF's own mL left the screen on 2026-11-06 ('print SMOF mL' below); the
+    // pump still shows the syringe, SMOF + Vitalipid.
+    near(sc, 'Lipid syringe mL/day (SMOF + Vitalipid)', grabT(/([\d.]+) mL\/day over \d+ h/), e.smof + e.vitalipid, 1);
     near(sc, 'Vitalipid mL/day', grabT(/\+ Vitalipid N([\d.]+) mL\/day/), e.vitalipid, 1);
   }
   near(sc, 'tile Energy kcal/kg/d', tileVal('Energy (total)'), e.kcalKg, 0);

@@ -2366,6 +2366,14 @@ function aaProductsFor(patient) {
 // saved order keeps its own. A future older-children ward starts at 0 until
 // its own value is decided.
 const NEWBORN_DEAD_VOL_ML = 30;
+// Soluvit N or Peditrace for the day, mL: mL/kg × kg, capped at the label's daily
+// maximum (CR-SOLUVIT-CAP, CR-PEDITRACE-CAP), before the overfill. A function so
+// the caps, which no orderable weight reaches, are tested directly: since
+// 2026-11-06 the Calculator no longer shows the mL (Pp: "Hide them all").
+function vitaminMlPerDay(stockKey, wtKg) {
+  const s = KCMH_STOCK[stockKey];
+  return Math.min(s.mlPerKg * wtKg, s.maxMl);
+}
 function defaultDeadVolFor(patient) {
   return isNewbornUnit(patient) ? NEWBORN_DEAD_VOL_ML : 0;
 }
@@ -2958,7 +2966,7 @@ window.NEOFEED_DATA = {
   KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, GLYCO_NA_HABIT_MEQ, GLYCO_P_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
-  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,
+  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, vitaminMlPerDay,
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.

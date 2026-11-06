@@ -203,7 +203,8 @@ const openAll = () => click(btnExact('Open all'));
   click(chipsAfter('Glycophos').find(c => num(c.textContent) === 2));
   click(chipsAfter('Dextrose final').find(c => num(c.textContent) === 10));
   // 100 mL delivered, dead 30 (last chip set above was 30), D10 → 13 g in the bag → 26 mL D50W
-  ok('D10 chip → D50W 26 mL/d on a 130 mL bag', /D50W: 26 mL\/d/.test(text()), text().match(/D50W: [\d.]+ mL\/d/)?.[0]);
+  // The D50W mL (26 on this 130 mL bag) left the screen on 2026-11-06 (Pp: "Hide them all").
+  ok('D10 chip: no D50W mL on screen', !/D50W: [\d.]+ mL/.test(text()), text().match(/D50W: [\d.]+ mL\/d/)?.[0]);
 
   // ── 3 · segmented toggles ─────────────────────────────────────
   setField('20% lipid', 2);

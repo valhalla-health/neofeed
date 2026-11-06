@@ -1670,8 +1670,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // With no TPN volume there is no aqueous bag to add them to: 0, not the
     // mL (and the negative WFI) a feeds-only day used to print (review
     // 2026-09-18, finding 4).
-    const soluvitVol    = inclSoluvit   && totalTPN_mL > 0 ? roundMl(Math.min(S.soluvit.mlPerKg   * wtKg, S.soluvit.maxMl  ) * overfill) : 0;
-    const peditrace_vol = inclPeditrace && totalTPN_mL > 0 ? roundMl(Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl) * overfill) : 0;
+    const soluvitVol    = inclSoluvit   && totalTPN_mL > 0 ? roundMl(D.vitaminMlPerDay("soluvit",   wtKg) * overfill) : 0;
+    const peditrace_vol = inclPeditrace && totalTPN_mL > 0 ? roundMl(D.vitaminMlPerDay("peditrace", wtKg) * overfill) : 0;
 
     // ── Zinc reaching the infant, mg elemental Zn/day (TPN team, 2026-09-22) ─
     // Peditrace at the mL the infant receives (1 mL/kg, the 15 mL cap is on
@@ -1682,7 +1682,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Counted even with no bag volume, like the salts: that order cannot be
     // saved (zeroVolumeBag).
     const znPeditrace_mg = inclPeditrace && totalTPN_mL > 0
-      ? Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl) * S.peditrace.znMgPerMl : 0;
+      ? D.vitaminMlPerDay("peditrace", wtKg) * S.peditrace.znMgPerMl : 0;
     const znSO4_mg = znPerKg * wtKg;
     const znSO4_bag_mg = znPerKg * factor;
     const znTotal_mg = znPeditrace_mg + znSO4_mg;
@@ -3382,10 +3382,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   <NumField label="Dextrose final" unit="%" value={dexPct} onChange={setDexPct} step={0.5}
                     hint={dexPct > 0 ? `${fmt(calc.dexGPerKg, 1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})` : ""} />
                   <PresetChips values={[5, 7.5, 10, 12.5, 15]} current={dexPct} onSelect={setDexPct} suffix="%" />
-                  {calc.d50wVol > 0 && (
+                  {/* The stock mL (D50W, amino acid, lipid, Soluvit, Peditrace,
+                      ZnSO₄, heparin) is the TPN room's: not on this screen, which
+                      doctors and nurses use (Pp, 2026-11-06: "Hide them all").
+                      The printed order has every one. */}
+                  {calc.d50wVol > 0 && route!=="central" && dexPct > 12.5 && (
                     <div style={{ marginTop:4, padding:"4px 8px", background:"var(--brand-bg)", borderRadius:4, fontSize:11 }}>
-                      D50W: <span className="num" style={{ fontWeight:700, color:"var(--brand-2)" }}>{fmt(calc.d50wVol,1)} mL/d</span>
-                      {route!=="central" && dexPct > 12.5 && <span style={{ color:"var(--crit)", fontWeight:700, marginLeft:6, display:"inline-flex", alignItems:"center", gap:4, verticalAlign:"bottom" }}><Icon name="warn" size={13} stroke={2.2} />Central only!</span>}
+                      <span style={{ color:"var(--crit)", fontWeight:700, display:"inline-flex", alignItems:"center", gap:4, verticalAlign:"bottom" }}><Icon name="warn" size={13} stroke={2.2} />Central only!</span>
                     </div>
                   )}
                 </div>
@@ -3412,7 +3415,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
               {/* AA row: dose and volume. No grams column — the TPN room works
                   in mL and the form keeps "g in bag" (TPN team, 2026-09-28). */}
-              <div className="s2-aa-row" style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0, 1fr))", gap:8, alignItems:"center",
+              <div className="s2-aa-row" style={{ display:"grid", gridTemplateColumns:"minmax(0, 1fr)", gap:8, alignItems:"center",
                 padding:"8px 10px", background:"var(--bg-2)", borderRadius:6 }}>
                 <div>
                   <NumField label={`Amino acid (${S[aaStockKey].short})`} unit="g/kg/d" value={aaPerKg} onChange={setAaPerKg} step={0.1} />
@@ -3432,10 +3435,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {S[aaStockKey].caution && (
                     <div style={{ fontSize:10.5, color:"var(--warn)", fontWeight:600, marginTop:2, display:"flex", alignItems:"flex-start", gap:4 }}><span style={{ display:"inline-flex", marginTop:1 }}><Icon name="warn" size={12} stroke={2.2} /></span>{S[aaStockKey].caution}</div>
                   )}
-                </div>
-                <div style={{ fontSize:12, color:"var(--brand-2)", fontWeight:600 }}>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Volume</div>
-                  <div className="num" style={{ fontWeight:700, fontSize:15 }}>{fmt(calc.solVol.aa,1)} mL/day</div>
                 </div>
               </div>
 
@@ -3529,13 +3528,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   <PresetChips values={[0.5, 1, 2, 3, 4]} current={lipidPerKg} onSelect={setLipidPerKg} />
                 </div>
                 <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Lipid volume</div>
+                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Lipid (20%)</div>
                   <div className="num" style={{ fontWeight:700, fontSize:15, color:"var(--ink)" }}>
-                    {lipidPerKg > 0 ? fmt(calc.solVol.lipidSMOF,1) : "—"} mL/day
+                    {lipidPerKg > 0 && wtKg > 0 ? `${fmt(lipidPerKg*5,1)} mL/kg/d` : "—"}
                   </div>
                   <div style={{ color:"var(--ink-3)", fontSize:10, marginTop:1 }}>
                     {lipidPerKg > 0 ? `${fmt(calc.lipidG,1)} g/day` : ""}
-                    {lipidPerKg > 0 && wtKg > 0 && <span style={{ marginLeft:6, color:"var(--brand-2)", fontWeight:600 }}>= {fmt(lipidPerKg*5,1)} mL/kg/d</span>}
                   </div>
                 </div>
                 <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
@@ -3547,15 +3545,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 </div>
               </div>
 
-              {calc.lipidBagVol > 0 && (
-                <div style={{ padding:"7px 10px", background:"var(--bg-2)", borderRadius:6,
-                  display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:12 }}>
-                  <span style={{ color:"var(--ink-2)" }}>Lipid bag total (20% lipid + Vitalipid)</span>
-                  <span className="num" style={{ fontWeight:700, color:"var(--ink)" }}>
-                    {fmt(calc.lipidBagVol,1)} mL/day
-                  </span>
-                </div>
-              )}
             </div>
           </div>
           </>)}
@@ -3745,8 +3734,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           Step 5 · Vitamins · Trace Elements · Heparin
           {!openSteps.has(4) && (
             <div className="step-summary">
-              {inclSoluvit   && <span className="step-summary-chip">Soluvit {fmt(calc.soluvitVol,1)} mL</span>}
-              {inclPeditrace && <span className="step-summary-chip">Peditrace {fmt(calc.peditrace_vol,1)} mL</span>}
+              {inclSoluvit   && <span className="step-summary-chip">Soluvit {S.soluvit.mlPerKg} mL/kg</span>}
+              {inclPeditrace && <span className="step-summary-chip">Peditrace {S.peditrace.mlPerKg} mL/kg</span>}
               {znPerKg > 0 && <span className="step-summary-chip">ZnSO₄ {znPerKg} mg Zn/kg</span>}
               <span className="step-summary-chip">Heparin {heparinUmL} U/mL</span>
             </div>
@@ -3761,12 +3750,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <div>
               <div className="sub-h">5. Multivitamin</div>
               <Chk label="Soluvit N® (water-soluble vitamins)" value={inclSoluvit} onChange={setInclSoluvit}
-                hint={inclSoluvit ? `${fmt(calc.soluvitVol, 1)} mL/day in bag${calc.overfill > 1.001 ? ` (× Factor → delivers ${fmt(calc.soluvitVol * calc.deliveredFrac, 1)})` : ""}  ·  ${S.soluvit.mlPerKg} mL/kg/day (max ${S.soluvit.maxMl} mL/day) · add to aqueous PN` : "Not included"} />
+                hint={inclSoluvit ? `${S.soluvit.mlPerKg} mL/kg/day (max ${S.soluvit.maxMl} mL/day) · add to aqueous PN` : "Not included"} />
 
               <div className="sub-h" style={{ marginTop: 14 }}>6. Trace Elements</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <Chk label={`Peditrace (Zn ${S.peditrace.znMgPerMl * 1000} µg/mL)`} value={inclPeditrace} onChange={setInclPeditrace}
-                  hint={inclPeditrace ? `${fmt(calc.peditrace_vol, 1)} mL/day in bag${calc.overfill > 1.001 ? ` (× Factor → delivers ${fmt(calc.peditrace_vol * calc.deliveredFrac, 1)})` : ""}  ·  ${S.peditrace.mlPerKg} mL/kg/day (max ${S.peditrace.maxMl} mL) · add to aqueous PN` : "Not included"} />
+                  hint={inclPeditrace ? `${S.peditrace.mlPerKg} mL/kg/day (max ${S.peditrace.maxMl} mL) · add to aqueous PN` : "Not included"} />
                 {/* ZnSO₄ on top of Peditrace — the KCMH paper form's "ZnSO₄
                     (Additional to the above)" line, dosed in mg of ELEMENTAL
                     zinc per kg like every additive (TPN team + Praew,
@@ -3774,7 +3763,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {!centerPoint && (
                   <NumField label="ZnSO₄ (เพิ่มจาก Peditrace)" unit="mg Zn/kg/d" value={znPerKg} onChange={setZnPerKg} step={0.05}
                     hint={znPerKg > 0
-                      ? `elemental Zn · = ${fmt(calc.znSO4_mg, 2)} mg/day ถึงผู้ป่วย${calc.overfill > 1.001 ? ` · ${fmt(calc.znSO4_bag_mg, 2)} mg ในถุง (× Factor)` : ""} = ${fmt(calc.solVol.znso4, 1)} mL ของ ${S.znso4.znMgPerMl} mg/mL`
+                      ? `elemental Zn · = ${fmt(calc.znSO4_mg, 2)} mg/day ถึงผู้ป่วย`
                       : "elemental Zn · ไม่ให้เพิ่ม = เว้นว่าง"} />
                 )}
                 {calc.znTotal_mg > 0 && (
@@ -3794,20 +3783,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   (solVol.heparin, sheet G51) — with dead space the two halves
                   of this hint used to disagree (UP-C13). */}
               <NumField label="Heparin" unit="U/mL" value={heparinUmL} onChange={setHeparinUmL} step={0.5}
-                hint={`Normal 0.5–1 U/mL · total ${fmt(heparinUmL * calc.preparedVol, 0)} U/day → ${fmt(calc.solVol.heparin, 1)} mL of ${S.heparin.unitsPerMl} U/mL`} />
+                hint={`Normal 0.5–1 U/mL · total ${fmt(heparinUmL * calc.preparedVol, 0)} U/day`} />
             </div>
 
             <div style={{ background: "var(--bg-2)", borderRadius: 8, padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
               <div className="sub-h" style={{ marginTop: 0 }}>Additives Summary</div>
               <MiniReadout label="Vitalipid N Infant (fat-sol.)" value={fmt(calc.vitalipidVol, 1)} unit="mL/day"
                 color="var(--brand-2)" />
-              <MiniReadout label="Soluvit N (water-sol.)" value={inclSoluvit ? fmt(calc.soluvitVol, 1) : "—"} unit={inclSoluvit ? "mL/day" : ""}
+              <MiniReadout label="Soluvit N (water-sol.)" value={inclSoluvit ? S.soluvit.mlPerKg : "—"} unit={inclSoluvit ? "mL/kg/day" : ""}
                 color={inclSoluvit ? "var(--brand-2)" : "var(--ink-3)"} />
-              <MiniReadout label="Peditrace" value={inclPeditrace ? fmt(calc.peditrace_vol, 1) : "—"} unit={inclPeditrace ? "mL/day" : ""}
+              <MiniReadout label="Peditrace" value={inclPeditrace ? S.peditrace.mlPerKg : "—"} unit={inclPeditrace ? "mL/kg/day" : ""}
                 color={inclPeditrace ? "var(--brand-2)" : "var(--ink-3)"} />
               <MiniReadout label="Heparin" value={heparinUmL} unit="U/mL" />
-              <MiniReadout label={`Heparin ${S.heparin.unitsPerMl} U/mL — volume`} value={fmt(calc.solVol.heparin, 1)} unit="mL/day"
-                color="var(--brand-2)" />
               <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: "var(--surface)", fontSize: 11, color: "var(--ink-3)", borderTop: "1px solid var(--line-2)" }}>
                 Vitalipid → <strong>lipid bag</strong><br/>
                 Soluvit + Peditrace → <strong>aqueous PN bag</strong><br/>

@@ -222,9 +222,11 @@ for (let i = 0; i < COUNT; i++) {
   near(s, 'no Factor figure on screen', grab(/Factor([\d.]+)/) === null ? 1 : 0, 1, 0);
   // stock mL: 0.1 mL tolerance — an exactly-.x5 value is a float tie, and
   // toFixed and Math.round can land on either side of it (10.45 → 10.4 / 10.5)
-  if (e.d50 > 0) nearTol(s, 'D50W mL', grab(/D50W: ([\d.]+) mL\/d/), e.d50, 0.1001);
-  if (s.aa > 0) nearTol(s, 'AA mL', grab(/Volume([\d.]+) mL\/day/), e.aaMl, 0.1001);
-  if (s.lip > 0) { nearTol(s, 'Lipid mL', grab(/Lipid volume([\d.]+) mL\/day/), e.smof, 0.1001);
+  // D50W, amino-acid and SMOF stock mL left the screen on 2026-11-06 (Pp: "Hide
+  // them all"); verify-calc-oracle checks each on the printed order. The lipid
+  // pump still shows its syringe (SMOF + Vitalipid) for the rate.
+  near(s, 'no D50W / amino-acid / SMOF stock mL on screen', /D50W: [\d.]+ mL|Lipid volume|Volume[\d.]+ mL\/day/.test(text()) ? 0 : 1, 1, 0);
+  if (s.lip > 0) { nearTol(s, 'Lipid syringe mL (SMOF + Vitalipid)', grab(/([\d.]+) mL\/day over \d+ h/), e.smof + e.vitalipid, 0.1001);
     near(s, 'Vitalipid mL', grab(/\+ Vitalipid N([\d.]+) mL\/day/), e.vitalipid, 1); }
 
   // I3 · the bag make-up: bag total = prepared; "cannot be compounded" ⇔ components > prepared

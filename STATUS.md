@@ -1,7 +1,7 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-06 — Calculator ward feedback (Glycophos by P with a wrong-unit guard, no Factor or prepared mL on
-> screen, Dextrose chips on one line): open PR #226, not merged, not live.** Frontend only; no backend change; two new
+> ⏳ **2026-11-06 — Calculator ward feedback (Glycophos by P with a wrong-unit guard, no Factor or stock mL on
+> screen, Dextrose and amino-acid chips on one line): open PR #226, not merged, not live.** Frontend only; no backend change; two new
 > alert thresholds, no dose constant moved. Recorded here by its own PR.
 >
 > ⏳ **2026-11-06 — No Calculator button inside a ward, แสดงทั้งหมด on the filter's line (#222): merged into
