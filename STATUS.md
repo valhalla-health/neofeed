@@ -4,7 +4,7 @@
 > `main` on Praew's instruction, not live.** UI only, frontend only; no calculation, printed figure or backend change. It goes out with
 > the next release PR.
 >
-> ⏳ **2026-11-07 — Print ทั้งหมด: no Print order button while the run collects (this PR).** Pp's review of #224 found a
+> ⏳ **2026-11-07 — Print ทั้งหมด: no Print order button while the run collects (PR #228): open.** Pp's review of #224 found a
 > tap on the calculator's own Print order mid-run printed that sheet twice (once at once, once in the job). The button
 > is hidden while the run holds the order. Frontend only. `CHANGELOG.md` 2026-11-07.
 >
