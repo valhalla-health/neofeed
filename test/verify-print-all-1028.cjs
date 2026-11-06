@@ -502,6 +502,31 @@ scenarios['bwfix'] = async (A) => {
   A.ok('8.20 …and names BB as changed since it was collected', /NICU 2 BB — เปลี่ยนไปหลังเตรียมชุดพิมพ์/.test(skipped()), skipped());
 };
 
+// Pp's review of #224 (2026-11-07): mid-run, the calculator's own Print order
+// button was still on screen beside "ไม่ต้องกดอะไร"; a tap printed that sheet
+// at once, and the run then collected it again, so pharmacy got it twice.
+scenarios['nobutton'] = async (A) => {
+  console.log('\n── #8j no Print order button while the run collects ──');
+  const t = setup();
+  const release = holdLock(t, 'BB-1');
+  await t.start();
+  await t.click(wardPrint('NICU'));
+  await t.click(printAll());
+  await settle(t);
+  A.ok('8.21 mid-run, BB is open with the bar', openedIs('BB-1') && /ใบที่ 2 จาก 3/.test(bar()?.textContent || ''));
+  const own = t.btn(/^\s*Print order\s*$/, document.querySelector('.page-head') || document);
+  A.ok('8.22 …and no Print order button of its own to print BB alone', !own);
+  if (own) await t.click(own);
+  await settle(t);
+  release();
+  await runDone(t);
+  A.ok('8.23 BB is printed once, in the one job', t.printed === 1 && t.printedSheets.join() === 'AA-1,BB-1,DD-1', [t.printed, t.printedSheets]);
+  await t.click(t.btn(/← กลับไปรายการ/));
+  await t.click(printRow('BB'));
+  await settle(t);
+  A.ok('8.24 a single order opened from its row still has its Print order button', !!t.btn(/^\s*Print order\s*$/, document.querySelector('.page-head') || document) && t.printed === 2);
+};
+
 scenarios['nextday'] = async (A) => {
   console.log('\n── #8h a job left on screen past midnight ──');
   const t = setup();

@@ -4,6 +4,10 @@
 > `main` on Praew's instruction, not live.** UI only, frontend only; no calculation, printed figure or backend change. It goes out with
 > the next release PR.
 >
+> ⏳ **2026-11-07 — Print ทั้งหมด: no Print order button while the run collects (PR #228): open.** Pp's review of #224 found a
+> tap on the calculator's own Print order mid-run printed that sheet twice (once at once, once in the job). The button
+> is hidden while the run holds the order. Frontend only. `CHANGELOG.md` 2026-11-07.
+>
 > ⏳ **2026-11-06 — Print ทั้งหมด as one print job (PR #224): merged into `main`, not live; release PR #225 open.** One tap collects every ticked order's
 > sheet through its own calculator's Print gate and edit lock, then opens one print dialog (by itself when none was
 > held back; on a tap of "พิมพ์ N ใบ" after naming any that were). The sheet's "แพทย์" line is now blank, signed by
