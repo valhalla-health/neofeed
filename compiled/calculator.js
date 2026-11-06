@@ -2502,13 +2502,13 @@ function Calculator({
     "= ",
     fmt(mgPerKg, 2),
     " mEq/kg/d · TPN only"
-  ), /* @__PURE__ */ React.createElement(Tile, { label: "Calcium", value: calc.caKg, unit: " mg/kg/d", target: tCa, status: sCa, decimals: 0, max: 140 }), /* @__PURE__ */ React.createElement(Tile, { label: "Phosphorus", value: calc.pKg, unit: " mg/kg/d", target: tP, status: sP, decimals: 0, max: 90 }), /* @__PURE__ */ React.createElement(Tile, { label: "Ca:P ratio", value: calc.caP, unit: ":1 (mass)", target: tCaP, status: sCaP, decimals: 2, max: 2.5 })))))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable", onClick: () => toggleStep(4) }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14, color: "var(--brand)" }), "Step 5 · Vitamins · Trace Elements · Heparin", !openSteps.has(4) && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, inclSoluvit && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Soluvit ", S.soluvit.mlPerKg, " mL/kg"), inclPeditrace && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Peditrace ", S.peditrace.mlPerKg, " mL/kg"), znPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "ZnSO₄ ", znPerKg, " mg Zn/kg"), /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Heparin ", heparinUmL, " U/mL")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[4]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(4) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(4) }, /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TwoCol, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sub-h" }, "5. Multivitamin"), /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement(Tile, { label: "Calcium", value: calc.caKg, unit: " mg/kg/d", target: tCa, status: sCa, decimals: 0, max: 140 }), /* @__PURE__ */ React.createElement(Tile, { label: "Phosphorus", value: calc.pKg, unit: " mg/kg/d", target: tP, status: sP, decimals: 0, max: 90 }), /* @__PURE__ */ React.createElement(Tile, { label: "Ca:P ratio", value: calc.caP, unit: ":1 (mass)", target: tCaP, status: sCaP, decimals: 2, max: 2.5 })))))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable", onClick: () => toggleStep(4) }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14, color: "var(--brand)" }), "Step 5 · Vitamins · Trace Elements · Heparin", !openSteps.has(4) && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, calc.soluvitVol > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Soluvit ", S.soluvit.mlPerKg, " mL/kg"), calc.peditrace_vol > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Peditrace ", S.peditrace.mlPerKg, " mL/kg"), znPerKg > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "ZnSO₄ ", znPerKg, " mg Zn/kg"), /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Heparin ", heparinUmL, " U/mL")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${stepStatus[4]}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(4) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(4) }, /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(TwoCol, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sub-h" }, "5. Multivitamin"), /* @__PURE__ */ React.createElement(
     Chk,
     {
       label: "Soluvit N® (water-soluble vitamins)",
       value: inclSoluvit,
       onChange: setInclSoluvit,
-      hint: inclSoluvit ? `${S.soluvit.mlPerKg} mL/kg/day (max ${S.soluvit.maxMl} mL/day) · add to aqueous PN` : "Not included"
+      hint: !inclSoluvit ? "Not included" : !(calc.soluvitVol > 0) ? "ไม่มีถุง TPN วันนี้ — ไม่ได้ให้" : `${S.soluvit.mlPerKg} mL/kg/day (max ${S.soluvit.maxMl} mL/day) · add to aqueous PN`
     }
   ), /* @__PURE__ */ React.createElement("div", { className: "sub-h", style: { marginTop: 14 } }, "6. Trace Elements"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement(
     Chk,
@@ -2516,7 +2516,7 @@ function Calculator({
       label: `Peditrace (Zn ${S.peditrace.znMgPerMl * 1e3} µg/mL)`,
       value: inclPeditrace,
       onChange: setInclPeditrace,
-      hint: inclPeditrace ? `${S.peditrace.mlPerKg} mL/kg/day (max ${S.peditrace.maxMl} mL) · add to aqueous PN` : "Not included"
+      hint: !inclPeditrace ? "Not included" : !(calc.peditrace_vol > 0) ? "ไม่มีถุง TPN วันนี้ — ไม่ได้ให้" : `${S.peditrace.mlPerKg} mL/kg/day (max ${S.peditrace.maxMl} mL) · add to aqueous PN`
     }
   ), !centerPoint && /* @__PURE__ */ React.createElement(
     NumField,
@@ -2556,17 +2556,17 @@ function Calculator({
     MiniReadout,
     {
       label: "Soluvit N (water-sol.)",
-      value: inclSoluvit ? S.soluvit.mlPerKg : "—",
-      unit: inclSoluvit ? "mL/kg/day" : "",
-      color: inclSoluvit ? "var(--brand-2)" : "var(--ink-3)"
+      value: calc.soluvitVol > 0 ? S.soluvit.mlPerKg : "—",
+      unit: calc.soluvitVol > 0 ? "mL/kg/day" : "",
+      color: calc.soluvitVol > 0 ? "var(--brand-2)" : "var(--ink-3)"
     }
   ), /* @__PURE__ */ React.createElement(
     MiniReadout,
     {
       label: "Peditrace",
-      value: inclPeditrace ? S.peditrace.mlPerKg : "—",
-      unit: inclPeditrace ? "mL/kg/day" : "",
-      color: inclPeditrace ? "var(--brand-2)" : "var(--ink-3)"
+      value: calc.peditrace_vol > 0 ? S.peditrace.mlPerKg : "—",
+      unit: calc.peditrace_vol > 0 ? "mL/kg/day" : "",
+      color: calc.peditrace_vol > 0 ? "var(--brand-2)" : "var(--ink-3)"
     }
   ), /* @__PURE__ */ React.createElement(MiniReadout, { label: "Heparin", value: heparinUmL, unit: "U/mL" }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 6, background: "var(--surface)", fontSize: 11, color: "var(--ink-3)", borderTop: "1px solid var(--line-2)" } }, "Vitalipid → ", /* @__PURE__ */ React.createElement("strong", null, "lipid bag"), /* @__PURE__ */ React.createElement("br", null), "Soluvit + Peditrace → ", /* @__PURE__ */ React.createElement("strong", null, "aqueous PN bag"), /* @__PURE__ */ React.createElement("br", null), "Heparin 0.5–1 U/mL → ", /* @__PURE__ */ React.createElement("strong", null, "aqueous PN bag"))))))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable", onClick: () => toggleStep(6) }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 14, color: "var(--brand)" }), "Step 6 · Enteral Supplements", !openSteps.has(6) && (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) && /* @__PURE__ */ React.createElement("div", { className: "step-summary" }, suppVitD > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Vit D ", suppVitD, " IU/kg"), suppCa > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Ca ", suppCa, " mg/kg"), suppPO4 > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "PO₄ ", suppPO4, " mg/kg"), suppMTV && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "MTV ✓"), suppFerdek > 0 && /* @__PURE__ */ React.createElement("span", { className: "step-summary-chip" }, "Fe ", suppFerdek, " mg/kg")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("div", { className: `step-dot ${suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0 ? "done" : "empty"}` }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-3)" } }, openSteps.has(6) ? "▲" : "▼"))), /* @__PURE__ */ React.createElement(StepBody, { open: openSteps.has(6) }, /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement("div", { className: "guidelines-grid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sub-h" }, "Multivitamin — Munti-vim Drop"), /* @__PURE__ */ React.createElement(
     Chk,

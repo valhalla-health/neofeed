@@ -71,6 +71,13 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
     ok(`${shell}: on a phone, ${sel}'s columns can shrink below their content (minmax(0, …), no bare 1fr)`,
       r && !/(^|[\s,(])1fr/.test(r.replace(/minmax\(0,\s*1fr\)/g, '')), r);
   }
+  // One column on a phone, so their five chips sit on one line (Pp, 2026-11-06:
+  // the dextrose % chips; the amino-acid row since its stock Volume left). A
+  // merge once dropped the dextrose rule with no harness noticing.
+  for (const sel of ['.dex-gir-row', '.s2-aa-row']) {
+    const r = new RegExp(`\\${sel}\\s*\\{[^}]*grid-template-columns:([^;}]*)`).exec(phone)?.[1] || '';
+    ok(`${shell}: on a phone, ${sel} is one column`, /^\s*minmax\(0,\s*1fr\)\s*!important\s*$/.test(r), r);
+  }
 }
 {
   const calc = read('calculator.jsx'), app = read('app.jsx'), log = read('log.jsx');

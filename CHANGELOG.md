@@ -69,7 +69,12 @@ Pp sent three requests from her phone the same evening, each with a screenshot o
    screen at 11 and 16 kg, weights no order can have; they are now `D.vitaminMlPerDay` in `data.js`, the same
    arithmetic in the same order, and `CR-SOLUVIT-CAP` / `CR-PEDITRACE-CAP` test it as a function. Nine harnesses
    that read these figures off the screen now check they are gone and read them on the print (the oracle already
-   held every one there); the fuzz still checks the lipid syringe, SMOF + Vitalipid, on screen.
+   held every one there); the fuzz still checks the lipid syringe, SMOF + Vitalipid, on screen. Vera (NO BLOCK)
+   found that the dose shown for Soluvit and Peditrace would claim 1 mL/kg/day on a No TPN day, which gives neither:
+   it now shows only with a bag, and says "ไม่มีถุง TPN วันนี้ — ไม่ได้ให้" otherwise (`verify-no-tpn-1101.cjs`).
+   Merging `main` into this PR (#222, #224) took `main`'s shells whole and dropped item 3's `.dex-gir-row` rule,
+   so the Dextrose chips wrapped again on a phone; a screenshot showed it, nothing else did. The rule is back, and
+   `verify-phone-sweep.cjs` now fails if either shell loses it (or the amino-acid row's).
 
 Six pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
 No dose constant, limit or `CONSTANTS_VERSION` moved (5 adds two alert thresholds). No second clinician has

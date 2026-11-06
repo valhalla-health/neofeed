@@ -3734,8 +3734,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           Step 5 · Vitamins · Trace Elements · Heparin
           {!openSteps.has(4) && (
             <div className="step-summary">
-              {inclSoluvit   && <span className="step-summary-chip">Soluvit {S.soluvit.mlPerKg} mL/kg</span>}
-              {inclPeditrace && <span className="step-summary-chip">Peditrace {S.peditrace.mlPerKg} mL/kg</span>}
+              {/* The dose, only when there is a bag to give it in (Vera): a No
+                  TPN day leaves both ticked and gives neither. */}
+              {calc.soluvitVol    > 0 && <span className="step-summary-chip">Soluvit {S.soluvit.mlPerKg} mL/kg</span>}
+              {calc.peditrace_vol > 0 && <span className="step-summary-chip">Peditrace {S.peditrace.mlPerKg} mL/kg</span>}
               {znPerKg > 0 && <span className="step-summary-chip">ZnSO₄ {znPerKg} mg Zn/kg</span>}
               <span className="step-summary-chip">Heparin {heparinUmL} U/mL</span>
             </div>
@@ -3750,12 +3752,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <div>
               <div className="sub-h">5. Multivitamin</div>
               <Chk label="Soluvit N® (water-soluble vitamins)" value={inclSoluvit} onChange={setInclSoluvit}
-                hint={inclSoluvit ? `${S.soluvit.mlPerKg} mL/kg/day (max ${S.soluvit.maxMl} mL/day) · add to aqueous PN` : "Not included"} />
+                hint={!inclSoluvit ? "Not included" : !(calc.soluvitVol > 0) ? "ไม่มีถุง TPN วันนี้ — ไม่ได้ให้" : `${S.soluvit.mlPerKg} mL/kg/day (max ${S.soluvit.maxMl} mL/day) · add to aqueous PN`} />
 
               <div className="sub-h" style={{ marginTop: 14 }}>6. Trace Elements</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <Chk label={`Peditrace (Zn ${S.peditrace.znMgPerMl * 1000} µg/mL)`} value={inclPeditrace} onChange={setInclPeditrace}
-                  hint={inclPeditrace ? `${S.peditrace.mlPerKg} mL/kg/day (max ${S.peditrace.maxMl} mL) · add to aqueous PN` : "Not included"} />
+                  hint={!inclPeditrace ? "Not included" : !(calc.peditrace_vol > 0) ? "ไม่มีถุง TPN วันนี้ — ไม่ได้ให้" : `${S.peditrace.mlPerKg} mL/kg/day (max ${S.peditrace.maxMl} mL) · add to aqueous PN`} />
                 {/* ZnSO₄ on top of Peditrace — the KCMH paper form's "ZnSO₄
                     (Additional to the above)" line, dosed in mg of ELEMENTAL
                     zinc per kg like every additive (TPN team + Praew,
@@ -3790,10 +3792,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="sub-h" style={{ marginTop: 0 }}>Additives Summary</div>
               <MiniReadout label="Vitalipid N Infant (fat-sol.)" value={fmt(calc.vitalipidVol, 1)} unit="mL/day"
                 color="var(--brand-2)" />
-              <MiniReadout label="Soluvit N (water-sol.)" value={inclSoluvit ? S.soluvit.mlPerKg : "—"} unit={inclSoluvit ? "mL/kg/day" : ""}
-                color={inclSoluvit ? "var(--brand-2)" : "var(--ink-3)"} />
-              <MiniReadout label="Peditrace" value={inclPeditrace ? S.peditrace.mlPerKg : "—"} unit={inclPeditrace ? "mL/kg/day" : ""}
-                color={inclPeditrace ? "var(--brand-2)" : "var(--ink-3)"} />
+              <MiniReadout label="Soluvit N (water-sol.)" value={calc.soluvitVol > 0 ? S.soluvit.mlPerKg : "—"} unit={calc.soluvitVol > 0 ? "mL/kg/day" : ""}
+                color={calc.soluvitVol > 0 ? "var(--brand-2)" : "var(--ink-3)"} />
+              <MiniReadout label="Peditrace" value={calc.peditrace_vol > 0 ? S.peditrace.mlPerKg : "—"} unit={calc.peditrace_vol > 0 ? "mL/kg/day" : ""}
+                color={calc.peditrace_vol > 0 ? "var(--brand-2)" : "var(--ink-3)"} />
               <MiniReadout label="Heparin" value={heparinUmL} unit="U/mL" />
               <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: "var(--surface)", fontSize: 11, color: "var(--ink-3)", borderTop: "1px solid var(--line-2)" }}>
                 Vitalipid → <strong>lipid bag</strong><br/>
