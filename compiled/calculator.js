@@ -1746,7 +1746,7 @@ function Calculator({
       showToast(NURSE_SUBMIT_TEXT, "error");
       return;
     }
-    const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
+    const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing) {
       setSaving(true);
       const res2 = await onPublish(savedEntryId, savedLastModified, { quiet: true });
@@ -2038,7 +2038,7 @@ function Calculator({
     });
     clearDraft();
     setDraftOffer(null);
-    if (!asDraft && onPublish) {
+    if (!asDraft && onPublish && !nurseIoOnly) {
       const lockId = res.revised ? res.entryId : savedEntryId || res.entryId;
       const pub = await onPublish(lockId, res.lastModified, { quiet: true });
       if (pub.ok) setPublished(true);
@@ -2985,7 +2985,7 @@ function Calculator({
     {
       className: "btn primary",
       style: { width: "100%" },
-      disabled: saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && orderSettled && !figuresMissing,
+      disabled: saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && orderSettled && !figuresMissing || nurseIoOnly && !dirty && orderSettled,
       onClick: () => handleSave(false)
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, color: "#fff" }),

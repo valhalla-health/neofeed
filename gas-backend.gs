@@ -3102,11 +3102,12 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified, 
     var cur = hit.data;
     if (String(cur[1]) !== String(sessionId)) return { error: "บันทึกนี้ไม่ตรงกับผู้ป่วยรายนี้" };
     if (cur[37]) return { error: "รายการนี้มีฉบับแก้ไขใหม่แล้ว — เปิดฉบับล่าสุดก่อนส่ง" };
-    // N1: a nurse never locks a draft. Locked, it would read as submitted to her
-    // next save (Vera's second review, 2026-11-07).
-    if (nurseIoOnly && String(cur[14] || "").trim().toLowerCase() === "draft") {
-      return { error: NURSE_SUBMIT_REFUSAL.error, code: NURSE_SUBMIT_REFUSAL.code };
-    }
+    // N1: a nurse locks nothing. Submit is a signature on specific numbers: a
+    // lock on a draft read as submitted to her next save (Vera's second review),
+    // and one on a doctor's submitted order set the TPN room's "Submit" time to
+    // hers (pen test, 2026-11-07). Her I/O revision stays unlocked; a submitted
+    // row is revised all the same.
+    if (nurseIoOnly) return { error: NURSE_SUBMIT_REFUSAL.error, code: NURSE_SUBMIT_REFUSAL.code };
     if (cur[33]) return { ok: true, alreadyPublished: true, publishedAt: String(cur[33]) };
     var currentLastModified = String(cur[26] || "");
     if (currentLastModified !== String(expectedLastModified)) {

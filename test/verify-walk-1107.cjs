@@ -159,11 +159,14 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
 
   s = rec(); mount({ ...NURSE, editEntry: row(bag), ...s });
   eq('a settled order opened by a nurse: no refusal line', nurseNote(), '');
+  eq('…and nothing typed: Submit is off (nothing to save, nothing for her to lock)', submitBtn()?.disabled, true);
   setField('Input', 120); setField('Urine output', 40);
   eq('…Intake/Output typed: still no refusal line', nurseNote(), '');
   asked = 0;
   await settle(submitBtn());
   eq('…Submit saves the I/O as a revision of the submitted order', [s.calls.length, s.calls[0]?.[0], s.calls[0]?.[3].status], [1, 'update', 'submitted']);
+  // Pen test, 2026-11-07: a nurse's lock on a submitted order set the room's Submit time to hers. She locks nothing.
+  eq('…and sends no lock after it', s.all.filter(c => c[0] === 'publish').length, 0);
   eq('…carrying the typed Intake/Output', [s.calls[0]?.[3].ioInput, s.calls[0]?.[3].ioOutput], [120, 40]);
   eq('…and every TPN figure as the doctor saved it', ['gir', 'pro', 'kcal', 'na', 'k'].map(k => s.calls[0]?.[3][k]), ['gir', 'pro', 'kcal', 'na', 'k'].map(k => bag[k]));
 
@@ -260,6 +263,8 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   const room = as(rt, { action: 'pharmacyOrders', date: TODAY });
   const ord = (room.orders || []).find(o => o.sessionId === PT.sessionId);
   eq('the TPN room names the doctor who submitted, not the nurse who added I/O (P1)', ord?.prescriber, 'Dr Test');
+  const nLock = as(nt, { action: 'publishLog', sessionId: PT.sessionId, entryId: io.entryId, expectedLastModified: io.lastModified });
+  eq('a nurse cannot lock a submitted order either (pen test)', [nLock.error, L()[L().length - 1][33]], [NURSE_TEXT, '']);
 
   // A modified client: the nurse's payload with a TPN dose changed, or as a held re-submit.
   const latestId = io.entryId, latestLm = io.lastModified;

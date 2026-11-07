@@ -2682,7 +2682,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // (Vera, 2026-10-28). A No TPN order with no short sheet never prints, and is
     // locked all the same (Pp, 2026-11-02). An order with no sticker figures
     // (figuresMissing) takes the full save too: locking it would leave it without them.
-    const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
+    // A nurse locks nothing (gas-backend.gs publishDailyLog refuses her, N1).
+    const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing) {
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
@@ -2969,7 +2970,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // or the revision the server appended. If the lock fails the order is
     // still saved and submitted; Submit again locks it (lockFirst), and an
     // edit is a revision all the same.
-    if (!asDraft && onPublish) {
+    if (!asDraft && onPublish && !nurseIoOnly) {
       const lockId = res.revised ? res.entryId : (savedEntryId || res.entryId);
       const pub = await onPublish(lockId, res.lastModified, { quiet: true });
       if (pub.ok) setPublished(true);
@@ -4594,7 +4595,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 order that never prints is still settled. An order with no sticker figures
                 yet (figuresMissing) is offered Submit too. */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled && !figuresMissing)}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled && !figuresMissing) || (nurseIoOnly && !dirty && orderSettled)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
