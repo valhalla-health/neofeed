@@ -2757,6 +2757,7 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
     // on exactly the input that most needed catching.
     var entryId = Utilities.getUuid();
     var lastModified = new Date().toISOString();
+    entry = _withOrderBy(entry, submittedBy);
     var row = _buildLogRow(sessionId, entry, submittedBy)
       .concat([_sheetSafe(JSON.stringify(entry.calcInput || {})), entryId, lastModified, _sheetSafe(submittedBy || "")])
       .concat(_ioLogFields(entry))
@@ -2811,7 +2812,22 @@ var NURSE_SUBMIT_REFUSAL = {
 // saver label, and figures derived from the order (stops, the sticker marker,
 // replacesTpn, printedFigures, a draft's blank-box list).
 var IO_FREE_CALC_KEYS = { ioInput: 1, ioOutput: 1, drainContent: 1, savedAt: 1, savedByLabel: 1,
-  stops: 1, replacesTpn: 1, printJsonV: 1, printedFigures: 1, blankFields: 1 };
+  stops: 1, replacesTpn: 1, printJsonV: 1, printedFigures: 1, blankFields: 1, orderBy: 1 };
+// Whose order a row is: calcInput.orderBy, the account that last changed it
+// beyond I/O. The server stamps it on every save but a nurse's I/O-only one,
+// which keeps the stored value (_ioOnlyEntryFrom), so I/O never makes a
+// doctor's draft a nurse's (Vera's third review, 2026-11-07). A row from before
+// it falls back to its last saver (AB), then P.
+function _orderByOf(cur) {
+  var ci = _parseJson(cur[24], null);
+  var by = ci && typeof ci === "object" && typeof ci.orderBy === "string" ? ci.orderBy : "";
+  return String(by || cur[27] || cur[15] || "").trim().toLowerCase();
+}
+function _withOrderBy(entry, by) {
+  entry = entry || {};
+  var ci = (entry.calcInput && typeof entry.calcInput === "object") ? entry.calcInput : {};
+  return Object.assign({}, entry, { calcInput: Object.assign({}, ci, { orderBy: String(by || "").trim().toLowerCase() }) });
+}
 // One text per value whatever its key order, so two saves of one order compare equal.
 function _canonicalJson(v) {
   if (v === null || typeof v !== "object") return JSON.stringify(v === undefined ? null : v);
@@ -2858,6 +2874,7 @@ function _ioOnlyChange(cur, entry) {
 function _ioOnlyEntryFrom(cur, entry, status) {
   var sent = (entry && entry.calcInput) || {};
   var ci = _parseJson(cur[24], {}) || {};
+  ci.orderBy = _orderByOf(cur);
   ci.ioInput = sent.ioInput; ci.ioOutput = sent.ioOutput; ci.drainContent = sent.drainContent;
   if (sent.savedAt) ci.savedAt = sent.savedAt;
   // Plain text: _buildLogRow and _provenanceFields escape it on the way in.
@@ -2926,15 +2943,19 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       // as well (Pp, 2026-11-07, "ได้แค่ I/O เหมือนกัน"), so a doctor's later Submit
       // never signs figures a nurse typed. An account the Staff tab does not know
       // counts as not a nurse.
-      var draftSaver = String(cur[27] || cur[15] || "").trim().toLowerCase();
+      var draftSaver = _orderByOf(cur);
       var saverRow = draftSaver && draftSaver !== String(editedBy || "").trim().toLowerCase() ? getStaffRow(draftSaver) : null;
       var othersDraft = !curSubmitted && !!draftSaver && draftSaver !== String(editedBy || "").trim().toLowerCase()
         && !(saverRow && _staffRole(saverRow.data[1]) === "nurse");
       var nurseRefused = curSubmitted ? !_ioOnlyRevision(cur, entry)
         : (entry || {}).status !== "draft" || (othersDraft && !_ioOnlyChange(cur, entry));
       if (nurseRefused) return { error: NURSE_SUBMIT_REFUSAL.error, code: NURSE_SUBMIT_REFUSAL.code };
-      // Written from the stored row, as for a submitted order (below).
-      if (othersDraft) entry = _ioOnlyEntryFrom(cur, entry, "draft");
+      // Written from the stored row, its orderBy kept.
+      if (curSubmitted) entry = _ioOnlyEntryFrom(cur, entry, "submitted");
+      else if (othersDraft) entry = _ioOnlyEntryFrom(cur, entry, "draft");
+      else entry = _withOrderBy(entry, editedBy);
+    } else {
+      entry = _withOrderBy(entry, editedBy);
     }
 
     // An edit keeps the row's own calendar date. `entry.ts` from the client
@@ -2968,7 +2989,6 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       // what her client sent: its figure columns and sticker figures stay the
       // doctor's, whatever a modified client puts beside an unchanged calcInput
       // (Vera on this change, 2026-11-07).
-      if (nurseIoOnly && curSubmitted) entry = _ioOnlyEntryFrom(cur, entry, "submitted");
       var newEntryId = Utilities.getUuid();
       var nextRevisionNumber = _numSafe(cur[35], 1) + 1;
       var revisionRow = _buildLogRow(sessionId, entry, originalSubmittedBy)

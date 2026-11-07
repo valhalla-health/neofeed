@@ -675,7 +675,7 @@ function Calculator({
   const [savedEntryId, setSavedEntryId] = useState(editEntry?.entryId || null);
   const [savedLastModified, setSavedLastModified] = useState(editEntry?.lastModified || null);
   const [savedStatus, setSavedStatus] = useState(editEntry ? D.isDraftEntry(editEntry) ? "draft" : "submitted" : null);
-  const saverOf = (e) => String(e?.lastModifiedBy || e?.submittedBy || "").trim().toLowerCase();
+  const saverOf = (e) => String(e?.calcInput?.orderBy || e?.lastModifiedBy || e?.submittedBy || "").trim().toLowerCase();
   const [savedSaver, setSavedSaver] = useState(() => saverOf(editEntry));
   const [savedHadTpn, setSavedHadTpn] = useState(() => !!editEntry && D.orderHadTpn(editEntry));
   const [savedReplacesTpn, setSavedReplacesTpn] = useState(() => editEntry?.calcInput?.replacesTpn === true);
@@ -2022,7 +2022,7 @@ function Calculator({
     }
     setSavedLastModified(res.lastModified);
     setSavedStatus(asDraft ? "draft" : "submitted");
-    setSavedSaver(draftOwner);
+    setSavedSaver((prev) => nurseIoOnly && prev && prev !== draftOwner ? prev : draftOwner);
     setSavedHadTpn(D.orderHadTpn(entry));
     setSavedReplacesTpn(replacesTpn);
     setSavedKey(keyAtSave);

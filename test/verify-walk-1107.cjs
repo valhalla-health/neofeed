@@ -211,6 +211,14 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   setField('Input', 110);
   await settle(draftBtn());
   eq('…one that changes only I/O saves, as a draft', [s.calls.length, s.calls[0]?.[3].status, s.calls[0]?.[3].ioInput], [1, 'draft', 110]);
+  toasts.length = 0;
+  setField('Amino acid', 2.5);
+  await settle(draftBtn());
+  eq('…and after it, in the same visit, a dose change is still refused (Vera\'s third review)', [s.calls.length, toasts.includes(NURSE_TEXT)], [1, true]);
+  s = rec(); mount({ ...NURSE, editEntry: { ...docDraft, lastModifiedBy: 'nurse@kcmh.test', calcInput: { ...docDraft.calcInput, orderBy: 'doc@kcmh.test' } }, ...s });
+  setField('Amino acid', 2.5);
+  await settle(draftBtn());
+  eq('…a draft a nurse last saved but a doctor ordered (orderBy) stays the doctor\'s', s.calls.length, 0);
   s = rec(); mount({ ...NURSE, editEntry: { ...docDraft, lastModifiedBy: 'nurse@kcmh.test', submittedBy: 'nurse@kcmh.test' }, ...s });
   setField('Amino acid', 2.5);
   await settle(draftBtn());
@@ -292,6 +300,11 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
     entry: { ...bag, status: 'draft', gir: 9.5, calcInput: { ...bag.calcInput, ioInput: 66 } } });
   const ioDraftRow = L()[L().length - 1];
   eq('…takes her I/O as a draft, with the doctor\'s figures', [!!(dIo.ok || dIo.entryId), ioDraftRow[14], ioDraftRow[28], ioDraftRow[5]], [true, 'draft', 66, curDraft[5]]);
+  // Vera's third review: her I/O save made her the row's last saver, and her next save could change any dose.
+  const dDose2 = as(nt, { action: 'updateDailyNutrition', sessionId: 'NF-900312', entryId: dIo.entryId || nDraft.entryId,
+    expectedLastModified: dIo.lastModified, entry: { ...bag, status: 'draft', calcInput: { ...bag.calcInput, aaPerKg: 3 } } });
+  eq('…and after her I/O save it is still the doctor\'s: a dose change is refused', dDose2.error, NURSE_TEXT);
+  eq('…the row still names the doctor as whose order it is', JSON.parse(L()[L().length - 1][24]).orderBy, 'doc@kcmh.test');
   as(dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: { ...PT, sessionId: 'NF-900313', initials: 'WM', currentBed: 'NICU 5', ga: 32.1,
     sex: 'boys', dob: '2026-11-01', twinSuffix: '', status: 'Active', lengths: [], hcs: [], bedHistory: [], statusDate: '', multiplesCount: 0 } });
   const own = as(nt, { action: 'logDailyNutrition', sessionId: 'NF-900313', entry: { ...bag, status: 'draft' } });

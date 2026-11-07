@@ -1139,9 +1139,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // "draft" | "submitted" | null (nothing saved yet). A draft cannot print or
   // copy until it is completed and Submitted (D.isDraftEntry — Praew, 2026-09-23).
   const [savedStatus, setSavedStatus] = useState(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
-  // The account that last saved the row (lower-case email), for N1's rule on
-  // someone else's draft. Set to this user's on every save from this form.
-  const saverOf = (e) => String(e?.lastModifiedBy || e?.submittedBy || "").trim().toLowerCase();
+  // Whose order the row is (lower-case email), for N1's rule on someone else's
+  // draft: calcInput.orderBy, which the server stamps on every save but a nurse's
+  // I/O-only one (gas-backend.gs _orderByOf), else the row's last saver.
+  const saverOf = (e) => String(e?.calcInput?.orderBy || e?.lastModifiedBy || e?.submittedBy || "").trim().toLowerCase();
   const [savedSaver, setSavedSaver] = useState(() => saverOf(editEntry));
   // The saved row's TPN, for a same-day TPN order cancelled by a No TPN revision
   // (D.orderCancelsTpn; Vera, fifth review; Pp, 2026-11-01): whether it had TPN,
@@ -2945,7 +2946,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     }
     setSavedLastModified(res.lastModified);
     setSavedStatus(asDraft ? "draft" : "submitted");
-    setSavedSaver(draftOwner);
+    // A nurse's save on another account's draft was I/O only: it stays theirs.
+    setSavedSaver(prev => nurseIoOnly && prev && prev !== draftOwner ? prev : draftOwner);
     setSavedHadTpn(D.orderHadTpn(entry));
     setSavedReplacesTpn(replacesTpn);
     // What was just saved is what may now be printed — the inputs as they

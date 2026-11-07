@@ -43,7 +43,11 @@ front) wait until after it.
    - **A doctor's draft, too** (Pp, 2026-11-07, after Vera asked: "ได้แค่ I/O เหมือนกัน"): on a draft another account
      saved, unless the Staff tab lists that account as a nurse, a nurse's Save draft may change only I/O, on the same
      calculation and dosing weight, and the backend writes it from the stored row. Her own draft she may change freely.
-     The calculator holds the same rule by the row's saver email (`savedSaver`).
+     Whose draft it is reads `calcInput.orderBy`, which the server stamps on every save except a nurse's I/O-only
+     one, so her I/O save never makes a doctor's draft hers (Vera's third review: it read the row's last saver, and
+     her second save could change any dose). A row from before falls back to its last saver. The calculator reads
+     the same `orderBy` but does not know roles, so it is stricter than the backend in one case: it also holds a
+     colleague nurse's draft to I/O only.
    - TPN room: `pharmacyOrders` names who submitted. A nurse's I/O-only revision names the account and the Submit time
      of the row before it (walking `revisionOf`, at most 50 rows); a revision a nurse saved with anything else changed
      (possible before this backend) still names the nurse. The room page reads "Submit โดย" for a submitted order and
