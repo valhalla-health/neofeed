@@ -237,6 +237,47 @@ function heldFigureChanges(entry, x) {
   }
   return { basis: "stored", changes };
 }
+const STORED_ORDER_FIELDS = [
+  "dol",
+  "weight",
+  "fluid",
+  "gir",
+  "pro",
+  "kcal",
+  "na",
+  "k",
+  "ca",
+  "p",
+  "enVolPerKg",
+  "route",
+  "suppMTV",
+  "suppVitD_IU",
+  "suppCa_mg",
+  "suppCaType",
+  "suppPO4_mmol",
+  "suppPO4Type",
+  "suppFe_mg",
+  "suppFeType"
+];
+function storedOrderWithIo(saved, e) {
+  const out = { ts: e.ts, status: e.status, ioInput: e.ioInput, ioOutput: e.ioOutput, drainContent: e.drainContent };
+  for (const k of STORED_ORDER_FIELDS) out[k] = saved?.[k] !== void 0 ? saved[k] : e[k];
+  const ci = e.calcInput || {};
+  out.calcInput = {
+    ...saved?.calcInput || {},
+    ioInput: ci.ioInput,
+    ioOutput: ci.ioOutput,
+    drainContent: ci.drainContent,
+    savedAt: ci.savedAt,
+    orderBy: ci.orderBy,
+    orderRev: ci.orderRev,
+    orderAt: ci.orderAt
+  };
+  out.constantsVersion = saved?.calcInput?.constantsVersion || saved?.constantsVersion || "";
+  out.appVersion = saved?.appVersion || "";
+  out.printJson = null;
+  return out;
+}
 const heldChangeLine = (c) => `${c.label} ${c.from} → ${c.to}${c.unit ? " " + c.unit : ""}`;
 const DRAFT_MAX_AGE_MS = 72 * 60 * 60 * 1e3;
 const draftStorageKey = (sessionId, dateStr) => `neofeed_draft_${sessionId}_${dateStr}`;
@@ -246,7 +287,7 @@ function draftOwnerOf(userEmail, userLabel) {
   return email.toLowerCase();
 }
 function savedByOf(entry) {
-  const email = String(entry?.lastModifiedBy || entry?.submittedBy || "").trim();
+  const email = String(entry?.calcInput?.orderBy || entry?.lastModifiedBy || entry?.submittedBy || "").trim();
   const label = String(entry?.calcInput?.savedByLabel || "").trim();
   return label && email && draftOwnerOf("", label) === email.toLowerCase() ? label : email;
 }
@@ -829,8 +870,8 @@ function Calculator({
     setCritOverride(editEntry?.calcInput?.critOverride || null);
     setSavedMeta(editEntry ? {
       by: savedByOf(editEntry),
-      at: editEntry.lastModified || "",
-      revision: editEntry.revisionNumber || 1
+      at: editEntry.calcInput?.orderAt || editEntry.lastModified || "",
+      revision: Number(editEntry.calcInput?.orderRev) || editEntry.revisionNumber || 1
     } : null);
     setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
     setSavedCalcVersion(editEntry ? savedCalcVersionOf(editEntry) : null);
@@ -1665,8 +1706,9 @@ function Calculator({
   const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}` : noTpnUnticked ? `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 แล้วบันทึก${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagCannotBeMade ? `${bagCannotBeMadeText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}` : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}` : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
   const nurseIoOnly = nurseAccount && !ordersReadOnly && !scratch && !centerPoint;
-  const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted" || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || figuresMissing);
-  const nurseDraftRefused = nurseIoOnly && !!savedEntryId && savedStatus === "draft" && !!savedSaver && savedSaver !== draftOwner && (savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey || calcMoved || dosingWeightChanged);
+  const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted" || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
+  const nurseHeldOrder = nurseIoOnly && savedStatus === "submitted" && !!savedEntryId && (calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || figuresMissing);
+  const nurseDraftRefused = nurseIoOnly && !!savedEntryId && savedStatus === "draft" && !!savedSaver && savedSaver !== draftOwner && (savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
   const printedFigureInput = {
     calc,
     wtKg,
@@ -1846,6 +1888,7 @@ function Calculator({
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map((a) => a.title), at: (/* @__PURE__ */ new Date()).toISOString() };
     }
     const keyAtSave = formKey;
+    const ioOnlyOnOthers = nurseIoOnly && !!savedEntryId && !!savedSaver && savedSaver !== draftOwner;
     const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;
     if (centerPoint) {
@@ -1980,6 +2023,10 @@ function Calculator({
         // later release that moves one can say which (heldFigureChanges). Not an
         // input either.
         printedFigures: printedFiguresOf(printedFigureInput),
+        // Whose order this stays, on a nurse's I/O-only save: the server writes the
+        // stored values whatever is sent; these keep the ward's copy right until the
+        // next sync. Not inputs.
+        ...ioOnlyOnOthers ? { orderBy: savedSaver, orderRev: savedMeta?.revision || 1, orderAt: savedMeta?.at || "" } : {},
         ...figures ? { printJsonV: figures.v } : {},
         // replacesTpn: this row replaces a submitted order of its day that had
         // TPN (replacesTpn above). Not an input — normalizeCalcInput ignores it.
@@ -2005,8 +2052,9 @@ function Calculator({
       // midnight is still filed under the day it was written for (UP-C11).
       ts: editEntry ? editEntry.ts : logDate || newOrderDate
     };
+    const sent = ioOnlyOnOthers && editEntry ? storedOrderWithIo(editEntry, entry) : entry;
     setSaving(true);
-    const res = savedEntryId ? await onUpdate(savedEntryId, savedLastModified, entry) : await onLog(entry);
+    const res = savedEntryId ? await onUpdate(savedEntryId, savedLastModified, sent) : await onLog(sent);
     setSaving(false);
     if (res.conflict) {
       if (dirty) writeDraft(currentInputs());
@@ -2027,11 +2075,13 @@ function Calculator({
     setSavedReplacesTpn(replacesTpn);
     setSavedKey(keyAtSave);
     setSavedOrderKey(orderKeyAtSave);
-    setCritOverride(override);
-    setSavedDosingWt({ g: dosingWtAtSave, exact: true });
-    setSavedCalcVersion(D.CONSTANTS_VERSION);
-    setSavedFiguresV(figures ? figures.v : null);
-    setSavedMeta({
+    if (!ioOnlyOnOthers) {
+      setCritOverride(override);
+      setSavedDosingWt({ g: dosingWtAtSave, exact: true });
+      setSavedCalcVersion(D.CONSTANTS_VERSION);
+      setSavedFiguresV(figures ? figures.v : null);
+    }
+    if (!ioOnlyOnOthers) setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || (/* @__PURE__ */ new Date()).toISOString(),
       revision: res.revisionNumber || savedMeta?.revision || 1
@@ -2980,12 +3030,12 @@ function Calculator({
     /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14 }),
     " ",
     saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"
-  ), figuresMissing && !scratch && !ordersReadOnly && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), nurseSubmitRefused && /* @__PURE__ */ React.createElement("div", { className: "nurse-doctor-submits", role: "note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, NURSE_SUBMIT_TEXT), revisingForRoom && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "revise-phone-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย"), !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement(
+  ), figuresMissing && !scratch && !ordersReadOnly && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), (nurseSubmitRefused || nurseHeldOrder) && /* @__PURE__ */ React.createElement("div", { className: "nurse-doctor-submits", role: "note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, NURSE_SUBMIT_TEXT), revisingForRoom && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "revise-phone-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย"), !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn primary",
       style: { width: "100%" },
-      disabled: saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && orderSettled && !figuresMissing || nurseIoOnly && !dirty && orderSettled,
+      disabled: saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && orderSettled && !figuresMissing || nurseIoOnly && !dirty,
       onClick: () => handleSave(false)
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, color: "#fff" }),

@@ -146,11 +146,17 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
 
   section('§1 N1 · on a doctor\'s order a nurse saves I/O only; any other Submit goes back to a doctor');
   // The walk's case: the calculation moved since the doctor's Submit, the nurse typed nothing.
-  let s = rec(); mount({ ...NURSE, editEntry: row(oldVersion(bag)), ...s });
+  const byDoc = (e, over) => row(e, { lastModifiedBy: 'doc@kcmh.test', submittedBy: 'doc@kcmh.test', ...over });
+  let s = rec(); mount({ ...NURSE, editEntry: byDoc(oldVersion(bag)), ...s });
   eq('a held order opened by a nurse says a doctor must check and Submit it', nurseNote().includes(NURSE_TEXT), true);
+  eq('…and with nothing typed her Submit is off', submitBtn()?.disabled, true);
+  // Pp, 2026-11-07: "IO ... ไม่เกี่ยวกับใบสั่ง TPN" — the workflow check found a held order took no I/O at all.
+  setField('Urine output', 22);
   await settle(submitBtn());
-  eq('…the nurse\'s Submit saves nothing', s.calls.length, 0);
-  eq('…and the toast gives the same words', toasts.includes(NURSE_TEXT), true);
+  eq('…her I/O on it saves', [s.calls.length, s.calls[0]?.[3].ioOutput], [1, 22]);
+  eq('…sending the order as stored, on its own constants (the server writes the stored row)',
+    [s.calls[0]?.[3].constantsVersion, s.calls[0]?.[3].calcInput.constantsVersion, s.calls[0]?.[3].gir], [OLD_VERSION, OLD_VERSION, bag.gir]);
+  eq('…and the order is still held for a doctor after it', /ปรับการคำนวณ/.test(container.querySelector('.print-blocked')?.textContent || ''), true);
   // Seen on dev local: the doctor's own lines ("กด Submit อีกครั้ง", "โทรแจ้งห้อง TPN") stacked under hers.
   eq('…with none of the doctor\'s Submit-again or phone-the-room lines under it',
     [!!container.querySelector('.revise-phone-note'), !!container.querySelector('.sticker-figures-missing')], [false, false]);
@@ -176,15 +182,18 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   await settle(submitBtn());
   eq('…and Submit saves nothing', s.calls.length, 0);
 
-  s = rec(); mount({ ...NURSE, editEntry: row({ ...bag, calcInput: { ...bag.calcInput, tpnWtG: 1500 } }), ...s });
+  s = rec(); mount({ ...NURSE, editEntry: byDoc({ ...bag, calcInput: { ...bag.calcInput, tpnWtG: 1500 } }), ...s });
+  eq('the dosing weight moved since the Submit: the line says a doctor must Submit', nurseNote().includes(NURSE_TEXT), true);
+  setField('Input', 70);
   await settle(submitBtn());
-  eq('the dosing weight moved since the Submit: a nurse\'s Submit saves nothing', [s.calls.length, nurseNote().includes(NURSE_TEXT)], [0, true]);
+  eq('…her I/O saves, with the dosing weight as stored', [s.calls.length, s.calls[0]?.[3].calcInput.tpnWtG], [1, 1500]);
 
-  s = rec(); mount({ ...NURSE, editEntry: row(unconfirmed), ...s });
+  s = rec(); mount({ ...NURSE, editEntry: byDoc(unconfirmed), ...s });
+  setField('Input', 70);
   asked = 0;
   await settle(submitBtn());
   eq('a critical value nobody confirmed: a nurse is never asked for the reason', asked, 0);
-  eq('…and nothing is saved', s.calls.length, 0);
+  eq('…her I/O saves, and no confirmation is added', [s.calls.length, s.calls[0]?.[3].calcInput.critOverride], [1, undefined]);
 
   s = rec(); mount({ ...NURSE, editEntry: row(confirmed), ...s });
   setField('Input', 90);
@@ -232,6 +241,20 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   await settle(submitBtn());
   eq('…and the doctor\'s Submit of the held order saves, as before', [s.calls.length, s.calls[0]?.[0]], [1, 'update']);
 
+  // Workflow check, 2026-11-07: after a nurse's I/O revisions the sheet read "Revision · ฉบับที่ 3" and the Save card
+  // named the nurse. The order's own save (calcInput.orderBy, orderRev, orderAt) is what they show.
+  const ioRev = row({ ...bag, calcInput: { ...bag.calcInput, orderBy: 'doc@kcmh.test', orderRev: 1, orderAt: TODAY + 'T02:00:00.000Z' } },
+    { revisionNumber: 3, lastModifiedBy: 'nurse@kcmh.test', submittedBy: 'doc@kcmh.test' });
+  mount({ ...DOCTOR, editEntry: ioRev, ...rec() });
+  eq('the sheet of an order a nurse added I/O to twice: no "Revision" box', [!!container.querySelector('#print-form'), !!container.querySelector('.print-revision')], [true, false]);
+  eq('…and the order names the doctor, not the nurse', /doc@kcmh\.test|Dr Test/.test(container.querySelector('.print-saved-by')?.textContent || '')
+    && !/nurse@/.test(container.querySelector('.print-saved-by')?.textContent || ''), true);
+  mount({ ...DOCTOR, editEntry: row(bag, { revisionNumber: 3 }), ...rec() });
+  eq('a doctor\'s third revision still prints its box', container.querySelector('.print-revision')?.textContent.includes('3'), true);
+  s = rec(); mount({ ...NURSE, editEntry: ioRev, ...s });
+  setField('Input', 95);
+  await settle(submitBtn());
+  eq('a nurse\'s I/O save sends whose order it stays, for the ward\'s copy', [s.calls[0]?.[3].calcInput.orderBy, s.calls[0]?.[3].calcInput.orderRev], ['doc@kcmh.test', 1]);
   eq('app.jsx hands the Calculator the nurse role', /nurseAccount=\{role === "nurse"\}/.test(R('app.jsx')), true);
   s = rec(); mount({ ...NURSE, ordersReadOnly: true, editEntry: row(bag), ...s });
   eq('the nursing switch on (read-only orders): no Submit and no refusal line', [!!submitBtn(), nurseNote()], [false, '']);
@@ -263,6 +286,9 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   const room = as(rt, { action: 'pharmacyOrders', date: TODAY });
   const ord = (room.orders || []).find(o => o.sessionId === PT.sessionId);
   eq('the TPN room names the doctor who submitted, not the nurse who added I/O (P1)', ord?.prescriber, 'Dr Test');
+  // Workflow check, 2026-11-07: a nurse's I/O revision printed "Revision · ฉบับที่ 2" and the room read "ฉบับ 2".
+  eq('…and keeps the revision pharmacy has (ฉบับ 1), not the nurse\'s I/O row\'s', ord?.revision, 1);
+  eq('…the stored row keeps whose order it is, and its revision', (() => { const ci = JSON.parse(L()[L().length - 1][24]); return [ci.orderBy, ci.orderRev]; })(), ['doc@kcmh.test', 1]);
   const nLock = as(nt, { action: 'publishLog', sessionId: PT.sessionId, entryId: io.entryId, expectedLastModified: io.lastModified });
   eq('a nurse cannot lock a submitted order either (pen test)', [nLock.error, L()[L().length - 1][33]], [NURSE_TEXT, '']);
 
@@ -310,6 +336,8 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
     expectedLastModified: dIo.lastModified, entry: { ...bag, status: 'draft', calcInput: { ...bag.calcInput, aaPerKg: 3 } } });
   eq('…and after her I/O save it is still the doctor\'s: a dose change is refused', dDose2.error, NURSE_TEXT);
   eq('…the row still names the doctor as whose order it is', JSON.parse(L()[L().length - 1][24]).orderBy, 'doc@kcmh.test');
+  const roomD2 = as(rt, { action: 'pharmacyOrders', date: TODAY });
+  eq('…and the room names the doctor on that draft, not the nurse who added I/O', (roomD2.orders || []).find(o => o.sessionId === 'NF-900312')?.prescriber, 'Dr Test');
   as(dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: { ...PT, sessionId: 'NF-900313', initials: 'WM', currentBed: 'NICU 5', ga: 32.1,
     sex: 'boys', dob: '2026-11-01', twinSuffix: '', status: 'Active', lengths: [], hcs: [], bedHistory: [], statusDate: '', multiplesCount: 0 } });
   const own = as(nt, { action: 'logDailyNutrition', sessionId: 'NF-900313', entry: { ...bag, status: 'draft' } });

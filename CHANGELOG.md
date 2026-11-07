@@ -9,10 +9,10 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ## Session 2026-11-07 (2) — Stakeholder walk: only a doctor submits a doctor's order; a held order lists what changed; Quick calc opens with no route
 
-`calculator.jsx`, `app.jsx`, `gas-backend.gs`, `tpn-room.jsx`, `tpn-room-core.js`, `compiled/`, both shells' `?v=`
-tokens and `tpn-room.html`; `test/verify-walk-1107.cjs` (new), and four harnesses that pinned the old behaviour:
+`calculator.jsx`, `app.jsx`, `log.jsx`, `gas-backend.gs`, `tpn-room.jsx`, `tpn-room-core.js`, `compiled/`, both shells' `?v=`
+tokens and `tpn-room.html`; `test/verify-walk-1107.cjs` (new), and five harnesses that pinned the old behaviour:
 `verify-pharmacy-backend-1030.cjs` (§9's nurse save is a draft; the order's field list), `verify-nursing-backend.cjs`
-(a nurse's order with the switch off is a draft), `verify-incident-gaps-1021.cjs` §6 (the quick calc started on
+(a nurse's order with the switch off is a draft), `verify-hardening-1102.cjs` §5 and §8 (the server stamp), `verify-incident-gaps-1021.cjs` §6 (the quick calc started on
 Central) and `verify-tpn-room-page-1105.cjs` ("Submit โดย"). The clinical-rules skill's line numbers moved
 (`--fix-lines`); no rule changed.
 
@@ -50,6 +50,18 @@ front) wait until after it.
      her second save could change any dose). A row from before falls back to its last saver. The calculator reads
      the same `orderBy` but does not know roles, so it is stricter than the backend in one case: it also holds a
      colleague nurse's draft to I/O only.
+   - **An I/O save is not a new ฉบับ** (a workflow check on dev local, then Pp: "IO ... ไม่เกี่ยวกับใบสั่ง TPN ... ไม่น่าจะ
+     ต้องไปเรคคอร์ดว่าเป็นฉบับที่เท่าไหร่"). Each nurse I/O save still adds a history row to Daily_Log, but the server
+     stamps with `orderBy` the revision and time of the save that changed the order (`orderRev`, `orderAt`), and a
+     nurse's I/O save keeps them. The front sheet's "Revision · ฉบับที่", the Save card's "บันทึกโดย", the ward list's
+     "ฉบับแก้ไข" and the TPN room's "ฉบับ" read them, so twice-daily I/O no longer prints "Revision · ฉบับที่ 3" or
+     names the nurse. The room names whose order a draft is the same way. The stamp is left out of the
+     10,000-character `calcInput` cap, and only an object `calcInput` takes it (`verify-hardening-1102.cjs` measures
+     what the client sent).
+   - **I/O on a held order** (same check and Pp's words): a nurse could record no I/O on an order NeoFeed held for a
+     doctor, which on release day is every order submitted before it. Now she can. The calculator sends the order as
+     stored with her I/O (`storedOrderWithIo`), the server writes the stored row, and the order stays held, with the
+     line saying a doctor must check and Submit it.
    - TPN room: `pharmacyOrders` names who submitted. A nurse's I/O-only revision names the account and the Submit time
      of the row before it (walking `revisionOf`, at most 50 rows); a revision a nurse saved with anything else changed
      (possible before this backend) still names the nurse. The room page reads "Submit โดย" for a submitted order and
