@@ -638,8 +638,10 @@ async function realCalculator() {
       g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P(patient.sessionId) });
       const r = g.as(g.dt, { action: 'logDailyNutrition', sessionId: patient.sessionId, entry });
       // Whole, plus the server's own stamp of whose order it is (orderBy, orderRev, orderAt; 2026-11-07 N1).
+      // The calculator sends its own guess of orderRev for the ward's copy; the server's stamp is what is stored.
       const { orderBy, orderRev, orderAt, ...stored } = JSON.parse(g.rows('Daily_Log')[0][24]);
-      T.ok('…the real backend takes it whole', !!r.entryId && JSON.stringify(stored) === JSON.stringify(entry.calcInput)
+      const { orderBy: _b, orderRev: _r, orderAt: _a, ...sent } = entry.calcInput;
+      T.ok('…the real backend takes it whole', !!r.entryId && JSON.stringify(stored) === JSON.stringify(sent)
         && orderBy === 'doc@kcmh.test' && orderRev === 1 && !!orderAt, r);
     });
   });
