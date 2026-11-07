@@ -395,8 +395,9 @@ T.section('§9 pharmacyOrders · prescriber and bed come from the server, not fr
   g.log('NF-100002', today, ED(today, {}, { savedByLabel: 'SENTINEL-LABEL <img src=x onerror=alert(1)>' }));
   const bedRow = g.log('NF-100006', today, ED(today));
   const ns = g.as(g.nt, { action: 'logDailyNutrition', sessionId: 'NF-100007',
-    entry: ED(today, { ts: today }, { savedByLabel: 'Dr Test (doc@kcmh.test)' }) });
-  T.ok('a nurse save lands while the nursing switch is off', !!ns.entryId, ns);
+    entry: ED(today, { ts: today, status: 'draft' }, { savedByLabel: 'Dr Test (doc@kcmh.test)' }) });
+  // A draft: since 2026-11-07 a nurse's new order is never submitted (N1, verify-walk-1107.cjs).
+  T.ok('a nurse draft lands while the nursing switch is off', !!ns.entryId, ns);
   g.as(d2, { action: 'logDailyNutrition', sessionId: 'NF-100008', entry: ED(today, { ts: today }) });
   // A revision by a second doctor: P (submittedBy) keeps the first saver, AB names the second.
   const r1 = g.log('NF-100009', today, ED(today));
@@ -411,7 +412,7 @@ T.section('§9 pharmacyOrders · prescriber and bed come from the server, not fr
   const of = (sid) => res.orders.find(o => o.sessionId === sid);
   T.eq('the saver\'s Staff name, not the label the client sent',
     [of('NF-100001').prescriber, of('NF-100002').prescriber], ['Dr Test', 'Dr Test']);
-  T.eq('a nurse\'s save names the nurse', of('NF-100007').prescriber, 'Nurse Test');
+  T.eq('a nurse\'s draft names the nurse', of('NF-100007').prescriber, 'Nurse Test');
   T.eq('a Staff name that is an email gives a blank prescriber', of('NF-100008').prescriber, '');
   T.eq('a revision names who saved it (AB), not who saved the first version (P)', of('NF-100009').prescriber, 'Dr Three');
   T.eq('the saver\'s email matches the Staff tab whatever its case', of('NF-100006').prescriber, 'Dr Test');

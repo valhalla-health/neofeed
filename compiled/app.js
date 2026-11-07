@@ -1869,6 +1869,7 @@ function CalculatorView({
       onSaved: () => goTo("log"),
       nursing,
       ordersReadOnly,
+      nurseAccount: role === "nurse",
       onDelete: role === "admin" ? (entry) => handleDeleteEntry(entry).then((res) => {
         if (res.ok) goTo("log");
         return res;

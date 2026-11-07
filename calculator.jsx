@@ -234,6 +234,103 @@ function diffOrderInputs(prev, cur) {
   return out;
 }
 
+// N1 (stakeholder walk, 2026-11-07; Pp: "บันทึกได้แค่ I/O"): while the nursing
+// log is off, a nurse account records Intake/Output through the order itself, so
+// on a doctor's order it may save those three boxes and nothing else. Any other
+// Submit, or a re-save of an order the app holds, goes back to a doctor. The
+// backend refuses the same writes in the same words (gas-backend.gs
+// NURSE_SUBMIT_REFUSAL), so the two must stay identical.
+const NURSE_SUBMIT_TEXT = "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O";
+// The fingerprint of an order without its Intake/Output: equal before and after
+// a nurse's save, or the nurse changed more than I/O.
+const orderKeyWithoutIo = (inputs) => calcInputKey({ ...inputs, ioInput: 0, ioOutput: 0, drainContent: 0 });
+
+// Top insight 3 (stakeholder walk, 2026-11-07): an order held because NeoFeed's
+// calculation or the dosing weight moved since it was saved lists each figure
+// that changed, old against new, before anyone saves it again (Pp: "เก็บทุกตัว
+// จากนี้ไป"). Every save keeps these figures, as printed (the same decimals as
+// the front sheet, as strings), in calcInput.printedFigures; the held order
+// compares them with the figures it would print now. A key added here later is
+// skipped for rows saved before it. Not an input: normalizeCalcInput ignores it.
+const PRINTED_FIGURES = [
+  ["wtKg", "Weight for calculation", "kg", 2, (x) => x.wtKg],
+  ["deliveredMl", "TPN delivered", "mL/day", 1, (x) => x.totalTPN_mL],
+  ["preparedMl", "TPN prepared", "mL/day", 1, (x) => x.calc.preparedVol],
+  ["dexG", "Dextrose in bag", "g", 1, (x) => x.calc.dexG_bag],
+  ["dexGkg", "Dextrose", "g/kg/d", 2, (x) => x.calc.dexGPerKg],
+  ["d50wMl", "D50W", "mL", 1, (x) => x.calc.d50wVol],
+  ["aaMl", "Amino acid", "mL", 1, (x) => x.calc.solVol?.aa],
+  ["lipidMl", "20% SMOF", "mL", 1, (x) => x.calc.solVol?.lipidSMOF],
+  ["vitalipidMl", "Vitalipid N infant", "mL", 1, (x) => x.calc.vitalipidVol],
+  ["lipidBagMl", "Lipid syringe total", "mL", 1, (x) => x.calc.lipidBagVol],
+  ["lipidRate", "Lipid pump rate", "mL/hr", 1, (x) => x.lipidPump?.rate],
+  ["lipidHours", "Lipid infusion", "h", 1, (x) => x.lipidPump?.hours],
+  ["lipidGkgh", "Lipid", "g/kg/h", 2, (x) => x.lipidPerKg > 0 ? window.NEOFEED_DATA.lipidGkghAt(x.lipidPerKg, x.calc.lipidBagVol, x.lipidDripHours || 24) : 0],
+  ["naClMeq", "20% NaCl", "mEq", 1, (x) => x.naCl * (x.calc.factor || 0)],
+  ["naClMl", "20% NaCl", "mL", 1, (x) => x.calc.solVol?.naCl],
+  ["naAcetMeq", "Na acetate", "mEq", 1, (x) => x.naAcet * (x.calc.factor || 0)],
+  ["naAcetMl", "Na acetate", "mL", 1, (x) => x.calc.solVol?.naAcet],
+  ["glycophosMl", "Glycophos", "mL", 1, (x) => x.calc.solVol?.glycophos],
+  ["naKg", "Na", "mEq/kg/d", 2, (x) => x.calc.naKg],
+  ["k2hpo4Meq", "K₂HPO₄", "mEq", 1, (x) => x.k2hpo4 * (x.calc.factor || 0)],
+  ["k2hpo4Ml", "K₂HPO₄", "mL", 1, (x) => x.calc.solVol?.k2hpo4],
+  ["kClMeq", "KCl", "mEq", 1, (x) => x.kCl * (x.calc.factor || 0)],
+  ["kClMl", "KCl", "mL", 1, (x) => x.calc.solVol?.kCl],
+  ["mgMg", "MgSO₄", "mg", 1, (x) => x.mgPerKg * window.NEOFEED_DATA.MG_MG_PER_MEQ * (x.calc.factor || 0)],
+  ["mgMl", "MgSO₄ 10%", "mL", 1, (x) => x.calc.solVol?.mg],
+  ["caMg", "Ca gluconate", "mg", 0, (x) => x.caPerKg * (x.calc.factor || 0)],
+  ["caMl", "10% Ca gluconate", "mL", 1, (x) => x.calc.solVol?.ca],
+  ["soluvitMl", "Soluvit N", "mL/day", 1, (x) => x.inclSoluvit ? x.calc.soluvitVol : 0],
+  ["peditraceMl", "Peditrace", "mL/day", 1, (x) => x.inclPeditrace ? x.calc.peditrace_vol : 0],
+  ["znMg", "ZnSO₄", "mg Zn", 2, (x) => x.znPerKg > 0 ? x.calc.znSO4_bag_mg : 0],
+  ["heparinMl", "Heparin", "mL", 1, (x) => x.calc.solVol?.heparin],
+  ["factor", "Factor", "", 3, (x) => x.calc.factor],
+  ["gir", "GIR", "mg/kg/min", 1, (x) => x.calc.gir],
+  ["protein", "Protein", "g/kg/d", 2, (x) => x.calc.proteinKg],
+  ["kcal", "Energy", "kcal/kg/d", 0, (x) => x.calc.kcalKg],
+  ["osm", "Osmolarity", "mOsm/L", 0, (x) => x.calc.osm],
+  ["kBag", "K⁺ in bag", "mEq/L", 0, (x) => x.calc.kMeqPerL],
+];
+// A figure as the sheet prints it: "—" when there is none (PrintOrderForm's f).
+const printedFigureText = (v, d) => (isFinite(v) && v > 0) ? window.NEOFEED_DATA.displayNum(v, d) : "—";
+function printedFiguresOf(x) {
+  const out = {};
+  for (const [key, , , d, get] of PRINTED_FIGURES) out[key] = printedFigureText(get(x), d);
+  return out;
+}
+// The Daily_Log columns every row has carried, for an order saved before
+// printedFigures existed: the only old figures there are to compare.
+const STORED_FIGURES = [
+  ["fluid", "Fluid", "mL/kg/d", 1, (c) => c.totalFluidPerKg],
+  ["gir", "GIR", "mg/kg/min", 1, (c) => c.gir],
+  ["pro", "Protein", "g/kg/d", 2, (c) => c.proteinKg],
+  ["kcal", "Energy", "kcal/kg/d", 0, (c) => c.kcalKg],
+  ["na", "Na", "mEq/kg/d", 2, (c) => c.naTotalDelivered],
+  ["k", "K", "mEq/kg/d", 2, (c) => c.kTotalDelivered],
+  ["ca", "Ca", "mg/kg/d", 0, (c) => c.caKg],
+  ["p", "P", "mg/kg/d", 0, (c) => c.pKg],
+  ["enVolPerKg", "EN", "mL/kg/d", 1, (c) => c.enVolPerKg],
+];
+// → { basis: "printed" | "stored", changes: [{ label, from, to, unit }] }
+function heldFigureChanges(entry, x) {
+  const saved = entry?.calcInput?.printedFigures;
+  const changes = [];
+  if (saved && typeof saved === "object") {
+    const now = printedFiguresOf(x);
+    for (const [key, label, unit] of PRINTED_FIGURES) {
+      if (typeof saved[key] !== "string" || saved[key] === now[key]) continue;
+      changes.push({ label, from: saved[key], to: now[key], unit });
+    }
+    return { basis: "printed", changes };
+  }
+  for (const [key, label, unit, d, get] of STORED_FIGURES) {
+    const from = printedFigureText(Number(entry?.[key]), d), to = printedFigureText(get(x.calc), d);
+    if (from !== to) changes.push({ label, from, to, unit });
+  }
+  return { basis: "stored", changes };
+}
+const heldChangeLine = (c) => `${c.label} ${c.from} → ${c.to}${c.unit ? " " + c.unit : ""}`;
+
 // Unsaved work survives a forced logout (session expiry mid-save) — 2026-09-11
 // review, F3. Keyed per patient AND per order date, so it can never be offered
 // on a different day's order. Cleared on a successful save and on deliberate
@@ -672,7 +769,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d", mlPerK
 // that mode still saves, just somewhere else.
 function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onOrderDate, onDelete, centerPoint, scratch,
   autoPrint = null, requestPrint = null,
-  nursing = [], ordersReadOnly = false }) {
+  nursing = [], ordersReadOnly = false, nurseAccount = false }) {
   // ── The date this order is FOR (review 2026-09-17, UP-C11) ────────────────
   // A new, non-back-dated order used to read "today" on every render, so a
   // form left open across midnight silently became the next day's order: its
@@ -1064,6 +1161,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // entry printed under that entry's id without ever being saved
   // (2026-09-11 review, F2).
   const [savedKey, setSavedKey] = useState(null);
+  // The same, without Intake/Output (orderKeyWithoutIo): what a nurse may not change (N1).
+  const [savedOrderKey, setSavedOrderKey] = useState(null);
   // Fingerprint right after prefill, with an untouched ioInput blanked — so
   // the auto-tracking Input figure never counts as the user having typed.
   const [prefillKey, setPrefillKey] = useState(null);
@@ -1242,8 +1341,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // read or written. It opens as an empty order carrying only the ward's
     // usual dead space, so the first number typed is the weight it exists for.
     if (scratch) {
-      applyCalcInput({ deadVol_mL: D.defaultDeadVolFor(null) }, 0, false, 0);
-      setSavedKey(null);
+      // No route, as on an infant's first order (D13, stakeholder walk 2026-11-07):
+      // a source with no route key reads as the old default, Central.
+      applyCalcInput({ deadVol_mL: D.defaultDeadVolFor(null), route: null }, 0, false, 0);
+      setSavedKey(null); setSavedOrderKey(null);
       setPrefilledFrom(null);
       setDraftOffer(null);
       return;
@@ -1314,11 +1415,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       const saved = withEntryIO(editEntry);
       const src = { ...saved, route: bagRouteFrom(saved) };
       const n = applyCalcInput(src, editEntry.weight, true, fluidMidpoint(src.curWtG ?? src.wtG ?? editEntry.weight));
-      setSavedKey(calcInputKey(n));
+      setSavedKey(calcInputKey(n)); setSavedOrderKey(orderKeyWithoutIo(n));
       setPrefilledFrom(null);
       return;
     }
-    setSavedKey(null);
+    setSavedKey(null); setSavedOrderKey(null);
 
     // Intake / Output is measured bedside for ONE day. A new order borrows
     // yesterday's plan, never yesterday's urine output or drain: carried over,
@@ -2454,6 +2555,28 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
 
+  // N1: a nurse account saves Intake/Output on a doctor's submitted order, and
+  // nothing else (NURSE_SUBMIT_TEXT). Its Submit is refused on a new order or a
+  // draft, when anything but I/O changed, and on an order the app holds for a
+  // doctor (the calculation or dosing weight moved, a critical value not
+  // confirmed, no sticker figures yet). Not with the nursing log on, where a
+  // nurse has no Submit at all (ordersReadOnly).
+  const nurseIoOnly = nurseAccount && !ordersReadOnly && !scratch && !centerPoint;
+  const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted"
+    || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey
+    || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || figuresMissing);
+  // Top insight 3: what changed on an order held for a new save because the
+  // calculation or the dosing weight moved (heldFigureChanges). Only the row as
+  // it was opened can be held this way: a save in this visit stamps both anew.
+  // The figures as the front sheet prints them, from the same values it reads.
+  const printedFigureInput = { calc, wtKg, totalTPN_mL, lipidPerKg, lipidDripHours,
+    lipidPump: D.pumpRate(calc.lipidBagVol, lipidDripHours || 24),
+    naCl, naAcet, kCl, k2hpo4, mgPerKg, caPerKg, znPerKg, inclSoluvit, inclPeditrace };
+  const heldChanges = (calcMoved || dosingWeightChanged) && !pendingSave && editEntry
+    ? heldFigureChanges(editEntry, printedFigureInput) : null;
+  // What NeoFeed changed since the row's version (D.constantsChangesSince).
+  const heldVersionNotes = calcMoved && !pendingSave ? D.constantsChangesSince(savedCalcVersion) : [];
+
   // ── Print handler — opens all steps, prints, then restores ─────
   React.useEffect(() => {
     const ALL = new Set([1, 2, 3, 4, 5, 6]);
@@ -2503,7 +2626,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // reason as it stands when the request goes, the same text the toast shows.
   const autoPrintDone = React.useRef(null);
   const printBlockRef = React.useRef("");
-  printBlockRef.current = printBlockToast;
+  printBlockRef.current = printBlockToast && heldChanges && heldChanges.changes.length > 0
+    ? `${printBlockToast} (${heldChanges.changes.map(heldChangeLine).join(" · ")})`
+    : printBlockToast;
   React.useEffect(() => {
     if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
     const go = () => { autoPrintDone.current = autoPrint; requestPrint(printBlockRef.current); };
@@ -2534,6 +2659,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // …and nor does a nurse's form once the backend refuses a nurse's order
     // write (D5): no Save button is rendered either — this is the belt.
     if (ordersReadOnly) return;
+    // N1: a nurse's Submit goes back to a doctor unless only I/O changed
+    // (nurseSubmitRefused), before any prompt can ask her for a reason.
+    if (!asDraft && nurseSubmitRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
     // An order submitted before the lock existed and reopened unchanged is only
     // locked: a revision of identical numbers would tell pharmacy nothing.
@@ -2649,8 +2777,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A critical value can still be ordered — the attending may have a
     // reason — but never silently: the reason is required, saved with the
     // order (calcInput.critOverride) and printed on the pharmacy form.
-    const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
-    let override = null;
+    // A nurse never answers the critical-value prompt: her I/O save keeps the
+    // doctor's confirmation as saved, and nurseSubmitRefused holds an order
+    // with a critical value nobody confirmed (N1).
+    const critical = asDraft || nurseIoOnly ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+    let override = nurseIoOnly && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
       // into an order packet that deliberately carries no identity), so both
@@ -2667,6 +2798,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map(a => a.title), at: new Date().toISOString() };
     }
     const keyAtSave = formKey;
+    const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;   // what every dose on this save was computed from (UP-C2)
     // Center Point saves pass the same required-field gate and F1 stop above.
     // The F1 override goes with the order: CP's snapshot carries it to CP's
@@ -2680,7 +2812,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           critOverride:override});
         setSavedEntryId(result.sourceRecordId);setSavedLastModified(result.recordedAt);
         // What CP now holds is what was on the form when Save was pressed.
-        setSavedKey(keyAtSave);setCritOverride(override);setSavedDosingWt({ g: dosingWtAtSave, exact: true });setSavedCalcVersion(D.CONSTANTS_VERSION);
+        setSavedKey(keyAtSave);setSavedOrderKey(orderKeyAtSave);setCritOverride(override);setSavedDosingWt({ g: dosingWtAtSave, exact: true });setSavedCalcVersion(D.CONSTANTS_VERSION);
       } catch (error) { centerPoint.failed?.(error);showToast('บันทึกไป Center Point ไม่สำเร็จ กรุณาตรวจสถานะและลองใหม่','error'); }
       finally { setSaving(false); }
       return;
@@ -2744,6 +2876,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // Daily_Log AM). Absent for an order with no bag. Not an input either.
       calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
         stops: submitStops,
+        // printedFigures: every figure the front sheet prints, as printed, so a
+        // later release that moves one can say which (heldFigureChanges). Not an
+        // input either.
+        printedFigures: printedFiguresOf(printedFigureInput),
         ...(figures ? { printJsonV: figures.v } : {}),
         // replacesTpn: this row replaces a submitted order of its day that had
         // TPN (replacesTpn above). Not an input — normalizeCalcInput ignores it.
@@ -2803,7 +2939,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setSavedReplacesTpn(replacesTpn);
     // What was just saved is what may now be printed — the inputs as they
     // were when Save was pressed, not whatever was typed while it ran.
-    setSavedKey(keyAtSave);
+    setSavedKey(keyAtSave); setSavedOrderKey(orderKeyAtSave);
     setCritOverride(override);
     setSavedDosingWt({ g: dosingWtAtSave, exact: true });
     setSavedCalcVersion(D.CONSTANTS_VERSION);
@@ -4176,6 +4312,30 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {!pendingSave && !dosingWeightChanged && uncoveredCritical.length > 0 && (
                   <div style={{ fontWeight: 400 }}>{uncoveredCritical.join(" · ")}</div>
                 )}
+                {heldChanges && (
+                  <div className="held-changes" style={{ fontWeight: 400, color: "var(--ink)", marginTop: 4 }}>
+                    {heldChanges.changes.length > 0 ? (
+                      <>
+                        <div style={{ fontWeight: 600 }}>ตัวเลขที่เปลี่ยน (เดิม → ใหม่) ตรวจก่อนบันทึกใหม่</div>
+                        <ul style={{ margin: "2px 0 0", paddingLeft: 18 }}>
+                          {heldChanges.changes.map(c => (
+                            <li key={c.label + c.unit}>{c.label} <span className="num">{c.from}</span> → <span className="num" style={{ fontWeight: 700 }}>{c.to}</span>{c.unit ? ` ${c.unit}` : ""}</li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <div>{heldChanges.basis === "printed" ? "ตัวเลขบนใบสั่งนี้ไม่เปลี่ยน บันทึกใหม่ได้เลย" : "ตัวเลขที่เทียบได้ไม่เปลี่ยน"}</div>
+                    )}
+                    {heldChanges.basis === "stored" && (
+                      <div style={{ fontSize: 11, color: "var(--ink-3)" }}>ใบสั่งนี้บันทึกก่อน NeoFeed เก็บตัวเลขทุกตัว จึงเทียบได้เฉพาะ Fluid, GIR, Protein, Energy, Na, K, Ca, P และ EN ตัวเลขอื่นบนใบสั่งให้ตรวจเอง</div>
+                    )}
+                    {heldVersionNotes.length > 0 && (
+                      <div className="held-version-note" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                        {heldVersionNotes.map(v => <div key={v.version}>NeoFeed {v.version}: {v.text}</div>)}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -4412,6 +4572,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             {figuresMissing && !scratch && !ordersReadOnly && (
               <div className="sticker-figures-missing" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
                 ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง
+              </div>
+            )}
+            {nurseSubmitRefused && (
+              <div className="nurse-doctor-submits" role="note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {NURSE_SUBMIT_TEXT}
               </div>
             )}
             {revisingForRoom && (

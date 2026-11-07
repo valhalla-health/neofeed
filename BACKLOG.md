@@ -126,6 +126,9 @@ clinical judgement. Everything else is engineering sequencing.
         contradictory inputs. Separate hardening; size it after the ward acceptance.
       - Decided, not to do (Pp, 2026-10-08): nurse order writes stay tied to `NURSING_LOG_ENABLED` (D5
         holds once the nursing form is on); the lipid rate stays graded on the 2-decimal figure shown.
+        ➡️ 2026-11-07 (stakeholder walk N1): with the switch still off, a nurse account now saves only
+        Intake/Output on a submitted order, and the backend refuses any other nurse Submit (`CHANGELOG.md`
+        2026-11-07 (2)). D5 still takes over once the switch is on.
 - [ ] 💬 **ops · Send one real help request** (`CHANGELOG.md` 2026-10-05). Shipped on 2026-10-06 by #136
       with backend `@62`. Left: send one from the app and check it reaches praew.tvl@gmail.com through the
       valhalla.team.th filter. Once PR #144 is live (`@64` first), send it from the topbar button on a phone,

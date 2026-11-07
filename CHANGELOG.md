@@ -7,6 +7,54 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-07 (2) — Stakeholder walk: only a doctor submits a doctor's order; a held order lists what changed; Quick calc opens with no route
+
+`calculator.jsx`, `app.jsx`, `data.js`, `gas-backend.gs`, `tpn-room.jsx`, `compiled/`, both shells' `?v=` tokens and
+`tpn-room.html`; `test/verify-walk-1107.cjs` (new), `test/verify-pharmacy-backend-1030.cjs` §9 and
+`test/verify-tpn-room-page-1105.cjs`.
+
+A Playwright walk on 2026-11-07 used the app as each of its users, with made-up infants on dev local. Pp picked three
+of its findings for before the 16 Nov ward start; the print-sheet gaps (osmolarity value, aqueous rate, feeds on the
+front) wait until after it.
+
+1. **N1 / P1: a nurse account re-submitted an order NeoFeed had held, and the TPN room then named the nurse.** Signed
+   in as a nurse, Submit on a held order saved at once, with seven alerts showing, and the room read "ฉบับ 2 · บันทึกโดย
+   Nurse Dev". The nursing log is off (`NURSING_LOG_ENABLED`), so a nurse still records Intake/Output by saving the
+   order, and D5's refusal of nurse order writes does not apply. Pp chose (2026-11-07, all three in Thai): a nurse saves
+   **Intake/Output only** on a doctor's order; the **backend refuses too**; the words are "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด
+   Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O".
+   - Calculator (`nurseAccount`, from `app.jsx`'s role): a nurse's Submit is refused, with that line above the button
+     and as a toast, on a new order, a draft, an order where anything but the three I/O boxes changed
+     (`orderKeyWithoutIo`), and an order the app holds: the calculation or dosing weight moved, a critical value nobody
+     confirmed, no sticker figures yet. A nurse is never shown the critical-value prompt; her I/O save keeps the
+     doctor's confirmation as saved. Save draft stays for a new order or a draft. A doctor's Submit is unchanged.
+   - Backend: `logDailyNutrition` takes only a draft from a nurse; `updateDailyNutrition` keeps a nurse's save on a
+     draft a draft, and on a submitted order takes it only when its `calcInput` is the same order apart from I/O and
+     the keys every save writes anew (`IO_FREE_CALC_KEYS`), on the same `constantsVersion` (`_ioOnlyRevision`). It
+     compares inputs, not the figure columns: with the same inputs and constants the client computes the same figures,
+     and a client that sends other figures for the same inputs is the general "the backend trusts the client's
+     numbers" item in `BACKLOG.md`, not new here.
+   - TPN room: `pharmacyOrders` names who submitted. A nurse's I/O-only revision names the account and the Submit time
+     of the row before it (walking `revisionOf`, at most 50 rows); a revision a nurse saved with anything else changed
+     (possible before this backend) still names the nurse. The room page reads "Submit โดย" for a submitted order and
+     "บันทึกโดย" for a draft.
+   - **Deploy the backend first.** The old frontend against the new backend: a nurse's I/O save still lands (its
+     `calcInput` carries no `printedFigures`, which the comparison skips anyway), and every other nurse Submit is
+     refused with the same Thai line as a toast. The new frontend against the old backend refuses in the app only.
+2. **Top insight 3: a held order said "ตัวเลขบางรายการเปลี่ยน" and not which.** Every save now keeps the figures the
+   front sheet prints, as printed (`calcInput.printedFigures`, 37 figures, about 550 characters; the fullest order with
+   a confirmed critical value is about 2,600 of the backend's 10,000). An order held because the calculation or the
+   dosing weight moved lists each figure that changed, old → new, under the hold, with one line per NeoFeed version
+   since the order's (`D.CONSTANTS_CHANGES`, `D.constantsChangesSince`; a bump adds its line, and
+   `verify-walk-1107.cjs` fails on a `CONSTANTS_VERSION` without one). An order saved before this release has only
+   the Daily_Log columns to compare (Fluid, GIR, Protein, Energy, Na, K, Ca, P, EN), and the box says so. Print
+   ทั้งหมด's list of held orders carries the same changes in its reason. No figure moves, so `CONSTANTS_VERSION` stays.
+3. **D13: Quick calc opened with Central pressed.** Its prefill passed no route, and `normalizeCalcInput` reads a
+   missing route as the old default, Central. It passes `route: null`, so it opens like a patient's first order.
+
+**Not checked:** a real nurse account on the live backend, and the new page on a ward phone. The room page's
+"Submit โดย" assertion is a browser section, which runs in CI's compiled pass only.
+
 ## Session 2026-11-06 (6) — Calculator: Glycophos typed by P, no Factor or stock mL on screen, Dextrose, amino-acid and lipid chips on one line
 
 `calculator.jsx`, `compiled/calculator.js`, `index.html` and `NeoFeed.html` (one CSS rule each), the

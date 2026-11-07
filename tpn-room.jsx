@@ -357,7 +357,9 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
       <p className="muted order-facts">
         BW {order.bw} g · DOL {order.dol}
         {order.printJson && <> · น้ำหนักที่ใช้คำนวณ {order.printJson.dosingWeightKg} kg</>}
-        {order.prescriber && <> · บันทึกโดย {order.prescriber}</>}
+        {/* Who submitted a submitted order, not a nurse who added only I/O after it
+            (P1, stakeholder walk 2026-11-07: gas-backend.gs pharmacyOrders). */}
+        {order.prescriber && <> · {order.status === "draft" ? "บันทึกโดย" : "Submit โดย"} {order.prescriber}</>}
         {order.submittedAt && <> · Submit {Core.wardTime(order.submittedAt)}</>}
       </p>
       {crit && (

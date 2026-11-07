@@ -35,6 +35,33 @@
 // because the sheet would read that as a formula.
 const CONSTANTS_VERSION = "2026-11-06.1";
 
+// What each version moved, in one line a doctor reads before saving a held
+// order again (stakeholder walk, 2026-11-07, top insight 3: the hold said
+// "ตัวเลขบางรายการเปลี่ยน" and not which). Newest first; the full row is
+// docs/CLINICAL_CONSTANTS.md. 🔴 A bump adds its line here: verify-walk-1107.cjs
+// fails on a CONSTANTS_VERSION with none. Nothing here moves a dose.
+const CONSTANTS_CHANGES = [
+  ["2026-11-06.1", "pump rate ทศนิยม 1 ตำแหน่ง, lipid g/kg/h คิดตามชั่วโมงที่ pump เดิน"],
+  ["2026-10-28.1", "Vitalipid ปัดลงเป็น mL เต็ม, Mg สั่งเป็น mg/kg/d"],
+  ["2026-10-27.2", "mL ของ stock พิมพ์ทศนิยม 1 ตำแหน่ง ปัดครึ่งขึ้น, MgSO₄ ใช้ 10% อย่างเดียว"],
+  ["2026-10-27.1", "ZnSO₄ มี mL และนับใน WFI, Normal Requirement ของ Na K Ca P Mg ใหม่, dextrose max 17.3 g/kg/d"],
+  ["2026-10-17.1", "ค่าในนม (EN_DB) ตามหนังสือ Chula handbook"],
+  ["2026-10-11.1", "WFI คิดจาก prepared volume ตามที่พิมพ์"],
+  ["2026-10-08.1", "K⁺ ในถุง peripheral สูงสุด 60 mEq/L"],
+];
+// The lines for every version after `version`, newest first. A version this
+// list does not reach (null, or older than its last line) gets one more line
+// saying so, rather than a list that looks complete.
+function constantsChangesSince(version) {
+  const out = [];
+  for (const [v, text] of CONSTANTS_CHANGES) {
+    if (v === version) return out;
+    out.push({ version: v, text });
+  }
+  out.push({ version: "ก่อน " + CONSTANTS_CHANGES[CONSTANTS_CHANGES.length - 1][0], text: "ตัวเลขหลายรายการเปลี่ยนก่อนหน้านั้น ตรวจทุกตัวก่อนบันทึกใหม่" });
+  return out;
+}
+
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
 // across PR #58 and two other frontend releases — so every row saved in that
@@ -3033,7 +3060,7 @@ window.NEOFEED_DATA = {
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.
-  CONSTANTS_VERSION, APP_VERSION, appVersion,
+  CONSTANTS_VERSION, APP_VERSION, appVersion, CONSTANTS_CHANGES, constantsChangesSince,
   // Publish-lock rollout flag — see its declaration above.
   ENABLE_PUBLISH_GATE,
   // Staleness decision for the sync banner + the thresholds behind it

@@ -162,6 +162,82 @@ function diffOrderInputs(prev, cur) {
   }
   return out;
 }
+const NURSE_SUBMIT_TEXT = "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O";
+const orderKeyWithoutIo = (inputs) => calcInputKey({ ...inputs, ioInput: 0, ioOutput: 0, drainContent: 0 });
+const PRINTED_FIGURES = [
+  ["wtKg", "Weight for calculation", "kg", 2, (x) => x.wtKg],
+  ["deliveredMl", "TPN delivered", "mL/day", 1, (x) => x.totalTPN_mL],
+  ["preparedMl", "TPN prepared", "mL/day", 1, (x) => x.calc.preparedVol],
+  ["dexG", "Dextrose in bag", "g", 1, (x) => x.calc.dexG_bag],
+  ["dexGkg", "Dextrose", "g/kg/d", 2, (x) => x.calc.dexGPerKg],
+  ["d50wMl", "D50W", "mL", 1, (x) => x.calc.d50wVol],
+  ["aaMl", "Amino acid", "mL", 1, (x) => x.calc.solVol?.aa],
+  ["lipidMl", "20% SMOF", "mL", 1, (x) => x.calc.solVol?.lipidSMOF],
+  ["vitalipidMl", "Vitalipid N infant", "mL", 1, (x) => x.calc.vitalipidVol],
+  ["lipidBagMl", "Lipid syringe total", "mL", 1, (x) => x.calc.lipidBagVol],
+  ["lipidRate", "Lipid pump rate", "mL/hr", 1, (x) => x.lipidPump?.rate],
+  ["lipidHours", "Lipid infusion", "h", 1, (x) => x.lipidPump?.hours],
+  ["lipidGkgh", "Lipid", "g/kg/h", 2, (x) => x.lipidPerKg > 0 ? window.NEOFEED_DATA.lipidGkghAt(x.lipidPerKg, x.calc.lipidBagVol, x.lipidDripHours || 24) : 0],
+  ["naClMeq", "20% NaCl", "mEq", 1, (x) => x.naCl * (x.calc.factor || 0)],
+  ["naClMl", "20% NaCl", "mL", 1, (x) => x.calc.solVol?.naCl],
+  ["naAcetMeq", "Na acetate", "mEq", 1, (x) => x.naAcet * (x.calc.factor || 0)],
+  ["naAcetMl", "Na acetate", "mL", 1, (x) => x.calc.solVol?.naAcet],
+  ["glycophosMl", "Glycophos", "mL", 1, (x) => x.calc.solVol?.glycophos],
+  ["naKg", "Na", "mEq/kg/d", 2, (x) => x.calc.naKg],
+  ["k2hpo4Meq", "K₂HPO₄", "mEq", 1, (x) => x.k2hpo4 * (x.calc.factor || 0)],
+  ["k2hpo4Ml", "K₂HPO₄", "mL", 1, (x) => x.calc.solVol?.k2hpo4],
+  ["kClMeq", "KCl", "mEq", 1, (x) => x.kCl * (x.calc.factor || 0)],
+  ["kClMl", "KCl", "mL", 1, (x) => x.calc.solVol?.kCl],
+  ["mgMg", "MgSO₄", "mg", 1, (x) => x.mgPerKg * window.NEOFEED_DATA.MG_MG_PER_MEQ * (x.calc.factor || 0)],
+  ["mgMl", "MgSO₄ 10%", "mL", 1, (x) => x.calc.solVol?.mg],
+  ["caMg", "Ca gluconate", "mg", 0, (x) => x.caPerKg * (x.calc.factor || 0)],
+  ["caMl", "10% Ca gluconate", "mL", 1, (x) => x.calc.solVol?.ca],
+  ["soluvitMl", "Soluvit N", "mL/day", 1, (x) => x.inclSoluvit ? x.calc.soluvitVol : 0],
+  ["peditraceMl", "Peditrace", "mL/day", 1, (x) => x.inclPeditrace ? x.calc.peditrace_vol : 0],
+  ["znMg", "ZnSO₄", "mg Zn", 2, (x) => x.znPerKg > 0 ? x.calc.znSO4_bag_mg : 0],
+  ["heparinMl", "Heparin", "mL", 1, (x) => x.calc.solVol?.heparin],
+  ["factor", "Factor", "", 3, (x) => x.calc.factor],
+  ["gir", "GIR", "mg/kg/min", 1, (x) => x.calc.gir],
+  ["protein", "Protein", "g/kg/d", 2, (x) => x.calc.proteinKg],
+  ["kcal", "Energy", "kcal/kg/d", 0, (x) => x.calc.kcalKg],
+  ["osm", "Osmolarity", "mOsm/L", 0, (x) => x.calc.osm],
+  ["kBag", "K⁺ in bag", "mEq/L", 0, (x) => x.calc.kMeqPerL]
+];
+const printedFigureText = (v, d) => isFinite(v) && v > 0 ? window.NEOFEED_DATA.displayNum(v, d) : "—";
+function printedFiguresOf(x) {
+  const out = {};
+  for (const [key, , , d, get] of PRINTED_FIGURES) out[key] = printedFigureText(get(x), d);
+  return out;
+}
+const STORED_FIGURES = [
+  ["fluid", "Fluid", "mL/kg/d", 1, (c) => c.totalFluidPerKg],
+  ["gir", "GIR", "mg/kg/min", 1, (c) => c.gir],
+  ["pro", "Protein", "g/kg/d", 2, (c) => c.proteinKg],
+  ["kcal", "Energy", "kcal/kg/d", 0, (c) => c.kcalKg],
+  ["na", "Na", "mEq/kg/d", 2, (c) => c.naTotalDelivered],
+  ["k", "K", "mEq/kg/d", 2, (c) => c.kTotalDelivered],
+  ["ca", "Ca", "mg/kg/d", 0, (c) => c.caKg],
+  ["p", "P", "mg/kg/d", 0, (c) => c.pKg],
+  ["enVolPerKg", "EN", "mL/kg/d", 1, (c) => c.enVolPerKg]
+];
+function heldFigureChanges(entry, x) {
+  const saved = entry?.calcInput?.printedFigures;
+  const changes = [];
+  if (saved && typeof saved === "object") {
+    const now = printedFiguresOf(x);
+    for (const [key, label, unit] of PRINTED_FIGURES) {
+      if (typeof saved[key] !== "string" || saved[key] === now[key]) continue;
+      changes.push({ label, from: saved[key], to: now[key], unit });
+    }
+    return { basis: "printed", changes };
+  }
+  for (const [key, label, unit, d, get] of STORED_FIGURES) {
+    const from = printedFigureText(Number(entry?.[key]), d), to = printedFigureText(get(x.calc), d);
+    if (from !== to) changes.push({ label, from, to, unit });
+  }
+  return { basis: "stored", changes };
+}
+const heldChangeLine = (c) => `${c.label} ${c.from} → ${c.to}${c.unit ? " " + c.unit : ""}`;
 const DRAFT_MAX_AGE_MS = 72 * 60 * 60 * 1e3;
 const draftStorageKey = (sessionId, dateStr) => `neofeed_draft_${sessionId}_${dateStr}`;
 const CALC_STATE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
@@ -410,7 +486,8 @@ function Calculator({
   autoPrint = null,
   requestPrint = null,
   nursing = [],
-  ordersReadOnly = false
+  ordersReadOnly = false,
+  nurseAccount = false
 }) {
   const [newOrderDate, setNewOrderDate] = useState(() => D.todayLocal());
   const orderDateKey = editEntry ? D.normalizeDateStr(editEntry.ts) || D.todayLocal() : logDate || newOrderDate;
@@ -605,6 +682,7 @@ function Calculator({
   const [publishing, setPublishing] = useState(false);
   const [conflict, setConflict] = useState(null);
   const [savedKey, setSavedKey] = useState(null);
+  const [savedOrderKey, setSavedOrderKey] = useState(null);
   const [prefillKey, setPrefillKey] = useState(null);
   const [savedMeta, setSavedMeta] = useState(null);
   const [critOverride, setCritOverride] = useState(editEntry?.calcInput?.critOverride || null);
@@ -726,8 +804,9 @@ function Calculator({
   }, []);
   React.useEffect(() => {
     if (scratch) {
-      applyCalcInput({ deadVol_mL: D.defaultDeadVolFor(null) }, 0, false, 0);
+      applyCalcInput({ deadVol_mL: D.defaultDeadVolFor(null), route: null }, 0, false, 0);
       setSavedKey(null);
+      setSavedOrderKey(null);
       setPrefilledFrom(null);
       setDraftOffer(null);
       return;
@@ -771,10 +850,12 @@ function Calculator({
       const src = { ...saved, route: bagRouteFrom(saved) };
       const n = applyCalcInput(src, editEntry.weight, true, fluidMidpoint(src.curWtG ?? src.wtG ?? editEntry.weight));
       setSavedKey(calcInputKey(n));
+      setSavedOrderKey(orderKeyWithoutIo(n));
       setPrefilledFrom(null);
       return;
     }
     setSavedKey(null);
+    setSavedOrderKey(null);
     const NEW_DAY_IO = { ioInput: 0, ioOutput: 0, drainContent: 0 };
     if (baselineEntry) {
       const base = { ...withEntryIO(baselineEntry), ...NEW_DAY_IO };
@@ -1580,6 +1661,27 @@ function Calculator({
   const zeroVolumeText = `ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: ${bagIngredientsWithoutVolume.join(", ")} — ลบส่วนประกอบ หรือ${noTpnOn ? 'เอาติ๊ก "No TPN" ออกแล้วใส่ปริมาตร' : centerPoint ? "ใส่ปริมาตร" : 'ใส่ปริมาตร หรือถ้าวันนี้ไม่มี TPN ติ๊ก "No TPN" ที่ Step 3'}`;
   const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}` : noTpnUnticked ? `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 แล้วบันทึก${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagCannotBeMade ? `${bagCannotBeMadeText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}` : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}` : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
+  const nurseIoOnly = nurseAccount && !ordersReadOnly && !scratch && !centerPoint;
+  const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted" || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || figuresMissing);
+  const printedFigureInput = {
+    calc,
+    wtKg,
+    totalTPN_mL,
+    lipidPerKg,
+    lipidDripHours,
+    lipidPump: D.pumpRate(calc.lipidBagVol, lipidDripHours || 24),
+    naCl,
+    naAcet,
+    kCl,
+    k2hpo4,
+    mgPerKg,
+    caPerKg,
+    znPerKg,
+    inclSoluvit,
+    inclPeditrace
+  };
+  const heldChanges = (calcMoved || dosingWeightChanged) && !pendingSave && editEntry ? heldFigureChanges(editEntry, printedFigureInput) : null;
+  const heldVersionNotes = calcMoved && !pendingSave ? D.constantsChangesSince(savedCalcVersion) : [];
   React.useEffect(() => {
     const ALL = /* @__PURE__ */ new Set([1, 2, 3, 4, 5, 6]);
     const handler = () => {
@@ -1614,7 +1716,7 @@ function Calculator({
   }, [savedEntryId, printable, printBlockToast, noTpnOn, noTpnSheet]);
   const autoPrintDone = React.useRef(null);
   const printBlockRef = React.useRef("");
-  printBlockRef.current = printBlockToast;
+  printBlockRef.current = printBlockToast && heldChanges && heldChanges.changes.length > 0 ? `${printBlockToast} (${heldChanges.changes.map(heldChangeLine).join(" · ")})` : printBlockToast;
   React.useEffect(() => {
     if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
     const go = () => {
@@ -1633,6 +1735,10 @@ function Calculator({
     if (saving) return;
     if (scratch) return;
     if (ordersReadOnly) return;
+    if (!asDraft && nurseSubmitRefused) {
+      showToast(NURSE_SUBMIT_TEXT, "error");
+      return;
+    }
     const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing) {
       setSaving(true);
@@ -1716,8 +1822,8 @@ function Calculator({
       showToast(feedUnknownText, "error");
       return;
     }
-    const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter((a) => a.level === "crit" && !a.noReason);
-    let override = null;
+    const critical = asDraft || nurseIoOnly ? [] : sortClinicalAlerts(alerts).filter((a) => a.level === "crit" && !a.noReason);
+    let override = nurseIoOnly && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       const reason = window.prompt(
         `มีค่าวิกฤต ${critical.length} รายการ:
@@ -1733,6 +1839,7 @@ function Calculator({
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map((a) => a.title), at: (/* @__PURE__ */ new Date()).toISOString() };
     }
     const keyAtSave = formKey;
+    const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;
     if (centerPoint) {
       setSaving(true);
@@ -1779,6 +1886,7 @@ function Calculator({
         setSavedEntryId(result.sourceRecordId);
         setSavedLastModified(result.recordedAt);
         setSavedKey(keyAtSave);
+        setSavedOrderKey(orderKeyAtSave);
         setCritOverride(override);
         setSavedDosingWt({ g: dosingWtAtSave, exact: true });
         setSavedCalcVersion(D.CONSTANTS_VERSION);
@@ -1861,6 +1969,10 @@ function Calculator({
         tpnWtG: dosingWtAtSave,
         constantsVersion: D.CONSTANTS_VERSION,
         stops: submitStops,
+        // printedFigures: every figure the front sheet prints, as printed, so a
+        // later release that moves one can say which (heldFigureChanges). Not an
+        // input either.
+        printedFigures: printedFiguresOf(printedFigureInput),
         ...figures ? { printJsonV: figures.v } : {},
         // replacesTpn: this row replaces a submitted order of its day that had
         // TPN (replacesTpn above). Not an input — normalizeCalcInput ignores it.
@@ -1906,6 +2018,7 @@ function Calculator({
     setSavedHadTpn(D.orderHadTpn(entry));
     setSavedReplacesTpn(replacesTpn);
     setSavedKey(keyAtSave);
+    setSavedOrderKey(orderKeyAtSave);
     setCritOverride(override);
     setSavedDosingWt({ g: dosingWtAtSave, exact: true });
     setSavedCalcVersion(D.CONSTANTS_VERSION);
@@ -2755,7 +2868,7 @@ function Calculator({
     background: "var(--bg-2)",
     color: "var(--ink-2)",
     border: "1px solid var(--line)"
-  } }, /* @__PURE__ */ React.createElement("strong", { style: { fontWeight: 700 } }, "พยาบาล: ใช้ Calculator คำนวณได้ — บันทึกและ Submit ใบสั่งทำโดยแพทย์"), /* @__PURE__ */ React.createElement("div", null, "บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "num" }, scratch ? "ไม่ผูกกับผู้ป่วย" : D.patientName(patient) || "—"), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num" }, dol), " · ", curWtG, "g", usingBirthWeight && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. at birth weight ", wtG, "g)"), tpnWtManual && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. weight set manually to ", wtG, "g)"), " · ", route === "central" ? "Central" : route === "peripheral" ? "Peripheral" : "no route"), !centerPoint && !scratch && savedEntryId && savedMeta?.by && /* @__PURE__ */ React.createElement("div", { className: "saved-by", style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, "บันทึกโดย ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-2)", fontWeight: 600 } }, savedMeta.by), " · ", savedAtLabelOf(savedMeta.at)), savedEntryId && dirty && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 } }, "● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์ได้หลังบันทึก"), !centerPoint && (!noTpnOn || noTpnSheet) && savedEntryId && !dirty && !printable && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "print-blocked", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "● ", printBlockMessage("ก่อนพิมพ์"), !pendingSave && dosingWeightChanged && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, "บันทึกไว้ที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(savedDosingWt.g, 0)), " g · ตอนนี้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(wtG, 0)), " g"), !pendingSave && !dosingWeightChanged && uncoveredCritical.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, uncoveredCritical.join(" · "))), previousEntry && /* @__PURE__ */ React.createElement("div", { className: "order-changes", style: { fontSize: 11.5, marginBottom: 10, padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 } }, "เปลี่ยนแปลงจากคำสั่งก่อนหน้า (DOL ", D.entryDol(patient, previousEntry), ")"), !orderChanges ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "คำสั่งก่อนหน้าไม่มีข้อมูลละเอียดให้เปรียบเทียบ") : orderChanges.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "ไม่มีการเปลี่ยนแปลง") : /* @__PURE__ */ React.createElement("table", { className: "order-changes-table", style: { borderCollapse: "collapse", maxWidth: "100%" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("th", { scope: "col", style: { textAlign: "left", fontWeight: 600, padding: "2px 10px 4px 0" } }, "รายการ"), /* @__PURE__ */ React.createElement("th", { scope: "col", style: { textAlign: "right", fontWeight: 600, padding: "2px 4px 4px" } }, "เดิม"), /* @__PURE__ */ React.createElement("th", { "aria-hidden": "true", style: { padding: 0 } }), /* @__PURE__ */ React.createElement("th", { scope: "col", style: { textAlign: "left", fontWeight: 600, padding: "2px 4px 4px" } }, "ใหม่"), /* @__PURE__ */ React.createElement("th", { scope: "col", style: { textAlign: "left", fontWeight: 600, padding: "2px 0 4px 6px" } }, "หน่วย"))), /* @__PURE__ */ React.createElement("tbody", null, orderChanges.map((c) => /* @__PURE__ */ React.createElement("tr", { key: c.label, style: { borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "4px 10px 4px 0", color: "var(--ink)" } }, c.label), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "4px", textAlign: "right", color: "var(--ink-2)" } }, c.from), /* @__PURE__ */ React.createElement("td", { "aria-hidden": "true", style: { padding: "4px 10px", color: "var(--ink-3)" } }, "→"), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "4px", textAlign: "left", color: "var(--ink)", fontWeight: 700 } }, c.to), /* @__PURE__ */ React.createElement("td", { style: { padding: "4px 0 4px 6px", color: "var(--ink-3)", whiteSpace: "nowrap" } }, c.unit)))))), /* @__PURE__ */ React.createElement("div", { className: "calc-save-bar" }, scratch && /* @__PURE__ */ React.createElement("button", { className: "btn", style: { width: "100%", marginBottom: 8 }, onClick: () => {
+  } }, /* @__PURE__ */ React.createElement("strong", { style: { fontWeight: 700 } }, "พยาบาล: ใช้ Calculator คำนวณได้ — บันทึกและ Submit ใบสั่งทำโดยแพทย์"), /* @__PURE__ */ React.createElement("div", null, "บันทึก I/O ประจำวันที่ Dashboard › I/O ประจำวัน · พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "num" }, scratch ? "ไม่ผูกกับผู้ป่วย" : D.patientName(patient) || "—"), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num" }, dol), " · ", curWtG, "g", usingBirthWeight && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. at birth weight ", wtG, "g)"), tpnWtManual && /* @__PURE__ */ React.createElement(React.Fragment, null, " (calc. weight set manually to ", wtG, "g)"), " · ", route === "central" ? "Central" : route === "peripheral" ? "Peripheral" : "no route"), !centerPoint && !scratch && savedEntryId && savedMeta?.by && /* @__PURE__ */ React.createElement("div", { className: "saved-by", style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 10 } }, "บันทึกโดย ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-2)", fontWeight: 600 } }, savedMeta.by), " · ", savedAtLabelOf(savedMeta.at)), savedEntryId && dirty && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 } }, "● มีการแก้ไขที่ยังไม่ได้บันทึก — พิมพ์ได้หลังบันทึก"), !centerPoint && (!noTpnOn || noTpnSheet) && savedEntryId && !dirty && !printable && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "print-blocked", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "● ", printBlockMessage("ก่อนพิมพ์"), !pendingSave && dosingWeightChanged && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, "บันทึกไว้ที่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(savedDosingWt.g, 0)), " g · ตอนนี้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(wtG, 0)), " g"), !pendingSave && !dosingWeightChanged && uncoveredCritical.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 400 } }, uncoveredCritical.join(" · ")), heldChanges && /* @__PURE__ */ React.createElement("div", { className: "held-changes", style: { fontWeight: 400, color: "var(--ink)", marginTop: 4 } }, heldChanges.changes.length > 0 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, "ตัวเลขที่เปลี่ยน (เดิม → ใหม่) ตรวจก่อนบันทึกใหม่"), /* @__PURE__ */ React.createElement("ul", { style: { margin: "2px 0 0", paddingLeft: 18 } }, heldChanges.changes.map((c) => /* @__PURE__ */ React.createElement("li", { key: c.label + c.unit }, c.label, " ", /* @__PURE__ */ React.createElement("span", { className: "num" }, c.from), " → ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 700 } }, c.to), c.unit ? ` ${c.unit}` : "")))) : /* @__PURE__ */ React.createElement("div", null, heldChanges.basis === "printed" ? "ตัวเลขบนใบสั่งนี้ไม่เปลี่ยน บันทึกใหม่ได้เลย" : "ตัวเลขที่เทียบได้ไม่เปลี่ยน"), heldChanges.basis === "stored" && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)" } }, "ใบสั่งนี้บันทึกก่อน NeoFeed เก็บตัวเลขทุกตัว จึงเทียบได้เฉพาะ Fluid, GIR, Protein, Energy, Na, K, Ca, P และ EN ตัวเลขอื่นบนใบสั่งให้ตรวจเอง"), heldVersionNotes.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "held-version-note", style: { fontSize: 11, color: "var(--ink-3)" } }, heldVersionNotes.map((v) => /* @__PURE__ */ React.createElement("div", { key: v.version }, "NeoFeed ", v.version, ": ", v.text))))), previousEntry && /* @__PURE__ */ React.createElement("div", { className: "order-changes", style: { fontSize: 11.5, marginBottom: 10, padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 } }, "เปลี่ยนแปลงจากคำสั่งก่อนหน้า (DOL ", D.entryDol(patient, previousEntry), ")"), !orderChanges ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "คำสั่งก่อนหน้าไม่มีข้อมูลละเอียดให้เปรียบเทียบ") : orderChanges.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)" } }, "ไม่มีการเปลี่ยนแปลง") : /* @__PURE__ */ React.createElement("table", { className: "order-changes-table", style: { borderCollapse: "collapse", maxWidth: "100%" } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("th", { scope: "col", style: { textAlign: "left", fontWeight: 600, padding: "2px 10px 4px 0" } }, "รายการ"), /* @__PURE__ */ React.createElement("th", { scope: "col", style: { textAlign: "right", fontWeight: 600, padding: "2px 4px 4px" } }, "เดิม"), /* @__PURE__ */ React.createElement("th", { "aria-hidden": "true", style: { padding: 0 } }), /* @__PURE__ */ React.createElement("th", { scope: "col", style: { textAlign: "left", fontWeight: 600, padding: "2px 4px 4px" } }, "ใหม่"), /* @__PURE__ */ React.createElement("th", { scope: "col", style: { textAlign: "left", fontWeight: 600, padding: "2px 0 4px 6px" } }, "หน่วย"))), /* @__PURE__ */ React.createElement("tbody", null, orderChanges.map((c) => /* @__PURE__ */ React.createElement("tr", { key: c.label, style: { borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("td", { style: { padding: "4px 10px 4px 0", color: "var(--ink)" } }, c.label), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "4px", textAlign: "right", color: "var(--ink-2)" } }, c.from), /* @__PURE__ */ React.createElement("td", { "aria-hidden": "true", style: { padding: "4px 10px", color: "var(--ink-3)" } }, "→"), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "4px", textAlign: "left", color: "var(--ink)", fontWeight: 700 } }, c.to), /* @__PURE__ */ React.createElement("td", { style: { padding: "4px 0 4px 6px", color: "var(--ink-3)", whiteSpace: "nowrap" } }, c.unit)))))), /* @__PURE__ */ React.createElement("div", { className: "calc-save-bar" }, scratch && /* @__PURE__ */ React.createElement("button", { className: "btn", style: { width: "100%", marginBottom: 8 }, onClick: () => {
     if (!(wtKg > 0)) {
       showToast("ใส่น้ำหนักก่อน จึงจะคัดลอกผลคำนวณได้", "error");
       return;
@@ -2859,7 +2972,7 @@ function Calculator({
     /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14 }),
     " ",
     saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"
-  ), figuresMissing && !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), revisingForRoom && /* @__PURE__ */ React.createElement("div", { className: "revise-phone-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย"), !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement(
+  ), figuresMissing && !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), nurseSubmitRefused && /* @__PURE__ */ React.createElement("div", { className: "nurse-doctor-submits", role: "note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, NURSE_SUBMIT_TEXT), revisingForRoom && /* @__PURE__ */ React.createElement("div", { className: "revise-phone-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย"), !scratch && !ordersReadOnly && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn primary",

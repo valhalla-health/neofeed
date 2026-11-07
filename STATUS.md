@@ -1,5 +1,11 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-07 — Stakeholder walk fixes (only a doctor submits a doctor's order, a nurse saves I/O only; a held
+> order lists each changed figure, old → new; Quick calc opens with no route): open PR, not merged, not live.**
+> Frontend **and backend**: the backend refuses a nurse's Submit and names who submitted on the TPN room's page, so it
+> deploys **first** (`CHANGELOG.md` 2026-11-07 (2)). No dose constant moved; `CONSTANTS_VERSION` stays `2026-11-06.1`.
+> Recorded here by its own PR.
+>
 > ⏳ **2026-11-06 — Calculator ward feedback (Glycophos by P with a wrong-unit guard, no Factor or stock mL on
 > screen, Dextrose, amino-acid and lipid chips on one line): open PR #226, not merged, not live.** Frontend only; no backend change; two new
 > alert thresholds, no dose constant moved. Recorded here by its own PR.
