@@ -334,33 +334,40 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     // new order; compared as sets, none moved. Was: 0f697ed4e353c958,
     // 6c0541ce27f2c9eb, 756059730014aafc, 676f2855f6d86f49, f3c3af970950b635,
     // 9f67f3512397c66b.
+    // Five recaptured 2026-11-06, the pumps at 0.1 mL/hr (Pp), compared figure
+    // by figure with main (ce06e16). What moved, and nothing else: the lipid
+    // line's two figures, "over 24 h … Rate 0.29" → "Rate 0.3, infusion 23.3 h"
+    // (S5_elbw), 0.84 → 0.9 / 22.3 h (parity_plain, parity_dead), 0.85 → 0.9 /
+    // 22.8 h (mixed_pn_en), 1.17 → 1.2 / 23.3 h (lipid48_k4). Was:
+    // a0830eea76d9d1e2, faa6c55faf16750c, 52076070c233c8a9, 2ac624971ae460f9,
+    // f899f0d3e02d6223.
     const ORDERS = {
-      S5_elbw: ['a0830eea76d9d1e2', { ...P, bw: 500, weights: [{ dol: 1, w: 500 }] }, () => {
+      S5_elbw: ['4665993be1d28165', { ...P, bw: 500, weights: [{ dol: 1, w: 500 }] }, () => {
         setField('Current weight', 500); fillRequired(150);
         setField('Volume(mL/day)', 60); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 2);
         setField('20% NaCl', 1); setField('Na Acetate', 1); setField('KCl', 1); setField('Glycophos', 1); }],
       // Recaptured 2026-10-27, every stock mL at one decimal (Pp). Exactly 3 of
       // its 105 figures moved: MgSO₄ 0.53 → 0.5 (front and back), heparin
       // 0.69 → 0.7 (was 28dee697feed160b).
-      parity_plain: ['faa6c55faf16750c', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
+      parity_plain: ['d8e6e0037140316a', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
       // Recaptured 2026-09-18 when Soluvit/Peditrace began scaling with the
       // overfill (Praew). Exactly 4 of its 90 figures moved: Soluvit 1.2 → 1.3,
       // Peditrace 1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50 (was aa0510d437c34170).
       // Recaptured 2026-10-27, one decimal: exactly 5 of its 106 moved. K₂HPO₄
       // 1.68 → 1.7 and MgSO₄ 0.56 → 0.6 (front and back), heparin 0.72 → 0.7
       // (was 0db6f59f3b7827db).
-      parity_dead: ['52076070c233c8a9', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
+      parity_dead: ['4360095edf3f8a57', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
       // Recaptured 2026-10-17, when EN_DB was rebuilt from the handbook pages
       // (BM + HMF Ca 115 → 116.05, P 59 → 59.87 mg/100 mL). Exactly 4 of its 86
       // figures moved: EN Ca 67 → 68, EN PO₄ 34 → 35, total Ca 127 → 128,
       // total PO₄ 65 → 66 (was 981b3ea0856ce4b9).
       // Recaptured 2026-10-27, one decimal: exactly 2 of its 86 moved, MgSO₄
       // 0.41 → 0.4 front and back (was 9039368c94184bc9).
-      mixed_pn_en: ['2ac624971ae460f9', P, () => {
+      mixed_pn_en: ['e69aa282b98914b1', P, () => {
         setField('Current weight', 1100); fillRequired(150); selectFeed('BM_HMF_24'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
         setField('Volume(mL/day)', 90); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('20% lipid', 3);
         setField('20% NaCl', 2); setField('KCl', 2); setField('10% Ca gluconate', 60); setField('Glycophos', 2); setField('MgSO₄', 3.64575); }],   // 0.3 mEq, typed in mg since 2026-10-28
-      lipid48_k4: ['f899f0d3e02d6223', P, () => {
+      lipid48_k4: ['21f65359af7e9e7c', P, () => {
         setField('Current weight', 1000); fillRequired(160);
         setField('Volume(mL/day)', 110); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('20% lipid', 4.8);
         setField('KCl', 4); setField('10% Ca gluconate', 80); setField('Glycophos', 3); }],

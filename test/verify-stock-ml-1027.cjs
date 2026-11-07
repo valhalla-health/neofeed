@@ -157,7 +157,7 @@ function order700(box, zn, k2 = 0.5) {
       eq(`roundMl(${v})`, roundMl(v), want);
     }
     ok('…where toFixed(1) read 0.35 as 0.3', (0.35).toFixed(1) === '0.3');
-    eq('CONSTANTS_VERSION (2026-10-27.2 here; moved on by the 2026-10-28 meeting change)', window.NEOFEED_DATA.CONSTANTS_VERSION, '2026-10-28.1');
+    eq('CONSTANTS_VERSION (2026-10-27.2 here; moved on by 2026-10-28.1, then 2026-11-06.1, the pumps at 0.1 mL/hr)', window.NEOFEED_DATA.CONSTANTS_VERSION, '2026-11-06.1');
     const D = window.NEOFEED_DATA;
     eq('displayNum(1.5 × 0.7, 1): the float tie 1.0499999999999998 is 1.1', D.displayNum(1.5 * 0.7, 1), '1.1');
     eq('displayNum(1.005, 2)', D.displayNum(1.005, 2), '1.01');

@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-06 (5) — Calculator: Glycophos typed by P, no Factor or stock mL on screen, Dextrose, amino-acid and lipid chips on one line
+## Session 2026-11-06 (6) — Calculator: Glycophos typed by P, no Factor or stock mL on screen, Dextrose, amino-acid and lipid chips on one line
 
 `calculator.jsx`, `compiled/calculator.js`, `index.html` and `NeoFeed.html` (one CSS rule each), the
 `neofeed-clinical-rules` skill (`CR-U-SALTS`, `CR-U-FACTOR`), `test/verify-calc-clicks.cjs`, `test/verify-calc-sum.cjs`
@@ -60,7 +60,7 @@ Pp sent three requests from her phone the same evening, each with a screenshot o
    D50W box, the amino-acid Volume, the lipid volume, Soluvit and Peditrace in the bag, ZnSO₄'s and heparin's mL),
    Pp: "Hide them all". Gone from the screen: "D50W: x mL/d" (its box now holds only "Central only!" when that
    applies), the amino-acid Volume (the row is one column, so its five chips sit on one line on a phone too),
-   SMOF's own mL/day (its tile now reads "Lipid (20%)" with mL/kg/d and g/day), the lipid bag total line, Soluvit's
+   SMOF's own mL/day and the lipid bag total line (but see below: Lipid volume is back), Soluvit's
    and Peditrace's "x mL/day in bag (× Factor → delivers …)" and their Additives Summary mL (now the dose, 1 mL/kg/day),
    ZnSO₄'s "= x mL of 1 mg/mL" and heparin's "→ x mL of 100 U/mL" and its volume readout. Kept: both pump rates and
    the lipid syringe's "x mL/day over N h" (what a nurse sets and hangs), Vitalipid's mL/day (it is ordered in mL;
@@ -81,6 +81,11 @@ Pp sent three requests from her phone the same evening, each with a screenshot o
    `verify-phone-sweep.cjs` checks the rule in both shells. Asked whether the Components / Bag total (prepared)
    panel under the amino acid should go too (Components is the TPN room's figure; Bag total repeats Prepared),
    Pp: "keep it". It stays, and still turns red when the bag is over-full.
+8. **Lipid volume stays on screen, tappable.** #227 (merged into `main` the same night) made the Lipid volume
+   tile a button: it shows 20 % lipid in mL/day and a tap rounds it to a whole mL and sets the dose back. Item 6 had
+   taken that mL off the tile. Merging `main` into this PR, Pp chose to show the mL/day and keep the tap ("Show
+   mL/day, tappable"), an exception to "Hide them all": the mL is what is rounded. The tile is #227's as merged; the
+   fuzz and the oracle check its mL again, and the CR-U-FACTOR case shows "Lipid volume 10 mL/day".
 
 Seven pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
 No dose constant, limit or `CONSTANTS_VERSION` moved (5 adds two alert thresholds). No second clinician has
@@ -92,6 +97,55 @@ both. With the two Glycophos titles, the fullest confirmed order (15 titles, a 3
 (`verify-print-one-page-1102.cjs`). Asked in the same thread, not built: which amino-acid stocks to
 offer older children (`BACKLOG.md` item 14, Amiparen 10 % and Aminoplasmal 15 %) — a proposal went back to Pp.
 
+## Session 2026-11-06 (5) — The lipid pump: tap to a whole mL, and both pumps at 0.1 mL/hr
+
+`data.js` (`lipidDoseAtWholeMl`, `pumpRate`, `PUMP_MAX_HOURS`, `lipidGkghAt`), `calculator.jsx` (Step 3's two pumps, the
+step chips, the copied order, the printed lipid line), `center-point/tpn-snapshot.mjs` (`pnRate`, `lipidRate`,
+`lipidHours`, `lipidKg`), `tools/reference-tabs.json`, the `neofeed-clinical-rules` skill (`CR-R-LIPID-WHOLE-ML`,
+`CR-R-PUMP-RATE` new; `CR-LIPID-RATE` changed), `test/verify-lipid-whole-ml-1106.cjs` (new), `test/README.md`, the
+harnesses that pinned the old rates (below), `compiled/` and both shells' `?v=` tokens.
+
+Pp, 2026-11-06, from phone screenshots of the Lipid Pump card (1,680 g, 2 g/kg/d, 16.8 mL/day, 0.95 mL/hr):
+"ถ้ากดที่ลิพิตโวลุ่มจะ rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ ml/kg/hr ข้างบนอีกที", then "Pump rate
+ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง infusion in กี่ hr ให้ ถ้าเกิน 24 ชม. ให้ปัดเพิ่ม rate แทน ให้ไม่เกิน". Asked, she chose:
+the nearest whole mL; the whole mL below where rounding would cross 4.0 g/kg/d, so a tap never makes a critical
+alert; 24 h (not the hours typed) as the limit that rounds a rate up; both pumps; g/kg/h over the hours the pump
+actually runs; one PR for both.
+
+- **Tap Lipid volume** (`CR-R-LIPID-WHOLE-ML`). The box is a button: a tap rounds the 20 % lipid syringe to the nearest
+  whole mL/day (half up) and sets 20 % lipid to the dose that volume gives (mL × 0.2 ÷ kg): 16.8 → 17 mL, 2 → 2.02
+  g/kg/d. A toast names the mL and the dose before and after. Nothing rounds until the tap. A tap never makes a
+  critical lipid line the typed dose did not have: above 4.0 g/kg/d, or g/kg/h above 0.17 (Vera on this PR: the
+  rate ceiling is a critical line too); there the whole mL below is used. Under 0.5 mL it leaves the dose as typed
+  (Vera: a 1 mL floor multiplied a small dose; for Pp to confirm). The dose keeps 2 decimals, else 3, whichever gives
+  the whole mL at 0.1 mL; the printed order now prints the lipid dose to 3 decimals so dose and mL agree (Vera: 3.5
+  kg on 1.5 g/kg/d taps to 1.486 = 26 mL, which printed as 1.49).
+- **Both pumps at 0.1 mL/hr, with the hours they run** (`CR-R-PUMP-RATE`). The TPN pump (its volume over 24 h) and
+  the lipid pump (its bag over the hours typed) show the nearest 0.1 mL/hr; where that would run the volume past
+  24 h, the next 0.1 up. Step 3, the step chips, the copied order, the printed lipid line and Center Point show the
+  rate and "infusion N h" (volume ÷ rate): 100 mL is 4.2 mL/hr for 23.8 h; the lipid bag of 22.8 mL is 1 mL/hr for
+  22.8 h. No volume and no dose changes; a pump set up runs out a little before 24 h.
+- **Lipid g/kg/h is over the hours the pump runs** (`CR-LIPID-RATE`). Rounding a rate up shortens the run, so a dose
+  can grade higher than before: at 1 kg over 24 h, 3.05 g/kg/d is 0.9 mL/hr for 21.4 h = 0.14 (amber; it was 0.13),
+  and over 20 h, 3.4 g/kg/d is 1.1 mL/hr for 19.1 h = 0.18 (critical; it was 0.17). The rule's cases moved to the new
+  edges, with Pp's answer as their source. Under 24 h typed it can also grade lower: at 1 kg over 16 h, 2.85 g/kg/d
+  is 1.1 mL/hr for 16.6 h = 0.17, amber, where it was 0.18, critical (Vera; pinned as a case).
+- **Small TPN bags stop early** (Vera; Q21 for Pp): 12.1 mL/day is 0.6 mL/hr for 20.2 h, and GIR is still over 24 h.
+- **The tap guards only the lipid lines** (Vera; Q22 for Pp): not Energy 160 or NPE:AA 12, and a dose already above
+  4.0 rounds to the nearest mL (4.5 → 4.52).
+- **Printed figures**: on every order with lipid, the lipid line's two figures change ("over 24 h … Rate 0.84" →
+  "Rate 0.9, infusion 22.3 h"); `verify-review-0917-calc.cjs`'s five digests were recaptured after a figure-by-figure
+  comparison with `main` showed nothing else moved. **`CONSTANTS_VERSION` 2026-10-28.1 → 2026-11-06.1** (Vera: calculator
+  logic moves printed figures, the register's rule since 2026-09-18), with its rows in `docs/CLINICAL_CONSTANTS.md`:
+  the version history, `LIPID_GKGH` graded over the pump's hours, and `PUMP_MAX_HOURS`. So an order saved before this
+  release prints only after it is saved again. The backend's `MIN_SUBMIT_CONSTANTS_VERSION` stays 2026-10-28.1: no
+  `clasp` step.
+- **Harnesses that pinned the old rates**, updated to the new rule: `verify-calc-clicks.cjs` (lipid over 16/20/24 h,
+  Volume 100 → Rate 4.2), `verify-calc-oracle.cjs` (its own pump rule, written out), `verify-tpn-meeting-0928.cjs` §5 and
+  `verify-tpn-team-0922.cjs` §2 (they pinned "the pump rate keeps its 2 decimals", Praew 2026-09-28, which this
+  replaces). `tools/reference-tabs.json` gains `PUMP_MAX_HOURS`.
+- No second clinician reviewed this; Pp's request and her answers only. The skill's other line numbers were not
+  refreshed with `--fix-lines`, so this PR does not collide with #223's refresh.
 ## Session 2026-11-06 (4) — Step 2's milk list: no FBM ↔ Infatrini, "HiQ LF"
 
 `data.js` (`EN_PRODUCTS`), `test/verify-en-db-sources.cjs`, `test/verify-tpn-meeting-0928.cjs`,

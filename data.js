@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-10-28.1";
+const CONSTANTS_VERSION = "2026-11-06.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -1068,6 +1068,62 @@ const LIPID_IV_HARD_HI = 4.0;
 const K_IV_HARD_HI = 5.0;
 const NPE_IV_CRIT_LO = 12;
 const OSM_PERIPHERAL_MAX = 900;
+// Pump rates to 0.1 mL/hr (Pp, 2026-11-06: "Pump rate ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง
+// infusion in กี่ hr ให้ ถ้าเกิน 24 ชม. ให้ปัดเพิ่ม rate แทน"). Both pumps: the TPN aqueous
+// pump (its volume over 24 h) and the lipid syringe (its bag over the hours typed).
+// The rate is the nearest 0.1 mL/hr, half up; where that would run the volume past
+// 24 h, it is rounded up to the next 0.1 instead (asked, Pp chose 24 h, not the hours
+// typed, as the limit). `hours` is how long the pump actually runs at that rate:
+// volume ÷ rate. null with no volume.
+const PUMP_MAX_HOURS = 24;
+function pumpRate(volMl, hours = 24) {
+  if (!(volMl > 0) || !(hours > 0)) return null;
+  const exact = volMl / hours;
+  let rate = Number(displayNum(exact, 1));
+  if (!(rate > 0) || Number((volMl / rate).toPrecision(12)) > PUMP_MAX_HOURS) {
+    rate = Math.ceil(Number((exact * 10).toPrecision(12))) / 10;
+  }
+  return { rate, hours: volMl / rate };
+}
+// Lipid g/kg/h, graded by CR-LIPID-RATE: the dose over the hours the lipid pump
+// actually runs at its rounded rate (Pp, 2026-11-06), to 2 decimals as shown.
+function lipidGkghAt(lipidPerKg, bagMl, hours) {
+  const pump = pumpRate(bagMl, hours);
+  return lipidPerKg > 0 && pump ? Math.round(lipidPerKg / pump.hours * 100) / 100 : 0;
+}
+// The 20% lipid syringe to a whole mL/day (Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ
+// rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ"). Tapping Step 3's "Lipid
+// volume" rounds the syringe to the nearest whole mL (half up) and sets the dose
+// that volume gives, so the pump rate and g/kg/h follow it. A tap never makes a
+// critical lipid line the typed dose did not have (Pp, the same day, for 4.0): where
+// the nearest mL would take the dose above 4.0 g/kg/d (CR-LIPID-IV-MAX) or the
+// g/kg/h above its ceiling (CR-LIPID-RATE, Vera on this PR), the whole mL below is
+// used. A line the typed dose already had stays. Under 0.5 mL there is no whole mL
+// to round to, and the dose is returned unchanged (Vera on this PR: 1 mL would
+// multiply a small dose). The dose is kept to 2 decimals, else 3, whichever still
+// gives exactly that mL at the 0.1 mL the TPN room measures (CR-R-STOCK-ML); 3 is
+// always enough up to 8 kg. `hours` and `vitalipidMl` are the lipid pump's, for the
+// g/kg/h. Returns the dose in g/kg/d, or null with no lipid or no weight.
+function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = {}) {
+  const gPerMl = KCMH_STOCK.smof20.gPerMl;
+  if (!(lipidPerKg > 0) || !(wtKg > 0)) return null;
+  const mlOf = (dose) => Number(displayNum(dose * wtKg / gPerMl, 1));
+  let ml = Number(displayNum(lipidPerKg * wtKg / gPerMl, 0));
+  if (!(ml > 0)) return lipidPerKg;
+  const overDose = (dose) => Number(dose.toPrecision(12)) > LIPID_IV_HARD_HI;
+  const overRate = (dose, mlNow) => lipidGkghAt(dose, mlNow + vitalipidMl, hours) > LIPID_GKGH.max;
+  const typedOverDose = overDose(lipidPerKg);
+  const typedOverRate = overRate(lipidPerKg, lipidPerKg * wtKg / gPerMl);
+  const crosses = (m) => (!typedOverDose && overDose(m * gPerMl / wtKg))
+    || (!typedOverRate && overRate(m * gPerMl / wtKg, m));
+  while (ml > 1 && crosses(ml)) ml -= 1;
+  const exact = ml * gPerMl / wtKg;
+  for (const d of [2, 3]) {
+    const dose = Math.round(exact * 10 ** d) / 10 ** d;
+    if (mlOf(dose) === ml) return dose;
+  }
+  return exact;
+}
 function girStatus(gir) {
   return rangeStatus(gir, TARGETS.gir(), { hardHi: GIR_HARD_HI });
 }
@@ -2964,6 +3020,9 @@ window.NEOFEED_DATA = {
   // the same saved GIR can never be amber on one screen and red on the other.
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
+  // Step 3's Lipid volume tap: the syringe to a whole mL, the dose from it;
+  // both pumps' rates to 0.1 mL/hr and the hours they run; lipid g/kg/h on those
+  lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt,
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings

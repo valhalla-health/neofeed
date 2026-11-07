@@ -83,7 +83,7 @@ Source: Pp, 2026-10-08, after an outside review saved a 900 g infant dosed at 8,
 backend's existing bound on a `Daily_Log` weight. Not a clinical threshold.
 
 ```rule
-{"rule": "CR-WT-RANGE", "kind": "stop", "coded": {"TPN_WT_RANGE_G": [200, 8000]}, "where": [{"file": "data.js", "line": 841, "has": "const TPN_WT_RANGE_G = [200, 8000];"}, {"file": "calculator.jsx", "line": 2140, "has": "const tpnWtOutOfRange = wtG > 0 && (wtG < tpnWtLo || wtG > tpnWtHi);"}, {"file": "gas-backend.gs", "line": 2322, "has": "_checkRange(ci.tpnWtG, 200, 8000, \"TPN calc. weight (g)\");"}]}
+{"rule": "CR-WT-RANGE", "kind": "stop", "coded": {"TPN_WT_RANGE_G": [200, 8000]}, "where": [{"file": "data.js", "line": 841, "has": "const TPN_WT_RANGE_G = [200, 8000];"}, {"file": "calculator.jsx", "line": 2165, "has": "const tpnWtOutOfRange = wtG > 0 && (wtG < tpnWtLo || wtG > tpnWtHi);"}, {"file": "gas-backend.gs", "line": 2322, "has": "_checkRange(ci.tpnWtG, 200, 8000, \"TPN calc. weight (g)\");"}]}
 {"case": "8,000 g saves", "side": "inside", "infant": {"g": 8000}, "order": {"Volume(mL/feed)": 80, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"no_alert": "TPN calc. weight out of range", "submit": "no_reason"}}
 {"case": "8,001 g is refused", "side": "outside", "infant": {"g": 8001}, "expect": {"alert": "TPN calc. weight out of range", "level": "crit", "submit": "blocked"}}
 {"case": "200 g saves", "side": "inside", "infant": {"g": 200}, "expect": {"no_alert": "TPN calc. weight out of range"}}
@@ -98,7 +98,7 @@ pressed; a draft can. Until then the bag is graded as peripheral, the stricter r
 Source: Pp, 2026-10-21. Not a clinical threshold.
 
 ```rule
-{"rule": "CR-ROUTE-REQUIRED", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2125, "has": "const routeMissing = route == null && !noTpnOn && (bagOrdered || !!centerPoint);"}]}
+{"rule": "CR-ROUTE-REQUIRED", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2150, "has": "const routeMissing = route == null && !noTpnOn && (bagOrdered || !!centerPoint);"}]}
 {"case": "a bag with no route is refused", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"submit": "blocked", "shows": "ยังไม่ได้เลือก route ของ TPN"}}
 {"case": "feeds only, ticked No TPN, need no route", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 20, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"submit": "no_reason"}}
 ```
@@ -111,7 +111,7 @@ prefilled from yesterday.
 Source: calculator review 2026-09-17 (UP-C3). Not a clinical threshold.
 
 ```rule
-{"rule": "CR-BAG-NO-VOLUME", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2038, "has": "const zeroVolumeBag = bagIngredientsWithoutVolume.length > 0;"}]}
+{"rule": "CR-BAG-NO-VOLUME", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2063, "has": "const zeroVolumeBag = bagIngredientsWithoutVolume.length > 0;"}]}
 {"case": "amino acid with TPN volume 0 is refused", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Amino acid": 3}, "expect": {"submit": "blocked", "shows": "ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: Amino acid — ลบส่วนประกอบ หรือใส่ปริมาตร หรือถ้าวันนี้ไม่มี TPN ติ๊ก \"No TPN\" ที่ Step 3"}}
 {"case": "an empty bag of 0 mL saves (No TPN, feeds 10 mL × 8)", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/feed)": 10, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"submit": "no_reason"}}
 ```
@@ -129,7 +129,7 @@ peripheral 60, central 120. All are for KCl or maintenance fluid, none for a PN 
 above every source found**: Q1, which Pp answered on 2026-10-28: keep as is for now.
 
 ```rule
-{"rule": "CR-K-BAG-MAX", "kind": "stop", "coded": {"K_BAG_MEQ_PER_L.peripheral.hardMax": 60, "K_BAG_MEQ_PER_L.central.hardMax": 200}, "where": [{"file": "data.js", "line": 822, "has": "peripheral: { warn: 40, red: 60,  hardMax: 60 },"}, {"file": "data.js", "line": 823, "has": "central:    { warn: 60, red: 120, hardMax: 200 },"}, {"file": "calculator.jsx", "line": 1746, "has": "const kMeqPerL  = preparedVol > 0 ? bag.k_mEq / (preparedVol / 1000) : 0;"}, {"file": "calculator.jsx", "line": 1961, "has": "const kGrade = (v) => isFinite(v) ? Number(v.toPrecision(12)) : v;"}, {"file": "calculator.jsx", "line": 2043, "has": "const kOverMax = kLim.hardMax != null && kMeqPerLGraded > kLim.hardMax;"}]}
+{"rule": "CR-K-BAG-MAX", "kind": "stop", "coded": {"K_BAG_MEQ_PER_L.peripheral.hardMax": 60, "K_BAG_MEQ_PER_L.central.hardMax": 200}, "where": [{"file": "data.js", "line": 822, "has": "peripheral: { warn: 40, red: 60,  hardMax: 60 },"}, {"file": "data.js", "line": 823, "has": "central:    { warn: 60, red: 120, hardMax: 200 },"}, {"file": "calculator.jsx", "line": 1765, "has": "const kMeqPerL  = preparedVol > 0 ? bag.k_mEq / (preparedVol / 1000) : 0;"}, {"file": "calculator.jsx", "line": 1980, "has": "const kGrade = (v) => isFinite(v) ? Number(v.toPrecision(12)) : v;"}, {"file": "calculator.jsx", "line": 2068, "has": "const kOverMax = kLim.hardMax != null && kMeqPerLGraded > kLim.hardMax;"}]}
 {"case": "peripheral 60 mEq/L (1 kg, 50 mL, KCl 3) is the maximum, not over it", "side": "inside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 50, "Dextrose final": 5, "Amino acid": 1, "KCl": 3}, "expect": {"no_alert": "K⁺ above the maximum", "alert": "K⁺ concentration high", "level": "warn"}}
 {"case": "peripheral 61 mEq/L is refused", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 50, "Dextrose final": 5, "Amino acid": 1, "KCl": 3.05}, "expect": {"alert": "K⁺ above the maximum", "level": "crit", "submit": "blocked"}}
 {"case": "central 200 mEq/L (1 kg, 20 mL, KCl 4) is critical, not refused", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 20, "Dextrose final": 5, "Amino acid": 1, "KCl": 4}, "expect": {"no_alert": "K⁺ above the maximum", "alert": "K⁺ concentration too high", "level": "crit"}}
@@ -146,7 +146,7 @@ Source: KCMH TPN team, 2026-10-25 (the TPN room's largest bottle); Pp, 2026-10-2
 screen: Pp, 2026-11-01: "ใส่ถุงไม่ได้ คือรวม Bag over the 1,250 mL bottle, WFI negative"; she chose the title.
 
 ```rule
-{"rule": "CR-BOTTLE-MAX", "kind": "stop", "coded": {"TPN_BOTTLE_MAX_ML": 1250}, "where": [{"file": "data.js", "line": 799, "has": "const TPN_BOTTLE_MAX_ML = 1250;"}, {"file": "calculator.jsx", "line": 2049, "has": "const bagOverBottle = calc.totalTPN_mL > 0 && Number(D.displayNum(calc.preparedVol, 1)) > D.TPN_BOTTLE_MAX_ML;"}]}
+{"rule": "CR-BOTTLE-MAX", "kind": "stop", "coded": {"TPN_BOTTLE_MAX_ML": 1250}, "where": [{"file": "data.js", "line": 799, "has": "const TPN_BOTTLE_MAX_ML = 1250;"}, {"file": "calculator.jsx", "line": 2074, "has": "const bagOverBottle = calc.totalTPN_mL > 0 && Number(D.displayNum(calc.preparedVol, 1)) > D.TPN_BOTTLE_MAX_ML;"}]}
 {"case": "1,220.04 + 30 = 1,250.04 mL prints 1,250 and saves", "side": "inside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1220.04, "Dextrose final": 10, "Amino acid": 2.5}, "expect": {"no_alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "submit": "no_reason"}}
 {"case": "1,221 + 30 = 1,251 mL is refused", "side": "outside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1221, "Dextrose final": 10, "Amino acid": 2.5}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": "ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม 1251 mL เกินขวดใหญ่สุด 1250 mL ของห้อง TPN — ลดปริมาตรหรือ dead space — บันทึก/พิมพ์ไม่ได้", "hides": "ส่วนประกอบรวม"}}
 {"case": "1,251 mL of D45 with amino acid 3.5: over the bottle and over-full, one stop naming both, and both steps", "side": "outside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1221, "Dextrose final": 45, "Amino acid": 3.5}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": ["ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม 1251 mL เกินขวดใหญ่สุด 1250 mL และส่วนประกอบรวม", "เกินถุงไป", "mL — ลดขนาดยา และลด dead space หรือปริมาตรให้ไม่เกิน 1250 mL — บันทึก/พิมพ์ไม่ได้", "Lower a dose, and lower the dead space or the volume until the bag is 1250 mL or less. This order cannot be submitted."], "hides": ["เพิ่มปริมาตร TPN", "Raise the volume"]}}
@@ -160,7 +160,7 @@ cannot get there (1 mL/kg at 200 g is 0.2 mL).
 Source: Pp, 2026-10-27 (PR #171): the back sheet must never ask for 0 mL of a drug the order holds.
 
 ```rule
-{"rule": "CR-STOCK-ZERO", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2093, "has": "const stockAtZeroMl = stocksAtZeroMl.length > 0;"}]}
+{"rule": "CR-STOCK-ZERO", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2118, "has": "const stockAtZeroMl = stocksAtZeroMl.length > 0;"}]}
 {"case": "700 g, no dead space: ZnSO₄ 0.0715 mg/kg is 0.05 mL, prints 0.1 and saves", "side": "inside", "infant": {"g": 700}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "ZnSO₄": 0.0715}, "expect": {"no_alert": "Stock rounds to 0 mL", "submit": "no_reason", "prints": "ZnSO₄ (Zn 1 mg/mL)0.05 mg Zn0.1"}}
 {"case": "ZnSO₄ 0.071 mg/kg is 0.0497 mL: refused", "side": "outside", "infant": {"g": 700}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "ZnSO₄": 0.071}, "expect": {"alert": "Stock rounds to 0 mL", "level": "crit", "submit": "blocked", "shows": "ZnSO₄ ปัดแล้วเหลือ 0 mL"}}
 ```
@@ -180,7 +180,7 @@ worksheet's I53 (prepared − Σ components). Until 2026-10-28 it was a critical
 so pharmacy could receive a form with a negative WFI.
 
 ```rule
-{"rule": "CR-BAG-OVERFULL", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2103, "has": "const bagOverfull = bagOrdered && calc.wfiVol < 0;"}, {"file": "calculator.jsx", "line": 2110, "has": "const bagCannotBeMade = bagOverBottle || bagOverfull;"}, {"file": "center-point/tpn-document.mjs", "line": 114, "has": "export function tpnBagOverfull(value) { return Number(value.values.wfi) < 0; }"}]}
+{"rule": "CR-BAG-OVERFULL", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2128, "has": "const bagOverfull = bagOrdered && calc.wfiVol < 0;"}, {"file": "calculator.jsx", "line": 2135, "has": "const bagCannotBeMade = bagOverBottle || bagOverfull;"}, {"file": "center-point/tpn-document.mjs", "line": 114, "has": "export function tpnBagOverfull(value) { return Number(value.values.wfi) < 0; }"}]}
 {"case": "2 kg, 130.45 mL: 130.5 mL of stock fills the bag (WFI 0) and saves", "side": "inside", "infant": {"g": 2000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 130.45, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 20, "Amino acid": 3.5, "20% NaCl": 2, "KCl": 1, "Glycophos": 1.3, "Heparin": 0.6}, "expect": {"no_alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "submit": "no_reason"}}
 {"case": "KCl 1.1 adds 0.1 mL: WFI −0.1 is refused", "side": "outside", "infant": {"g": 2000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 130.45, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 20, "Amino acid": 3.5, "20% NaCl": 2, "KCl": 1.1, "Glycophos": 1.3, "Heparin": 0.6}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": "ใส่ถุงไม่ได้: ส่วนประกอบรวม 130.6 mL เกินถุง 130.5 mL ไป 0.1 mL", "hides": "เกินขวดใหญ่สุด"}}
 {"case": "10 mL of D25 with amino acid 3 and no dead space: refused", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 10, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 25, "Amino acid": 3}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "submit": "blocked"}}
@@ -196,7 +196,7 @@ Source: Pp, 2026-10-28: "Feed 1+2 รวมกันมากสุดจะไ�
 clinical threshold.
 
 ```rule
-{"rule": "CR-EN-FEEDS-MAX", "kind": "stop", "coded": {"EN_FEEDS_PER_DAY_MAX": 8}, "where": [{"file": "data.js", "line": 410, "has": "const EN_FEEDS_PER_DAY_MAX = 8;"}, {"file": "calculator.jsx", "line": 2056, "has": "const feedsOverMax = twoFeeds && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;"}]}
+{"rule": "CR-EN-FEEDS-MAX", "kind": "stop", "coded": {"EN_FEEDS_PER_DAY_MAX": 8}, "where": [{"file": "data.js", "line": 410, "has": "const EN_FEEDS_PER_DAY_MAX = 8;"}, {"file": "calculator.jsx", "line": 2081, "has": "const feedsOverMax = twoFeeds && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;"}]}
 {"case": "4 + 4 = 8 feeds a day (q3h): saves", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 10, "Frequency": 4}, "feed2": "PRENAN_22", "order2": {"Volume(mL/feed)": 10, "Frequency": 4}, "tick": {"No TPN": true}, "expect": {"no_alert": "Feeds above 8 a day", "submit": "no_reason", "shows": "Feed 1 + 2 = 8 feeds/d · q3h"}}
 {"case": "6 + 6 = 12 feeds a day (q2h): refused", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 10, "Frequency": 6}, "feed2": "PRENAN_22", "order2": {"Volume(mL/feed)": 10, "Frequency": 6}, "expect": {"alert": "Feeds above 8 a day", "level": "crit", "no_alert": "Two feeds off a regular schedule", "submit": "blocked", "shows": "Feed 1 + Feed 2 รวม 12 มื้อ/วัน เกิน 8 มื้อ"}}
 {"case": "3 + 3 = 6 feeds a day (q4h): saves", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 15, "Frequency": 3}, "feed2": "BM_HMF_24", "order2": {"Volume(mL/feed)": 15, "Frequency": 3}, "expect": {"no_alert": "Feeds above 8 a day", "shows": "Feed 1 + 2 = 6 feeds/d · q4h"}}
@@ -214,7 +214,7 @@ stopped the Calculator with an error.
 Source: Vera on this change, 2026-10-28. Not a clinical threshold.
 
 ```rule
-{"rule": "CR-EN-FEED-UNKNOWN", "kind": "stop", "where": [{"file": "data.js", "line": 431, "has": "function enFeedsUnknown(feeds) {"}, {"file": "calculator.jsx", "line": 2078, "has": "const feedUnknown = feedsUnknown.length > 0;"}]}
+{"rule": "CR-EN-FEED-UNKNOWN", "kind": "stop", "where": [{"file": "data.js", "line": 431, "has": "function enFeedsUnknown(feeds) {"}, {"file": "calculator.jsx", "line": 2103, "has": "const feedUnknown = feedsUnknown.length > 0;"}]}
 {"case": "feed 2 given from a key EN_DB lacks: refused", "side": "outside", "fn": "enFeedsUnknown", "args": [[{"key": "BM_20", "mlPerDay": 80}, {"key": "NOT_A_FEED", "mlPerDay": 80}]], "want": ["NOT_A_FEED"]}
 {"case": "…and it is not costed as the other feed", "side": "outside", "fn": "enMixPer100mL", "args": [[{"key": "BM_20", "mlPerDay": 80}, {"key": "NOT_A_FEED", "mlPerDay": 80}]], "want": null}
 {"case": "the same key with no volume: nothing is fed from it", "side": "inside", "fn": "enFeedsUnknown", "args": [[{"key": "BM_20", "mlPerDay": 80}, {"key": "NOT_A_FEED", "mlPerDay": 0}]], "want": []}
@@ -235,7 +235,7 @@ included) or only totals of 8 or 6, Pp chose any regular schedule (2026-10-28). 
 shared hint: Vera on that change. Not a clinical threshold.
 
 ```rule
-{"rule": "CR-EN-FEEDS-SCHEDULE", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2064, "has": "const feedsNotWhole = twoFeeds && (!Number.isInteger(enFreq) || !Number.isInteger(enFreq2));"}]}
+{"rule": "CR-EN-FEEDS-SCHEDULE", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2089, "has": "const feedsNotWhole = twoFeeds && (!Number.isInteger(enFreq) || !Number.isInteger(enFreq2));"}]}
 {"case": "3 + 4 = 7 a day: refused", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 15, "Frequency": 3}, "feed2": "PRENAN_22", "order2": {"Volume(mL/feed)": 15, "Frequency": 4}, "expect": {"alert": "Two feeds off a regular schedule", "level": "crit", "submit": "blocked", "shows": "Feed 1 + Feed 2 รวม 7 มื้อ/วัน ไม่ลงตัวกับทุก ชม. เท่ากัน"}}
 {"case": "6 + 2 = 8 a day (q3h): saves, each feed shown as its share of q3h", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 15, "Frequency": 6}, "feed2": "PRENAN_22", "order2": {"Volume(mL/feed)": 15, "Frequency": 2}, "tick": {"No TPN": true}, "expect": {"no_alert": "Two feeds off a regular schedule", "submit": "no_reason", "shows": ["Feed 1 + 2 = 8 feeds/d · q3h", "6 of 8 feeds · q3h", "2 of 8 feeds · q3h"], "hides": "q12h"}}
 {"case": "4.8 + 3.2 = 8 a day: refused, not whole feeds", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 15, "Frequency": 4.8}, "feed2": "PRENAN_22", "order2": {"Volume(mL/feed)": 15, "Frequency": 3.2}, "expect": {"alert": "Two feeds off a regular schedule", "submit": "blocked", "shows": "จำนวนมื้อต้องเป็นจำนวนเต็ม", "hides": "is not whole hours"}}
@@ -260,7 +260,7 @@ this source on 2026-10-25; until 2026-10-27 GIR turned red above 13. The amber f
 infants too, where R 5.4 sets 2.5: Q9.
 
 ```rule
-{"rule": "CR-GIR-MAX", "kind": "critical", "coded": {"GIR_HARD_HI": 12}, "where": [{"file": "data.js", "line": 1048, "has": "const GIR_HARD_HI = 12;"}, {"file": "data.js", "line": 672, "has": "gir: () => [4, 12],"}, {"file": "calculator.jsx", "line": 2163, "has": "if (calc.totalTPN_mL > 0 && sGir === \"crit\") alerts.push"}]}
+{"rule": "CR-GIR-MAX", "kind": "critical", "coded": {"GIR_HARD_HI": 12}, "where": [{"file": "data.js", "line": 1048, "has": "const GIR_HARD_HI = 12;"}, {"file": "data.js", "line": 672, "has": "gir: () => [4, 12],"}, {"file": "calculator.jsx", "line": 2188, "has": "if (calc.totalTPN_mL > 0 && sGir === \"crit\") alerts.push"}]}
 {"case": "GIR 11.94 (1.2 kg, 172 mL of D12) is not critical", "side": "inside", "infant": {"g": 1200}, "route": "Central", "order": {"Volume(mL/day)": 172, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2}, "expect": {"no_alert": "GIR critically high", "submit": "no_reason"}}
 {"case": "GIR 12.01 (173 mL) is critical and reads 12.01", "side": "outside", "infant": {"g": 1200}, "route": "Central", "order": {"Volume(mL/day)": 173, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2}, "expect": {"alert": "GIR critically high", "level": "crit", "submit": "asks_reason", "shows": "12.01 mg/kg/min — above 12"}}
 {"case": "4 is the bottom of the band", "side": "inside", "fn": "girStatus", "args": [4], "want": "ok"}
@@ -278,7 +278,7 @@ Source: Mesotten R 5.4 (12 mg/kg/min = 17.3 g/kg/d); Thai CPG Table 4.1 (PDF p. 
 2026-10-25. Until 2026-10-27 it was the KCMH sheet's 18 (cell F9).
 
 ```rule
-{"rule": "CR-DEX-MAX", "kind": "critical", "coded": {"MAX_DEXTROSE_G_KG": 17.3}, "where": [{"file": "data.js", "line": 795, "has": "const MAX_DEXTROSE_G_KG = 17.3;"}, {"file": "calculator.jsx", "line": 2281, "has": "if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push"}]}
+{"rule": "CR-DEX-MAX", "kind": "critical", "coded": {"MAX_DEXTROSE_G_KG": 17.3}, "where": [{"file": "data.js", "line": 795, "has": "const MAX_DEXTROSE_G_KG = 17.3;"}, {"file": "calculator.jsx", "line": 2306, "has": "if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push"}]}
 {"case": "17.3 g/kg/d (1 kg, 100 mL of D17.3) is not over", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 17.3, "Amino acid": 3}, "expect": {"no_alert": "Dextrose over KCMH max", "alert": "GIR critically high"}}
 {"case": "17.4 g/kg/d is critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 17.4, "Amino acid": 3}, "expect": {"alert": "Dextrose over KCMH max", "level": "crit", "submit": "asks_reason"}}
 ```
@@ -295,7 +295,7 @@ and Fanaroff give no mOsm figure, only dextrose above 12.5 % on a central line (
 ch 42 p. 10). The 850 caution and the central 1,800 warning had no source and are gone.
 
 ```rule
-{"rule": "CR-OSM-PERIPH", "kind": "critical", "coded": {"OSM_PERIPHERAL_MAX": 900}, "where": [{"file": "data.js", "line": 1070, "has": "const OSM_PERIPHERAL_MAX = 900;"}, {"file": "calculator.jsx", "line": 1978, "has": "? (Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? \"crit\" : \"ok\")"}, {"file": "calculator.jsx", "line": 2262, "has": "if (bagOrdered && sOsm === \"crit\") alerts.push"}]}
+{"rule": "CR-OSM-PERIPH", "kind": "critical", "coded": {"OSM_PERIPHERAL_MAX": 900}, "where": [{"file": "data.js", "line": 1070, "has": "const OSM_PERIPHERAL_MAX = 900;"}, {"file": "calculator.jsx", "line": 1997, "has": "? (Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? \"crit\" : \"ok\")"}, {"file": "calculator.jsx", "line": 2287, "has": "if (bagOrdered && sOsm === \"crit\") alerts.push"}]}
 {"case": "peripheral, prints 899: no alert", "side": "inside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.49}, "expect": {"no_alert": "Osmolarity > peripheral limit", "shows": "Osm 899 mOsm/L"}}
 {"case": "peripheral, 899.6 prints 900: critical", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"alert": "Osmolarity > peripheral limit", "level": "crit", "submit": "asks_reason"}}
 {"case": "the same bag on a central line: no limit", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"no_alert": "Osmolarity > peripheral limit"}}
@@ -314,7 +314,7 @@ Central amber 60 has no source. ESPGHAN 2018 sets no K⁺ concentration limit (H
 the supplier's stability data).
 
 ```rule
-{"rule": "CR-K-BAG-RED", "kind": "critical", "coded": {"K_BAG_MEQ_PER_L.peripheral.warn": 40, "K_BAG_MEQ_PER_L.peripheral.red": 60, "K_BAG_MEQ_PER_L.central.warn": 60, "K_BAG_MEQ_PER_L.central.red": 120}, "where": [{"file": "calculator.jsx", "line": 2287, "has": "else if (kMeqPerLGraded > kLim.red) alerts.push"}, {"file": "calculator.jsx", "line": 2288, "has": "else if (kMeqPerLGraded > kLim.warn) alerts.push"}]}
+{"rule": "CR-K-BAG-RED", "kind": "critical", "coded": {"K_BAG_MEQ_PER_L.peripheral.warn": 40, "K_BAG_MEQ_PER_L.peripheral.red": 60, "K_BAG_MEQ_PER_L.central.warn": 60, "K_BAG_MEQ_PER_L.central.red": 120}, "where": [{"file": "calculator.jsx", "line": 2312, "has": "else if (kMeqPerLGraded > kLim.red) alerts.push"}, {"file": "calculator.jsx", "line": 2313, "has": "else if (kMeqPerLGraded > kLim.warn) alerts.push"}]}
 {"case": "peripheral 40 mEq/L: no caution", "side": "inside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 50, "Dextrose final": 5, "Amino acid": 1, "KCl": 2}, "expect": {"no_alert": "K⁺ concentration high"}}
 {"case": "peripheral 41 mEq/L: caution", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 50, "Dextrose final": 5, "Amino acid": 1, "KCl": 2.05}, "expect": {"alert": "K⁺ concentration high", "level": "warn"}}
 {"case": "central 60 mEq/L: no caution", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 50, "Dextrose final": 5, "Amino acid": 1, "KCl": 3}, "expect": {"no_alert": "K⁺ concentration high"}}
@@ -333,7 +333,7 @@ of 3.5 g/kg parenterally". Pp chose the TPN + feed total on 2026-10-27, after Ve
 keeps PN amino acid above 3.5 to trials, so a PN-only 3.5–4.5 shows amber only: Q10.
 
 ```rule
-{"rule": "CR-PROTEIN-MAX", "kind": "critical", "coded": {"PROTEIN_HARD_HI": 4.5}, "where": [{"file": "data.js", "line": 1066, "has": "const PROTEIN_HARD_HI = 4.5;"}, {"file": "calculator.jsx", "line": 1918, "has": "const PRO_HARD = { hardHi: D.PROTEIN_HARD_HI };"}]}
+{"rule": "CR-PROTEIN-MAX", "kind": "critical", "coded": {"PROTEIN_HARD_HI": 4.5}, "where": [{"file": "data.js", "line": 1066, "has": "const PROTEIN_HARD_HI = 4.5;"}, {"file": "calculator.jsx", "line": 1937, "has": "const PRO_HARD = { hardHi: D.PROTEIN_HARD_HI };"}]}
 {"case": "amino acid 4.5 g/kg/d: amber, not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 4.5, "20% lipid": 3}, "expect": {"no_alert": "Protein critically out of range", "alert": "Protein off target"}}
 {"case": "amino acid 4.51 g/kg/d: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 4.51, "20% lipid": 3}, "expect": {"alert": "Protein critically out of range", "level": "crit", "submit": "asks_reason"}}
 {"case": "feeds alone: Hi-Q LBW 24 at 176 mL/kg/d (about 4.6)", "side": "outside", "infant": {"g": 1000}, "fluid": 180, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 22, "Frequency": 8}, "expect": {"alert": "Protein critically out of range", "level": "crit"}}
@@ -349,26 +349,34 @@ in preterm and term infants; Thai CPG Table 3.2 (PDF p. 42–43) the same; Fanar
 band and fired on every infant.
 
 ```rule
-{"rule": "CR-LIPID-IV-MAX", "kind": "critical", "coded": {"LIPID_IV_HARD_HI": 4}, "where": [{"file": "data.js", "line": 1067, "has": "const LIPID_IV_HARD_HI = 4.0;"}, {"file": "calculator.jsx", "line": 2003, "has": "const hardLip = D.rangeStatus(ivLipidKg, tLip, { hardHi: D.LIPID_IV_HARD_HI }) === \"crit\";"}]}
+{"rule": "CR-LIPID-IV-MAX", "kind": "critical", "coded": {"LIPID_IV_HARD_HI": 4}, "where": [{"file": "data.js", "line": 1067, "has": "const LIPID_IV_HARD_HI = 4.0;"}, {"file": "calculator.jsx", "line": 2028, "has": "const hardLip = D.rangeStatus(ivLipidKg, tLip, { hardHi: D.LIPID_IV_HARD_HI }) === \"crit\";"}]}
 {"case": "4.0 g/kg/d: not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 4}, "expect": {"no_alert": "Lipid critically out of range"}}
 {"case": "4.1 g/kg/d: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 4.1}, "expect": {"alert": "Lipid critically out of range", "level": "crit", "submit": "asks_reason"}}
 ```
 
 ### CR-LIPID-RATE · lipid infusion rate
 
-g/kg/h = IV lipid g/kg/d ÷ hours infused (16, 20 or 24), rounded to 2 decimals as the pump card shows it,
-then graded: amber above 0.13, critical above 0.17.
+g/kg/h = IV lipid g/kg/d ÷ the hours the lipid pump actually runs, rounded to 2 decimals as the pump card
+shows it, then graded: amber above 0.13, critical above 0.17. The hours are the lipid bag (20 % lipid +
+Vitalipid) ÷ its rate at 0.1 mL/hr (`CR-R-PUMP-RATE`), not the 16, 20 or 24 typed: rounding the rate up
+shortens the run, so a dose can grade higher than over the hours typed (1 kg over 24 h: 3.05 g/kg/d is
+0.9 mL/hr for 21.4 h, 0.14; over the 24 h typed it was 0.13). Under 24 h typed the nearest 0.1 can round
+the rate down and lengthen the run, so a dose can grade lower too (1 kg over 16 h: 2.85 g/kg/d is 1.1 mL/hr
+for 16.6 h, 0.17, amber; over the 16 h typed it was 0.18, critical; Vera on this change).
 Source: TPN team 2026-09-28, Pp: "lipid เพดาน 0.13-0.17 g/kg/h". Koletzko 2005 (p. S20): infants at most
 3–4 g/kg/d "(0.13–0.17 g/kg per hour)". ESPGHAN 2018 gives no hourly limit and advises lipid over 24 h in
 newborns (Lapillonne R 4.10). Thai CPG Table 3.2: 0.17 for preterm, term and infants, 0.13 only over
-1 year; so the amber at 0.13 fires from about 3.1 g/kg/d over 24 h, a dose R 4.3 allows: Q11.
+1 year; so the amber at 0.13 fires from about 3.05 g/kg/d over 24 h at 1 kg, a dose R 4.3 allows: Q11.
+The actual hours: Pp, 2026-11-06, asked with the rate rounding ("Actual hours"); until then the hours typed.
 
 ```rule
-{"rule": "CR-LIPID-RATE", "kind": "critical", "coded": {"LIPID_GKGH": {"warn": 0.13, "max": 0.17}}, "where": [{"file": "data.js", "line": 829, "has": "const LIPID_GKGH = { warn: 0.13, max: 0.17 };"}, {"file": "calculator.jsx", "line": 1983, "has": "const lipidGkgh = lipidPerKg > 0 && lipidDripHours > 0 ? Math.round(lipidPerKg / lipidDripHours * 100) / 100 : 0;"}]}
-{"case": "3.1 g over 24 h = 0.13: no caution", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.1}, "expect": {"no_alert": "Lipid rate near the ceiling"}}
-{"case": "3.25 g over 24 h = 0.14: caution", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.25}, "expect": {"alert": "Lipid rate near the ceiling", "level": "warn"}}
-{"case": "3.4 g over 20 h = 0.17: not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.4}, "expect": {"no_alert": "Lipid rate above the ceiling"}}
-{"case": "3.5 g over 20 h = 0.18: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.5}, "expect": {"alert": "Lipid rate above the ceiling", "level": "crit", "submit": "asks_reason"}}
+{"rule": "CR-LIPID-RATE", "kind": "critical", "coded": {"LIPID_GKGH": {"warn": 0.13, "max": 0.17}}, "where": [{"file": "data.js", "line": 829, "has": "const LIPID_GKGH = { warn: 0.13, max: 0.17 };"}, {"file": "data.js", "line": 1090, "has": "function lipidGkghAt(lipidPerKg, bagMl, hours) {"}, {"file": "calculator.jsx", "line": 2007, "has": "const lipidGkgh = D.lipidGkghAt(lipidPerKg, calc.lipidBagVol, lipidDripHours);"}]}
+{"case": "3.0 g over 24 h: 19 mL at 0.8 mL/hr runs 23.75 h = 0.13: no caution", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3}, "expect": {"no_alert": "Lipid rate near the ceiling"}}
+{"case": "3.05 g over 24 h: 19.25 mL at 0.9 mL/hr runs 21.4 h = 0.14: caution", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.05}, "expect": {"alert": "Lipid rate near the ceiling", "level": "warn", "shows": "0.14 g/kg/h over 21.4 h"}}
+{"case": "3.35 g over 20 h: 20.75 mL at 1 mL/hr runs 20.75 h = 0.16: not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.35}, "expect": {"no_alert": "Lipid rate above the ceiling"}}
+{"case": "3.4 g over 20 h: 21 mL at 1.1 mL/hr runs 19.1 h = 0.18: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.4}, "expect": {"alert": "Lipid rate above the ceiling", "level": "crit", "submit": "asks_reason"}}
+{"case": "0.17 is not above the ceiling", "side": "inside", "fn": "lipidGkghAt", "args": [4, 24, 24], "want": 0.17}
+{"case": "2.85 g over 16 h: 18.25 mL at 1.1 mL/hr runs 16.6 h = 0.17: amber, not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "hours": 16, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2.85}, "expect": {"alert": "Lipid rate near the ceiling", "level": "warn", "no_alert": "Lipid rate above the ceiling"}}
 ```
 
 ### CR-K-IV-MAX · IV potassium ceiling
@@ -381,7 +389,7 @@ Source: TPN team, 2026-10-25 (it was 3.5, unsourced); 5 is Jochum Table 3's uppe
 infants, so 3–5 shows amber only there: Q12.
 
 ```rule
-{"rule": "CR-K-IV-MAX", "kind": "critical", "coded": {"K_IV_HARD_HI": 5}, "where": [{"file": "data.js", "line": 1068, "has": "const K_IV_HARD_HI = 5.0;"}, {"file": "calculator.jsx", "line": 2004, "has": "const hardK   = D.rangeStatus(ivKKg, tK, { hardHi: D.K_IV_HARD_HI }) === \"crit\";"}]}
+{"rule": "CR-K-IV-MAX", "kind": "critical", "coded": {"K_IV_HARD_HI": 5}, "where": [{"file": "data.js", "line": 1068, "has": "const K_IV_HARD_HI = 5.0;"}, {"file": "calculator.jsx", "line": 2029, "has": "const hardK   = D.rangeStatus(ivKKg, tK, { hardHi: D.K_IV_HARD_HI }) === \"crit\";"}]}
 {"case": "KCl 5 mEq/kg/d: not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "KCl": 5}, "expect": {"no_alert": "Potassium critically out of range"}}
 {"case": "KCl 5.1 mEq/kg/d: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "KCl": 5.1}, "expect": {"alert": "Potassium critically out of range", "level": "crit", "submit": "asks_reason"}}
 ```
@@ -395,7 +403,7 @@ not above 160 (the code cites the CUPA 2023 lecture, slide 17). That is an enter
 one for PN, whose bands stop at 120 (`CR-TGT-KCAL`): Q13.
 
 ```rule
-{"rule": "CR-KCAL-MAX", "kind": "critical", "coded": {"KCAL_HARD_HI": 160}, "where": [{"file": "data.js", "line": 1052, "has": "const KCAL_HARD_HI = 160;"}, {"file": "calculator.jsx", "line": 1925, "has": "const kcalStatusAt = (v) => D.rangeStatus(v, tKcal, { hardHi: D.KCAL_HARD_HI });"}]}
+{"rule": "CR-KCAL-MAX", "kind": "critical", "coded": {"KCAL_HARD_HI": 160}, "where": [{"file": "data.js", "line": 1052, "has": "const KCAL_HARD_HI = 160;"}, {"file": "calculator.jsx", "line": 1944, "has": "const kcalStatusAt = (v) => D.rangeStatus(v, tKcal, { hardHi: D.KCAL_HARD_HI });"}]}
 {"case": "160 kcal/kg/d (Hi-Q LBW 24, 25 mL × 8): amber, not critical", "side": "inside", "infant": {"g": 1000}, "fluid": 200, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 25, "Frequency": 8}, "expect": {"no_alert": "Energy critically out of range", "alert": "Energy off target"}}
 {"case": "161 kcal/kg/d (25.2 mL × 8): critical", "side": "outside", "infant": {"g": 1000}, "fluid": 200, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 25.2, "Frequency": 8}, "expect": {"alert": "Energy critically out of range", "level": "crit"}}
 ```
@@ -409,7 +417,7 @@ Source: KCMH TPN team, 2026-09-22: "กำหนด Maximum Zinc 5 mg/day". ESPG
 Peditrace SmPC §2: 250 µg Zn/mL.
 
 ```rule
-{"rule": "CR-ZN-MAX", "kind": "critical", "coded": {"MAX_ZN_MG_DAY": 5, "KCMH_STOCK.peditrace.znMgPerMl": 0.25, "KCMH_STOCK.znso4.znMgPerMl": 1}, "where": [{"file": "data.js", "line": 832, "has": "const MAX_ZN_MG_DAY = 5;"}, {"file": "calculator.jsx", "line": 1688, "has": "const znTotal_mg = znPeditrace_mg + znSO4_mg;"}, {"file": "calculator.jsx", "line": 2294, "has": "if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push"}]}
+{"rule": "CR-ZN-MAX", "kind": "critical", "coded": {"MAX_ZN_MG_DAY": 5, "KCMH_STOCK.peditrace.znMgPerMl": 0.25, "KCMH_STOCK.znso4.znMgPerMl": 1}, "where": [{"file": "data.js", "line": 832, "has": "const MAX_ZN_MG_DAY = 5;"}, {"file": "calculator.jsx", "line": 1707, "has": "const znTotal_mg = znPeditrace_mg + znSO4_mg;"}, {"file": "calculator.jsx", "line": 2319, "has": "if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push"}]}
 {"case": "5 kg: Peditrace 1.25 + ZnSO₄ 3.75 = 5 mg/day, not over", "side": "inside", "infant": {"g": 5000}, "route": "Central", "fluid": 140, "order": {"Volume(mL/day)": 600, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3, "ZnSO₄": 0.75}, "expect": {"no_alert": "Zinc total above 5 mg/day"}}
 {"case": "5 kg: 1.25 + 3.8 = 5.05 mg/day, critical", "side": "outside", "infant": {"g": 5000}, "route": "Central", "fluid": 140, "order": {"Volume(mL/day)": 600, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3, "ZnSO₄": 0.76}, "expect": {"alert": "Zinc total above 5 mg/day", "level": "crit", "submit": "asks_reason"}}
 ```
@@ -421,7 +429,7 @@ critical; exactly 20 % is not (float noise stripped). Only a typed weight is jud
 Source: Pp, 2026-10-08: "ต่างเกิน 20%". Not a clinical threshold.
 
 ```rule
-{"rule": "CR-WT-MANUAL", "kind": "critical", "coded": {"TPN_WT_MANUAL_MAX_DIFF": 0.2}, "where": [{"file": "data.js", "line": 842, "has": "const TPN_WT_MANUAL_MAX_DIFF = 0.2;"}, {"file": "calculator.jsx", "line": 2144, "has": "const tpnWtFar = !tpnWtOutOfRange && Number(tpnWtDiff.toPrecision(12)) > D.TPN_WT_MANUAL_MAX_DIFF;"}]}
+{"rule": "CR-WT-MANUAL", "kind": "critical", "coded": {"TPN_WT_MANUAL_MAX_DIFF": 0.2}, "where": [{"file": "data.js", "line": 842, "has": "const TPN_WT_MANUAL_MAX_DIFF = 0.2;"}, {"file": "calculator.jsx", "line": 2169, "has": "const tpnWtFar = !tpnWtOutOfRange && Number(tpnWtDiff.toPrecision(12)) > D.TPN_WT_MANUAL_MAX_DIFF;"}]}
 {"case": "1,200 g typed against 1,000 g automatic (20 %): saves", "side": "inside", "infant": {"g": 1000}, "order": {"TPN calc. weight": 1200, "Volume(mL/feed)": 13, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"no_alert": "TPN calc. weight far from automatic", "submit": "no_reason"}}
 {"case": "1,201 g typed: critical", "side": "outside", "infant": {"g": 1000}, "order": {"TPN calc. weight": 1201, "Volume(mL/feed)": 13, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"alert": "TPN calc. weight far from automatic", "level": "crit", "submit": "asks_reason"}}
 ```
@@ -434,7 +442,7 @@ Source: Avery ch 83 p. 14 and Fanaroff ch 91 p. 21: calcium without enough phosp
 with hypophosphataemia; ESPGHAN 2022 C4 (Embleton p. 255). No source sets the severity tier.
 
 ```rule
-{"rule": "CR-CAP-NO-P", "kind": "critical", "where": [{"file": "calculator.jsx", "line": 2235, "has": "if (caPStatus === \"crit\") alerts.push"}, {"file": "data.js", "line": 1030, "has": "if (!isFinite(value)) return value > 0 ? \"crit\" : \"empty\";"}]}
+{"rule": "CR-CAP-NO-P", "kind": "critical", "where": [{"file": "calculator.jsx", "line": 2260, "has": "if (caPStatus === \"crit\") alerts.push"}, {"file": "data.js", "line": 1030, "has": "if (!isFinite(value)) return value > 0 ? \"crit\" : \"empty\";"}]}
 {"case": "Ca 40 mg/kg/d with no phosphate: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40}, "expect": {"alert": "Ca:P ratio — ไม่มี P", "level": "crit", "submit": "asks_reason"}}
 {"case": "Ca 40 with Glycophos: no such alert", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40, "Glycophos": 2}, "expect": {"no_alert": "Ca:P ratio — ไม่มี P"}}
 ```
@@ -448,7 +456,7 @@ dose typed from habit (0.2–0.6) now reads as mg, a twelfth of what was meant. 
 Source: Pp, 2026-10-29, answering Vera's second review of the nutrition-meeting PR (finding 4).
 
 ```rule
-{"rule": "CR-MG-MEQ-HABIT", "kind": "critical", "coded": {"MG_MEQ_HABIT_MG": 1}, "where": [{"file": "data.js", "line": 850, "has": "const MG_MEQ_HABIT_MG = 1;"}, {"file": "calculator.jsx", "line": 1939, "has": "const mgStatusAt = (v) => D.rangeStatus(v, tMg, { hardLo: D.MG_MEQ_HABIT_MG });"}, {"file": "calculator.jsx", "line": 2198, "has": "if (sMg === \"crit\") alerts.push"}]}
+{"rule": "CR-MG-MEQ-HABIT", "kind": "critical", "coded": {"MG_MEQ_HABIT_MG": 1}, "where": [{"file": "data.js", "line": 850, "has": "const MG_MEQ_HABIT_MG = 1;"}, {"file": "calculator.jsx", "line": 1958, "has": "const mgStatusAt = (v) => D.rangeStatus(v, tMg, { hardLo: D.MG_MEQ_HABIT_MG });"}, {"file": "calculator.jsx", "line": 2223, "has": "if (sMg === \"crit\") alerts.push"}]}
 {"case": "MgSO₄ 1 mg/kg/d on DOL 10: amber only, no reason asked", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 150, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2, "MgSO₄": 1}, "expect": {"alert": "Magnesium off target", "level": "warn", "submit": "no_reason"}}
 {"case": "MgSO₄ 0.99 mg/kg/d: critical, asks whether it was mEq", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 150, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2, "MgSO₄": 0.99}, "expect": {"alert": "Magnesium below 1 mg/kg/d: พิมพ์เป็น mEq หรือเปล่า", "level": "crit", "submit": "asks_reason", "shows": "พิมพ์เป็น mEq หรือเปล่า"}}
 {"case": "0.4 typed from mEq habit, 2 kg: critical", "side": "outside", "infant": {"g": 2000}, "route": "Central", "order": {"Volume(mL/day)": 300, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2, "MgSO₄": 0.4}, "expect": {"alert": "Magnesium below 1 mg/kg/d: พิมพ์เป็น mEq หรือเปล่า", "level": "crit", "submit": "asks_reason"}}
@@ -468,7 +476,7 @@ Source: Pp, 2026-11-06, answering Vera's review of the Na / P buttons: of 10 / 1
 chose 10 / 10.
 
 ```rule
-{"rule": "CR-GLYCO-UNIT-HABIT", "kind": "critical", "coded": {"GLYCO_NA_HABIT_MEQ": 10, "GLYCO_P_HABIT_MG": 10}, "where": [{"file": "data.js", "line": 857, "has": "const GLYCO_NA_HABIT_MEQ = 10;"}, {"file": "data.js", "line": 860, "has": "const GLYCO_P_HABIT_MG = 10;"}, {"file": "calculator.jsx", "line": 2209, "has": "if (glycoNaKg >= D.GLYCO_NA_HABIT_MEQ) alerts.push"}, {"file": "calculator.jsx", "line": 2212, "has": "else if (glycophosBy === \"p\" && glycoPMgKg > 0 && glycoPMgKg < D.GLYCO_P_HABIT_MG) alerts.push"}]}
+{"rule": "CR-GLYCO-UNIT-HABIT", "kind": "critical", "coded": {"GLYCO_NA_HABIT_MEQ": 10, "GLYCO_P_HABIT_MG": 10}, "where": [{"file": "data.js", "line": 857, "has": "const GLYCO_NA_HABIT_MEQ = 10;"}, {"file": "data.js", "line": 860, "has": "const GLYCO_P_HABIT_MG = 10;"}, {"file": "calculator.jsx", "line": 2234, "has": "if (glycoNaKg >= D.GLYCO_NA_HABIT_MEQ) alerts.push"}, {"file": "calculator.jsx", "line": 2237, "has": "else if (glycophosBy === \"p\" && glycoPMgKg > 0 && glycoPMgKg < D.GLYCO_P_HABIT_MG) alerts.push"}]}
 {"case": "1 kg: Glycophos 9.99 mEq Na/kg/d is not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "Glycophos": 9.99}, "expect": {"no_alert": "Glycophos 10 mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า"}}
 {"case": "30 typed on Na (meant 30 mg P): 30 mEq Na = P 465 mg/kg/d, critical, a reason asked", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "Glycophos": 30}, "expect": {"alert": "Glycophos 10 mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า", "level": "crit", "submit": "asks_reason", "shows": "Glycophos 30 mEq Na/kg/d = P 465 mg/kg/d = 15 mL/kg/d"}}
 {"case": "10 mEq Na/kg/d itself is critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "Glycophos": 10}, "expect": {"alert": "Glycophos 10 mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า", "level": "crit"}}
@@ -491,7 +499,7 @@ The old > 32 ceiling is gone because 30–40 is a minimum. Q3, which Pp answered
 for now.
 
 ```rule
-{"rule": "CR-NPE-AA", "kind": "red", "coded": {"NPE_IV_CRIT_LO": 12}, "where": [{"file": "data.js", "line": 1069, "has": "const NPE_IV_CRIT_LO = 12;"}, {"file": "data.js", "line": 734, "has": "npePerGAA: () => [24, Infinity],"}, {"file": "calculator.jsx", "line": 2002, "has": "const ivNpeN    = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;"}, {"file": "calculator.jsx", "line": 2017, "has": "const critLowNPE = ivNpeN !== null && ivNpeN < D.NPE_IV_CRIT_LO;"}, {"file": "calculator.jsx", "line": 2018, "has": "const lowNPE  = ivNpeN !== null && !critLowNPE && ivNpeN < 20;"}]}
+{"rule": "CR-NPE-AA", "kind": "red", "coded": {"NPE_IV_CRIT_LO": 12}, "where": [{"file": "data.js", "line": 1069, "has": "const NPE_IV_CRIT_LO = 12;"}, {"file": "data.js", "line": 734, "has": "npePerGAA: () => [24, Infinity],"}, {"file": "calculator.jsx", "line": 2027, "has": "const ivNpeN    = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;"}, {"file": "calculator.jsx", "line": 2042, "has": "const critLowNPE = ivNpeN !== null && ivNpeN < D.NPE_IV_CRIT_LO;"}, {"file": "calculator.jsx", "line": 2043, "has": "const lowNPE  = ivNpeN !== null && !critLowNPE && ivNpeN < 20;"}]}
 {"case": "IV 11.7 (100 mL of D10, AA 2.9): red, saves with no reason", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 2.9}, "expect": {"alert": "NPE:AA critically low", "level": "crit", "submit": "no_reason"}}
 {"case": "IV 12.1 (AA 2.8): amber, not red", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 2.8}, "expect": {"no_alert": "NPE:AA critically low", "shows": "kcal/g AA < 20"}}
 {"case": "IV 19.9 (AA 1.71): the below-20 caution", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 1.71}, "expect": {"shows": "NPE:AA IV 19.9 kcal/g AA < 20"}}
@@ -510,7 +518,7 @@ Source: KCMH TPN team, 2026-10-25. ESPGHAN 2018, Kolaček: 0.5–1.0 U/mL is unl
 lipid emulsion; Fanaroff ch Therapeutic Agents p. 8: 0.5–1 unit/mL for central-line patency.
 
 ```rule
-{"rule": "CR-HEPARIN", "kind": "caution", "coded": {"HEPARIN_USUAL_MAX_U_ML": 1, "KCMH_STOCK.heparin.unitsPerMl": 100}, "where": [{"file": "data.js", "line": 806, "has": "const HEPARIN_USUAL_MAX_U_ML = 1;"}, {"file": "calculator.jsx", "line": 2313, "has": "if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push"}]}
+{"rule": "CR-HEPARIN", "kind": "caution", "coded": {"HEPARIN_USUAL_MAX_U_ML": 1, "KCMH_STOCK.heparin.unitsPerMl": 100}, "where": [{"file": "data.js", "line": 806, "has": "const HEPARIN_USUAL_MAX_U_ML = 1;"}, {"file": "calculator.jsx", "line": 2338, "has": "if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push"}]}
 {"case": "1 U/mL: no caution", "side": "inside", "infant": {"g": 1500}, "route": "Central", "order": {"Volume(mL/day)": 150, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1, "Heparin": 1}, "expect": {"no_alert": "Heparin above the usual dose"}}
 {"case": "1.5 U/mL: caution", "side": "outside", "infant": {"g": 1500}, "route": "Central", "order": {"Volume(mL/day)": 150, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1, "Heparin": 1.5}, "expect": {"alert": "Heparin above the usual dose", "level": "warn"}}
 ```
@@ -523,7 +531,7 @@ R1 (p. 257): 400–700 IU/kg/d "with a maximum dose of 1000 IU/d"; Fanaroff ch 9
 safe upper limit under 6 months.
 
 ```rule
-{"rule": "CR-VITD", "kind": "caution", "coded": {"VIT_D_MAX_IU_DAY": 1000}, "where": [{"file": "data.js", "line": 803, "has": "const VIT_D_MAX_IU_DAY = 1000;"}, {"file": "calculator.jsx", "line": 2317, "has": "if (vitDIuDay > D.VIT_D_MAX_IU_DAY) alerts.push"}]}
+{"rule": "CR-VITD", "kind": "caution", "coded": {"VIT_D_MAX_IU_DAY": 1000}, "where": [{"file": "data.js", "line": 803, "has": "const VIT_D_MAX_IU_DAY = 1000;"}, {"file": "calculator.jsx", "line": 2342, "has": "if (vitDIuDay > D.VIT_D_MAX_IU_DAY) alerts.push"}]}
 {"case": "1.5 kg: 400 IU/kg + Munti-vim 400 = 1,000 IU/day, not above", "side": "inside", "infant": {"g": 1500}, "order": {"Vitamin D": 400}, "tick": {"Munti-vim": true}, "expect": {"no_alert": "Vitamin D above 1,000 IU/day"}}
 {"case": "450 IU/kg + Munti-vim = 1,075 IU/day: caution", "side": "outside", "infant": {"g": 1500}, "order": {"Vitamin D": 450}, "tick": {"Munti-vim": true}, "expect": {"alert": "Vitamin D above 1,000 IU/day", "level": "warn"}}
 ```
@@ -537,7 +545,7 @@ ESPGHAN 2022 (Embleton p. 257): minimal enteral feeding "typically 12–24 mL/kg
 ≤ 25 mL/kg/d.
 
 ```rule
-{"rule": "CR-MEN-MAX", "kind": "caution", "coded": {"MEN_MAX_ML_KG": 24}, "where": [{"file": "data.js", "line": 866, "has": "const MEN_MAX_ML_KG = 24;"}, {"file": "calculator.jsx", "line": 2243, "has": "if (isMEN && calc.enVolPerKg > D.MEN_MAX_ML_KG) alerts.push"}]}
+{"rule": "CR-MEN-MAX", "kind": "caution", "coded": {"MEN_MAX_ML_KG": 24}, "where": [{"file": "data.js", "line": 866, "has": "const MEN_MAX_ML_KG = 24;"}, {"file": "calculator.jsx", "line": 2268, "has": "if (isMEN && calc.enVolPerKg > D.MEN_MAX_ML_KG) alerts.push"}]}
 {"case": "MEN 3 mL × 8 = 24 mL/kg/d: no caution", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 3, "Frequency": 8}, "tick": {"MEN (trophic)": true}, "expect": {"no_alert": "MEN ticked above trophic volume"}}
 {"case": "MEN 3.1 mL × 8 = 24.8 mL/kg/d: caution", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 3.1, "Frequency": 8}, "tick": {"MEN (trophic)": true}, "expect": {"alert": "MEN ticked above trophic volume", "level": "warn"}}
 ```
@@ -549,7 +557,7 @@ reached pharmacy as "not ordered" with nothing on screen.
 Source: Pp, 2026-10-21. A bag without Ca, P or Mg gets no caution (TPN team, 2026-10-25; Pp, 2026-10-27).
 
 ```rule
-{"rule": "CR-AA-MISSING", "kind": "caution", "where": [{"file": "calculator.jsx", "line": 2221, "has": "if (calc.totalTPN_mL > 0 && !(aaPerKg > 0)) alerts.push"}]}
+{"rule": "CR-AA-MISSING", "kind": "caution", "where": [{"file": "calculator.jsx", "line": 2246, "has": "if (calc.totalTPN_mL > 0 && !(aaPerKg > 0)) alerts.push"}]}
 {"case": "D10 with no amino acid: caution", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10}, "expect": {"alert": "Amino acid not ordered", "level": "warn"}}
 {"case": "amino acid 1 g/kg/d: none", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 1}, "expect": {"no_alert": "Amino acid not ordered"}}
 ```
@@ -561,7 +569,7 @@ checks it. Glycophos (organic phosphate) raises no caution.
 Source: ESPGHAN/ESPEN/ESPR/CSPEN 2018 (the alert's citation).
 
 ```rule
-{"rule": "CR-CAPHOS-COMPAT", "kind": "caution", "where": [{"file": "calculator.jsx", "line": 2319, "has": "if (calc.totalTPN_mL > 0 && caPerKg > 0 && k2hpo4 > 0) alerts.push"}]}
+{"rule": "CR-CAPHOS-COMPAT", "kind": "caution", "where": [{"file": "calculator.jsx", "line": 2344, "has": "if (calc.totalTPN_mL > 0 && caPerKg > 0 && k2hpo4 > 0) alerts.push"}]}
 {"case": "Ca with K₂HPO₄: caution", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40, "K₂HPO₄": 1}, "expect": {"alert": "Calcium–phosphate compatibility not calculated", "level": "warn"}}
 {"case": "Ca with Glycophos: none", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40, "Glycophos": 2}, "expect": {"no_alert": "Calcium–phosphate compatibility not calculated"}}
 ```
@@ -575,7 +583,7 @@ feeds above the plan. The fluid tile has no hard limit.
 Source: none needed; the 20 mL/kg/d margin is the code's own. On a ticked day: Vera, 2026-11-01.
 
 ```rule
-{"rule": "CR-FLUID-PLAN", "kind": "caution", "where": [{"file": "calculator.jsx", "line": 2277, "has": "if ((calc.totalTPN_mL > 0 || (noTpnOn && !noTpnEnLow && !noTpnPlanLow)) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push"}]}
+{"rule": "CR-FLUID-PLAN", "kind": "caution", "where": [{"file": "calculator.jsx", "line": 2302, "has": "if ((calc.totalTPN_mL > 0 || (noTpnOn && !noTpnEnLow && !noTpnPlanLow)) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push"}]}
 {"case": "130 against a plan of 150 (20 off): none", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 130, "Dextrose final": 10, "Amino acid": 2}, "expect": {"no_alert": "Fluid: prescribed ≠ target"}}
 {"case": "129 against 150 (21 off): info", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 129, "Dextrose final": 10, "Amino acid": 2}, "expect": {"alert": "Fluid: prescribed ≠ target", "level": "info"}}
 {"case": "No TPN, feeds 21.5 mL × 8 = 172 against 150: info", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 21.5, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"alert": "Fluid: prescribed ≠ target", "level": "info"}}
@@ -596,7 +604,7 @@ requirement ตามวัน"; asked whether a feed below it blocks Submit or 
 reason" the same day; asked (Q20), she kept "หรือ" as whichever is lower and 80 itself as enough.
 
 ```rule
-{"rule": "CR-NO-TPN-EN", "kind": "critical", "coded": {"NO_TPN_EN_MIN_ML_KG": 80}, "where": [{"file": "data.js", "line": 874, "has": "const NO_TPN_EN_MIN_ML_KG = 80;"}, {"file": "data.js", "line": 878, "has": "return Math.min(NO_TPN_EN_MIN_ML_KG, TARGETS.fluid(dol, wtG, bwG)[0]);"}, {"file": "calculator.jsx", "line": 2254, "has": "const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;"}, {"file": "calculator.jsx", "line": 2257, "has": "if (noTpnEnLow) alerts.push({ level: \"crit\", title: \"No TPN: feeds below 80 mL/kg/d or the day's minimum\","}]}
+{"rule": "CR-NO-TPN-EN", "kind": "critical", "coded": {"NO_TPN_EN_MIN_ML_KG": 80}, "where": [{"file": "data.js", "line": 874, "has": "const NO_TPN_EN_MIN_ML_KG = 80;"}, {"file": "data.js", "line": 878, "has": "return Math.min(NO_TPN_EN_MIN_ML_KG, TARGETS.fluid(dol, wtG, bwG)[0]);"}, {"file": "calculator.jsx", "line": 2279, "has": "const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;"}, {"file": "calculator.jsx", "line": 2282, "has": "if (noTpnEnLow) alerts.push({ level: \"crit\", title: \"No TPN: feeds below 80 mL/kg/d or the day's minimum\","}]}
 {"case": "DOL 10, 1 kg: 80", "fn": "noTpnEnMinPerKg", "args": [10, 1000], "want": 80}
 {"case": "DOL 1, 999 g (80–100): 80", "fn": "noTpnEnMinPerKg", "args": [1, 999], "want": 80}
 {"case": "DOL 1, 1,200 g (70–90): 70", "fn": "noTpnEnMinPerKg", "args": [1, 1200], "want": 70}
@@ -627,7 +635,7 @@ Source: Pp, 2026-11-01: "ถ้าติ๊กช่องนี้และผ�
 asked about an order with no TPN left unticked, "Block until ticked". Not a clinical threshold.
 
 ```rule
-{"rule": "CR-NO-TPN-TICK", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2131, "has": "const noTpnUnticked = !noTpnOn && !centerPoint && !scratch && !bagOrdered && !(lipidPerKg > 0);"}]}
+{"rule": "CR-NO-TPN-TICK", "kind": "stop", "where": [{"file": "calculator.jsx", "line": 2156, "has": "const noTpnUnticked = !noTpnOn && !centerPoint && !scratch && !bagOrdered && !(lipidPerKg > 0);"}]}
 {"case": "feeds only, 10 mL × 8, the tick off: refused", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 10, "Frequency": 8}, "expect": {"submit": "blocked", "shows": "คำสั่งนี้ไม่มี TPN — ติ๊ก \"No TPN\" ที่ Step 3 ก่อน Submit"}}
 {"case": "nothing ordered at all, the tick off: refused", "side": "outside", "infant": {"g": 1000}, "expect": {"submit": "blocked"}}
 {"case": "the same feeds with the tick on: saves", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 10, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"submit": "no_reason", "hides": "คำสั่งนี้ไม่มี TPN"}}
@@ -645,7 +653,7 @@ Source: Pp, 2026-11-01: "ถ้ามีฟูอิดแพลน แล้ว
 she chose more than 20 mL/kg/d (the margin `CR-FLUID-PLAN` uses) and amber.
 
 ```rule
-{"rule": "CR-NO-TPN-PLAN", "kind": "caution", "coded": {"NO_TPN_PLAN_GAP_ML_KG": 20}, "where": [{"file": "data.js", "line": 885, "has": "const NO_TPN_PLAN_GAP_ML_KG = 20;"}, {"file": "calculator.jsx", "line": 2269, "has": "&& Number(noTpnPlanGap.toPrecision(12)) > D.NO_TPN_PLAN_GAP_ML_KG;"}]}
+{"rule": "CR-NO-TPN-PLAN", "kind": "caution", "coded": {"NO_TPN_PLAN_GAP_ML_KG": 20}, "where": [{"file": "data.js", "line": 885, "has": "const NO_TPN_PLAN_GAP_ML_KG = 20;"}, {"file": "calculator.jsx", "line": 2294, "has": "&& Number(noTpnPlanGap.toPrecision(12)) > D.NO_TPN_PLAN_GAP_ML_KG;"}]}
 {"case": "plan 150, feeds 16.25 mL × 8 = 130 (20 below): none", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 16.25, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"no_alert": "No TPN: feeds well below the fluid plan", "submit": "no_reason"}}
 {"case": "plan 150, feeds 16.1 mL × 8 = 128.8 (21.2 below): amber, still saves", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 16.1, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"alert": "No TPN: feeds well below the fluid plan", "level": "warn", "no_alert": "Fluid: prescribed ≠ target", "submit": "no_reason", "shows": "No TPN · plan 150 mL/kg/d แต่นมที่นับได้ 129 mL/kg/d (ขาด 21 mL/kg/d) — ลืมสั่ง TPN หรือเปล่า?"}}
 {"case": "plan 150, feeds 16.2 mL × 8 = 129.6: the shortfall reads 20.4, not 20", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 16.2, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"alert": "No TPN: feeds well below the fluid plan", "shows": "แต่นมที่นับได้ 129.6 mL/kg/d (ขาด 20.4 mL/kg/d)"}}
@@ -668,7 +676,7 @@ Source: the KCMH worksheet, row 43 (1 mL/kg, max 10); Soluvit N datasheet (Medsa
 uses actual weight).
 
 ```rule
-{"rule": "CR-SOLUVIT-CAP", "kind": "cap", "coded": {"KCMH_STOCK.soluvit.mlPerKg": 1, "KCMH_STOCK.soluvit.maxMl": 10}, "where": [{"file": "data.js", "line": 782, "has": "mlPerKg: 1.0, maxMl: 10 },"}, {"file": "data.js", "line": 2379, "has": "return Math.min(s.mlPerKg * wtKg, s.maxMl);"}, {"file": "calculator.jsx", "line": 1673, "has": "roundMl(D.vitaminMlPerDay(\"soluvit\",   wtKg) * overfill)"}]}
+{"rule": "CR-SOLUVIT-CAP", "kind": "cap", "coded": {"KCMH_STOCK.soluvit.mlPerKg": 1, "KCMH_STOCK.soluvit.maxMl": 10}, "where": [{"file": "data.js", "line": 782, "has": "mlPerKg: 1.0, maxMl: 10 },"}, {"file": "data.js", "line": 2435, "has": "return Math.min(s.mlPerKg * wtKg, s.maxMl);"}, {"file": "calculator.jsx", "line": 1692, "has": "roundMl(D.vitaminMlPerDay(\"soluvit\",   wtKg) * overfill)"}]}
 {"case": "1 kg, 100 + 30 mL: 1.3 mL in the bag", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Soluvit N1.3 mL/day", "hides": "Soluvit N (water-sol.)1.3"}}
 {"case": "8 kg, no dead space: 8 mL", "side": "inside", "infant": {"g": 8000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Soluvit N8 mL/day"}}
 {"case": "10 kg (refused by CR-WT-RANGE): 10 mL, the cap itself", "side": "inside", "fn": "vitaminMlPerDay", "args": ["soluvit", 10], "want": 10}
@@ -684,7 +692,7 @@ Source: the KCMH worksheet, row 45 (1 mL/kg, max 15); Peditrace SmPC (HPRA, 2019
 maximum daily dose of 15 ml"; Thai CPG PDF p. 116. Zn 250 µg/mL, pharmacy, 2026-10-25.
 
 ```rule
-{"rule": "CR-PEDITRACE-CAP", "kind": "cap", "coded": {"KCMH_STOCK.peditrace.mlPerKg": 1, "KCMH_STOCK.peditrace.maxMl": 15}, "where": [{"file": "data.js", "line": 784, "has": "mlPerKg: 1.0, maxMl: 15, znMgPerMl: 0.25 },"}, {"file": "data.js", "line": 2377, "has": "function vitaminMlPerDay(stockKey, wtKg) {"}, {"file": "calculator.jsx", "line": 1674, "has": "roundMl(D.vitaminMlPerDay(\"peditrace\", wtKg) * overfill)"}]}
+{"rule": "CR-PEDITRACE-CAP", "kind": "cap", "coded": {"KCMH_STOCK.peditrace.mlPerKg": 1, "KCMH_STOCK.peditrace.maxMl": 15}, "where": [{"file": "data.js", "line": 784, "has": "mlPerKg: 1.0, maxMl: 15, znMgPerMl: 0.25 },"}, {"file": "data.js", "line": 2433, "has": "function vitaminMlPerDay(stockKey, wtKg) {"}, {"file": "calculator.jsx", "line": 1693, "has": "roundMl(D.vitaminMlPerDay(\"peditrace\", wtKg) * overfill)"}]}
 {"case": "8 kg, no dead space: 8 mL", "side": "inside", "infant": {"g": 8000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Peditrace (Zn 250 µg/mL)8 mL/day"}}
 {"case": "15 kg (refused by CR-WT-RANGE): 15 mL, the cap itself", "side": "inside", "fn": "vitaminMlPerDay", "args": ["peditrace", 15], "want": 15}
 {"case": "16 kg (refused by CR-WT-RANGE): capped at 15 mL", "side": "outside", "fn": "vitaminMlPerDay", "args": ["peditrace", 16], "want": 15}
@@ -704,7 +712,7 @@ Singapore label: "must not exceed 10 ml"; Thai CPG PDF p. 116. Both labels say t
 10 % or 20 %, and KCMH gives SMOF 20 %: Q4.
 
 ```rule
-{"rule": "CR-VITALIPID-CAP", "kind": "cap", "where": [{"file": "calculator.jsx", "line": 1553, "has": "const vitalipidVol = lipidPerKg > 0 ? Math.max(1, Math.floor(Math.min(4 * wtKg, 10) + 1e-9)) : 0;"}]}
+{"rule": "CR-VITALIPID-CAP", "kind": "cap", "where": [{"file": "calculator.jsx", "line": 1572, "has": "const vitalipidVol = lipidPerKg > 0 ? Math.max(1, Math.floor(Math.min(4 * wtKg, 10) + 1e-9)) : 0;"}]}
 {"case": "2.4 kg: 9.6 mL rounds down to 9", "side": "inside", "infant": {"g": 2400}, "route": "Central", "order": {"Volume(mL/day)": 300, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "Vitalipid N Infant (fat-sol.)9mL/day"}}
 {"case": "850 g: 3.4 mL rounds down to 3, and prints 3", "side": "inside", "infant": {"g": 850}, "route": "Central", "order": {"Volume(mL/day)": 120, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "Vitalipid N Infant (fat-sol.)3mL/day", "prints": "Vitalipid N infant = 3 mL"}}
 {"case": "750 g: 4 × 0.75 is exactly 3, not 2", "side": "inside", "infant": {"g": 750}, "route": "Central", "order": {"Volume(mL/day)": 110, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "Vitalipid N Infant (fat-sol.)3mL/day"}}
@@ -730,7 +738,7 @@ Source: ESPGHAN 2018, Jochum Tables 1–3; the TPN team asked to follow the sour
 birth-weight floor is Pp's, 2026-09-24.
 
 ```rule
-{"rule": "CR-TGT-FLUID", "kind": "target", "where": [{"file": "data.js", "line": 645, "has": "fluid: (dol, wtG, bwG) => {"}, {"file": "calculator.jsx", "line": 1868, "has": "const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);"}]}
+{"rule": "CR-TGT-FLUID", "kind": "target", "where": [{"file": "data.js", "line": 645, "has": "fluid: (dol, wtG, bwG) => {"}, {"file": "calculator.jsx", "line": 1887, "has": "const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);"}]}
 {"case": "999 g, DOL 1: ELBW 80–100", "side": "inside", "fn": "TARGETS.fluid", "args": [1, 999], "want": [80, 100]}
 {"case": "1,000 g, DOL 1: VLBW 70–90", "side": "outside", "fn": "TARGETS.fluid", "args": [1, 1000], "want": [70, 90]}
 {"case": "900 g, DOL 5: 160–180", "side": "inside", "fn": "TARGETS.fluid", "args": [5, 900], "want": [160, 180]}
@@ -860,7 +868,7 @@ Source: Mihatsch 2018, the mg column: first days 0.1–0.2 mmol/kg (2.5–5 mg),
 figures, chips 2.5 / 5 / 7.5.
 
 ```rule
-{"rule": "CR-TGT-MG", "kind": "target", "where": [{"file": "data.js", "line": 723, "has": "mg: (dol) => TPN_TARGETS.mg(dol),"}, {"file": "calculator.jsx", "line": 1894, "has": "const tMg = D.TARGETS.mg(dol);"}]}
+{"rule": "CR-TGT-MG", "kind": "target", "where": [{"file": "data.js", "line": 723, "has": "mg: (dol) => TPN_TARGETS.mg(dol),"}, {"file": "calculator.jsx", "line": 1913, "has": "const tMg = D.TARGETS.mg(dol);"}]}
 {"case": "DOL 7", "side": "inside", "fn": "TARGETS.mg", "args": [7], "want": [2.5, 5]}
 {"case": "DOL 8", "side": "outside", "fn": "TARGETS.mg", "args": [8], "want": [5, 7.5]}
 ```
@@ -877,7 +885,7 @@ by mass, 1.7 later; Avery ch 60 p. 6: 1.7:1 by weight likely optimal. The team k
 own (2026-10-25): Q7.
 
 ```rule
-{"rule": "CR-TGT-CAP", "kind": "target", "where": [{"file": "data.js", "line": 727, "has": "caP: () => [1.0, 1.7],   // mass ratio; ESPGHAN molar"}, {"file": "calculator.jsx", "line": 1935, "has": "const sCaP = D.rangeStatus(calc.caP, tCaP);"}]}
+{"rule": "CR-TGT-CAP", "kind": "target", "where": [{"file": "data.js", "line": 727, "has": "caP: () => [1.0, 1.7],   // mass ratio; ESPGHAN molar"}, {"file": "calculator.jsx", "line": 1954, "has": "const sCaP = D.rangeStatus(calc.caP, tCaP);"}]}
 {"case": "Ca 52.6 / P 31 = 1.697: in range", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 52.6, "Glycophos": 2}, "expect": {"no_alert": "Ca:P ratio off target"}}
 {"case": "Ca 53 / P 31 = 1.71: amber", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 53, "Glycophos": 2}, "expect": {"alert": "Ca:P ratio off target", "level": "warn"}}
 {"case": "Ca 52.7 / P 31 = 1.7 on paper: graded amber (Q7)", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 52.7, "Glycophos": 2}, "expect": {"alert": "Ca:P ratio off target", "shows": "Ca:P ratioHigh1.7:1 (mass)"}}
@@ -892,7 +900,7 @@ own (2026-10-25): Q7.
 Source: ESPGHAN 2022, Embleton Table 1.
 
 ```rule
-{"rule": "CR-TGT-PE", "kind": "target", "where": [{"file": "calculator.jsx", "line": 2238, "has": "if (!isMEN && calc.enVolPerKg > 100 && sPE === \"warn\") alerts.push"}, {"file": "calculator.jsx", "line": 1904, "has": "const tPE  = D.TARGETS.peRatio();"}]}
+{"rule": "CR-TGT-PE", "kind": "target", "where": [{"file": "calculator.jsx", "line": 2263, "has": "if (!isMEN && calc.enVolPerKg > 100 && sPE === \"warn\") alerts.push"}, {"file": "calculator.jsx", "line": 1923, "has": "const tPE  = D.TARGETS.peRatio();"}]}
 {"case": "Hi-Q LBW 24 at 152 mL/kg/d (3.3 g/100 kcal): in range", "side": "inside", "infant": {"g": 1000}, "fluid": 160, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 19, "Frequency": 8}, "expect": {"no_alert": "Protein : Energy off target"}}
 {"case": "breast milk at 152 mL/kg/d (1.8 g/100 kcal): amber", "side": "outside", "infant": {"g": 1000}, "fluid": 160, "order": {"Volume(mL/feed)": 19, "Frequency": 8}, "expect": {"alert": "Protein : Energy off target", "level": "warn"}}
 ```
@@ -919,7 +927,7 @@ is not counted (`CR-U-MEN`).
 Source: NeoFeed's own Step 1 fluid plan, not a guideline.
 
 ```rule
-{"rule": "CR-U-FLUID", "kind": "unit", "coded": {"KCMH_STOCK.smof20.gPerMl": 0.2}, "where": [{"file": "calculator.jsx", "line": 1612, "has": "const prescribedFluid = totalTPN_mL + lipidBagVol + otherIV_mL + drug_mL + enCounted;"}, {"file": "calculator.jsx", "line": 1540, "has": "const lipidVol = lipidG / 0.20;"}]}
+{"rule": "CR-U-FLUID", "kind": "unit", "coded": {"KCMH_STOCK.smof20.gPerMl": 0.2}, "where": [{"file": "calculator.jsx", "line": 1631, "has": "const prescribedFluid = totalTPN_mL + lipidBagVol + otherIV_mL + drug_mL + enCounted;"}, {"file": "calculator.jsx", "line": 1559, "has": "const lipidVol = lipidG / 0.20;"}]}
 {"case": "1 kg: TPN 100 + lipid 5 + Vitalipid 4 + feed 24 = 133", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1, "Volume(mL/feed)": 3, "Frequency": 8}, "expect": {"shows": "Plan 150 · Prescribed 133 mL/d"}}
 {"case": "the same feed ticked MEN: 109", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1, "Volume(mL/feed)": 3, "Frequency": 8}, "tick": {"MEN (trophic)": true}, "expect": {"shows": "Plan 150 · Prescribed 109 mL/d"}}
 ```
@@ -936,8 +944,8 @@ calc's copied text; pharmacy works it out from the front (REFERENCE.md § The pr
 Source: the KCMH worksheet (C7 delivered, G7 prepared, G8 dead space, H9 Factor).
 
 ```rule
-{"rule": "CR-U-FACTOR", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1532, "has": "const preparedVol = totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0;"}, {"file": "calculator.jsx", "line": 1534, "has": "const factor = wtKg * overfill;                                     // H9"}]}
-{"case": "1 kg, 100 mL + 30 mL dead space: Factor 1.3", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": ["Prepared (เตรียมจริง)130 mL/daydelivered 100 mL", "14 mL/day over 24 h"], "hides": ["Factor1.3", "Lipid volume"], "prints": ["Dextrose Final Conc.10% = 13 g in bag = 26 mL (D50W) · delivered 10 g = 10 g/kg/d", "Factor:1.3"]}}
+{"rule": "CR-U-FACTOR", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1551, "has": "const preparedVol = totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0;"}, {"file": "calculator.jsx", "line": 1553, "has": "const factor = wtKg * overfill;                                     // H9"}]}
+{"case": "1 kg, 100 mL + 30 mL dead space: Factor 1.3", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": ["Prepared (เตรียมจริง)130 mL/daydelivered 100 mL", "Lipid volume10 mL/day"], "hides": "Factor1.3", "prints": ["Dextrose Final Conc.10% = 13 g in bag = 26 mL (D50W) · delivered 10 g = 10 g/kg/d", "Factor:1.3"]}}
 ```
 
 ### CR-U-DEAD-SPACE · dead space default
@@ -948,7 +956,7 @@ newborn ward today (`OLDER_CHILD_WARDS` is empty).
 Source: Pp, 2026-09-18: "ใน SCN+NICU แก้เป็น +30 ml อัตโนมัติไปเลย".
 
 ```rule
-{"rule": "CR-U-DEAD-SPACE", "kind": "unit", "coded": {"NEWBORN_DEAD_VOL_ML": 30, "OLDER_CHILD_WARDS": []}, "where": [{"file": "data.js", "line": 2372, "has": "const NEWBORN_DEAD_VOL_ML = 30;"}, {"file": "calculator.jsx", "line": 135, "has": "return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);"}]}
+{"rule": "CR-U-DEAD-SPACE", "kind": "unit", "coded": {"NEWBORN_DEAD_VOL_ML": 30, "OLDER_CHILD_WARDS": []}, "where": [{"file": "data.js", "line": 2428, "has": "const NEWBORN_DEAD_VOL_ML = 30;"}, {"file": "calculator.jsx", "line": 135, "has": "return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);"}]}
 {"case": "a NICU bed starts at 30 mL", "fn": "defaultDeadVolFor", "args": [{"currentBed": "NICU 5"}], "want": 30}
 ```
 
@@ -960,7 +968,7 @@ dextrose g in the prepared bag ÷ 0.5. g/kg/d = GIR × 1.44.
 Source: standard; matches the KCMH worksheet (D10, F10).
 
 ```rule
-{"rule": "CR-U-GIR", "kind": "unit", "coded": {"KCMH_STOCK.d50w.gPerMl": 0.5}, "where": [{"file": "calculator.jsx", "line": 1560, "has": "const gir = dexG * 1000 / (1440 * wtKg);"}, {"file": "data.js", "line": 1101, "has": "return gir * 1.44;  // mg/kg/min × 1.44 = g/kg/day"}]}
+{"rule": "CR-U-GIR", "kind": "unit", "coded": {"KCMH_STOCK.d50w.gPerMl": 0.5}, "where": [{"file": "calculator.jsx", "line": 1579, "has": "const gir = dexG * 1000 / (1440 * wtKg);"}, {"file": "data.js", "line": 1157, "has": "return gir * 1.44;  // mg/kg/min × 1.44 = g/kg/day"}]}
 {"case": "1 kg, 100 mL of D10: GIR 6.9", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "GIR6.9mg/kg/min"}}
 {"case": "12 mg/kg/min = 17.28 g/kg/d", "fn": "girToGPerKg", "args": [12], "want": 17.28, "within": 1e-9}
 {"case": "17.28 g/kg/d at 1 kg = 12 mg/kg/min", "fn": "calcGIR", "args": [17.28, 1], "want": 12, "within": 1e-9}
@@ -977,7 +985,7 @@ emulsion at about 10 kcal/g with its glycerol; Lapillonne gives 2.0 kcal/mL for 
 9 gives 1.8); the Thai CPG (PDF p. 19) uses 3.4/4/10: Q8.
 
 ```rule
-{"rule": "CR-U-ENERGY", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1617, "has": "const dexKcal = dexG * 3.4;"}, {"file": "calculator.jsx", "line": 1618, "has": "const aaKcal = aaG * 4;"}, {"file": "calculator.jsx", "line": 1622, "has": "const lipidKcal = lipidG * 9;"}]}
+{"rule": "CR-U-ENERGY", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1636, "has": "const dexKcal = dexG * 3.4;"}, {"file": "calculator.jsx", "line": 1637, "has": "const aaKcal = aaG * 4;"}, {"file": "calculator.jsx", "line": 1641, "has": "const lipidKcal = lipidG * 9;"}]}
 {"case": "1 kg: D10 100 mL (34) + AA 2 (8) + lipid 1 (9) = 51 kcal/kg/d", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 2, "20% lipid": 1}, "expect": {"shows": "Energy (total)Low51 kcal/kg/d"}}
 ```
 
@@ -991,7 +999,7 @@ Thai CPG, and the published neonatal equations use other terms (Pereira-da-Silva
 The 1.4 (Ca) and 1 (Mg) factors appear in no primary source: Q16.
 
 ```rule
-{"rule": "CR-U-OSM", "kind": "unit", "where": [{"file": "data.js", "line": 1082, "has": "function estimateOsmolarity({ dexPct, aaPct, naMeqPerL, kMeqPerL, caMgPerL = 0, mgMeqPerL = 0 }) {"}, {"file": "calculator.jsx", "line": 1755, "has": "}, osm = D.estimateOsmolarity(osmIn);"}]}
+{"rule": "CR-U-OSM", "kind": "unit", "where": [{"file": "data.js", "line": 1138, "has": "function estimateOsmolarity({ dexPct, aaPct, naMeqPerL, kMeqPerL, caMgPerL = 0, mgMeqPerL = 0 }) {"}, {"file": "calculator.jsx", "line": 1774, "has": "}, osm = D.estimateOsmolarity(osmIn);"}]}
 {"case": "D10, AA 2 %, Na 30, K 20, Ca 400 mg/L, Mg 3: 831", "fn": "estimateOsmolarity", "args": [{"dexPct": 10, "aaPct": 2, "naMeqPerL": 30, "kMeqPerL": 20, "caMgPerL": 400, "mgMeqPerL": 3}], "want": 831, "within": 1e-9}
 {"case": "1 kg, 100 mL of D10 with AA 3: 800", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Osm 800 mOsm/L"}}
 ```
@@ -1026,7 +1034,7 @@ decimals of mL/kg at most on the order form and in the changes list; Center Poin
 (`glycoKg`, 0.645 where the form prints 0.6452). Both compute the stock mL from the unrounded dose.
 
 ```rule
-{"rule": "CR-U-SALTS", "kind": "unit", "coded": {"KCMH_STOCK.naCl.naMeqPerMl": 3.42, "KCMH_STOCK.naAcetate.naMeqPerMl": 3, "KCMH_STOCK.naAcetate.acetateMeqPerMl": null, "KCMH_STOCK.glycophos.naMeqPerMl": 2, "KCMH_STOCK.glycophos.pMgPerMl": 31, "KCMH_STOCK.kCl.kMeqPerMl": 2, "KCMH_STOCK.k2hpo4.kMeqPerMl": 1, "KCMH_STOCK.k2hpo4.pMgPerKMeq": 15.5, "KCMH_STOCK.mgso4_10.mgMeqPerMl": 0.812, "KCMH_STOCK.caGluconate.caMgPerMl": 9.01755, "KCMH_STOCK.aminoven10.gPerMl": 0.1}, "where": [{"file": "calculator.jsx", "line": 933, "has": "const glycophosPerMl = glycophosBy === \"p\" ? S.glycophos.pMgPerMl : S.glycophos.naMeqPerMl;"}, {"file": "calculator.jsx", "line": 935, "has": "const setGlycophosTyped = (v) => setGlycophosP(v / glycophosPerMl);"}, {"file": "calculator.jsx", "line": 1568, "has": "const p_glycophos  = glycophosP * wtKg * 31;"}, {"file": "calculator.jsx", "line": 1570, "has": "const p_k2hpo4 = k2hpo4 * wtKg * 15.5;"}]}
+{"rule": "CR-U-SALTS", "kind": "unit", "coded": {"KCMH_STOCK.naCl.naMeqPerMl": 3.42, "KCMH_STOCK.naAcetate.naMeqPerMl": 3, "KCMH_STOCK.naAcetate.acetateMeqPerMl": null, "KCMH_STOCK.glycophos.naMeqPerMl": 2, "KCMH_STOCK.glycophos.pMgPerMl": 31, "KCMH_STOCK.kCl.kMeqPerMl": 2, "KCMH_STOCK.k2hpo4.kMeqPerMl": 1, "KCMH_STOCK.k2hpo4.pMgPerKMeq": 15.5, "KCMH_STOCK.mgso4_10.mgMeqPerMl": 0.812, "KCMH_STOCK.caGluconate.caMgPerMl": 9.01755, "KCMH_STOCK.aminoven10.gPerMl": 0.1}, "where": [{"file": "calculator.jsx", "line": 933, "has": "const glycophosPerMl = glycophosBy === \"p\" ? S.glycophos.pMgPerMl : S.glycophos.naMeqPerMl;"}, {"file": "calculator.jsx", "line": 935, "has": "const setGlycophosTyped = (v) => setGlycophosP(v / glycophosPerMl);"}, {"file": "calculator.jsx", "line": 1587, "has": "const p_glycophos  = glycophosP * wtKg * 31;"}, {"file": "calculator.jsx", "line": 1589, "has": "const p_k2hpo4 = k2hpo4 * wtKg * 15.5;"}]}
 {"case": "1 kg, no dead space: 1 mL of each stock", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "20% NaCl": 3.42, "Glycophos": 2, "KCl": 2, "K₂HPO₄": 1, "10% Ca gluconate": 45.08775}, "expect": {"prints": ["3.4 mEq = 1 mL", "1 mLNa 2 mEq · P 31 mg", "K 1 mEqP 15.5 mg1 mEq = 1 mL", "2 mEq2 mEq = 1 mL", "45 mg = 5 mL"]}}
 ```
 
@@ -1039,7 +1047,7 @@ ch 60 p. 9 keeps PN to 120 mL/kg/d, Avery (p. 1) and the Thai CPG (PDF p. 93) un
 needs, and WHO 2022's ≥ 100 mL/kg/d is when to start fortifier: Q17.
 
 ```rule
-{"rule": "CR-U-SWITCH", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1601, "has": "const useEnteralTargets = enCounted / wtKg >= 100;"}, {"file": "calculator.jsx", "line": 1867, "has": "const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;"}]}
+{"rule": "CR-U-SWITCH", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1620, "has": "const useEnteralTargets = enCounted / wtKg >= 100;"}, {"file": "calculator.jsx", "line": 1886, "has": "const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;"}]}
 {"case": "breast milk 12.5 mL × 8 = 100 mL/kg/d: enteral protein target", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 12.5, "Frequency": 8}, "expect": {"shows": "1.2 g/kg/d — target 3.5–4 g/kg/d"}}
 {"case": "12.4 mL × 8 = 99.2: parenteral protein target", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 12.4, "Frequency": 8}, "expect": {"shows": "1.2 g/kg/d — target 2.5–3.5 g/kg/d"}}
 ```
@@ -1051,7 +1059,7 @@ K, Ca, P, Ca:P and everything saved or printed from them. Step 2 still shows wha
 Source: NICU team, 2026-09-18: "ติ๊ก MEN แล้ว ไม่ต้องเอาไปคิดสารอาหาร".
 
 ```rule
-{"rule": "CR-U-MEN", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1596, "has": "const enCounted = isMEN ? 0 : enVolTotal;"}]}
+{"rule": "CR-U-MEN", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1615, "has": "const enCounted = isMEN ? 0 : enVolTotal;"}]}
 {"case": "breast milk 3 mL × 8 ticked MEN: 0 kcal and 0 mL counted", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 3, "Frequency": 8}, "tick": {"MEN (trophic)": true}, "expect": {"shows": ["Energy (total)0 kcal/kg/d", "Prescribed 0 mL/d"]}}
 ```
 
@@ -1082,7 +1090,7 @@ Source: Pp, 2026-11-01: "มุมติ๊กขวาบน ช่อง tpn �
 no TPN". Not a clinical threshold.
 
 ```rule
-{"rule": "CR-U-NO-TPN", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 156, "has": "function withLegacyNoTpn(entry, src) {"}, {"file": "data.js", "line": 1671, "has": "function orderIsNoTpn(entry) {"}, {"file": "registry.jsx", "line": 280, "has": "&& D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;"}, {"file": "data.js", "line": 1705, "has": "function orderPrints(entry, previousEntry) {"}, {"file": "calculator.jsx", "line": 78, "has": "noTpn: src.noTpn === true,"}, {"file": "calculator.jsx", "line": 990, "has": "const tickNoTpn = (on) => {"}]}
+{"rule": "CR-U-NO-TPN", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 156, "has": "function withLegacyNoTpn(entry, src) {"}, {"file": "data.js", "line": 1727, "has": "function orderIsNoTpn(entry) {"}, {"file": "registry.jsx", "line": 280, "has": "&& D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;"}, {"file": "data.js", "line": 1761, "has": "function orderPrints(entry, previousEntry) {"}, {"file": "calculator.jsx", "line": 78, "has": "noTpn: src.noTpn === true,"}, {"file": "calculator.jsx", "line": 1009, "has": "const tickNoTpn = (on) => {"}]}
 {"case": "1 kg: a bag of 100 mL, lipid and KCl, then the tick: cleared, feeds 10 mL × 8 alone, saves", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2, "KCl": 2, "Volume(mL/feed)": 10, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"submit": "no_reason", "no_alert": "Amino acid not ordered", "shows": "Plan 150 · Prescribed 80 mL/d", "hides": ["TPN Aqueous Pump", "Lipid Pump", "ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง"]}}
 {"case": "the tick on, then KCl typed into Step 4: refused, and the line points at the tick", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 10, "Frequency": 8}, "tick": {"No TPN": true}, "then": {"KCl": 2}, "expect": {"submit": "blocked", "shows": "ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: KCl — ลบส่วนประกอบ หรือเอาติ๊ก \"No TPN\" ออกแล้วใส่ปริมาตร"}}
 ```
@@ -1120,7 +1128,7 @@ Source: Pp, 2026-10-28 ("ให้สามารถเลือกได้ 2 �
 feed: Pp, 2026-10-28, after Vera raised that case. Not a clinical threshold.
 
 ```rule
-{"rule": "CR-U-EN-TWO-FEEDS", "kind": "unit", "where": [{"file": "data.js", "line": 434, "has": "function enMixPer100mL(feeds) {"}, {"file": "calculator.jsx", "line": 1586, "has": "const en = D.enMixPer100mL(enFeeds) || EN_NO_FEED;"}, {"file": "calculator.jsx", "line": 1587, "has": "const enVolTotal = enFeeds.reduce((s, f) => s + f.mlPerDay, 0);"}]}
+{"rule": "CR-U-EN-TWO-FEEDS", "kind": "unit", "where": [{"file": "data.js", "line": 434, "has": "function enMixPer100mL(feeds) {"}, {"file": "calculator.jsx", "line": 1605, "has": "const en = D.enMixPer100mL(enFeeds) || EN_NO_FEED;"}, {"file": "calculator.jsx", "line": 1606, "has": "const enVolTotal = enFeeds.reduce((s, f) => s + f.mlPerDay, 0);"}]}
 {"case": "1 kg: feed 1 6 mL × 4 + feed 2 4 mL × 4 = 40 mL counted in fluid", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 6, "Frequency": 4}, "feed2": "PRENAN_22", "order2": {"Volume(mL/feed)": 4, "Frequency": 4}, "expect": {"shows": "Plan 150 · Prescribed 40 mL/d"}}
 {"case": "breast milk 11 mL × 8 (88 mL/kg/d) alone: parenteral protein target", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 11, "Frequency": 8}, "expect": {"shows": "target 2.5–3.5 g/kg/d"}}
 {"case": "breast milk 22 mL × 4 (88) with Enfalac Premature 24 at 6 mL × 4: 112 mL/kg/d together, enteral target", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 22, "Frequency": 4}, "feed2": "ENFALAC_PREM_24", "order2": {"Volume(mL/feed)": 6, "Frequency": 4}, "expect": {"shows": "1.6 g/kg/d — target 3.5–4 g/kg/d"}}
@@ -1146,7 +1154,7 @@ real milk varies. It reads these values when it renders, so they change here and
 printed, and not in the quick calc's copied text.
 
 ```rule
-{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 195, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 187, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 210, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 4586, "has": "function MilkAssumption({ keys }) {"}]}
+{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 195, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 187, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 210, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 4626, "has": "function MilkAssumption({ keys }) {"}]}
 {"case": "breast milk: 67 kcal/100 mL", "fn": "EN_DB.BM_20.kcal", "want": 67}
 {"case": "breast milk: 1.2 g protein/100 mL", "fn": "EN_DB.BM_20.pro", "want": 1.2, "within": 1e-9}
 {"case": "BM + HMF: 2.3 g protein/100 mL", "fn": "EN_DB.BM_HMF_24.pro", "want": 2.3, "within": 1e-9}
@@ -1219,9 +1227,73 @@ volume exactly.
 Source: NF-17, Pp, 2026-10-11 (130.45 mL used to print 87.5 + 42.9 = 130.5).
 
 ```rule
-{"rule": "CR-R-BAG-SUM", "kind": "round", "where": [{"file": "calculator.jsx", "line": 1735, "has": "const componentVol = Math.round(componentHundredths / 10) / 10;"}, {"file": "calculator.jsx", "line": 1739, "has": "const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));"}]}
+{"rule": "CR-R-BAG-SUM", "kind": "round", "where": [{"file": "calculator.jsx", "line": 1754, "has": "const componentVol = Math.round(componentHundredths / 10) / 10;"}, {"file": "calculator.jsx", "line": 1758, "has": "const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));"}]}
 {"case": "80.45 + 50 mL: 87.5 + 43 = 130.5", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 80.45, "ปริมาตรคาสาย (dead space)": 50, "Dextrose final": 10, "Amino acid": 3, "20% NaCl": 2, "KCl": 1, "10% Ca gluconate": 40, "Heparin": 0.5}, "expect": {"prints": "Components 87.5 mL + WFI 43 mL = 130.5 mL prepared"}}
 {"case": "700 g: ten stocks of 47.4 mL, WFI 52.6", "infant": {"g": 700}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "KCl": 1, "K₂HPO₄": 0.5, "MgSO₄": 4.861, "ZnSO₄": 0.4, "Heparin": 0.5, "10% Ca gluconate": 40}, "expect": {"prints": "Components 47.4 mL + WFI 52.6 mL = 100 mL prepared"}}
+```
+
+### CR-R-LIPID-WHOLE-ML · the lipid syringe to a whole mL, on a tap
+
+Tapping Step 3's "Lipid volume" rounds the 20 % lipid syringe (`CR-U-FLUID`'s 0.2 g/mL, no overfill) to the
+nearest whole mL/day, half up, and sets 20 % lipid to the dose that volume gives: mL × 0.2 ÷ kg. The pump
+rate (`CR-R-PUMP-RATE`), g/kg/h (`CR-LIPID-RATE`), lipid kcal and the printed order follow from that dose. A
+tap never makes a critical lipid line the typed dose did not have: where the nearest mL would take the dose
+above 4.0 g/kg/d (`CR-LIPID-IV-MAX`) or the g/kg/h above 0.17, the whole mL below is used (again, until
+neither holds). Only these two lipid lines are guarded: a tap moves energy by under 1 kcal and NPE:AA a
+little, which could still tip a near-edge Energy or NPE:AA line (Q22). A line the typed dose already had stays,
+and that dose rounds to the nearest mL, up as well as down (4.5 → 4.52 g/kg/d at 1.68 kg; Q22). Under 0.5 mL
+there is no whole mL and the dose is left as typed. The dose is kept to 2 decimals, else 3, whichever still
+gives that whole mL at 0.1 mL (`CR-R-STOCK-ML`); 3 always does up to 8 kg, and the order prints the lipid dose
+to 3 decimals so the printed dose and mL agree. Nothing rounds until the tap; a toast names the mL and the
+dose before and after.
+Source: Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ"; asked, she
+chose the nearest whole mL, and the whole mL below where rounding would cross 4.0 ("so a tap never creates a
+critical alert"). The g/kg/h ceiling, the 0.5 mL floor and the 3-decimal print: Vera on this PR, for Pp to
+confirm. Not a clinical threshold.
+
+```rule
+{"rule": "CR-R-LIPID-WHOLE-ML", "kind": "round", "where": [{"file": "data.js", "line": 1107, "has": "function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = {}) {"}, {"file": "calculator.jsx", "line": 987, "has": "const roundLipidToWholeMl = () => {"}]}
+{"case": "1.68 kg, 2 g/kg/d = 16.8 mL: 17 mL, 2.02 g/kg/d", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [2, 1.68, {"vitalipidMl": 6}], "want": 2.02}
+{"case": "1.68 kg, 2.02 g/kg/d is 17 mL already: unchanged", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [2.02, 1.68, {"vitalipidMl": 6}], "want": 2.02}
+{"case": "1.68 kg, 3.9 g/kg/d = 32.8 mL: 33 mL, 3.93", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [3.9, 1.68, {"vitalipidMl": 6}], "want": 3.93}
+{"case": "1.68 kg, 4 g/kg/d = 33.6 mL: 34 mL would be 4.05, so 33 mL, 3.93", "side": "outside", "fn": "lipidDoseAtWholeMl", "args": [4, 1.68, {"vitalipidMl": 6}], "want": 3.93}
+{"case": "1.71 kg, 4 g/kg/d = 34.2 mL: 34 mL, 3.98", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [4, 1.71, {"vitalipidMl": 6}], "want": 3.98}
+{"case": "1.68 kg, 4.5 g/kg/d (already over 4) = 37.8 mL: 38 mL, 4.52", "side": "outside", "fn": "lipidDoseAtWholeMl", "args": [4.5, 1.68, {"vitalipidMl": 6}], "want": 4.52}
+{"case": "400 g, 3.4 g/kg/d over 20 h (0.17): 7 mL would be 0.18, so 6 mL, 3", "side": "outside", "fn": "lipidDoseAtWholeMl", "args": [3.4, 0.4, {"hours": 20, "vitalipidMl": 1}], "want": 3}
+{"case": "3.5 kg, 1.5 g/kg/d = 26.25 mL: 26 mL needs 3 decimals, 1.486", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [1.5, 3.5, {"vitalipidMl": 10}], "want": 1.486}
+{"case": "400 g, 0.2 g/kg/d = 0.4 mL: under 0.5 mL, left as typed", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [0.2, 0.4, {"vitalipidMl": 1}], "want": 0.2}
+{"case": "430 g, 1 g/kg/d = 2.15 mL: 2 mL, 0.93", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [1, 0.43, {"vitalipidMl": 1}], "want": 0.93}
+{"case": "no lipid: nothing to round", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [0, 1.68], "want": null}
+{"case": "1,680 g on 2.02 g/kg/d prints 17 mL", "infant": {"g": 1680}, "route": "Central", "order": {"Volume(mL/day)": 200, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2.02}, "expect": {"shows": "17 mL/day", "prints": "2.02 g/kg/d = 17 mL"}}
+{"case": "3,500 g on 1.486 g/kg/d prints 1.486 = 26 mL", "infant": {"g": 3500}, "route": "Central", "order": {"Volume(mL/day)": 400, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1.486}, "expect": {"prints": "1.486 g/kg/d = 26 mL"}}
+```
+
+### CR-R-PUMP-RATE · pump rates at 0.1 mL/hr, and how long they run
+
+Both pumps set to 0.1 mL/hr: the TPN aqueous pump (its delivered volume over 24 h) and the lipid pump (the
+lipid bag over the hours typed). The rate is the nearest 0.1 (half up); where that would run the volume past
+24 h, it is rounded up to the next 0.1 instead. Step 3, the copied order, the printed order and Center Point
+show the rate and the hours it actually runs (volume ÷ rate, 1 decimal): 100 mL is 4.2 mL/hr for 23.8 h,
+130 mL is 5.5 mL/hr for 23.6 h (5.4 would run 24.1 h). The TPN pump's volume and every dose are unchanged; the
+pump stops when the bag is empty. Lipid g/kg/h is graded on those hours (`CR-LIPID-RATE`); GIR is still
+over 24 h (1,440 min). On a small TPN bag the round-up stops the pump hours early: 12.1 mL is 0.6 mL/hr for
+20.2 h, and while it runs the glucose rate is 24 ÷ 20.2 = 19 % above the GIR on screen (Vera on this change:
+show the gap, grade GIR over the pump's hours, or accept it, is Q21).
+Source: Pp, 2026-11-06: "Pump rate ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง infusion in กี่ hr ให้ ถ้าเกิน 24 ชม.
+ให้ปัดเพิ่ม rate แทน ให้ไม่เกิน"; asked, she chose 24 h as the limit (not the hours typed) and both pumps.
+Not a clinical threshold.
+
+```rule
+{"rule": "CR-R-PUMP-RATE", "kind": "round", "coded": {"PUMP_MAX_HOURS": 24}, "where": [{"file": "data.js", "line": 1078, "has": "const PUMP_MAX_HOURS = 24;"}, {"file": "data.js", "line": 1079, "has": "function pumpRate(volMl, hours = 24) {"}, {"file": "calculator.jsx", "line": 2005, "has": "const tpnPump = D.pumpRate(totalTPN_mL, 24);"}]}
+{"case": "100 mL over 24 h: 4.2 mL/hr", "side": "inside", "fn": "pumpRate", "args": [100, 24], "want": {"rate": 4.2, "hours": 23.80952380952381}}
+{"case": "130 mL: 5.4 would run 24.07 h, so 5.5", "side": "outside", "fn": "pumpRate", "args": [130, 24], "want": {"rate": 5.5, "hours": 23.636363636363637}}
+{"case": "lipid bag 22.8 mL over 24 h: 0.95 rounds half up to 1, 22.8 h", "side": "inside", "fn": "pumpRate", "args": [22.8, 24], "want": {"rate": 1, "hours": 22.8}}
+{"case": "lipid bag 22.8 mL over 16 h: 1.4 mL/hr runs 16.3 h (only 24 h forces it up)", "side": "inside", "fn": "pumpRate", "args": [22.8, 16], "want": {"rate": 1.4, "hours": 16.28571428571429}}
+{"case": "1 mL over 24 h: 0.04 is 0.0, so 0.1 mL/hr, 10 h", "side": "outside", "fn": "pumpRate", "args": [1, 24], "want": {"rate": 0.1, "hours": 10}}
+{"case": "no volume: no pump", "side": "inside", "fn": "pumpRate", "args": [0, 24], "want": null}
+{"case": "a small bag: 12.1 mL is 0.5 for 24.2 h, so 0.6 mL/hr, 20.2 h (Q21)", "side": "outside", "fn": "pumpRate", "args": [12.1, 24], "want": {"rate": 0.6, "hours": 20.166666666666668}}
+{"case": "1 kg, TPN 100 mL: Step 3 shows 4.2 mL/hr, infusion 23.8 h", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "= 100 mL/day · infusion 23.8 h"}}
+{"case": "1.68 kg, lipid 2 g/kg/d: 16.8 + 6 = 22.8 mL, 1 mL/hr, infusion 22.8 h, printed", "infant": {"g": 1680}, "route": "Central", "order": {"Volume(mL/day)": 200, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "22.8 mL/day · infusion 22.8 h", "prints": "Rate 1 mL/hr, infusion 22.8 h"}}
 ```
 
 ---
@@ -1294,6 +1366,13 @@ An answered question keeps its evidence, so it can be reopened.
   of 80 and the day's requirement, and does exactly 80 pass?~~ Answered by Pp, 2026-11-01: the lower of
   the two, as coded (a preterm on DOL 6 on clears the red line at 80, and `CR-NO-TPN-PLAN` names the gap to
   the plan), and 80 itself passes. Earlier the same day: below the bar Submit asks a reason, not a stop.
+
+- **Q21 · `CR-R-PUMP-RATE`:** rounding the TPN pump rate up stops a small bag hours early (12.1 mL: 0.6 mL/hr,
+  20.2 h), while GIR is still graded over 24 h, so the glucose rate while the pump runs is up to about a fifth
+  above the GIR shown. Show the gap ("หยุด N h ก่อนถุงใหม่"), grade GIR over the pump's hours, or accept it?
+- **Q22 · `CR-R-LIPID-WHOLE-ML`:** the tap guards only the two lipid lines (4.0 g/kg/d, 0.17 g/kg/h). Should it also
+  never tip Energy above 160 or NPE:AA below 12, and should a dose already above 4.0 round toward the limit (the
+  whole mL below) rather than to the nearest?
 
 ## Sources
 
