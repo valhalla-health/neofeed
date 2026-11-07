@@ -662,11 +662,14 @@ async function run(scIn) {
       mismatches.push({ sc: sc.name, what: 'No TPN ticked: the pumps are hidden', got: 'shown', want: 'hidden' });
   } else {
     near(sc, 'Prepared mL/day', grabT(/Prepared \(เตรียมจริง\)([\d.]+) mL\/day/), e.Vp, 1);
-    near(sc, 'Factor', grabT(/Factor([\d.]+)/), e.F, 3);
+    // The Factor is pharmacy's: off the screen since 2026-11-06 (Pp); the
+    // back sheet's Factor (rendered, not printed) is checked below ('print Factor').
+    near(sc, 'no Factor figure on screen', grabT(/Factor([\d.]+)/) === null ? 1 : 0, 1, 0);
     near(sc, 'GIR readout', num(container.querySelector('.gir-readout .num')?.firstChild?.textContent), e.gir, 1);
-    near(sc, 'AA stock mL/day', grabT(/Volume([\d.]+) mL\/day/), e.aaMl, 1);
+    // The amino-acid and D50W stock mL left the screen on 2026-11-06 (Pp: "Hide
+    // them all"); 'print AA mL' and 'print D50W mL' below hold them to the oracle.
+    near(sc, 'no AA / D50W stock mL on screen', /Volume[\d.]+ mL\/day|D50W: [\d.]+ mL/.test(t) ? 0 : 1, 1, 0);
   }
-  if (e.d50 > 0) near(sc, 'D50W mL/d', grabT(/D50W: ([\d.]+) mL\/d/), e.d50, 1);
   if (e.Vd > 0) {
     near(sc, 'Components mL', grabT(/Components([\d.]+) mL/), e.components, 1);
     // WFI q.s. left the screen on 2026-09-28 (TPN team); the print and copy
@@ -675,6 +678,8 @@ async function run(scIn) {
   if (sc.lip > 0) {
     near(sc, 'Lipid pump rate mL/hr', grabT(/PUMP RATE([\d.]+)mL\/hr/), e.lipRate, 2);
     near(sc, 'Lipid g/kg/h', num(container.querySelector('.lipid-gkgh')?.textContent), e.lipGkgh, 2);   // 2 decimals since 2026-09-28
+    // Lipid volume stays on screen: a tap on it rounds the syringe to a whole mL
+    // (#227; Pp kept it when the other stock mL left, 2026-11-07).
     near(sc, 'Lipid mL/day', grabT(/Lipid volume([\d.]+) mL\/day/), e.smof, 1);
     near(sc, 'Vitalipid mL/day', grabT(/\+ Vitalipid N([\d.]+) mL\/day/), e.vitalipid, 1);
   }

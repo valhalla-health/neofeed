@@ -71,6 +71,15 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
     ok(`${shell}: on a phone, ${sel}'s columns can shrink below their content (minmax(0, …), no bare 1fr)`,
       r && !/(^|[\s,(])1fr/.test(r.replace(/minmax\(0,\s*1fr\)/g, '')), r);
   }
+  // One column on a phone, so their five chips sit on one line (Pp, 2026-11-06:
+  // the dextrose % chips; the amino-acid row since its stock Volume left). A
+  // merge once dropped the dextrose rule with no harness noticing.
+  for (const sel of ['.dex-gir-row', '.s2-aa-row']) {
+    const r = new RegExp(`\\${sel}\\s*\\{[^}]*grid-template-columns:([^;}]*)`).exec(phone)?.[1] || '';
+    ok(`${shell}: on a phone, ${sel} is one column`, /^\s*minmax\(0,\s*1fr\)\s*!important\s*$/.test(r), r);
+  }
+  // …and the 20% lipid box with its chips spans the lipid row (Pp, 2026-11-06).
+  ok(`${shell}: on a phone, the 20% lipid box spans the lipid row`, /\.s2-lip-row > :first-child\s*\{\s*grid-column:\s*1 \/ -1;\s*\}/.test(phone));
 }
 {
   const calc = read('calculator.jsx'), app = read('app.jsx'), log = read('log.jsx');
@@ -82,8 +91,9 @@ for (const shell of ['NeoFeed.html', 'index.html']) {
     /className="en-fields-row" style=\{\{ display: "grid", gridTemplateColumns: "repeat\(3, minmax\(0, 1fr\)\)"/.test(calc)
     && /gridTemplateColumns:"minmax\(0,1fr\) 28px minmax\(0,1fr\)"/.test(calc)
     && /gridTemplateColumns:"minmax\(0,1fr\) minmax\(0,1fr\)", gap:10, alignItems:"start"/.test(calc)
-    // Two columns since 2026-09-28: the grams column left the AA row (TPN team).
-    && /className="s2-aa-row" style=\{\{ display:"grid", gridTemplateColumns:"repeat\(2, minmax\(0, 1fr\)\)"/.test(calc));
+    // Two columns since 2026-09-28 (the grams column left, TPN team); one since
+    // 2026-11-06 (the stock Volume left, Pp: "Hide them all").
+    && /className="s2-aa-row" style=\{\{ display:"grid", gridTemplateColumns:"minmax\(0, 1fr\)"/.test(calc));
   ok('app.jsx: the patient strip\'s weights wrap rather than clip',
     /flexDirection:"row", flexWrap:"wrap", overflow:"hidden"/.test(app) && !/whiteSpace:"nowrap" \}\}>\s*\{delta >= 0/.test(app));
   ok('app.jsx: a long diagnosis breaks inside the strip', /overflowWrap:"anywhere"/.test(app));

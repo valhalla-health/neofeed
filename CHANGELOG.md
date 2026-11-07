@@ -7,6 +7,102 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-06 (6) — Calculator: Glycophos typed by P, no Factor or stock mL on screen, Dextrose, amino-acid and lipid chips on one line
+
+`calculator.jsx`, `compiled/calculator.js`, `index.html` and `NeoFeed.html` (one CSS rule each), the
+`neofeed-clinical-rules` skill (`CR-U-SALTS`, `CR-U-FACTOR`), `test/verify-calc-clicks.cjs`, `test/verify-calc-sum.cjs`
+(order S9), and five harnesses that read the Factor off the screen.
+
+Pp sent three requests from her phone the same evening, each with a screenshot of the Calculator:
+
+1. **Glycophos by Na or by P.** "ช่อง glycophos มีปุ่มให้กดเลือกว่าจะใส่เป็นโซเดียมหรือใส่เป็นฟอสฟอรัส หากใส่เป็นฟอสเฟต
+   ตัวเลือก ให้ปรับเป็นค่าใกล้ๆกันกับโซเดียม เช่น 15, 30, 45, 60 mg/kg/day". The code had no such button: the box took
+   mEq Na/kg/d only. Now Na / P buttons sit beside the label. P makes the box mg P/kg/d with chips 15, 30, 45, 60
+   (Na 1–4 mEq is 15.5–62 mg P, so the chips sit beside the Na ones), and the line under it shows the Na it brings.
+   The buttons change what the box is typed in, never the dose: the order still stores one figure, `glycophosP`
+   (mL/kg/d = mmol P/kg/d), so nothing saved, synced, printed or sent to Center Point changes shape, and switching
+   back and forth leaves the order unchanged (not dirty). The choice is not saved: every Calculator opens on Na, and
+   goes back to Na when the infant or the order changes (the header's "Switch patient" keeps the Calculator mounted;
+   Vera's 🔴), so a number typed from habit is read as Na as before, and on a shared ward PC one doctor's P cannot
+   become the next doctor's unit. A dose typed by P has no end to its decimals (20 mg is 0.6451… mL/kg), so the four
+   places that showed `glycophosP` raw or to 12 digits now show 4 decimals at most: the order form's mL/kg cell, the
+   changes list, the Step 4 summary chip and the copied text. A dose typed in Na with up to 3 decimals of mEq prints
+   as before (0.5, 0.55, 0.625, 0.0625). The stock mL was always
+   rounded once (`CR-R-STOCK-ML`); order S9 in `verify-calc-sum.cjs` proves the bag still adds up at 20 mg P/kg.
+2. **No Factor on the Calculator.** "แฟคเตอร์ก็ไม่ต้องขึ้นโชว์หน้านี้ สำหรับแพทย์และพยาบาล". The Factor box beside
+   Prepared is gone. It is still on the pharmacy back sheet, which renders but has not printed since 2026-10-28,
+   and in the quick calc's copied text; pharmacy works it out from the front (`CR-U-FACTOR`). The fuzz and the oracle checked the
+   on-screen Factor: they now check it is absent, the oracle still checks the back sheet's, and every stock mL is
+   × Factor, so a wrong Factor still fails both. Three other harnesses read it there too and now read the prepared
+   volume or the stock it scales instead. The "× Factor" notes on the Soluvit, Peditrace and ZnSO₄ hints stay.
+3. **Dextrose % chips on one line on a phone.** "เปอร์เซ็นต์เด็กโต [dextrose %] ในหน้าจอของโมบายให้เรียงยาวต่อกันไป
+   เลย เพื่อให้กดง่ายมากขึ้น". Below 768 px the Dextrose final + GIR row stacks (`.dex-gir-row`), so the five chips
+   have the card's width and sit on one line at 44 px or more each; GIR follows under D50W. Desktop is unchanged.
+
+4. **No prepared mL under the Step 4 components.** "เตรียมเป็น ml เท่าไหร่ ไม่ต้องขึ้นในหน้าจอของแพทย์และพยาบาล ที่ขึ้นว่า
+   เตรียม กี่ ml ใต้ทุก component ไม่ต้องโชว์". The "เตรียม x mL/d" line under 20 % NaCl, Na acetate, Glycophos, KCl
+   and K₂HPO₄ is gone, and so is the same figure shown as "→ x mL/d" under MgSO₄ and Ca gluconate. Each still shows
+   its dose as mL/kg/d. The prepared mL stays on the printed order's "For Pharmacist Only" column. Step 3's Prepared
+   (เตรียมจริง) bag volume, D50W and amino-acid volume stay: they were not named. `verify-calc-fuzz.cjs` read NaCl's
+   mL off that line for its I1 round-trip; it now checks the line is gone (the oracle and `verify-calc-sum.cjs` check
+   the printed stock mL).
+5. **A guard against the wrong unit (`CR-GLYCO-UNIT-HABIT`).** Vera's second review (BLOCK): with the box back on Na
+   for every infant and P chips of 15–60 beside it, a "30" typed on Na is 30 mEq Na = 465 mg P/kg/d, and Na and P
+   have no hard limit, so only amber fired. Pp chose the thresholds (of 10 / 10, 5 / 15 or none): a Glycophos dose
+   of 10 mEq Na/kg/d or more (P 155 mg/kg/d), in either unit, is critical and asks "พิมพ์เป็น mg P หรือเปล่า"; on P,
+   above 0 and below 10 mg/kg/d asks "พิมพ์เป็น mEq Na หรือเปล่า". The high line is graded on the dose, so a reopened
+   order (on Na) never raises a line its saved reason did not name. Two alert thresholds, `GLYCO_NA_HABIT_MEQ` and
+   `GLYCO_P_HABIT_MG` (register row in `docs/CLINICAL_CONSTANTS.md`); they move no dose, so `CONSTANTS_VERSION` stays.
+   Same review: a Na/P press while the box still had focus left the old number under the new unit; the row now
+   remounts on a switch.
+
+6. **No stock mL anywhere on the Calculator.** Asked whether the rest of Step 3's and Step 5's mL should go too (the
+   D50W box, the amino-acid Volume, the lipid volume, Soluvit and Peditrace in the bag, ZnSO₄'s and heparin's mL),
+   Pp: "Hide them all". Gone from the screen: "D50W: x mL/d" (its box now holds only "Central only!" when that
+   applies), the amino-acid Volume (the row is one column, so its five chips sit on one line on a phone too),
+   SMOF's own mL/day and the lipid bag total line (but see below: Lipid volume is back), Soluvit's
+   and Peditrace's "x mL/day in bag (× Factor → delivers …)" and their Additives Summary mL (now the dose, 1 mL/kg/day),
+   ZnSO₄'s "= x mL of 1 mg/mL" and heparin's "→ x mL of 100 U/mL" and its volume readout. Kept: both pump rates and
+   the lipid syringe's "x mL/day over N h" (what a nurse sets and hangs), Vitalipid's mL/day (it is ordered in mL;
+   the form prints "Vitalipid N infant = x mL"), the bag total and components panel, and every mL/kg/d dose. The
+   printed order has every stock mL as before. The Soluvit and Peditrace caps (10 and 15 mL a day) were checked on
+   screen at 11 and 16 kg, weights no order can have; they are now `D.vitaminMlPerDay` in `data.js`, the same
+   arithmetic in the same order, and `CR-SOLUVIT-CAP` / `CR-PEDITRACE-CAP` test it as a function. Nine harnesses
+   that read these figures off the screen now check they are gone and read them on the print (the oracle already
+   held every one there); the fuzz still checks the lipid syringe, SMOF + Vitalipid, on screen. Vera (NO BLOCK)
+   found that the dose shown for Soluvit and Peditrace would claim 1 mL/kg/day on a No TPN day, which gives neither:
+   it now shows only with a bag, and says "ไม่มีถุง TPN วันนี้ — ไม่ได้ให้" otherwise (`verify-no-tpn-1101.cjs`).
+   Merging `main` into this PR (#222, #224) took `main`'s shells whole and dropped item 3's `.dex-gir-row` rule,
+   so the Dextrose chips wrapped again on a phone; a screenshot showed it, nothing else did. The rule is back, and
+   `verify-phone-sweep.cjs` now fails if either shell loses it (or the amino-acid row's).
+
+7. **The lipid chips on one line on a phone.** Asked, Pp: "y". Below 768 px the 20% lipid box and its five chips
+   span the lipid row (`.s2-lip-row > :first-child`); the Lipid and Vitalipid tiles share the row below.
+   `verify-phone-sweep.cjs` checks the rule in both shells. Asked whether the Components / Bag total (prepared)
+   panel under the amino acid should go too (Components is the TPN room's figure; Bag total repeats Prepared),
+   Pp: "keep it". It stays, and still turns red when the bag is over-full.
+8. **Lipid volume stays on screen, tappable.** #227 (merged into `main` the same night) made the Lipid volume
+   tile a button: it shows 20 % lipid in mL/day and a tap rounds it to a whole mL and sets the dose back. Item 6 had
+   taken that mL off the tile. Merging `main` into this PR, Pp chose to show the mL/day and keep the tap ("Show
+   mL/day, tappable"), an exception to "Hide them all": the mL is what is rounded. The tile is #227's as merged; the
+   fuzz and the oracle check its mL again, and the CR-U-FACTOR case shows "Lipid volume 10 mL/day".
+9. **Vera on the whole PR after that merge (NO BLOCK), three fixes.** Glycophos's row still showed "= x mL/d" on a
+   wide screen (the phone hides that column): delivered mL, not × Factor, so it disagreed with the printed mL, and
+   the last stock mL left besides Lipid volume. It is gone (Pp: "Hide them all"), though the TPN team asked for it on
+   2026-09-22 (`verify-tpn-team-0922.cjs` §4 now checks it is absent). The high wrong-unit line, reached from the P
+   box (155 mg P or more), told the user to press P; on P it now says the P box takes 15–60 mg. And the order form
+   printed the Glycophos P label to 1 decimal; a dose typed in mg P now prints as typed, to 3.
+
+Seven pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
+No dose constant, limit or `CONSTANTS_VERSION` moved (5 adds two alert thresholds). No second clinician has
+reviewed the P entry path or `CR-GLYCO-UNIT-HABIT`: Pp only; asked, she wanted none ("ไม่", 2026-11-06). Asked
+whether "ฟอสเฟต" means elemental mg P (as built, the form's 31 mg/mL) rather than mg of phosphate ion, she said yes. Center Point's packet keeps Glycophos mL/kg to 3
+decimals (`center-point/tpn-snapshot.mjs`), where the order form now shows up to 4; the stock mL is the same in
+both. With the two Glycophos titles, the fullest confirmed order (15 titles, a 300-character reason) measures
+272.4 mm on CI's fallback font, against 268.3 before and the page's 281: still one page
+(`verify-print-one-page-1102.cjs`). Asked in the same thread, not built: which amino-acid stocks to
+offer older children (`BACKLOG.md` item 14, Amiparen 10 % and Aminoplasmal 15 %) — a proposal went back to Pp.
+
 ## Session 2026-11-06 (5) — The lipid pump: tap to a whole mL, and both pumps at 0.1 mL/hr
 
 `data.js` (`lipidDoseAtWholeMl`, `pumpRate`, `PUMP_MAX_HOURS`, `lipidGkghAt`), `calculator.jsx` (Step 3's two pumps, the

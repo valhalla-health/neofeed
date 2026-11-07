@@ -196,7 +196,8 @@ function baseOrder({ tf = 120 } = {}) {
     eq('the 100 chip sets 100 mL', inputFor('ปริมาตรคาสาย')?.value, '100');
     ok('…and the bag is prepared at 180 + 100 = 280 mL', /Prepared \(เตรียมจริง\)\s*280 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
     setField('ปริมาตรคาสาย', 0);
-    ok('0 is still typed by hand: no overfill', /no overfill — doses use actual weight/.test(screenText()), screenText().match(/Factor.{0,60}/));
+    // The Factor box that said "no overfill" left the screen on 2026-11-06 (Pp).
+    ok('0 is still typed by hand: prepared = delivered 180 mL', /Prepared \(เตรียมจริง\)\s*180 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
     setField('ปริมาตรคาสาย', 45);
     ok('…and so is any other value (45 mL → 225 mL prepared)', /Prepared \(เตรียมจริง\)\s*225 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
   });
@@ -219,7 +220,9 @@ function baseOrder({ tf = 120 } = {}) {
     const row = text(container.querySelector('.s2-aa-row'));
     ok('no "In bag / delivered" column', !/In bag|delivered/.test(row), row);
     ok('…and no g/day figure', !/g\/day/.test(row), row);
-    ok('the volume stays: 4 g × 1.167 overfill = 46.7 mL/day', /Volume\s*46\.7 mL\/day/.test(row), row);
+    // The stock volume (46.7 mL/day) left the row on 2026-11-06 too (Pp: "Hide
+    // them all"); the printed order carries it.
+    ok('…and, since 2026-11-06, no stock volume either', !/Volume\s*[\d.]+ mL\/day/.test(row), row);
     setField('ปริมาตรคาสาย', 0);
     const flat = text(container.querySelector('.s2-aa-row'));
     ok('with no overfill, no "Total … g/day" either', !/Total|g\/day/.test(flat), flat);
@@ -308,7 +311,8 @@ function baseOrder({ tf = 120 } = {}) {
     // dead space of a new NICU order overfills the bag, which is when it showed.
     setField('20% NaCl', 2); setField('KCl', 1); setField('Glycophos', 2);
     const step4 = text([...container.querySelectorAll('.salt-row-grid')][0]?.closest('.card-b'));
-    ok('Step 4 still gives the prepared mL of each salt (เตรียม … mL/d)', /เตรียม [\d.]+ mL\/d/.test(step4), step4.slice(0, 200));
+    // The prepared mL left Step 4 on 2026-11-06 (Pp: not for doctors and nurses).
+    ok('Step 4 gives no prepared mL of any salt (เตรียม … mL/d)', !/เตรียม [\d.]+ mL\/d/.test(step4), step4.match(/เตรียม [\d.]+ mL\/d/));
     ok('…with no "= ถึงผู้ป่วย … + คาสาย …" split', !/ถึงผู้ป่วย [\d.]+ \+ คาสาย/.test(step4), step4.match(/.{20}ถึงผู้ป่วย.{30}/));
   });
 

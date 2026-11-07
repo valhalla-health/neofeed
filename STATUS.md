@@ -1,6 +1,10 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-06 — the lipid pump (this PR): in review.** A tap on Lipid volume rounds the syringe to the nearest
+> ⏳ **2026-11-06 — Calculator ward feedback (Glycophos by P with a wrong-unit guard, no Factor or stock mL on
+> screen, Dextrose, amino-acid and lipid chips on one line): open PR #226, not merged, not live.** Frontend only; no backend change; two new
+> alert thresholds, no dose constant moved. Recorded here by its own PR.
+>
+> ⏳ **2026-11-06 — the lipid pump (#227): merged into `main` (`4e71a25`), not live.** A tap on Lipid volume rounds the syringe to the nearest
 > whole mL/day and sets the dose from it; both pumps show 0.1 mL/hr and the hours they run, and lipid g/kg/h is over
 > those hours. The printed lipid line changes on every order with lipid, so `CONSTANTS_VERSION` moves to `2026-11-06.1`:
 > once released, an order saved before it prints only after it is saved again.

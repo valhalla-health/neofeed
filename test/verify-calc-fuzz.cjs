@@ -219,11 +219,15 @@ for (let i = 0; i < COUNT; i++) {
   near(s, 'NPC:Protein', tileVal('NPC : Protein'), e.npe, 0);
   near(s, 'Prescribed fluid', grab(/· Prescribed ([\d.]+) mL\/d/), e.prescribed, 0);
   near(s, 'Prepared volume', grab(/Prepared \(เตรียมจริง\)([\d.]+) mL\/day/), e.Vp, 1);
-  near(s, 'Factor', grab(/Factor([\d.]+)/), e.F, 3);
+  // The Factor is pharmacy's: off the screen since 2026-11-06 (Pp). Every stock
+  // mL below is × Factor, so a wrong Factor still fails here.
+  near(s, 'no Factor figure on screen', grab(/Factor([\d.]+)/) === null ? 1 : 0, 1, 0);
   // stock mL: 0.1 mL tolerance — an exactly-.x5 value is a float tie, and
   // toFixed and Math.round can land on either side of it (10.45 → 10.4 / 10.5)
-  if (e.d50 > 0) nearTol(s, 'D50W mL', grab(/D50W: ([\d.]+) mL\/d/), e.d50, 0.1001);
-  if (s.aa > 0) nearTol(s, 'AA mL', grab(/Volume([\d.]+) mL\/day/), e.aaMl, 0.1001);
+  // D50W and amino-acid stock mL left the screen on 2026-11-06 (Pp: "Hide them
+  // all"); verify-calc-oracle checks each on the printed order. Lipid volume stays:
+  // a tap on it rounds the syringe to a whole mL (#227; Pp kept it, 2026-11-07).
+  near(s, 'no D50W / amino-acid stock mL on screen', /D50W: [\d.]+ mL|(?<!Lipid )Volume[\d.]+ mL\/day/.test(text()) ? 0 : 1, 1, 0);
   if (s.lip > 0) { nearTol(s, 'Lipid mL', grab(/Lipid volume([\d.]+) mL\/day/), e.smof, 0.1001);
     near(s, 'Vitalipid mL', grab(/\+ Vitalipid N([\d.]+) mL\/day/), e.vitalipid, 1); }
 
@@ -261,15 +265,11 @@ for (let i = 0; i < COUNT; i++) {
     checks++; if (Math.abs(tileVal('Osmolarity') - osm1) > 1) fail(s, 'I2 dead space moved osmolarity', tileVal('Osmolarity'), osm1);
     checks++; if (Math.abs(tileVal('Energy (total)') - kcal1) > 1) fail(s, 'I2 dead space moved kcal/kg', tileVal('Energy (total)'), kcal1);
     setField('ปริมาตรคาสาย', s.dead);
-    // I1: mL of stock × (delivered/prepared) ÷ weight = the ordered per-kg dose
-    if (s.naCl > 0) {
-      const ml = grab(/เตรียม ([\d.]+) mL\/d/);
-      const deliveredPerKg = ml * (s.tpn / e.Vp) * 3.42 / e.kg;
-      // the recipe is drawn up to 0.1 mL, so the round-trip can only be as
-      // exact as half that step — anything beyond it is a real error
-      const step = 0.05 * (s.tpn / e.Vp) * 3.42 / e.kg + 1e-6;
-      checks++; if (Math.abs(deliveredPerKg - s.naCl) > step) fail(s, 'I1 NaCl round-trip beyond 0.05 mL', deliveredPerKg, s.naCl);
-    }
+    // I1 read the NaCl stock mL off Step 4's "เตรียม … mL/d" line. That line left
+    // the screen on 2026-11-06 (Pp: not for doctors and nurses); the printed stock
+    // mL are checked against an independent recomputation by verify-calc-oracle
+    // and summed by verify-calc-sum. What is left here: the line stays gone.
+    checks++; if (/เตรียม [\d.]+ mL\/d/.test(text())) fail(s, 'I1 Step 4 shows no prepared mL (เตรียม)', text().match(/เตรียม [\d.]+ mL\/d/)[0], 'none');
   }
 }
 

@@ -2096,14 +2096,14 @@ at least 14 px below the reason and the box has 8 px under it. §1c: the amino-a
 ticked product with its dose, then the other four choices and "Other"), no figure is set below 10 px. §1d: the
 same for an order saved with Aminoplasmal 15% (the ward gate is stubbed, as in `verify-ward-requests-0918.cjs`
 §9): the ticked line reads "☑ 15% Aminoplasmal", the others start with "☐ 10% Aminoven infant". §1e:
-calculator.jsx still has 21 `level: "crit"` alert lines; the fit test's `ALERTS_13` is every title among them
+calculator.jsx still has 23 `level: "crit"` alert lines (21 until the Glycophos unit guard, 2026-11-06); the fit test's `ALERTS_15` is every title among them
 that takes a reason and can print (the others are `noReason`, a No TPN order's, or stops), so a new critical
 alert fails here until it is added or excused. §1f: both shells carry the `break-inside: avoid` and 1.35
 line-height rules. §2 puts each order's form into a page with the shells' own CSS, in a wide fallback font
 (Verdana here, DejaVu Sans on CI, about 4 % taller than IBM Plex Sans), emulates print and counts the pages of
-`page.pdf`: one each, for no alert, one alert, and all 13 titles with a 300-character reason; it reads the computed
+`page.pdf`: one each, for no alert, one alert, and all 15 titles with a 300-character reason; it reads the computed
 `break-inside` and the line height, the room around the signature line, and that its three parts do not overlap
-even with a 36-character ID. §2b prints an order that does not fit (all 13 titles, a 300-character reason, a
+even with a 36-character ID. §2b prints an order that does not fit (all 15 titles, a 300-character reason, a
 600-character diagnosis) with a link around each part of the box: Chrome writes a link annotation on the page
 where the link falls, as plain text in the PDF, so the check reads which page holds what with no PDF library. It
 expects two pages and the whole box, its signature, and the ID and date on page 2; with `break-inside` switched off

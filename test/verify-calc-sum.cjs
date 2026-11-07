@@ -256,6 +256,12 @@ const OWN = [
   { name: 'S8 components fill the printed bag exactly at the tie (WFI 0)', bw: 2000, cur: 2000, dol: 10, fluid: 120,
     ioOut: 80, tpn: 130.45, dead: 0, dex: 20, aa: 3.5, naCl: 2, kCl: 1, ca: 6, hep: 0.6, weights: [{ dol: 1, w: 2000 }],
     expectMake: { components: 130.5, wfi: 0, prepared: 130.5 } },
+  // S9: Glycophos typed by P (Pp, 2026-11-06). 20 mg P/kg is 20/31 mL/kg, a dose
+  // with no end to its decimals: the printed bag must still add up. glyNa is the
+  // same dose in mEq Na, for stocksAtZero and expectedLines.
+  { name: 'S9 Glycophos typed as P 20 mg/kg (20/31 mL/kg)', bw: 1300, cur: 1300, dol: 9, fluid: 150, ioOut: 50,
+    tpn: 150, dead: 30, dex: 10, aa: 3, lip: 2, naCl: 2, glyPmg: 20, glyNa: 40 / 31, kCl: 1.5, ca: 40, hep: 0.5,
+    weights: [{ dol: 1, w: 1300 }] },
 ];
 function randomOrder(i) {
   const bw = between(400, 4000, 10);
@@ -438,7 +444,10 @@ async function fill(sc, scratch = false) {
   click([...container.querySelectorAll('button')].find(b => b.textContent === `${sc.lipH}h`));
   setField('20% NaCl', sc.naCl);
   setField('Na Acetate', sc.naAc);
-  setField('Glycophos', sc.glyNa);
+  if (sc.glyPmg) {   // typed by P (Pp, 2026-11-06): the P button, then mg P/kg/d
+    click([...container.querySelectorAll('.glycophos-by button')].find(b => b.textContent === 'P'));
+    setField('Glycophos', sc.glyPmg);
+  } else setField('Glycophos', sc.glyNa);
   setField('KCl', sc.kCl);
   setField('K₂HPO₄', sc.k2);
   setField('MgSO₄', sc.mg * 12.1525);   // typed in mg since 2026-10-28; sc.mg stays mEq
