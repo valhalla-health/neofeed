@@ -411,6 +411,17 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] ⚖️ **PDPA · The QI export (2026-11-07) waits on two answers — Praew / DPO.** `exportQi()` is built and
+      tested, not deployed (`CHANGELOG.md` 2026-11-07 (2)).
+      1. **Lawful basis.** `REFERENCE.md` § PDPA: the Sec 26(6) treatment basis does not cover a QI export. QI
+         as part of the hospital's own care quality, or research under Sec 26(5)(e) with IRB approval, is the
+         DPO's call, before the first real export.
+      2. **A Thai diagnosis is `[REDACTED]`** (free Thai text can hold a name), so the local checker cannot map
+         it. Keep that, or pass Thai text through for the checker to map on the PC.
+- [ ] 🧹 **chore · praewpp-workspace: the local checker reads the one `QI_Export` CSV.** A `--check-only` mode
+      for `neofeed_pseudonymize.py` (PR praewxtvl/praewpp-workspace#80): the identifier scan and the k-report on
+      the downloaded CSV, a small-cell rule (≤ 7 suppressed or rounded to 5) for any table made from it, and the
+      diagnosis map read from the `diagnosis` column. Not this repo.
 - [ ] **product · Two leftovers of #223 (FBM 24 ↔ Infatrini 30 off Step 2's list, 2026-11-06), for Pp.**
       1. The Formula reference page still lists FBM ↔ Infatrini under "High-energy / Mixed" (`app.jsx`
          `FormulasPanel`). It is no longer orderable; taking it off is Pp's call.
