@@ -201,6 +201,21 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   await settle(submitBtn());
   eq('a doctor\'s draft opened by a nurse: Submit saves nothing', s.calls.length, 0);
 
+  // Pp, 2026-11-07 ("ได้แค่ I/O เหมือนกัน"): on a doctor's draft a nurse's Save draft is I/O only too.
+  const docDraft = row({ ...bag, status: 'draft' }, { status: 'draft', lastModifiedBy: 'doc@kcmh.test', submittedBy: 'doc@kcmh.test' });
+  s = rec(); mount({ ...NURSE, editEntry: docDraft, ...s });
+  setField('Amino acid', 2.5);
+  await settle(draftBtn());
+  eq('a doctor\'s draft: a nurse\'s Save draft that changes a dose saves nothing', [s.calls.length, toasts.includes(NURSE_TEXT)], [0, true]);
+  s = rec(); mount({ ...NURSE, editEntry: docDraft, ...s });
+  setField('Input', 110);
+  await settle(draftBtn());
+  eq('…one that changes only I/O saves, as a draft', [s.calls.length, s.calls[0]?.[3].status, s.calls[0]?.[3].ioInput], [1, 'draft', 110]);
+  s = rec(); mount({ ...NURSE, editEntry: { ...docDraft, lastModifiedBy: 'nurse@kcmh.test', submittedBy: 'nurse@kcmh.test' }, ...s });
+  setField('Amino acid', 2.5);
+  await settle(draftBtn());
+  eq('…her own draft she may change freely', [s.calls.length, s.calls[0]?.[3].status], [1, 'draft']);
+
   s = rec(); mount({ ...DOCTOR, editEntry: row(oldVersion(bag)), ...s });
   eq('a doctor sees no refusal line', nurseNote(), '');
   await settle(submitBtn());
@@ -268,6 +283,21 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   eq('…and a locked draft is still a draft: her Submit on it is refused', overLocked.error, NURSE_TEXT);
   const roomD = as(rt, { action: 'pharmacyOrders', date: TODAY });
   eq('…so the room has no submitted order for that infant', (roomD.orders || []).filter(o => o.sessionId === 'NF-900312').map(o => o.status), ['draft']);
+  // Pp, 2026-11-07: a doctor's draft takes I/O only from a nurse, written from the stored row.
+  const curDraft = draftRow();
+  const dDose = as(nt, { action: 'updateDailyNutrition', sessionId: 'NF-900312', entryId: nDraft.entryId, expectedLastModified: dDraft.lastModified,
+    entry: { ...bag, status: 'draft', gir: 9.5, calcInput: { ...bag.calcInput, aaPerKg: 3 } } });
+  eq('a doctor\'s draft: the backend refuses a nurse\'s dose change', dDose.error, NURSE_TEXT);
+  const dIo = as(nt, { action: 'updateDailyNutrition', sessionId: 'NF-900312', entryId: nDraft.entryId, expectedLastModified: dDraft.lastModified,
+    entry: { ...bag, status: 'draft', gir: 9.5, calcInput: { ...bag.calcInput, ioInput: 66 } } });
+  const ioDraftRow = L()[L().length - 1];
+  eq('…takes her I/O as a draft, with the doctor\'s figures', [!!(dIo.ok || dIo.entryId), ioDraftRow[14], ioDraftRow[28], ioDraftRow[5]], [true, 'draft', 66, curDraft[5]]);
+  as(dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: { ...PT, sessionId: 'NF-900313', initials: 'WM', currentBed: 'NICU 5', ga: 32.1,
+    sex: 'boys', dob: '2026-11-01', twinSuffix: '', status: 'Active', lengths: [], hcs: [], bedHistory: [], statusDate: '', multiplesCount: 0 } });
+  const own = as(nt, { action: 'logDailyNutrition', sessionId: 'NF-900313', entry: { ...bag, status: 'draft' } });
+  const ownEdit = as(nt, { action: 'updateDailyNutrition', sessionId: 'NF-900313', entryId: own.entryId, expectedLastModified: own.lastModified,
+    entry: { ...bag, status: 'draft', calcInput: { ...bag.calcInput, aaPerKg: 3 } } });
+  eq('…while her own draft she may change freely', [ownEdit.error, ownEdit.ok], [undefined, true]);
   const doc = as(dt, { action: 'updateDailyNutrition', sessionId: PT.sessionId, entryId: latestId, expectedLastModified: latestLm, entry: dosed });
   eq('the same change from the doctor\'s account lands', [doc.revised, doc.error], [true, undefined]);
 

@@ -2840,6 +2840,12 @@ function _orderWithoutIo(ci) {
 function _ioOnlyRevision(cur, entry) {
   entry = entry || {};
   if (entry.status === "draft") return false;
+  return _ioOnlyChange(cur, entry);
+}
+// The same order as `cur` apart from I/O, on the same constants, whatever status
+// the entry asks for.
+function _ioOnlyChange(cur, entry) {
+  entry = entry || {};
   if (String(entry.constantsVersion || "") !== String(cur[31] || "")) return false;
   var was = _parseJson(cur[24], null), now = entry.calcInput;
   if (!was || typeof was !== "object" || !now || typeof now !== "object") return false;
@@ -2849,7 +2855,7 @@ function _ioOnlyRevision(cur, entry) {
 // The entry a nurse's I/O save writes over the submitted row `cur`: every
 // column as stored, the I/O figures from her calcInput (cells AC–AE too) and
 // its save time. Keeps the date updateDailyNutrition set.
-function _ioOnlyEntryFrom(cur, entry) {
+function _ioOnlyEntryFrom(cur, entry, status) {
   var sent = (entry && entry.calcInput) || {};
   var ci = _parseJson(cur[24], {}) || {};
   ci.ioInput = sent.ioInput; ci.ioOutput = sent.ioOutput; ci.drainContent = sent.drainContent;
@@ -2858,7 +2864,7 @@ function _ioOnlyEntryFrom(cur, entry) {
   var str = function (v) { return String(v == null ? "" : v); };
   return {
     ts: entry.ts, dol: cur[2], weight: cur[3], fluid: cur[4], gir: cur[5], pro: cur[6], kcal: cur[7],
-    na: cur[8], k: cur[9], ca: cur[10], p: cur[11], enVolPerKg: cur[12], route: str(cur[13]), status: "submitted",
+    na: cur[8], k: cur[9], ca: cur[10], p: cur[11], enVolPerKg: cur[12], route: str(cur[13]), status: status,
     suppMTV: cur[16], suppVitD_IU: cur[17], suppCa_mg: cur[18], suppCaType: str(cur[19]),
     suppPO4_mmol: cur[20], suppPO4Type: str(cur[21]), suppFe_mg: cur[22], suppFeType: str(cur[23]),
     // AC–AE from the same three figures, so the cells and the reopened order agree.
@@ -2916,8 +2922,19 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       // By column O alone: a draft someone locked (AH) is still a draft, and a
       // nurse's save on it stays one (Vera's second review).
       var curSubmitted = String(cur[14] || "").trim().toLowerCase() !== "draft";
-      var nurseRefused = curSubmitted ? !_ioOnlyRevision(cur, entry) : (entry || {}).status !== "draft";
+      // A draft another account saved, unless that account is a nurse's: I/O only
+      // as well (Pp, 2026-11-07, "ได้แค่ I/O เหมือนกัน"), so a doctor's later Submit
+      // never signs figures a nurse typed. An account the Staff tab does not know
+      // counts as not a nurse.
+      var draftSaver = String(cur[27] || cur[15] || "").trim().toLowerCase();
+      var saverRow = draftSaver && draftSaver !== String(editedBy || "").trim().toLowerCase() ? getStaffRow(draftSaver) : null;
+      var othersDraft = !curSubmitted && !!draftSaver && draftSaver !== String(editedBy || "").trim().toLowerCase()
+        && !(saverRow && _staffRole(saverRow.data[1]) === "nurse");
+      var nurseRefused = curSubmitted ? !_ioOnlyRevision(cur, entry)
+        : (entry || {}).status !== "draft" || (othersDraft && !_ioOnlyChange(cur, entry));
       if (nurseRefused) return { error: NURSE_SUBMIT_REFUSAL.error, code: NURSE_SUBMIT_REFUSAL.code };
+      // Written from the stored row, as for a submitted order (below).
+      if (othersDraft) entry = _ioOnlyEntryFrom(cur, entry, "draft");
     }
 
     // An edit keeps the row's own calendar date. `entry.ts` from the client
@@ -2951,7 +2968,7 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       // what her client sent: its figure columns and sticker figures stay the
       // doctor's, whatever a modified client puts beside an unchanged calcInput
       // (Vera on this change, 2026-11-07).
-      if (nurseIoOnly && curSubmitted) entry = _ioOnlyEntryFrom(cur, entry);
+      if (nurseIoOnly && curSubmitted) entry = _ioOnlyEntryFrom(cur, entry, "submitted");
       var newEntryId = Utilities.getUuid();
       var nextRevisionNumber = _numSafe(cur[35], 1) + 1;
       var revisionRow = _buildLogRow(sessionId, entry, originalSubmittedBy)

@@ -675,6 +675,8 @@ function Calculator({
   const [savedEntryId, setSavedEntryId] = useState(editEntry?.entryId || null);
   const [savedLastModified, setSavedLastModified] = useState(editEntry?.lastModified || null);
   const [savedStatus, setSavedStatus] = useState(editEntry ? D.isDraftEntry(editEntry) ? "draft" : "submitted" : null);
+  const saverOf = (e) => String(e?.lastModifiedBy || e?.submittedBy || "").trim().toLowerCase();
+  const [savedSaver, setSavedSaver] = useState(() => saverOf(editEntry));
   const [savedHadTpn, setSavedHadTpn] = useState(() => !!editEntry && D.orderHadTpn(editEntry));
   const [savedReplacesTpn, setSavedReplacesTpn] = useState(() => editEntry?.calcInput?.replacesTpn === true);
   const [saving, setSaving] = useState(false);
@@ -819,6 +821,7 @@ function Calculator({
     setSavedEntryId(editEntry?.entryId || null);
     setSavedLastModified(editEntry?.lastModified || null);
     setSavedStatus(editEntry ? D.isDraftEntry(editEntry) ? "draft" : "submitted" : null);
+    setSavedSaver(saverOf(editEntry));
     setSavedHadTpn(!!editEntry && D.orderHadTpn(editEntry));
     setSavedReplacesTpn(editEntry?.calcInput?.replacesTpn === true);
     setPublished(!!editEntry?.published);
@@ -1663,6 +1666,7 @@ function Calculator({
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
   const nurseIoOnly = nurseAccount && !ordersReadOnly && !scratch && !centerPoint;
   const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted" || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || figuresMissing);
+  const nurseDraftRefused = nurseIoOnly && !!savedEntryId && savedStatus === "draft" && !!savedSaver && savedSaver !== draftOwner && (savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey || calcMoved || dosingWeightChanged);
   const printedFigureInput = {
     calc,
     wtKg,
@@ -1735,6 +1739,10 @@ function Calculator({
     if (scratch) return;
     if (ordersReadOnly) return;
     if (!asDraft && nurseSubmitRefused) {
+      showToast(NURSE_SUBMIT_TEXT, "error");
+      return;
+    }
+    if (asDraft && nurseDraftRefused) {
       showToast(NURSE_SUBMIT_TEXT, "error");
       return;
     }
@@ -2014,6 +2022,7 @@ function Calculator({
     }
     setSavedLastModified(res.lastModified);
     setSavedStatus(asDraft ? "draft" : "submitted");
+    setSavedSaver(draftOwner);
     setSavedHadTpn(D.orderHadTpn(entry));
     setSavedReplacesTpn(replacesTpn);
     setSavedKey(keyAtSave);

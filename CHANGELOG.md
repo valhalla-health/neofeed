@@ -37,7 +37,13 @@ front) wait until after it.
      revision it then writes comes from the stored row (`_ioOnlyEntryFrom`): every figure column, the sticker figures
      (AM) and `calcInput` as the doctor saved them, with only the three I/O figures and the save time from the nurse.
      Vera's 🔴 on the first version: it compared `calcInput` and wrote the client's figure columns and `printJson`, so
-     a modified client could change a sticker under the doctor's name.
+     a modified client could change a sticker under the doctor's name. Her second review found another way in: a
+     nurse's `publishLog` locked a doctor's draft, and her next save read the lock as "submitted". Now a nurse cannot
+     lock a draft (`publishDailyLog`), and a nurse's save reads a row as submitted by its status column alone.
+   - **A doctor's draft, too** (Pp, 2026-11-07, after Vera asked: "ได้แค่ I/O เหมือนกัน"): on a draft another account
+     saved, unless the Staff tab lists that account as a nurse, a nurse's Save draft may change only I/O, on the same
+     calculation and dosing weight, and the backend writes it from the stored row. Her own draft she may change freely.
+     The calculator holds the same rule by the row's saver email (`savedSaver`).
    - TPN room: `pharmacyOrders` names who submitted. A nurse's I/O-only revision names the account and the Submit time
      of the row before it (walking `revisionOf`, at most 50 rows); a revision a nurse saved with anything else changed
      (possible before this backend) still names the nurse. The room page reads "Submit โดย" for a submitted order and

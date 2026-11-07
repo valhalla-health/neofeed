@@ -1139,6 +1139,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // "draft" | "submitted" | null (nothing saved yet). A draft cannot print or
   // copy until it is completed and Submitted (D.isDraftEntry — Praew, 2026-09-23).
   const [savedStatus, setSavedStatus] = useState(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
+  // The account that last saved the row (lower-case email), for N1's rule on
+  // someone else's draft. Set to this user's on every save from this form.
+  const saverOf = (e) => String(e?.lastModifiedBy || e?.submittedBy || "").trim().toLowerCase();
+  const [savedSaver, setSavedSaver] = useState(() => saverOf(editEntry));
   // The saved row's TPN, for a same-day TPN order cancelled by a No TPN revision
   // (D.orderCancelsTpn; Vera, fifth review; Pp, 2026-11-01): whether it had TPN,
   // and whether it already replaced a submitted order that did
@@ -1368,6 +1372,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setSavedEntryId(editEntry?.entryId || null);
     setSavedLastModified(editEntry?.lastModified || null);
     setSavedStatus(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
+    setSavedSaver(saverOf(editEntry));
     setSavedHadTpn(!!editEntry && D.orderHadTpn(editEntry));
     setSavedReplacesTpn(editEntry?.calcInput?.replacesTpn === true);
     setPublished(!!editEntry?.published);   // it now decides Submit's lock (Vera, 2026-10-28)
@@ -2565,6 +2570,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted"
     || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey
     || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || figuresMissing);
+  // …and on a draft another account saved (a doctor's, Pp 2026-11-07: "ได้แค่ I/O
+  // เหมือนกัน"), her Save draft too may change only I/O, on the same calculation
+  // and dosing weight. Her own draft she may change freely.
+  const nurseDraftRefused = nurseIoOnly && !!savedEntryId && savedStatus === "draft"
+    && !!savedSaver && savedSaver !== draftOwner
+    && (savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey || calcMoved || dosingWeightChanged);
   // Top insight 3: what changed on an order held for a new save because the
   // calculation or the dosing weight moved (heldFigureChanges). Only the row as
   // it was opened can be held this way: a save in this visit stamps both anew.
@@ -2660,6 +2671,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // N1: a nurse's Submit goes back to a doctor unless only I/O changed
     // (nurseSubmitRefused), before any prompt can ask her for a reason.
     if (!asDraft && nurseSubmitRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
+    if (asDraft && nurseDraftRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
     // An order submitted before the lock existed and reopened unchanged is only
     // locked: a revision of identical numbers would tell pharmacy nothing.
@@ -2933,6 +2945,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     }
     setSavedLastModified(res.lastModified);
     setSavedStatus(asDraft ? "draft" : "submitted");
+    setSavedSaver(draftOwner);
     setSavedHadTpn(D.orderHadTpn(entry));
     setSavedReplacesTpn(replacesTpn);
     // What was just saved is what may now be printed — the inputs as they
