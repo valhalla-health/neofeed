@@ -1523,7 +1523,8 @@ function doPost(e) {
     if (action === "publishLog") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
-      var pubResult = publishDailyLog(body.sessionId, body.entryId, user.email, body.expectedLastModified);
+      var pubResult = publishDailyLog(body.sessionId, body.entryId, user.email, body.expectedLastModified,
+        user.role === "nurse");
       if (pubResult.error) return jsonOut(_errorBody(pubResult));
       if (pubResult.conflict) return jsonOut({ conflict: true, current: pubResult.current });
       return jsonOut({ ok: true, publishedAt: pubResult.publishedAt, alreadyPublished: !!pubResult.alreadyPublished });
@@ -2912,7 +2913,9 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     // order was computed with, and stays submitted (a draft revision would take
     // the order out of the TPN room).
     if (nurseIoOnly) {
-      var curSubmitted = !!cur[33] || String(cur[14] || "").trim().toLowerCase() !== "draft";
+      // By column O alone: a draft someone locked (AH) is still a draft, and a
+      // nurse's save on it stays one (Vera's second review).
+      var curSubmitted = String(cur[14] || "").trim().toLowerCase() !== "draft";
       var nurseRefused = curSubmitted ? !_ioOnlyRevision(cur, entry) : (entry || {}).status !== "draft";
       if (nurseRefused) return { error: NURSE_SUBMIT_REFUSAL.error, code: NURSE_SUBMIT_REFUSAL.code };
     }
@@ -2948,7 +2951,7 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       // what her client sent: its figure columns and sticker figures stay the
       // doctor's, whatever a modified client puts beside an unchanged calcInput
       // (Vera on this change, 2026-11-07).
-      if (nurseIoOnly) entry = _ioOnlyEntryFrom(cur, entry);
+      if (nurseIoOnly && curSubmitted) entry = _ioOnlyEntryFrom(cur, entry);
       var newEntryId = Utilities.getUuid();
       var nextRevisionNumber = _numSafe(cur[35], 1) + 1;
       var revisionRow = _buildLogRow(sessionId, entry, originalSubmittedBy)
@@ -3047,7 +3050,7 @@ function _removeAppendedRevision(sheet, newEntryId) {
 // match, or someone else's later save would be locked under the submitter's
 // name. A superseded row can't be submitted, and re-submitting an already
 // published row is a no-op rather than a silent overwrite of who/when.
-function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) {
+function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified, nurseIoOnly) {
   if (!_requiredString(entryId)) return { error: "entryId is required" };
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
   if (!expectedLastModified) return { error: "expectedLastModified is required" };
@@ -3062,6 +3065,11 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
     var cur = hit.data;
     if (String(cur[1]) !== String(sessionId)) return { error: "บันทึกนี้ไม่ตรงกับผู้ป่วยรายนี้" };
     if (cur[37]) return { error: "รายการนี้มีฉบับแก้ไขใหม่แล้ว — เปิดฉบับล่าสุดก่อนส่ง" };
+    // N1: a nurse never locks a draft. Locked, it would read as submitted to her
+    // next save (Vera's second review, 2026-11-07).
+    if (nurseIoOnly && String(cur[14] || "").trim().toLowerCase() === "draft") {
+      return { error: NURSE_SUBMIT_REFUSAL.error, code: NURSE_SUBMIT_REFUSAL.code };
+    }
     if (cur[33]) return { ok: true, alreadyPublished: true, publishedAt: String(cur[33]) };
     var currentLastModified = String(cur[26] || "");
     if (currentLastModified !== String(expectedLastModified)) {

@@ -256,6 +256,18 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   eq('nothing the backend refused was written', L().length - 1, 2);
   const nDraft = as(nt, { action: 'logDailyNutrition', sessionId: 'NF-900312', entry: { ...bag, status: 'draft' } });
   eq('…while a nurse\'s new order saved as a draft lands', !!nDraft.entryId, true);
+  // Vera's second review: a nurse locked a doctor's draft (publishLog), and her next save read it as submitted.
+  const dDraft = as(dt, { action: 'updateDailyNutrition', sessionId: 'NF-900312', entryId: nDraft.entryId,
+    expectedLastModified: nDraft.lastModified, entry: { ...bag, status: 'draft' } });
+  const lock = as(nt, { action: 'publishLog', sessionId: 'NF-900312', entryId: nDraft.entryId, expectedLastModified: dDraft.lastModified });
+  const draftRow = () => L().find(r => r[25] === nDraft.entryId);
+  eq('a nurse cannot lock a doctor\'s draft', [lock.error, draftRow()[33]], [NURSE_TEXT, '']);
+  draftRow()[33] = TODAY + 'T02:00:00.000Z';   // a draft locked anyway (an older backend, a hand edit)
+  const overLocked = as(nt, { action: 'updateDailyNutrition', sessionId: 'NF-900312', entryId: nDraft.entryId,
+    expectedLastModified: dDraft.lastModified, entry: { ...bag } });
+  eq('…and a locked draft is still a draft: her Submit on it is refused', overLocked.error, NURSE_TEXT);
+  const roomD = as(rt, { action: 'pharmacyOrders', date: TODAY });
+  eq('…so the room has no submitted order for that infant', (roomD.orders || []).filter(o => o.sessionId === 'NF-900312').map(o => o.status), ['draft']);
   const doc = as(dt, { action: 'updateDailyNutrition', sessionId: PT.sessionId, entryId: latestId, expectedLastModified: latestLm, entry: dosed });
   eq('the same change from the doctor\'s account lands', [doc.revised, doc.error], [true, undefined]);
 
