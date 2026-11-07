@@ -2232,7 +2232,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const glycoNaKg = Number((glycophosP * S.glycophos.naMeqPerMl).toPrecision(12));
   const glycoPMgKg = Number((glycophosP * S.glycophos.pMgPerMl).toPrecision(12));
   if (glycoNaKg >= D.GLYCO_NA_HABIT_MEQ) alerts.push({ level: "crit", title: `Glycophos ${D.GLYCO_NA_HABIT_MEQ} mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า`,
-    body: `Glycophos ${fmt(glycoNaKg, 2)} mEq Na/kg/d = P ${fmt(glycoPMgKg, 0)} mg/kg/d = ${fmt(glycophosP, 2)} mL/kg/d — ช่อง Na รับ mEq Na/kg/d (1–4); ถ้าตั้งใจสั่งเป็น P กดปุ่ม P แล้วใส่ mg P/kg/d`,
+    body: `Glycophos ${fmt(glycoNaKg, 2)} mEq Na/kg/d = P ${fmt(glycoPMgKg, 0)} mg/kg/d = ${fmt(glycophosP, 2)} mL/kg/d — `
+      + (glycophosBy === "p"
+        ? "ช่อง P รับ mg P/kg/d (15–60); ตรวจว่าพิมพ์เกินหรือเปล่า"
+        : "ช่อง Na รับ mEq Na/kg/d (1–4); ถ้าตั้งใจสั่งเป็น P กดปุ่ม P แล้วใส่ mg P/kg/d"),
     ref: "Pp, 2026-11-06" });
   else if (glycophosBy === "p" && glycoPMgKg > 0 && glycoPMgKg < D.GLYCO_P_HABIT_MG) alerts.push({ level: "crit", title: `Glycophos below ${D.GLYCO_P_HABIT_MG} mg P/kg/d: พิมพ์เป็น mEq Na หรือเปล่า`,
     body: `Glycophos P ${fmt(glycoPMgKg, 1)} mg/kg/d = Na ${fmt(glycoNaKg, 2)} mEq/kg/d — ช่อง P รับ mg P/kg/d (15–60); ถ้าตั้งใจสั่งเป็น Na กดปุ่ม Na แล้วใส่ mEq Na/kg/d`,
@@ -3684,8 +3687,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   ? `ใส่ mg P/kg · P ${S.glycophos.pMgPerMl} mg/mL (1 mmol) · ${S.glycophos.naMeqPerMl} mEq Na/mL`
                   : `ใส่ mEq Na/kg · ${S.glycophos.naMeqPerMl} mEq Na/mL · P ${S.glycophos.pMgPerMl} mg/mL (1 mmol)`}
                 perKg={glycophosTyped} onChange={setGlycophosTyped} wtKg={wtKg}
-                unit={glycophosBy === "p" ? "mg P/kg" : "mEq Na/kg"}
-                mlPerKg={glycophosP} />
+                unit={glycophosBy === "p" ? "mg P/kg" : "mEq Na/kg"} />
               <PresetChips values={glycophosBy === "p" ? [15, 30, 45, 60] : [1, 2, 3, 4]} current={glycophosTyped} onSelect={setGlycophosTyped} />
               <div className="glycophos-p" style={{ fontSize:11.5, fontWeight:700, color: glycophosP > 0 ? "var(--brand-2)" : "var(--ink-3)", paddingLeft:2, marginTop:1 }}>
                 {glycophosBy === "p"
@@ -5070,7 +5072,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td style={tdRx(glycophosP > 0)}>{chk(glycophosP > 0)} Disodium glycerophosphate<br/><span style={plain}>(Na = {S.glycophos.naMeqPerMl} mEq/mL, P = {S.glycophos.pMgPerMl} mg/mL)</span></td>
             {/* The paper form's "{ mL · Na mEq · P mg }": the mL is the dose;
                 Na and P are what it brings, so plain text (not figures). */}
-            <td style={tdr}>{glycophosP > 0 ? <><strong>{f(glycophosP, 4)}</strong> mL<br/><span style={note}>Na {f(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq · P {f(glycophosP * S.glycophos.pMgPerMl, 1)} mg</span></> : "—"}</td>
+            <td style={tdr}>{glycophosP > 0 ? <><strong>{f(glycophosP, 4)}</strong> mL<br/><span style={note}>Na {f(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq · P {f(glycophosP * S.glycophos.pMgPerMl, 3)} mg</span></> : "—"}</td>
             <td style={tdr}>{glycophosP > 0 ? <><strong>{f(calc.solVol?.glycophos,1)}</strong> mL</> : "—"}</td>
           </tr>
           <tr>

@@ -86,6 +86,12 @@ Pp sent three requests from her phone the same evening, each with a screenshot o
    taken that mL off the tile. Merging `main` into this PR, Pp chose to show the mL/day and keep the tap ("Show
    mL/day, tappable"), an exception to "Hide them all": the mL is what is rounded. The tile is #227's as merged; the
    fuzz and the oracle check its mL again, and the CR-U-FACTOR case shows "Lipid volume 10 mL/day".
+9. **Vera on the whole PR after that merge (NO BLOCK), three fixes.** Glycophos's row still showed "= x mL/d" on a
+   wide screen (the phone hides that column): delivered mL, not × Factor, so it disagreed with the printed mL, and
+   the last stock mL left besides Lipid volume. It is gone (Pp: "Hide them all"), though the TPN team asked for it on
+   2026-09-22 (`verify-tpn-team-0922.cjs` §4 now checks it is absent). The high wrong-unit line, reached from the P
+   box (155 mg P or more), told the user to press P; on P it now says the P box takes 15–60 mg. And the order form
+   printed the Glycophos P label to 1 decimal; a dose typed in mg P now prints as typed, to 3.
 
 Seven pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
 No dose constant, limit or `CONSTANTS_VERSION` moved (5 adds two alert thresholds). No second clinician has

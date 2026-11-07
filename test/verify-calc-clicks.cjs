@@ -416,6 +416,11 @@ const openAll = () => click(btnExact('Open all'));
     ok('infant B: the label says ใส่เป็น Na and the chips are 1–4', /Glycophos® \(ใส่เป็น Na\)/.test(text()) && chipsAfter('Glycophos').map(c => num(c.textContent)).join() === '1,2,3,4');
     setField('Glycophos', 2);
     ok('infant B: a habitual 2 is 2 mEq Na = 1 mmol P/kg', /→ P 1 mmol\/kg\/d = 31 mg\/kg\/d/.test(text()), container.querySelector('.glycophos-p')?.textContent);
+    // The other half of the reset: the same infant, another saved order opened.
+    click(glyBy('P'));
+    const saved = { entryId: 'e-gly', lastModified: 'lm-gly', ts: '2026-09-22', weight: 1000, status: 'submitted', calcInput: { totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, glycophosP: 1, route: 'central' } };
+    act(() => { root.render(React.createElement(window.Calculator, { ...props(infantB), editEntry: saved })); });
+    ok('another order opened: Glycophos is back on Na, chips 1–4', glyBy('Na')?.classList.contains('on') && chipsAfter('Glycophos').map(c => num(c.textContent)).join() === '1,2,3,4');
 
     // CR-GLYCO-UNIT-HABIT's low line, which only the P button reaches (Pp, 2026-11-06):
     // on P, a dose above 0 and below 10 mg P/kg/d asks whether it was mEq Na.
@@ -425,12 +430,16 @@ const openAll = () => click(btnExact('Open all'));
       click(glyBy('P'));
       setField('Glycophos', 2);
       ok('P 2 mg/kg (meant 2 mEq Na): critical, asking whether it was mEq Na', crit().some(t => t.includes(LOW)), crit());
+      setField('Glycophos', 9.99);
+      ok('P 9.99 mg/kg: still the low line', crit().some(t => t.includes(LOW)), crit());
       setField('Glycophos', 10);
       ok('P 10 mg/kg: no such line', !crit().some(t => t.includes(LOW)), crit());
       // The high line is graded on the dose, so it fires from the P box too: 155 mg P = 10 mEq Na.
       const HIGH = 'Glycophos 10 mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า';
       setField('Glycophos', 155);
       ok('P 155 mg/kg (= 10 mEq Na): the high line, not the low one', crit().some(t => t.includes(HIGH)) && !crit().some(t => t.includes(LOW)), crit());
+      // On P its body speaks of the P box, not "press P" (Vera, 2026-11-07).
+      ok('…and, on P, its body says the P box takes 15–60 mg, not "กดปุ่ม P"', crit().some(t => t.includes(HIGH) && /ช่อง P รับ mg P\/kg\/d \(15–60\)/.test(t) && !/กดปุ่ม P/.test(t)), crit());
       setField('Glycophos', 154);
       ok('P 154 mg/kg: no high line', !crit().some(t => t.includes(HIGH)), crit());
       setField('Glycophos', 2);
