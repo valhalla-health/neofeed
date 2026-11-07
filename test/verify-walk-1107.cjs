@@ -268,7 +268,10 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   g.addStaff('doc@kcmh.test', 'doctor', 'Doctor-Password-1', { name: 'Dr Test' });
   g.addStaff('nurse@kcmh.test', 'nurse', 'Nurse-Password-1', { name: 'Nurse Test' });
   g.addStaff('rx@kcmh.test', 'pharmacy', 'Pharmacy-Password-1', { name: 'Rx Test' });
-  const dt = g.session('doc@kcmh.test', 'doctor'), nt = g.session('nurse@kcmh.test', 'nurse'), rt = g.session('rx@kcmh.test', 'pharmacy');
+  // On the pinned clock, like every request below: made on the real clock just after midnight ICT, a session is 12 h
+  // older than the noon its requests run at, and reads as expired.
+  const dt = withNow(NOON, () => g.session('doc@kcmh.test', 'doctor')), nt = withNow(NOON, () => g.session('nurse@kcmh.test', 'nurse')),
+    rt = withNow(NOON, () => g.session('rx@kcmh.test', 'pharmacy'));
   const as = (tok, body) => withNow(NOON, () => g.post(Object.assign({ token: tok }, body)));
   as(dt, { action: 'registerPatient', isNew: true, patient: { ...PT, initials: 'WK', ga: 32.1, sex: 'boys', dob: '2026-11-01',
     twinSuffix: '', status: 'Active', lengths: [], hcs: [], bedHistory: [], statusDate: '', multiplesCount: 0 } });
