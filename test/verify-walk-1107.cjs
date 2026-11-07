@@ -259,8 +259,32 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   const doc = as(dt, { action: 'updateDailyNutrition', sessionId: PT.sessionId, entryId: latestId, expectedLastModified: latestLm, entry: dosed });
   eq('the same change from the doctor\'s account lands', [doc.revised, doc.error], [true, undefined]);
 
+  // Vera on this change: a modified client keeps calcInput the order's and changes what sits beside it,
+  // the figure columns and the sticker figures. The revision is written from the stored row instead.
+  const docRow = L()[L().length - 1];
+  const forged = { ...ioEntry, gir: 9.5, weight: 2500, route: 'TPN peripheral', calcInput: { ...dosed.calcInput, ioInput: 77 },
+    printJson: { ...ioEntry.printJson, stockMl: { ...ioEntry.printJson.stockMl, kcl: '9.9' } } };
+  const fg = as(nt, { action: 'updateDailyNutrition', sessionId: PT.sessionId, entryId: doc.entryId, expectedLastModified: doc.lastModified, entry: forged });
+  const fgRow = L()[L().length - 1];
+  eq('a nurse\'s I/O save with forged figures beside an unchanged order lands…', [fg.revised, fgRow[28]], [true, 77]);
+  eq('…with the figure columns as the doctor stored them', [5, 3, 13].map(c => fgRow[c]), [5, 3, 13].map(c => docRow[c]));
+  eq('…and the sticker figures as the doctor stored them', fgRow[38], docRow[38]);
+  eq('…and the doctor\'s order in calcInput, with her Input', (() => { const ci = JSON.parse(fgRow[24]), was = JSON.parse(docRow[24]);
+    return [ci.aaPerKg, ci.ioInput, ci.critOverride === undefined] ; })(), [JSON.parse(docRow[24]).aaPerKg, 77, JSON.parse(docRow[24]).critOverride === undefined]);
+
+  // Vera on this change: every nurse I/O save is a revision, so a room that printed the doctor's row read
+  // "หมอแก้ order หลังพิมพ์" though no figure moved. The server says which rows carry the same bag.
+  const Core = require('../tpn-room-core.js');
+  const room2 = as(rt, { action: 'pharmacyOrders', date: TODAY });
+  const ord2 = (room2.orders || []).find(o => o.sessionId === PT.sessionId);
+  eq('the room names the doctor after the forged save too', ord2?.prescriber, 'Dr Test');
+  eq('the room lists the doctor\'s row as the same bag', (ord2?.sameBagEntryIds || []).includes(doc.entryId), true);
+  const printed = (id) => [{ sessionId: PT.sessionId, date: TODAY, entryId: id }];
+  eq('a print of the doctor\'s row is not "changed after print"', Core.changedAfterPrint(ord2, printed(doc.entryId), TODAY), false);
+  eq('a print of the row before the doctor\'s change still is', Core.changedAfterPrint(ord2, printed(latestId), TODAY), true);
+  eq('the print-time recheck lets the I/O revision through', !!Core.recheck({ sessionId: PT.sessionId, entryId: doc.entryId }, room2.orders).order, true);
+
   section('§3 Top insight 3 · a held order lists each changed figure, old against new');
-  eq('the current CONSTANTS_VERSION has its line (a bump adds one)', D.CONSTANTS_CHANGES[0][0], D.CONSTANTS_VERSION);
   eq('a Submit saves the figures it printed (calcInput.printedFigures)',
     !!bag.calcInput.printedFigures && typeof bag.calcInput.printedFigures.d50wMl === 'string', true);
   // The backend refuses a calcInput over 10,000 characters (CALC_INPUT_MAX_CHARS): the figures must leave room for
@@ -279,13 +303,13 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   eq('held, two figures differ: each is listed, and only those', heldRows().length, 2);
   eq('…D50W, old against new', heldRows().some(t => t.includes('D50W') && t.includes(`1 → ${liveD50}`)), true);
   eq('…the lipid pump rate, old against new', heldRows().some(t => t.includes('Lipid pump rate') && t.includes(`0.84 → ${liveRate}`)), true);
-  eq('…with a line naming what this NeoFeed version changed', /2026-11-06\.1/.test(container.querySelector('.held-version-note')?.textContent || ''), true);
+  // Pp, 2026-11-07: "พวกคำบรรยายพวกนี้ไม่ต้องโชว์ได้ไหม" — no version lines, no note about what was compared.
+  eq('…and no description under the list', [!!container.querySelector('.held-version-note'), /NeoFeed 20|เทียบได้เฉพาะ/.test(heldBox()?.textContent || '')], [false, false]);
 
   const { printedFigures, ...legacyCi } = bag.calcInput;
   mount({ ...DOCTOR, editEntry: row(oldVersion({ ...bag, gir: 99, calcInput: legacyCi })), ...rec() });
   eq('an order saved before the figures were kept: the stored columns are compared',
     heldRows().length === 1 && heldRows()[0].includes('GIR') && heldRows()[0].includes('99 →'), true);
-  eq('…and the box says only those were compared', /เทียบได้เฉพาะ/.test(heldBox()?.textContent || ''), true);
 
   mount({ ...DOCTOR, editEntry: row(tampered({ ...bag, calcInput: { ...bag.calcInput, tpnWtG: 1500 } }, { wtKg: '1.5' })), ...rec() });
   eq('held because the dosing weight moved: the weight is listed, old against new',

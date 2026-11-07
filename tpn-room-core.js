@@ -204,9 +204,15 @@
     for (const p of printLog || []) if (p.sessionId === sessionId && p.date === date) hit = p;
     return hit;
   }
+  // A nurse's I/O-only revision keeps the bag (gas-backend.gs pharmacyOrders,
+  // sameBagEntryIds), so a print of the row it revised is not a change (Vera on
+  // the stakeholder-walk fixes, 2026-11-07).
+  function sameBag(order, entryId) {
+    return entryId === order.entryId || (order.sameBagEntryIds || []).indexOf(entryId) !== -1;
+  }
   function changedAfterPrint(order, printLog, date) {
     const last = lastPrint(printLog, order.sessionId, date);
-    return !!(last && last.entryId !== order.entryId);
+    return !!(last && !sameBag(order, last.entryId));
   }
   // Printed for this date and gone from the reply: deleted, or cancelled by a No TPN
   // tick (design D16). A revision is still in the reply, so it shows as changed.
@@ -244,7 +250,7 @@
   function recheck(before, freshOrders) {
     const fresh = currentOrders(freshOrders).find((o) => o.sessionId === before.sessionId);
     if (!fresh) return { refuse: "order นี้ไม่อยู่ใน NeoFeed แล้ว" };
-    if (fresh.entryId !== before.entryId) return { refuse: `หมอแก้ order ระหว่างนี้ เป็นฉบับ ${fresh.revision} ดูแถวใหม่ก่อนพิมพ์` };
+    if (!sameBag(fresh, before.entryId)) return { refuse: `หมอแก้ order ระหว่างนี้ เป็นฉบับ ${fresh.revision} ดูแถวใหม่ก่อนพิมพ์` };
     return { order: fresh };
   }
 

@@ -2845,6 +2845,28 @@ function _ioOnlyRevision(cur, entry) {
   return _orderWithoutIo(was) === _orderWithoutIo(now);
 }
 
+// The entry a nurse's I/O save writes over the submitted row `cur`: every
+// column as stored, the I/O figures from her calcInput (cells AC–AE too) and
+// its save time. Keeps the date updateDailyNutrition set.
+function _ioOnlyEntryFrom(cur, entry) {
+  var sent = (entry && entry.calcInput) || {};
+  var ci = _parseJson(cur[24], {}) || {};
+  ci.ioInput = sent.ioInput; ci.ioOutput = sent.ioOutput; ci.drainContent = sent.drainContent;
+  if (sent.savedAt) ci.savedAt = sent.savedAt;
+  // Plain text: _buildLogRow and _provenanceFields escape it on the way in.
+  var str = function (v) { return String(v == null ? "" : v); };
+  return {
+    ts: entry.ts, dol: cur[2], weight: cur[3], fluid: cur[4], gir: cur[5], pro: cur[6], kcal: cur[7],
+    na: cur[8], k: cur[9], ca: cur[10], p: cur[11], enVolPerKg: cur[12], route: str(cur[13]), status: "submitted",
+    suppMTV: cur[16], suppVitD_IU: cur[17], suppCa_mg: cur[18], suppCaType: str(cur[19]),
+    suppPO4_mmol: cur[20], suppPO4Type: str(cur[21]), suppFe_mg: cur[22], suppFeType: str(cur[23]),
+    // AC–AE from the same three figures, so the cells and the reopened order agree.
+    calcInput: ci, ioInput: sent.ioInput, ioOutput: sent.ioOutput, drainContent: sent.drainContent,
+    constantsVersion: str(cur[31]), appVersion: str(cur[32]),
+    printJson: _parseJson(cur[38], null),
+  };
+}
+
 // ── updateDailyNutrition (optimistic-locked update by entryId) ─
 // Rejects the write (rather than overwriting) if the row's lastModified has
 // moved on since the client last fetched it — a concurrent edit from another
@@ -2922,6 +2944,11 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     // " draft" typed into the Sheet by hand reads as a draft, as the client
     // reads it (data.js isDraftEntry).
     if (cur[33] || String(cur[14] || "").trim().toLowerCase() !== "draft") {
+      // A nurse's I/O save (checked above) is written from the stored row, not from
+      // what her client sent: its figure columns and sticker figures stay the
+      // doctor's, whatever a modified client puts beside an unchanged calcInput
+      // (Vera on this change, 2026-11-07).
+      if (nurseIoOnly) entry = _ioOnlyEntryFrom(cur, entry);
       var newEntryId = Utilities.getUuid();
       var nextRevisionNumber = _numSafe(cur[35], 1) + 1;
       var revisionRow = _buildLogRow(sessionId, entry, originalSubmittedBy)
@@ -3188,14 +3215,18 @@ function pharmacyOrders(dateKey) {
   var saverOf = function (row) { return String(row[27] || row[15] || "").trim().toLowerCase(); };
   // Who submitted a submitted order (P1, stakeholder walk 2026-11-07): a revision a
   // nurse saved with only its I/O changed (_ioOnlyRevision) names the account that
-  // submitted the order before it. Any other row names its own saver.
+  // submitted the order before it. Any other row names its own saver. `ids` are the
+  // entryIds walked, the current row's first: every one of them carries the same bag,
+  // so a print of any of them is not "changed after print" (tpn-room-core.js).
   var submitterRow = function (row) {
+    var ids = [String(row[25] || "")];
     for (var hops = 0; hops < 50 && staffIsNurse[saverOf(row)]; hops++) {
       var prev = byEntryId[String(row[36] || "")];
       if (!prev || !_ioOnlyRevision(prev, { constantsVersion: String(row[31] || ""), calcInput: _parseJson(row[24], null) })) break;
       row = prev;
+      ids.push(String(row[25] || ""));
     }
-    return row;
+    return { row: row, ids: ids };
   };
   if (rows.length) {
     for (var r = 0; r < rows.length; r++) {
@@ -3205,7 +3236,8 @@ function pharmacyOrders(dateKey) {
       if (row[37]) continue;   // superseded by a later revision
       var isDraft = String(row[14] || "").trim().toLowerCase() === "draft";
       if (isDraft) drafts++; else submitted++;
-      var signer = isDraft ? row : submitterRow(row);
+      var walked = isDraft ? { row: row, ids: [String(row[25] || "")] } : submitterRow(row);
+      var signer = walked.row;
       var saver = saverOf(signer);
       var prescriber = Object.prototype.hasOwnProperty.call(staffName, saver) ? staffName[saver] : "";
       var rowSid = String(row[1] || "");
@@ -3222,6 +3254,7 @@ function pharmacyOrders(dateKey) {
         prescriber: prescriber,
         savedAt: _pharmacyTime(row[26]),
         submittedAt: _pharmacyTime(signer[33]),
+        sameBagEntryIds: walked.ids.filter(function (id) { return PHARMACY_UUID.test(id); }),
         printJson: isDraft ? null : _parseJson(row[38], null),
       });
     }

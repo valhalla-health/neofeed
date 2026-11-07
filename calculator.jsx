@@ -2574,8 +2574,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     naCl, naAcet, kCl, k2hpo4, mgPerKg, caPerKg, znPerKg, inclSoluvit, inclPeditrace };
   const heldChanges = (calcMoved || dosingWeightChanged) && !pendingSave && editEntry
     ? heldFigureChanges(editEntry, printedFigureInput) : null;
-  // What NeoFeed changed since the row's version (D.constantsChangesSince).
-  const heldVersionNotes = calcMoved && !pendingSave ? D.constantsChangesSince(savedCalcVersion) : [];
 
   // ── Print handler — opens all steps, prints, then restores ─────
   React.useEffect(() => {
@@ -4324,15 +4322,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                         </ul>
                       </>
                     ) : (
-                      <div>{heldChanges.basis === "printed" ? "ตัวเลขบนใบสั่งนี้ไม่เปลี่ยน บันทึกใหม่ได้เลย" : "ตัวเลขที่เทียบได้ไม่เปลี่ยน"}</div>
-                    )}
-                    {heldChanges.basis === "stored" && (
-                      <div style={{ fontSize: 11, color: "var(--ink-3)" }}>ใบสั่งนี้บันทึกก่อน NeoFeed เก็บตัวเลขทุกตัว จึงเทียบได้เฉพาะ Fluid, GIR, Protein, Energy, Na, K, Ca, P และ EN ตัวเลขอื่นบนใบสั่งให้ตรวจเอง</div>
-                    )}
-                    {heldVersionNotes.length > 0 && (
-                      <div className="held-version-note" style={{ fontSize: 11, color: "var(--ink-3)" }}>
-                        {heldVersionNotes.map(v => <div key={v.version}>NeoFeed {v.version}: {v.text}</div>)}
-                      </div>
+                      <div>{heldChanges.basis === "printed" ? "ตัวเลข TPN บนใบสั่งนี้ไม่เปลี่ยน" : "ตัวเลขที่เทียบได้ไม่เปลี่ยน"}</div>
                     )}
                   </div>
                 )}

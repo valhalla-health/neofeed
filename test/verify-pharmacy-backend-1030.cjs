@@ -237,7 +237,7 @@ T.section('§6 pharmacyOrders · one date, counts, and no identifying field', at
   T.eq('four orders', res.orders.length, 4);
   const one = res.orders.find(o => o.sessionId === 'NF-100001');
   T.eq('the fields, and only those', Object.keys(one).sort(),
-    ['bed', 'bw', 'dol', 'entryId', 'multiplesCount', 'prescriber', 'printJson', 'revision', 'savedAt', 'sessionId', 'status',
+    ['bed', 'bw', 'dol', 'entryId', 'multiplesCount', 'prescriber', 'printJson', 'revision', 'sameBagEntryIds', 'savedAt', 'sessionId', 'status',
       'submittedAt', 'twinSuffix']);
   T.eq('bed, BW, DOL, status, revision', [one.bed, one.bw, one.dol, one.status, one.revision], ['NICU 3', 1600, 10, 'submitted', 1]);
   T.eq('the prescriber by name, without the email', one.prescriber, 'Dr Test');
