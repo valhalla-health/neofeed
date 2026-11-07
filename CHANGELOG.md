@@ -10,9 +10,9 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 ## Session 2026-11-07 (2) — Stakeholder walk: only a doctor submits a doctor's order; a held order lists what changed; Quick calc opens with no route
 
 `calculator.jsx`, `app.jsx`, `log.jsx`, `gas-backend.gs`, `tpn-room.jsx`, `tpn-room-core.js`, `compiled/`, both shells' `?v=`
-tokens and `tpn-room.html`; `test/verify-walk-1107.cjs` (new), and five harnesses that pinned the old behaviour:
+tokens and `tpn-room.html`; `test/verify-walk-1107.cjs` (new), and six harnesses that pinned the old behaviour:
 `verify-pharmacy-backend-1030.cjs` (§9's nurse save is a draft; the order's field list), `verify-nursing-backend.cjs`
-(a nurse's order with the switch off is a draft), `verify-hardening-1102.cjs` §5 and §8 (the server stamp), `verify-incident-gaps-1021.cjs` §6 (the quick calc started on
+(a nurse's order with the switch off is a draft), `verify-hardening-1102.cjs` §5 and §8 and `verify-nutrition-meeting-1028.cjs` §6 (the server stamp), `verify-incident-gaps-1021.cjs` §6 (the quick calc started on
 Central) and `verify-tpn-room-page-1105.cjs` ("Submit โดย"). The clinical-rules skill's line numbers moved
 (`--fix-lines`); no rule changed.
 
