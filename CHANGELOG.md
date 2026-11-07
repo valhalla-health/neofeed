@@ -38,12 +38,19 @@ Pp chose option A on 2026-11-07: research IDs are a keyed HMAC computed at expor
   These rows are not product usage.
 - **No route from the ward.** No `doPost` action, no OAuth scope, no frontend change; `CONSTANTS_VERSION` stays.
 
-`test/verify-qi-export-1107.cjs`: 105 checks, all failing on `6c7f608`. §3 is the proof Pp asked for: on
+`test/verify-qi-export-1107.cjs`: all sections fail on `6c7f608`. §3 is the proof Pp asked for: on
 synthetic infants (a legacy id, Thai names, a saver's name and e-mail in `calcInputJson`, a Thai alert reason)
 no cell of the tab holds a name, initials, dob, sessionId, entryId, e-mail, Thai text, calendar date or UUID.
 
+Vera on `c3db40f`: NO BLOCK, four findings, all fixed in the next commit. The scan and the free-text check now
+know the ward's own formats (`081-234-5678`, `+66…`, `30/08/2026`, `5/9/69`, `1-2345-67890-12-3`); the coded
+columns are checked for the infant's name; `lookupResearchId` keeps the sessionId out of the execution log
+(it points to `Audit_Log`); and `pseudonymizePatient` and `deletePatient` clear `QI_Export` after they succeed.
+Each new check fails on `c3db40f`. 114 checks now.
+
 Open for Pp and the DPO (`BACKLOG.md`): the lawful basis for a QI export, which the treatment basis does not
-cover; and whether a Thai diagnosis should pass instead of being redacted.
+cover; whether a Thai diagnosis should pass instead of being redacted; and how an erasure reaches a CSV already
+downloaded.
 
 ## Session 2026-11-06 (6) — Calculator: Glycophos typed by P, no Factor or stock mL on screen, Dextrose, amino-acid and lipid chips on one line
 

@@ -418,6 +418,9 @@ clinical judgement. Everything else is engineering sequencing.
          DPO's call, before the first real export.
       2. **A Thai diagnosis is `[REDACTED]`** (free Thai text can hold a name), so the local checker cannot map
          it. Keep that, or pass Thai text through for the checker to map on the PC.
+      3. **An erasure and a CSV already downloaded.** `pseudonymizePatient` clears `QI_Export`, but a copy on a
+         PC or with an analyst keeps the infant's rows. The erasure procedure needs a step for it: a list of
+         who holds which export, and a way to give the infant's `research_id` per project (none is built).
 - [ ] 🧹 **chore · praewpp-workspace: the local checker reads the one `QI_Export` CSV.** A `--check-only` mode
       for `neofeed_pseudonymize.py` (PR praewxtvl/praewpp-workspace#80): the identifier scan and the k-report on
       the downloaded CSV, a small-cell rule (≤ 7 suppressed or rounded to 5) for any table made from it, and the

@@ -3456,6 +3456,7 @@ function deletePatient(sessionId, actorEmail) {
       _assertRowStillHolds(patSheet, patRows[m], 1, sid);
       patSheet.deleteRow(patRows[m]);
     }
+    _qiClearExportTab();
     return { ok: true };
   } finally {
     _bumpDataVersion();
@@ -4387,6 +4388,7 @@ function pseudonymizePatient(sessionId, adminEmail) {
         ]]);
         Logger.log("PDPA erasure: " + sessionId + " by " + adminEmail);
         logAudit("pseudonymize", sessionId, adminEmail);
+        _qiClearExportTab();
         return { ok: true };
       }
     }
@@ -4510,9 +4512,13 @@ var QI_IDENTIFIER_RES = [
   /[\w.+-]+@[\w-]+\.[\w.]+/,              // e-mail
   QI_THAI_RE,                              // Thai script
   /(?<![\d.])\d{13}(?![\d.])/,             // 13-digit national ID
-  /(?<![\d.])0\d{8,9}(?![\d.])/,           // phone
+  /(?<![\d.])\d[- ]\d{4}[- ]\d{5}[- ]\d{2}[- ]\d(?![\d.])/,  // the same, as printed: 1-2345-67890-12-3
+  // A phone the way the ward writes one: 0812345678, 081-234-5678, 081 234 5678,
+  // 02-123-4567, +66812345678.
+  /(?<![\d.])(?:\+66[- ]?|0)\d{1,2}[- ]?\d{3}[- ]?\d{3,4}(?![\d.])/,
   /(?<![\d.])\d{4,}\/\d{2}(?!\d)/,         // HN / AN
-  /\b(19|20)\d{2}-\d{2}-\d{2}/,            // calendar date
+  /\b(19|20)\d{2}-\d{2}-\d{2}/,            // calendar date, ISO
+  /(?<![\d\/])\d{1,2}[\/-]\d{1,2}[\/-](?:\d{4}|\d{2})(?![\d\/])/,  // 30/08/2026, 5/9/69 (Buddhist year)
   /[0-9a-f]{8}-[0-9a-f]{4}-/i              // UUID (entryId)
 ];
 
@@ -4601,11 +4607,14 @@ function _qiCleanText(v, names) {
   if (!s) return "";
   return _qiHasIdentifier(s, names) ? QI_REDACTED : s;
 }
-// A coded column (route, status, supp*, the PN ticks): a short ASCII code passes,
-// anything else could be typed text and is replaced.
-function _qiShortCode(v) {
+// A coded column (route, status, supp*, the PN ticks): a short ASCII code that
+// holds no identifier and none of the infant's name passes; anything else could
+// be typed text and is replaced. The server takes free text in these columns
+// (pnIndication up to 60 characters), whatever the app's dropdown offers.
+function _qiShortCode(v, names) {
   var s = _qiTrim(v);
-  if (!s || /^[A-Za-z0-9 _.\/+-]{1,40}$/.test(s)) return s;
+  if (!s) return "";
+  if (/^[A-Za-z0-9 _.\/+-]{1,40}$/.test(s) && !_qiHasIdentifier(s, names)) return s;
   return QI_REDACTED;
 }
 function _qiNum(v) {
@@ -4801,13 +4810,13 @@ function _exportQi(project) {
       bw_band_g: _qiBand(r[3], 100),
       age_at_admit_d: _qiDays(admitKey, _qiDayKey(r[6])),
       is_multiple: (mc !== null && mc >= 2) || _qiTrim(r[8]) ? 1 : 0,
-      pat_status: _qiShortCode(r[9]),
+      pat_status: _qiShortCode(r[9], names),
       status_day: _qiDays(_qiDayKey(r[16]), admitKey),
       unit_current: _qiUnit(r[10]),
       diagnosis: dx,
-      pn_indication: _qiShortCode(r[18]),
-      liver_dysfunction: _qiShortCode(r[19]),
-      renal_dysfunction: _qiShortCode(r[20])
+      pn_indication: _qiShortCode(r[18], names),
+      liver_dysfunction: _qiShortCode(r[19], names),
+      renal_dysfunction: _qiShortCode(r[20], names)
     };
     ["pn_indication", "liver_dysfunction", "renal_dysfunction", "pat_status", "sex"].forEach(function (k) {
       if (f[k] === QI_REDACTED) _qiCount(counts.redacted, k);
@@ -4831,11 +4840,11 @@ function _exportQi(project) {
     out.revisionNumber = _qiNum(r[35]);
     out.day = _qiDays(_qiDayKey(r[0]), admitKey);
     ["dol", "weight", "fluid", "gir", "pro", "kcal", "na", "k", "ca", "p", "enVolPerKg"].forEach(function (k, i) { out[k] = _qiNum(r[2 + i]); });
-    out.route = _qiShortCode(r[13]);
-    out.status = _qiShortCode(r[14]);
+    out.route = _qiShortCode(r[13], inf.names);
+    out.status = _qiShortCode(r[14], inf.names);
     out.staff = staffCode(r[15]);
     ["suppMTV", "suppVitD_IU", "suppCa_mg", "suppCaType", "suppPO4_mmol", "suppPO4Type", "suppFe_mg", "suppFeType"].forEach(function (k, i) {
-      out[k] = _qiShortCode(r[16 + i]);
+      out[k] = _qiShortCode(r[16 + i], inf.names);
     });
     ["route", "status", "suppMTV", "suppVitD_IU", "suppCa_mg", "suppCaType", "suppPO4_mmol", "suppPO4Type", "suppFe_mg", "suppFeType"].forEach(function (k) {
       if (out[k] === QI_REDACTED) _qiCount(counts.redacted, k);
@@ -4889,11 +4898,26 @@ function _qiWriteTab(ss, values) {
   if (mr > nr) sh.deleteRows(nr + 1, mr - nr);
 }
 
+// An erasure or a session delete clears the tab, so the infant's rows do not
+// wait for the next export (Vera on c3db40f). Best effort, after the erasure:
+// the erasure must not fail over this tab. Copies already downloaded are
+// outside the Sheet; the erasure procedure has to reach them (BACKLOG).
+var QI_CLEARED_NOTE = "Cleared after a PDPA erasure or a session delete: run exportQi() again.";
+function _qiClearExportTab() {
+  try {
+    var sh = _book().getSheetByName(QI_EXPORT_TAB);
+    if (!sh) return;
+    sh.clearContents();
+    sh.getRange(1, 1, 1, 1).setValues([[QI_CLEARED_NOTE]]);
+  } catch (e) { Logger.log("QI_Export not cleared after an erasure: " + e.message); }
+}
+
 // An admin re-identification request: the sessionId behind a research ID of
 // one project. Audited before it answers; a miss is audited too. An erased
-// infant is never matched, since no export carries its orders. The answer goes
-// to the execution log as well, because the editor's Run shows the log, not
-// the return value.
+// infant is never matched, since no export carries its orders. The editor's
+// Run shows the log, not the return value, so the log points to the answer in
+// Audit_Log rather than holding it: a sessionId issued before 2026-09-27 carries
+// the infant's initials, and the execution log is readable by every editor.
 function lookupResearchId(researchId, project) {
   try {
     var p = _qiProject(project);
@@ -4909,7 +4933,7 @@ function lookupResearchId(researchId, project) {
       if (!sid || _isPdpaErased(rows[i])) continue;
       if ("R-" + _qiHmacHex(secret, "patient", sid).slice(0, 12) === id) {
         _logAuditStrict("qiReidentify", sid, _qiActor(p));
-        Logger.log("lookupResearchId " + id + " (" + p + "): sessionId " + sid);
+        Logger.log("lookupResearchId " + id + " (" + p + "): match found; the sessionId is in the newest qiReidentify row of Audit_Log.");
         return { ok: true, sessionId: sid };
       }
     }

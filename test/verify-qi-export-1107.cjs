@@ -70,7 +70,8 @@ function ward(opts) {
 
   const log = g.sheet('Daily_Log');
   log.maxColumns = 39;
-  const L = (sid, ts, extra) => { const row = g.logRow(sid, ts, extra); row.push(extra && extra[38] !== undefined ? extra[38] : ''); return row; };
+  // logRow is 38 wide (A–AL); a printJson in `extra` already lands in AM.
+  const L = (sid, ts, extra) => { const row = g.logRow(sid, ts, extra); while (row.length < 39) row.push(''); return row; };
   const a1 = L(SIDS.A, bkkMidnight('2026-09-05'), {
     15: NURSE, 24: JSON.stringify({ wtG: 1250, enType: 'EBM', savedByLabel: 'พยาบาล สมใจ (' + NURSE + ')', savedAt: '2026-09-05T01:30:00.000Z',
       critOverride: 'GIR high, reason typed', constantsVersion: '2026-09-02.1', mysteryKey: 5 }),
@@ -256,7 +257,8 @@ T.section('§8 audit and re-identification', () => {
   const hit = g.sb.lookupResearchId(first);
   T.eq('lookupResearchId returns the sessionId', hit && hit.sessionId, SIDS.A);
   T.eq('and audits it with the sessionId', g.audit().filter(a => a.action === 'qiReidentify').map(a => [a.sessionId, a.actor]), [[SIDS.A, 'apps-script-editor:QI1']]);
-  T.ok('the execution log shows it (the editor does not show a return value)', g.env.logs.some(l => l.includes(SIDS.A)));
+  T.ok('the execution log says a match was found, without the sessionId (a legacy id carries initials)',
+    g.env.logs.some(l => /lookupResearchId/.test(l) && /Audit_Log/.test(l)) && !g.env.logs.some(l => l.includes(SIDS.A)));
   const miss = g.sb.lookupResearchId('R-000000000000');
   T.ok('an unknown research ID is an error', miss && miss.error && !miss.sessionId, miss);
   T.eq('and is audited as a miss', g.audit().filter(a => a.action === 'qiReidentifyMiss').length, 1);
@@ -281,6 +283,38 @@ T.section('§9 no route from doPost', () => {
     T.ok('an admin POST of ' + action + ' is an unknown action', r && /Unknown action/.test(r.error || ''), r);
   }
   T.ok('and no tab was written', !tab(g));
+});
+
+// Vera's findings on c3db40f: each case failed there.
+T.section('§10 the ward\'s own formats, a first name in a code, an erasure after an export', () => {
+  const g = ward();
+  const pat = g.sheet('Patient_Registry').data;
+  pat[3][11] = 'Sepsis; call mother 081-234-5678, born 30/08/2026';
+  pat[2][18] = 'Somchai';
+  g.sb.exportQi();
+  const rows = tableOf(g);
+  T.eq('a dashed phone and a d/m/yyyy date in the diagnosis are redacted', rows.find(r => r.research_id === rid(g, SIDS.C)).diagnosis, '[REDACTED]');
+  T.eq('a first name in a coded column is redacted', rows.find(r => r.research_id === rid(g, SIDS.B)).pn_indication, '[REDACTED]');
+  const formats = { a: '081-234-5678', b: '081 234 5678', c: '+66812345678', d: '02-123-4567', e: '30/08/2026', f: '5/9/69',
+    g: '1-2345-67890-12-3', h: '1 2345 67890 12 3' };
+  T.eq('the scan knows the ward\'s phone, date and ID formats', g.sb._qiScan([formats], []),
+    { a: 1, b: 1, c: 1, d: 1, e: 1, f: 1, g: 1, h: 1 });
+  T.eq('and does not flag the export\'s own values', g.sb._qiScan([{ a: '1200-1299', b: '1/2', c: 'C01', d: -21, e: '0.5', f: 'CR-S-1',
+    g: '{"wtG":1250,"enVol":"12.5"}', h: '23:59', i: 'TPN central' }], []), {});
+  g.sb.pseudonymizePatient(SIDS.A, 'admin@kcmh.test');
+  T.ok('an erasure clears QI_Export, so the erased infant\'s rows do not wait for the next export',
+    !tableOf(g).some(r => r.research_id === rid(g, SIDS.A)));
+  T.ok('the erasure itself still happened', String(pat[1][1]).indexOf('[PDPA-erased') === 0);
+  T.ok('the cleared tab says why', /PDPA erasure/.test(String(tab(g).data[0][0])) && tab(g).data.length === 1);
+  const d = ward();
+  d.sheet('Patient_Registry').data.push(d.patRow('NF-555555', { 1: 'Draft Only Baby' }));
+  d.sb.exportQi();
+  const del = d.sb.deletePatient('NF-555555', 'admin@kcmh.test');
+  T.ok('a session delete clears QI_Export too', del && del.ok === true && tableOf(d).length === 0, del);
+  const f = ward();
+  f.sb.exportQi();
+  f.sheet('QI_Export').throwOn.clearContents = { err: new Error('Service Spreadsheets failed') };
+  T.eq('a tab that cannot be cleared does not stop the erasure', (f.sb.pseudonymizePatient(SIDS.B, 'admin@kcmh.test') || {}).ok, true);
 });
 
 T.done();

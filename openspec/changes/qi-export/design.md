@@ -90,11 +90,14 @@ allows): a shifted column could move a name into an exported column, so a mismat
 
 ## D6. The identifier scan
 
-Before writing, every output cell is checked for an e-mail, Thai script, a 13-digit number, a phone
-number, an HN/AN `12345/67`, a calendar date, a UUID, and any source `sessionId`, `entryId` or name of 5
-characters or more (the local script's patterns). One hit stops the export: nothing is written and the
-summary names the columns and counts, never a value. The diagnosis, `calc` strings and short codes are
-redacted by the same patterns plus the infant's own name before the scan, so the scan stops only a bug.
+Before writing, every output cell is checked for an e-mail, Thai script, a 13-digit number (also as
+`1-2345-67890-12-3`), a phone number the way the ward writes one (`0812345678`, `081-234-5678`,
+`081 234 5678`, `02-123-4567`, `+66812345678`), an HN/AN `12345/67`, a calendar date (ISO, or `30/08/2026`
+and `5/9/69`), a UUID, and any source `sessionId`, `entryId` or name of 5 characters or more. That is the
+local script's set widened to the ward's own formats (Vera on `c3db40f`). One hit stops the export: nothing is written and the
+summary names the columns and counts, never a value. The diagnosis, `calc` strings and the coded columns
+(route, status, `supp*`, the PN ticks) are redacted by the same patterns plus the infant's own name before
+the scan, so the scan stops only a bug.
 
 A Thai diagnosis is therefore `[REDACTED]`, and the local checker cannot map it. That is the safe side of
 an open decision for Pp (passing Thai diagnosis text through would put free text that may hold a name on
@@ -110,5 +113,13 @@ matches. All four are in `NON_USAGE_AUDIT_ACTIONS`, so an export is not a weekly
 and dropped `calc` keys per column, and a k-report on sex + GA week + BW band + multiple birth (groups,
 smallest group, infants below k = 5).
 
-`lookupResearchId` returns `{ sessionId }` and writes it to the execution log, because the editor's Run
-shows the log and not the return value.
+`lookupResearchId` returns `{ sessionId }`. The editor's Run shows the log and not the return value, so
+the log says a match was found and points to the newest `qiReidentify` row of `Audit_Log`, which names it.
+The sessionId stays out of the log: one issued before 2026-09-27 carries the infant's initials.
+
+## D8. An erasure clears the tab
+
+`pseudonymizePatient` and `deletePatient` clear `QI_Export` after they succeed and leave one cell saying
+why, so an erased infant's rows do not wait for the next export (Vera on `c3db40f`). It is best effort: an
+erasure does not fail over this tab. A CSV already downloaded is outside the Sheet; reaching it is a step of
+the erasure procedure, open with Pp and the DPO.
