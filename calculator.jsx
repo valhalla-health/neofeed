@@ -4569,7 +4569,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* A locked order saved before the sticker figures existed: say why
                 Submit is offered again (figuresMissing). */}
-            {figuresMissing && !scratch && !ordersReadOnly && (
+            {figuresMissing && !scratch && !ordersReadOnly && !nurseIoOnly && (
               <div className="sticker-figures-missing" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
                 ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง
               </div>
@@ -4579,7 +4579,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {NURSE_SUBMIT_TEXT}
               </div>
             )}
-            {revisingForRoom && (
+            {revisingForRoom && !nurseIoOnly && (
               <div className="revise-phone-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย
               </div>

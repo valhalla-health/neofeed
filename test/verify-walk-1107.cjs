@@ -151,6 +151,11 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   await settle(submitBtn());
   eq('…the nurse\'s Submit saves nothing', s.calls.length, 0);
   eq('…and the toast gives the same words', toasts.includes(NURSE_TEXT), true);
+  // Seen on dev local: the doctor's own lines ("กด Submit อีกครั้ง", "โทรแจ้งห้อง TPN") stacked under hers.
+  eq('…with none of the doctor\'s Submit-again or phone-the-room lines under it',
+    [!!container.querySelector('.revise-phone-note'), !!container.querySelector('.sticker-figures-missing')], [false, false]);
+  s = rec(); mount({ ...DOCTOR, editEntry: row(oldVersion(bag)), ...s });
+  eq('a doctor on the same order still has the phone-the-room line', !!container.querySelector('.revise-phone-note'), true);
 
   s = rec(); mount({ ...NURSE, editEntry: row(bag), ...s });
   eq('a settled order opened by a nurse: no refusal line', nurseNote(), '');
