@@ -249,12 +249,16 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   eq('the sheet of an order a nurse added I/O to twice: no "Revision" box', [!!container.querySelector('#print-form'), !!container.querySelector('.print-revision')], [true, false]);
   eq('…and the order names the doctor, not the nurse', /doc@kcmh\.test|Dr Test/.test(container.querySelector('.print-saved-by')?.textContent || '')
     && !/nurse@/.test(container.querySelector('.print-saved-by')?.textContent || ''), true);
-  mount({ ...DOCTOR, editEntry: row(bag, { revisionNumber: 3 }), ...rec() });
+  mount({ ...DOCTOR, editEntry: row({ ...bag, calcInput: { ...bag.calcInput, orderRev: 3 } }, { revisionNumber: 3 }), ...rec() });
   eq('a doctor\'s third revision still prints its box', container.querySelector('.print-revision')?.textContent.includes('3'), true);
   s = rec(); mount({ ...NURSE, editEntry: ioRev, ...s });
   setField('Input', 95);
   await settle(submitBtn());
   eq('a nurse\'s I/O save sends whose order it stays, for the ward\'s copy', [s.calls[0]?.[3].calcInput.orderBy, s.calls[0]?.[3].calcInput.orderRev], ['doc@kcmh.test', 1]);
+  s = rec(); mount({ ...DOCTOR, editEntry: ioRev, ...s });
+  setField('Amino acid', 2.5);
+  await settle(submitBtn());
+  eq('a doctor\'s change after it counts the order\'s revisions (2), not the rows (4)', s.calls[0]?.[3].calcInput.orderRev, 2);
   eq('app.jsx hands the Calculator the nurse role', /nurseAccount=\{role === "nurse"\}/.test(R('app.jsx')), true);
   s = rec(); mount({ ...NURSE, ordersReadOnly: true, editEntry: row(bag), ...s });
   eq('the nursing switch on (read-only orders): no Submit and no refusal line', [!!submitBtn(), nurseNote()], [false, '']);
@@ -344,6 +348,13 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   const ownEdit = as(nt, { action: 'updateDailyNutrition', sessionId: 'NF-900313', entryId: own.entryId, expectedLastModified: own.lastModified,
     entry: { ...bag, status: 'draft', calcInput: { ...bag.calcInput, aaPerKg: 3 } } });
   eq('…while her own draft she may change freely', [ownEdit.error, ownEdit.ok], [undefined, true]);
+  // Vera's fourth review: a draft from before orderBy that a doctor created and a nurse last saved was read as hers.
+  const ownRow = L().find(r => r[25] === own.entryId);
+  const { orderBy: _ob, ...noOrderBy } = JSON.parse(ownRow[24]);
+  ownRow[24] = JSON.stringify(noOrderBy); ownRow[15] = 'doc@kcmh.test'; ownRow[27] = 'nurse@kcmh.test';
+  const legacy = as(nt, { action: 'updateDailyNutrition', sessionId: 'NF-900313', entryId: own.entryId, expectedLastModified: ownEdit.lastModified,
+    entry: { ...bag, status: 'draft', calcInput: { ...bag.calcInput, aaPerKg: 3.5 } } });
+  eq('a draft from before orderBy, created by a doctor and last saved by a nurse: her dose change is refused', legacy.error, NURSE_TEXT);
   const doc = as(dt, { action: 'updateDailyNutrition', sessionId: PT.sessionId, entryId: latestId, expectedLastModified: latestLm, entry: dosed });
   eq('the same change from the doctor\'s account lands', [doc.revised, doc.error], [true, undefined]);
 
@@ -366,6 +377,9 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   const room2 = as(rt, { action: 'pharmacyOrders', date: TODAY });
   const ord2 = (room2.orders || []).find(o => o.sessionId === PT.sessionId);
   eq('the room names the doctor after the forged save too', ord2?.prescriber, 'Dr Test');
+  // Vera's fourth review: the doctor's change after a nurse's I/O save is ฉบับ 2, not the row number 3.
+  eq('the doctor\'s change after a nurse\'s I/O save is the order\'s ฉบับ 2, in the row and in the room',
+    [JSON.parse(docRow[24]).orderRev, ord2?.revision], [2, 2]);
   eq('the room lists the doctor\'s row as the same bag', (ord2?.sameBagEntryIds || []).includes(doc.entryId), true);
   const printed = (id) => [{ sessionId: PT.sessionId, date: TODAY, entryId: id }];
   eq('a print of the doctor\'s row is not "changed after print"', Core.changedAfterPrint(ord2, printed(doc.entryId), TODAY), false);

@@ -716,7 +716,12 @@ function Calculator({
   const [savedEntryId, setSavedEntryId] = useState(editEntry?.entryId || null);
   const [savedLastModified, setSavedLastModified] = useState(editEntry?.lastModified || null);
   const [savedStatus, setSavedStatus] = useState(editEntry ? D.isDraftEntry(editEntry) ? "draft" : "submitted" : null);
-  const saverOf = (e) => String(e?.calcInput?.orderBy || e?.lastModifiedBy || e?.submittedBy || "").trim().toLowerCase();
+  const saverOf = (e) => {
+    const by = String(e?.calcInput?.orderBy || "").trim().toLowerCase();
+    if (by) return by;
+    const p = String(e?.submittedBy || "").trim().toLowerCase(), ab = String(e?.lastModifiedBy || "").trim().toLowerCase();
+    return !ab || ab === p ? p : e ? "(unknown)" : "";
+  };
   const [savedSaver, setSavedSaver] = useState(() => saverOf(editEntry));
   const [savedHadTpn, setSavedHadTpn] = useState(() => !!editEntry && D.orderHadTpn(editEntry));
   const [savedReplacesTpn, setSavedReplacesTpn] = useState(() => editEntry?.calcInput?.replacesTpn === true);
@@ -1889,6 +1894,7 @@ function Calculator({
     }
     const keyAtSave = formKey;
     const ioOnlyOnOthers = nurseIoOnly && !!savedEntryId && !!savedSaver && savedSaver !== draftOwner;
+    const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + (savedStatus === "submitted" || published ? 1 : 0);
     const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;
     if (centerPoint) {
@@ -2026,7 +2032,11 @@ function Calculator({
         // Whose order this stays, on a nurse's I/O-only save: the server writes the
         // stored values whatever is sent; these keep the ward's copy right until the
         // next sync. Not inputs.
-        ...ioOnlyOnOthers ? { orderBy: savedSaver, orderRev: savedMeta?.revision || 1, orderAt: savedMeta?.at || "" } : {},
+        ...ioOnlyOnOthers ? {
+          orderBy: savedSaver === "(unknown)" ? String(editEntry?.submittedBy || "").toLowerCase() : savedSaver,
+          orderRev: savedMeta?.revision || 1,
+          orderAt: savedMeta?.at || ""
+        } : { orderRev: nextOrderRev },
         ...figures ? { printJsonV: figures.v } : {},
         // replacesTpn: this row replaces a submitted order of its day that had
         // TPN (replacesTpn above). Not an input — normalizeCalcInput ignores it.
@@ -2084,7 +2094,7 @@ function Calculator({
     if (!ioOnlyOnOthers) setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || (/* @__PURE__ */ new Date()).toISOString(),
-      revision: res.revisionNumber || savedMeta?.revision || 1
+      revision: nextOrderRev
     });
     clearDraft();
     setDraftOffer(null);

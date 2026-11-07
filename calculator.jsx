@@ -1163,7 +1163,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Whose order the row is (lower-case email), for N1's rule on someone else's
   // draft: calcInput.orderBy, which the server stamps on every save but a nurse's
   // I/O-only one (gas-backend.gs _orderByOf), else the row's last saver.
-  const saverOf = (e) => String(e?.calcInput?.orderBy || e?.lastModifiedBy || e?.submittedBy || "").trim().toLowerCase();
+  // A row from before orderBy is its creator's only when the same account last
+  // saved it; otherwise no one's, so a nurse may change only I/O (fail closed).
+  const saverOf = (e) => {
+    const by = String(e?.calcInput?.orderBy || "").trim().toLowerCase();
+    if (by) return by;
+    const p = String(e?.submittedBy || "").trim().toLowerCase(), ab = String(e?.lastModifiedBy || "").trim().toLowerCase();
+    return !ab || ab === p ? p : (e ? "(unknown)" : "");
+  };
   const [savedSaver, setSavedSaver] = useState(() => saverOf(editEntry));
   // The saved row's TPN, for a same-day TPN order cancelled by a No TPN revision
   // (D.orderCancelsTpn; Vera, fifth review; Pp, 2026-11-01): whether it had TPN,
@@ -2838,6 +2845,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     const keyAtSave = formKey;
     // A nurse's save on an order another account owns: by now it is I/O only.
     const ioOnlyOnOthers = nurseIoOnly && !!savedEntryId && !!savedSaver && savedSaver !== draftOwner;
+    // The order's next revision, as the server will count it (gas-backend.gs
+    // orderRevNext): a submitted order is revised, a draft keeps its number. The
+    // server's stamp is what is stored; this keeps the ward's copy right until the
+    // next sync.
+    const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + (savedStatus === "submitted" || published ? 1 : 0);
     const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;   // what every dose on this save was computed from (UP-C2)
     // Center Point saves pass the same required-field gate and F1 stop above.
@@ -2923,7 +2935,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         // Whose order this stays, on a nurse's I/O-only save: the server writes the
         // stored values whatever is sent; these keep the ward's copy right until the
         // next sync. Not inputs.
-        ...(ioOnlyOnOthers ? { orderBy: savedSaver, orderRev: savedMeta?.revision || 1, orderAt: savedMeta?.at || "" } : {}),
+        ...(ioOnlyOnOthers
+          ? { orderBy: savedSaver === "(unknown)" ? String(editEntry?.submittedBy || "").toLowerCase() : savedSaver,
+              orderRev: savedMeta?.revision || 1, orderAt: savedMeta?.at || "" }
+          : { orderRev: nextOrderRev }),
         ...(figures ? { printJsonV: figures.v } : {}),
         // replacesTpn: this row replaces a submitted order of its day that had
         // TPN (replacesTpn above). Not an input — normalizeCalcInput ignores it.
@@ -2999,7 +3014,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!ioOnlyOnOthers) setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || new Date().toISOString(),
-      revision: res.revisionNumber || savedMeta?.revision || 1,
+      revision: nextOrderRev,
     });
     clearDraft();
     setDraftOffer(null);

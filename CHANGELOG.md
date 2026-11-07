@@ -47,7 +47,9 @@ front) wait until after it.
      calculation and dosing weight, and the backend writes it from the stored row. Her own draft she may change freely.
      Whose draft it is reads `calcInput.orderBy`, which the server stamps on every save except a nurse's I/O-only
      one, so her I/O save never makes a doctor's draft hers (Vera's third review: it read the row's last saver, and
-     her second save could change any dose). A row from before falls back to its last saver. The calculator reads
+     her second save could change any dose). A row from before is its creator's only when the same account last saved
+     it, and no one's otherwise, so a nurse may change only I/O on it (Vera's fourth review: it fell back to the last
+     saver, which a nurse's pre-deploy I/O save had made her). The calculator reads
      the same `orderBy` but does not know roles, so it is stricter than the backend in one case: it also holds a
      colleague nurse's draft to I/O only.
    - **An I/O save is not a new ฉบับ** (a workflow check on dev local, then Pp: "IO ... ไม่เกี่ยวกับใบสั่ง TPN ... ไม่น่าจะ
@@ -55,7 +57,11 @@ front) wait until after it.
      stamps with `orderBy` the revision and time of the save that changed the order (`orderRev`, `orderAt`), and a
      nurse's I/O save keeps them. The front sheet's "Revision · ฉบับที่", the Save card's "บันทึกโดย", the ward list's
      "ฉบับแก้ไข" and the TPN room's "ฉบับ" read them, so twice-daily I/O no longer prints "Revision · ฉบับที่ 3" or
-     names the nurse. The room names whose order a draft is the same way. The stamp is left out of the
+     names the nurse. `orderRev` counts the order's own revisions, so a doctor's change after two I/O saves is
+     ฉบับ 2, not the row number 4 (Vera's fourth review). One legacy gap stays: on a chain whose nurse I/O rows were
+     saved before this deploy, the room (which walks back to the doctor's row) and the sheet (the row number) can
+     show different numbers until a doctor next saves; the bag is the same. The room names whose order a draft is
+     the same way. The stamp is left out of the
      10,000-character `calcInput` cap, and only an object `calcInput` takes it (`verify-hardening-1102.cjs` measures
      what the client sent).
    - **I/O on a held order** (same check and Pp's words): a nurse could record no I/O on an order NeoFeed held for a

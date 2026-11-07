@@ -2835,6 +2835,21 @@ function _orderByOf(cur) {
   var by = ci && typeof ci === "object" && typeof ci.orderBy === "string" ? ci.orderBy : "";
   return String(by || cur[27] || cur[15] || "").trim().toLowerCase();
 }
+// Whose draft it is, for N1's rule, failing closed (Vera's fourth review): a row
+// saved before orderBy is the account that both created and last saved it, and
+// "" (no one's, so a nurse may change only I/O) when those differ.
+function _draftOwnerOf(cur) {
+  var ci = _parseJson(cur[24], null);
+  if (ci && typeof ci === "object" && typeof ci.orderBy === "string" && ci.orderBy) return ci.orderBy.trim().toLowerCase();
+  var p = String(cur[15] || "").trim().toLowerCase(), ab = String(cur[27] || "").trim().toLowerCase();
+  return !ab || ab === p ? p : "";
+}
+// The order's own revision on a row: orderRev, else (a row from before it) its
+// row number.
+function _orderRevOf(cur) {
+  var ci = _parseJson(cur[24], null);
+  return (ci && typeof ci === "object" ? _numSafe(ci.orderRev, 0) : 0) || _numSafe(cur[35], 1);
+}
 function _withOrderBy(entry, by, rev) {
   entry = entry || {};
   // Only a calcInput that is an object takes the stamp: anything else is left for
@@ -2892,7 +2907,7 @@ function _ioOnlyEntryFrom(cur, entry, status) {
   var ci = _parseJson(cur[24], {}) || {};
   var stored = _parseJson(cur[24], {}) || {};
   ci.orderBy = _orderByOf(cur);
-  ci.orderRev = _numSafe(stored.orderRev, 0) || _numSafe(cur[35], 1);
+  ci.orderRev = _orderRevOf(cur);
   ci.orderAt = typeof stored.orderAt === "string" && stored.orderAt ? stored.orderAt : String(cur[26] || "");
   ci.ioInput = sent.ioInput; ci.ioOutput = sent.ioOutput; ci.drainContent = sent.drainContent;
   if (sent.savedAt) ci.savedAt = sent.savedAt;
@@ -2952,8 +2967,10 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
 
     // The revision number this save will carry: a submitted or locked row is
     // revised (below), a draft is written in place (orderBy stamp).
+    // Counted on the order's own revisions, so a nurse's I/O rows in between are
+    // not counted (Pp: an I/O edit is not a numbered version; Vera's fourth review).
     var orderRevNext = (cur[33] || String(cur[14] || "").trim().toLowerCase() !== "draft")
-      ? _numSafe(cur[35], 1) + 1 : _numSafe(cur[35], 1);
+      ? _orderRevOf(cur) + 1 : _orderRevOf(cur);
 
     // N1: a nurse's write (see NURSE_SUBMIT_REFUSAL). On a draft it stays a
     // draft; on a submitted order it is Intake/Output only, on the constants the
@@ -2967,9 +2984,10 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       // as well (Pp, 2026-11-07, "ได้แค่ I/O เหมือนกัน"), so a doctor's later Submit
       // never signs figures a nurse typed. An account the Staff tab does not know
       // counts as not a nurse.
-      var draftSaver = _orderByOf(cur);
-      var saverRow = draftSaver && draftSaver !== String(editedBy || "").trim().toLowerCase() ? getStaffRow(draftSaver) : null;
-      var othersDraft = !curSubmitted && !!draftSaver && draftSaver !== String(editedBy || "").trim().toLowerCase()
+      var draftSaver = _draftOwnerOf(cur);
+      var me = String(editedBy || "").trim().toLowerCase();
+      var saverRow = draftSaver && draftSaver !== me ? getStaffRow(draftSaver) : null;
+      var othersDraft = !curSubmitted && draftSaver !== me
         && !(saverRow && _staffRole(saverRow.data[1]) === "nurse");
       var nurseRefused = curSubmitted ? !_ioOnlyRevision(cur, entry)
         : (entry || {}).status !== "draft" || (othersDraft && !_ioOnlyChange(cur, entry));
@@ -3323,7 +3341,7 @@ function pharmacyOrders(dateKey) {
         status: isDraft ? "draft" : "submitted",
         // The revision that changed the order: a nurse's I/O-only revision keeps the
         // number pharmacy already has (workflow check, 2026-11-07).
-        revision: _numSafe(signer[35], 1),
+        revision: _numSafe((_parseJson(row[24], {}) || {}).orderRev, 0) || _numSafe(signer[35], 1),
         prescriber: prescriber,
         savedAt: _pharmacyTime(row[26]),
         submittedAt: _pharmacyTime(signer[33]),
