@@ -681,6 +681,15 @@ secondary uses (e.g. research/QI exports) if those are ever added.
 - *Access/rectification* — no self-service path yet; handled manually via
   admin editing the registry. Worth a real endpoint if request volume grows.
 
+**QI export (since 2026-11-07, not live):** `exportQi()`, run from the Apps Script editor, writes a
+pseudonymized table to the `QI_Export` tab (`openspec/changes/qi-export/design.md` has every column). Research
+IDs are an HMAC under a per-project key in Script Properties (`setupQiExportKey`), computed at export and stored
+nowhere; `lookupResearchId` re-identifies, and every key, export and lookup is in `Audit_Log`. It is
+**pseudonymized, not anonymous**: the key re-identifies every row, and on a census of about 90 infants no banding
+reaches k = 5, so the CSV stays personal data. The lawful basis above covers treatment, not this, so the basis
+for a QI export is open with Pp and the DPO (`BACKLOG.md`). Small cells (≤ 7) are suppressed or rounded to 5 in
+the analysis, on aggregates; the export itself is row-level.
+
 **A store of names outside the Sheet (not live):** the TPN room's name file holds the name, AN and edit history on
 one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with the change request (tasks.md
 0.2):** `pseudonymizePatient()` cannot reach that PC, so an erasure leaves the name there until the 30-day purge, and
