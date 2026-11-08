@@ -186,7 +186,7 @@ async function snapshot(o) {
     const lists = [...container.querySelectorAll('select')];
     f['screen: list choices'] = lists.map(x => x.value).join(' | ');
     f['screen: list labels'] = lists.map(x => [...x.options].map(o => clean(o.textContent)).join(', ')).join(' | ');
-    // jsdom keeps a plain colour or border and drops a gradient (REFERENCE.md).
+    // jsdom keeps a plain colour or border and drops a gradient built on var() (REFERENCE.md).
     const inlineStyles = (re) => [...container.querySelectorAll('[style]')]
       .map(e => (e.getAttribute('style').match(re) || []).join('')).filter(Boolean).join(' | ');
     f['screen: text colours'] = inlineStyles(/(?:^|;)\s*color:[^;]+/g);

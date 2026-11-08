@@ -7,6 +7,10 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-08 (5) — NF-42, one wording in (4)
+
+jsdom drops a gradient built on `var()`, which all three in `calculator.jsx` are; a plain gradient is kept.
+
 ## Session 2026-11-08 (4) — NF-42, after its third review
 
 Corrects (3): the tree of plants can move a neighbouring field, so a pass shows each field is reported, not that its own

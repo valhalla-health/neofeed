@@ -104,7 +104,7 @@ console.log('\n── #1 a version against itself ──');
   ok('a version number alone is no difference', r.code === 0 && /2099-01-01\.1/.test(r.out) && /No difference/.test(r.out), r.out);
 }
 
-console.log('\n── #2 a planted stock strength ──');
+console.log('\n── #2 one tree of planted changes ──');
 const moved = run(same, planted);
 {
   ok('exit 1: the release stops', moved.code === 1, moved);

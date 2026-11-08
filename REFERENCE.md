@@ -242,8 +242,8 @@ same as a difference nobody intended in the table above. Exit 2 means it could n
 order entered or submitted), which is not a pass.
 
 The orders cover one or two feeds, No TPN, oral orders and a typed dosing weight, over the ranges in the tool. It does
-not cover a reopened or revised order, the copy from yesterday's order, Quick calc, Center Point or a gradient background
-(jsdom drops those; the status behind the colour is compared), and it never sees a real input, so the hand cases at the edges a change touches are still needed. It reads no patient's figures and puts
+not cover a reopened or revised order, the copy from yesterday's order, Quick calc or Center Point. A gradient built on a
+CSS variable is also out of reach, because jsdom drops it; the status behind that colour is compared. It never sees a real input, so the hand cases at the edges a change touches are still needed. It reads no patient's figures and puts
 nothing on a ward device.
 
 **Rolling back.** The rollback targets are the release tags, `release-YYYY-MM-DD-prNN`, one per release
