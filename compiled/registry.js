@@ -134,6 +134,10 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
   const tile = (ward) => ({ ward, list: groups[ward], log, today, onPick: () => onPick(ward), onPrintList });
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, /* @__PURE__ */ React.createElement(WardGateCell, { label: "NICU", sub: "NICU 1–12 · iso 1–3", ...tile("NICU") }), /* @__PURE__ */ React.createElement(WardGateCell, { label: "SCN", sub: "SCN 1–30", ...tile("SCN") }), groups.other.length > 0 && /* @__PURE__ */ React.createElement(WardGateCell, { label: "อื่นๆ", sub: "ยังไม่ระบุเตียง / เตียงนอกรายการ", ...tile("other") })));
 }
+function NoTpnTag({ p, entries }) {
+  if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
+  return /* @__PURE__ */ React.createElement("span", { className: "log-badge is-no-tpn", style: { marginLeft: 4 }, title: "ใบสั่งล่าสุดไม่มี TPN" }, "No TPN");
+}
 const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {
   return D_R.finalEntries(entries).filter((e) => D_R.normalizeDateStr(e.ts) === today);
@@ -500,7 +504,7 @@ function PatientRegistry({
           title: hasToday ? "บันทึกวันนี้แล้ว" : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit" : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"
         },
         hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"
-      )),
+      ), /* @__PURE__ */ React.createElement(NoTpnTag, { p, entries: log[p.sessionId] })),
       /* @__PURE__ */ React.createElement("div", { className: "pmc-actions" }, /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -596,7 +600,7 @@ function PatientRegistry({
           title: hasToday ? "บันทึกวันนี้แล้ว" : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit" : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"
         },
         hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"
-      ))),
+      ), /* @__PURE__ */ React.createElement(NoTpnTag, { p, entries: log[p.sessionId] }))),
       /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" } }, /* @__PURE__ */ React.createElement(
         "button",
         {

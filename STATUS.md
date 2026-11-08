@@ -1,5 +1,7 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-08 — "No TPN" tag on the ward list: frontend only, not live.** Release waits for Pp.
+>
 > ⏳ **2026-11-07 — Stakeholder walk fixes (only a doctor submits a doctor's order, a nurse saves I/O only; a held
 > order lists each changed figure, old → new; Quick calc opens with no route): PR #232, merged into `main` on Praew's instruction; not live.**
 > Frontend **and backend**: the backend refuses a nurse's Submit and names who submitted on the TPN room's page, so it

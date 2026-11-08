@@ -42,8 +42,8 @@ clinical judgement. Everything else is engineering sequencing.
       - **"ไม่มี PN แล้ว"**: one button that fills an enteral-only order, and a TPN / no-TPN tag on the
         ward list. Full-feed infants are entered every 3 days or at each step-up. ⏳ **PR #206** builds the
         button as Step 3's "No TPN" tick (it clears the bag and the order saves as `calcInput.noTpn`); a No
-        TPN order is never printed, and the ward's Print order list tags it "No TPN — ไม่ต้องพิมพ์". Still
-        open: the tag on the ward list itself.
+        TPN order is never printed, and the ward's Print order list tags it "No TPN — ไม่ต้องพิมพ์". The
+        tag on the ward list itself: built 2026-11-08, a grey "No TPN" from the latest Submitted order.
       - **The Dashboard counts pending TPN orders** (joins 19 · 27, the pharmacist view, under C below).
         `pharmacyOrders` already returns a date's counts (TPN-room stickers, PR A, not live).
         Pp, 2026-11-01: a No TPN order never counts as waiting for TPN, so pharmacy sees in real time how

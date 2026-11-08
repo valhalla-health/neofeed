@@ -262,6 +262,14 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
 // opened (UP-C9, as log.jsx does). Two submitted orders on one day should not
 // exist (the duplicate-date guard); if they do, the row opens the patient's
 // Dashboard to choose, rather than this list guessing which one is the order.
+// "No TPN" beside the today badge, on an infant still on the unit whose latest
+// Submitted order has no bag (nutrition team, 2026-10-28). The ward then sees
+// who is off PN without opening each infant.
+function NoTpnTag({ p, entries }) {
+  if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
+  return <span className="log-badge is-no-tpn" style={{ marginLeft: 4 }} title="ใบสั่งล่าสุดไม่มี TPN">No TPN</span>;
+}
+
 const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {
   return D_R.finalEntries(entries).filter(e => D_R.normalizeDateStr(e.ts) === today);
@@ -889,6 +897,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                         : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"}>
                   {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                 </span>
+                <NoTpnTag p={p} entries={log[p.sessionId]} />
               </div>
 
               {/* Actions. ⇄ opens the same TransferBedModal as the desktop
@@ -1070,6 +1079,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                               : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"}>
                         {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                       </span>
+                      <NoTpnTag p={p} entries={log[p.sessionId]} />
                     </div>
                   </td>
                   <td>

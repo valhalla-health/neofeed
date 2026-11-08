@@ -1777,6 +1777,12 @@ function previousFinalEntry(entries, targetDate) {
     .sort((a, b) => normalizeDateStr(a.ts).localeCompare(normalizeDateStr(b.ts)))
     .slice(-1)[0] || null;
 }
+// The infant's latest submitted order says No TPN, so the ward list can tag it
+// (nutrition team, 2026-10-28; Pp, 2026-11-08). By date, not array order: a
+// back-filled day arrives last. A draft is not an order.
+function latestOrderIsNoTpn(entries) {
+  return orderIsNoTpn(previousFinalEntry(entries, "9999-12-31"));
+}
 function isDraftEntry(e) {
   return !!e && String(e.status || "").toLowerCase() === "draft";
 }
@@ -3075,7 +3081,7 @@ window.NEOFEED_DATA = {
   useTodayLocal,
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
-  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, latestOrderIsNoTpn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
   // THE current weight — every screen calls it with the patient's Daily_Log
   // (see currentWeight) — and the joined series it reads.
   currentWeight, weightSeries,

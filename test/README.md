@@ -2204,3 +2204,8 @@ also runs against `compiled/`) taps the real box: 1,680 g on 2 g/kg/d goes 16.8 
 the pump 1 mL/hr for 23 h and 0.09 g/kg/h; 4 g/kg/d goes to 33 mL (3.93), not 34 (4.05); 400 g on 3.4 g/kg/d over 20 h
 goes to 6 mL, not 7 (0.18 g/kg/h); under 0.5 mL nothing moves; the TPN pump's Rate box reads 8.4 for 200 mL with
 "infusion 23.8 h". 25 checks. It fails on `ce06e16` (no box to tap; rates at 2 decimals).
+
+## "No TPN" on the ward list, 2026-11-08 — one harness added
+
+`verify-no-tpn-ward-tag-1108.cjs`: the latest Submitted order decides by date, whatever the array order; a draft and a
+discharged infant are not tagged; both the phone card and the desktop row show it. Needs the jsdom set above.
