@@ -7,6 +7,11 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-08 (3) — NF-32, two wordings in (2)
+
+`verify-safety-fixes-0923.cjs` pins GIR only; `verify-status-zones.cjs` pins GIR, protein and osmolarity. And any run on a
+working tree can meet a deleted, unstaged file, not only a hook.
+
 ## Session 2026-11-08 (2) — NF-32, after its review
 
 Corrects the entry below: "the rest still run" holds inside one phase. A phase that fails stops the job's later steps,
