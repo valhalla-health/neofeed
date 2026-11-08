@@ -29,6 +29,14 @@ PRs merged into `main` since the last release, and what each changes on the ward
 | 2 | | | | | |
 | 3 | | | | | |
 
+### Calculator comparison
+
+<!--
+  Paste the output of: node tools/calc-compare.cjs --base origin/release --head origin/main
+  Add --intended "<field names>" for what this release means to move. A field marked **NO** stops the merge.
+  REFERENCE.md § Before and after says more.
+-->
+
 ## Rollback target
 
 The release live before this one, and the backend version it runs:

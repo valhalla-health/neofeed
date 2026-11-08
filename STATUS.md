@@ -1,5 +1,8 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-08 — A release compares old and new on made-up orders (NF-42): `tools/calc-compare.cjs`.** The release
+> PR carries its report. Nothing reaches the ward: no frontend or backend file moved (`REFERENCE.md` § Before and after).
+>
 > ⏳ **2026-11-07 — Stakeholder walk fixes (only a doctor submits a doctor's order, a nurse saves I/O only; a held
 > order lists each changed figure, old → new; Quick calc opens with no route): PR #232, merged into `main` on Praew's instruction; not live.**
 > Frontend **and backend**: the backend refuses a nurse's Submit and names who submitted on the TPN room's page, so it

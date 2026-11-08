@@ -226,6 +226,20 @@ order. Pick the cases to cover the change, one inside the usual range and one at
 touches. Write each in the release PR's table: inputs, figure before, figure after, and whether the
 difference is the intended one. A difference nobody intended stops the merge.
 
+**The comparison on every release (NF-42, 2026-11-08).** The three hand cases are what a person reads; this checks
+everything else. It types the same made-up orders into the `release` Calculator and the PR's, and compares every tile,
+colour, alert, saved number, sticker figure and printed line:
+
+```bash
+node tools/calc-compare.cjs --base origin/release --head origin/main --out compare.md
+```
+
+Paste the report into the release PR. No difference is the answer for a release that changes no calculation. For one
+that does, name what it means to move with `--intended "<regular expression over field names>"`. A field left
+unexplained exits 1 and stops the merge, the same as a difference nobody intended in the table above. It reads no
+patient's figures and puts nothing on a ward device. It covers the seeded range in `tools/calc-compare.cjs`, so it does
+not replace the hand cases at the edges a change touches.
+
 **Rolling back.** The rollback targets are the release tags, `release-YYYY-MM-DD-prNN`, one per release
 merge since PR #60 (§ Frontend; #172's was never pushed). List them with `git tag -l 'release-*'` or on
 the repo's Tags page. Every release PR names the tag and commit live before it, and the ward
