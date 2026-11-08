@@ -7,6 +7,13 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-08 (4) — NF-42, after its third review
+
+Corrects (3): the tree of plants can move a neighbouring field, so a pass shows each field is reported, not that its own
+plant alone moved it; the harness says so. Ticks, list choices, list labels, text colours and backgrounds are separate fields
+now, and the plants cover them and the printed text outside tables. A gradient background is out of reach, because jsdom
+drops it; `REFERENCE.md` lists that. The counts of each kind of order cover only orders entered on both sides.
+
 ## Session 2026-11-08 (3) — NF-42, after its second review
 
 A second reader found the tool still skipped the values in boxes, the lists and inline colours, and removed captures

@@ -116,7 +116,7 @@ async function snapshot(o) {
   const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
   const selSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
   // The made-up infant's name and ID are the same on both sides and are not figures.
-  const clean = (t) => String(t || '').replace(/\bCompare\b|CMP\d+/g, '—').replace(/\s+/g, ' ').trim();
+  const clean = (t) => String(t || '').replace(/QZQ|CMP\d+/g, '—').replace(/\s+/g, ' ').trim();
   const click = (el) => act(() => el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
   const clickAsync = async (el) => { await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }); };
   const need = (el, what) => { if (!el) throw new Error(`no ${what}`); return el; };
@@ -179,13 +179,18 @@ async function snapshot(o) {
     f['screen: colours'] = [...container.querySelectorAll('[class*="s-"]')]
       .filter(e => !e.classList.contains('metric') && !e.classList.contains('gir-readout'))
       .map(e => (String(e.className).match(STATUS) || [])[1]).filter(Boolean).join(',');
-    f['screen: boxes'] = [...container.querySelectorAll('input')]
-      .map(i => (i.type === 'checkbox' || i.type === 'radio' ? String(i.checked) : i.value)).join(' | ');
-    f['screen: lists'] = [...container.querySelectorAll('select')]
-      .map(x => `${x.value}: ${[...x.options].map(o => clean(o.textContent)).join(', ')}`).join(' | ');
-    f['screen: inline colours'] = [...container.querySelectorAll('[style]')]
-      .map(e => (e.getAttribute('style').match(/(?:^|;)\s*(?:color|background[a-z-]*|border[a-z-]*):[^;]+/g) || []).join(''))
-      .filter(Boolean).join(' | ');
+    const inputs = [...container.querySelectorAll('input')];
+    const isTick = (i) => i.type === 'checkbox' || i.type === 'radio';
+    f['screen: boxes'] = inputs.filter(i => !isTick(i)).map(i => i.value).join(' | ');
+    f['screen: ticks'] = inputs.filter(isTick).map(i => String(i.checked)).join(',');
+    const lists = [...container.querySelectorAll('select')];
+    f['screen: list choices'] = lists.map(x => x.value).join(' | ');
+    f['screen: list labels'] = lists.map(x => [...x.options].map(o => clean(o.textContent)).join(', ')).join(' | ');
+    // jsdom keeps a plain colour or border and drops a gradient (REFERENCE.md).
+    const inlineStyles = (re) => [...container.querySelectorAll('[style]')]
+      .map(e => (e.getAttribute('style').match(re) || []).join('')).filter(Boolean).join(' | ');
+    f['screen: text colours'] = inlineStyles(/(?:^|;)\s*color:[^;]+/g);
+    f['screen: backgrounds and borders'] = inlineStyles(/(?:^|;)\s*(?:background[a-z-]*|border[a-z-]*):[^;]+/g);
     const rest = container.cloneNode(true);
     rest.querySelectorAll('.metric, .alert-row, .gir-readout, #print-form, select').forEach(e => e.remove());
     f['screen: other text'] = clean(rest.textContent);
@@ -223,8 +228,8 @@ async function snapshot(o) {
       window.localStorage.clear();
       act(() => {
         root.render(React.createElement(window.Calculator, {
-          patient: { sessionId: 'CMP' + s.i, name: 'Compare', bw: s.bw, ga: 30, sex: 'boys', admissionDate: '2026-09-01', currentBed: 'NICU 1', diagnosis: '-', weights: [{ dol: 1, w: s.bw }], lengths: [], hcs: [] },
-          dol: s.dol, editEntry: null, baselineEntry: null, previousEntry: null, logDate: null, userLabel: 'Dr Compare (c@x.test)', userEmail: 'c@x.test',
+          patient: { sessionId: 'CMP' + s.i, name: 'QZQ', bw: s.bw, ga: 30, sex: 'boys', admissionDate: '2026-09-01', currentBed: 'NICU 1', diagnosis: '-', weights: [{ dol: 1, w: s.bw }], lengths: [], hcs: [] },
+          dol: s.dol, editEntry: null, baselineEntry: null, previousEntry: null, logDate: null, userLabel: 'Dr QZQ (c@x.test)', userEmail: 'c@x.test',
           onLog: (e) => { saved = e; return Promise.resolve({ ok: true, entryId: 'e', lastModified: 'l' }); },
           onUpdate: () => Promise.resolve({ ok: true, lastModified: 'l' }), onSaved() {}, onWeightChange() {},
         }));
@@ -348,7 +353,7 @@ function report(o, base, head, a, b, res, cases, stop) {
   L.push(`- **Before:** ${base.label}, constants ${a.constants}`);
   L.push(`- **After:** ${head.label}, constants ${b.constants}`);
   L.push(`- **Made-up orders:** ${cases.length} (seed ${o.seed}), ${res.compared} entered in both, ${a.cases.filter(c => c.saved).length} saved before and ${b.cases.filter(c => c.saved).length} after`);
-  const count = (k) => b.cases.filter(c => c.kinds && c.kinds[k]).length;
+  const count = (k) => b.cases.filter((c, x) => c.kinds && !a.cases[x].error && c.kinds[k]).length;
   L.push(`- **Kinds of order entered:** ${count('feed2')} with a second feed, ${count('noTpn')} No TPN, ${count('oral')} with oral orders, ${count('typedWeight')} with a typed dosing weight`);
   L.push(`- **Figures compared:** ${res.fields}`);
   if (o.intended) L.push(`- **Intended (fields matching):** \`${o.intended}\``);

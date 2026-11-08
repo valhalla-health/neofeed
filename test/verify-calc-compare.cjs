@@ -5,10 +5,14 @@
 // this harness plants changes and proves it reports them, by field and amount.
 //
 //   #1  a version against itself: no difference, exit 0
-//   #2  a planted stock strength: exit 1, named, with its amount
+//   #2  one tree of planted changes: exit 1, each field named
 //   #3  --intended explains a difference and only that difference
 //   #4  an order that cannot be entered is reported, never dropped
 //   #5  git refs work, and the release path names the tool
+//
+// #2 plants its changes together to keep the run short, so one plant can also
+// move a neighbouring field. A pass shows each field is reported, not that each
+// was moved by its own plant alone.
 //
 // Dev-only deps as in test/README.md. Made-up orders only.
 const fs = require('fs');
@@ -57,13 +61,18 @@ const planted = tree('planted', (f, s) => {
   s = plant(s, 'className={`alert-row ${a.level}`}', 'className={`alert-row ${a.level === "warn" ? "info" : a.level}`}');
   s = plant(s, 'className={`gir-readout s-${sGir}`}', 'className={`gir-readout s-${sGir === "ok" ? "warn" : sGir}`}');
   s = plant(s, '<Tile label="Calcium" value={calc.caKg} unit=" mg/kg/d" target={tCa} status={sCa}',
-    '<Tile label="Calcium" value={calc.caKg + 1} unit=" mg/kg/d" target={tCa} status={sCa === "crit" ? "warn" : "crit"}');
-  s = plant(s, '`${target[0]}–${target[1]}`', '`${target[0]}–${target[1]}+`');
+    '<Tile label="Calcium" value={calc.caKg + 1} unit=" mg/kg/d" target={tCa} status={sCa}');
+  s = plant(s, '<Tile label="Sodium" value={calc.naTotalDelivered} unit=" mEq/kg/d" target={tNa} status={sNa}',
+    '<Tile label="Sodium" value={calc.naTotalDelivered} unit=" mEq/kg/d" target={tNa} status={sNa === "crit" ? "warn" : "crit"}');
+  s = plant(s, '`${target[0]}–${target[1]}`', '`${target[0]}–${target[1]}${label === "Protein" ? "+" : ""}`');
   s = plant(s, '{fmt(calc.gir,1)}<wbr />', '{fmt(calc.gir + 1,1)}<wbr />');
   s = plant(s, 'value={tpnPump ? tpnPump.rate : 0}', 'value={tpnPump ? tpnPump.rate + 1 : 0}');
   s = plant(s, '{v.label} · {v.fe_mg_per_ml} mg elem Fe/mL', '{v.label} · {v.fe_mg_per_ml * 2} mg elem Fe/mL');
   s = plant(s, 'color: FLUID_TONE[fluidTone].ink,', 'color: "red",');
-  s = plant(s, 'disabled={saving || missingFields.length > 0 ||', 'disabled={wtKg > 1.5 || saving || missingFields.length > 0 ||');
+  s = plant(s, 'value={suppPO4Type}', 'value={suppPO4Type === "PO4_PHOSPHATE" ? "PO4_NEUTRAL" : suppPO4Type}');
+  s = plant(s, 'checked={noTpnOn}', 'checked={!noTpnOn}');
+  s = plant(s, 'border:`1.5px solid ${sGir===', 'border:`2px solid ${sGir===');
+  s = plant(s, '"PEDIATRIC PARENTERAL NUTRITION ORD', '"PLANTED PEDIATRIC PARENTERAL NUTRITION ORD');
   s = plant(s, 'calcInput: { ...captureState(),', 'calcInput: { plantedCi: 1, ...captureState(),');
   s = plant(s, '`${Math.round(suppVitD * wtKg)} IU`', '`${Math.round(suppVitD * wtKg * 2)} IU`');
   s = plant(s, 'printJson: figures,', 'printJson: figures, plantedNote: "x", plantedEmpty: {}, plantedList: [],');
@@ -72,6 +81,8 @@ const planted = tree('planted', (f, s) => {
 const bumped = tree('bumped', (f, s) => (f === 'data.js' ? s.replace(/CONSTANTS_VERSION = "[^"]+"/, 'CONSTANTS_VERSION = "2099-01-01.1"') : s));
 // Step 2 stops offering one feed: only the orders that use it cannot be entered.
 const noneOnOneOrder = tree('one-feed-gone', (f, s) => (f === 'data.js' ? plant(s, 'function enProductOf(key) {', 'function enProductOf(key) {\n  if (key === "LF_27") return null;') : s));
+// One side stops some orders at Submit. Alone, so its absent rows move no other assertion.
+const halfSubmit = tree('half-submit', (f, s) => (f === 'calculator.jsx' ? plant(s, 'disabled={saving || missingFields.length > 0 ||', 'disabled={wtKg > 1.5 || saving || missingFields.length > 0 ||') : s));
 const noSubmit = tree('no-submit', (f, s) => (f === 'calculator.jsx' ? plant(s, '{ key: "ioInput",', '{ key: "neverFilled", label: "x" }, { key: "ioInput",') : s));
 const noField = tree('no-field', (f, s) => (f === 'calculator.jsx' ? s.split('Target fluid').join('Fluid goal') : s));
 
@@ -103,14 +114,17 @@ const moved = run(same, planted);
     ['an alert whose level alone moved', /\| alerts \|/],
     ['the GIR readout colour', /\| colour: GIR readout \|/],
     ['a tile', /\| tile: Calcium \|/],
-    ['a tile colour', /\| colour: Calcium \|/],
+    ['a tile colour', /\| colour: Sodium \|/],
     ['a tile whose range alone moved', /\| tile: Protein \|/],
     ['the GIR readout value', /\| tile: GIR readout \|/],
     ['a status chip', /\| screen: colours \|/],
     ['a figure in a box', /\| screen: boxes \|/],
-    ['a label in a list', /\| screen: lists \|/],
-    ['an inline colour', /\| screen: inline colours \|/],
-    ['the Submit button', /\| Submit enabled \|/],
+    ['a label in a list', /\| screen: list labels \|/],
+    ['a choice in a list', /\| screen: list choices \|/],
+    ['a tick', /\| screen: ticks \|/],
+    ['an inline text colour', /\| screen: text colours \|/],
+    ['a border', /\| screen: backgrounds and borders \|/],
+    ['printed text outside the tables', /\| print: text outside tables \|/],
     ['a field inside calcInput', /\| saved\.calcInput\.plantedCi \|/],
     ['an empty list', /\| saved\.plantedList\.length \|/],
     ['a figure elsewhere on the screen', /\| screen: other text \|/],
@@ -120,8 +134,13 @@ const moved = run(same, planted);
   ok('each row says how much', /\| \d+ \| \d+(\.\d+)? \| #\d+:/.test(moved.out), moved.out);
   ok('and is marked unexplained', /\*\*NO\*\*/.test(moved.out) && /stops the release/.test(moved.out), moved.out);
   const nameText = moved.out.replace('Calculator comparison', '');
-  const nameHit = nameText.match(/Compare\b|CMP\d/);
+  const nameHit = nameText.match(/QZQ|CMP\d/);
   ok('no name reaches the report', !nameHit, nameHit && nameText.slice(Math.max(0, nameHit.index - 90), nameHit.index + 40));
+}
+
+{
+  const r = run(same, halfSubmit);
+  ok('a stop on one side only is named', r.code === 1 && /\| Submit enabled \|/.test(r.out), r.out);
 }
 
 console.log('\n── #3 --intended ──');
