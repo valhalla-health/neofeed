@@ -2204,3 +2204,11 @@ also runs against `compiled/`) taps the real box: 1,680 g on 2 g/kg/d goes 16.8 
 the pump 1 mL/hr for 23 h and 0.09 g/kg/h; 4 g/kg/d goes to 33 mL (3.93), not 34 (4.05); 400 g on 3.4 g/kg/d over 20 h
 goes to 6 mL, not 7 (0.18 g/kg/h); under 0.5 mL nothing moves; the TPN pump's Rate box reads 8.4 for 200 mL with
 "infusion 23.8 h". 25 checks. It fails on `ce06e16` (no box to tap; rates at 2 decimals).
+
+## One list of checks, 2026-11-08 — one harness added
+
+`verify-run-checks.cjs` (NF-32): `tools/run_checks.js` on made-up configs (the gate, one line per dimension and no
+average, levels and phases, a bad config refused), the loop guard and skip rules of the hooks, CI's two compiled-pass
+guards, Pp's gate in the real `tools/checks.json`, and that CI, both hooks and `AGENTS.md` call the runner. No npm
+install. To run every harness the way CI does, set `NODE_PATH` as above and run
+`node tools/run_checks.js --level ci --phase sources`.

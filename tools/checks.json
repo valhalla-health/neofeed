@@ -1,0 +1,58 @@
+{
+  "env": { "TZ": "Asia/Bangkok" },
+  "dimensions": {
+    "build-integrity": { "about": "What ships is a fresh build of what is committed." },
+    "privacy-and-rules": { "about": "Pp's repeated corrections and what may reach a log (tools/ci_bans.js)." },
+    "clinical-calculation": { "binary": true, "about": "A figure, limit, unit or reference cell. One failure closes the gate, whatever else passes." },
+    "app-behaviour": { "about": "Every other harness." },
+    "center-point": { "about": "Center Point's bundle of calculator.jsx and its client." }
+  },
+  "phases": {
+    "pre": {},
+    "sources": {},
+    "compiled": {
+      "env": { "NODE_OPTIONS": "--require ./test/compiled-loader.cjs" },
+      "guards": ["compiled-swapped", "no-browser-skip"]
+    },
+    "center-point": {}
+  },
+  "checks": [
+    { "id": "build-fresh", "dimension": "build-integrity", "blocking": true, "levels": ["ci"], "phases": ["pre"], "builtin": "build-fresh" },
+    { "id": "html-shells-identical", "dimension": "build-integrity", "blocking": true, "levels": ["stop", "commit", "ci"], "phases": ["pre"], "builtin": "shells-identical" },
+    { "id": "ci-bans-self-test", "dimension": "privacy-and-rules", "blocking": true, "levels": ["stop", "commit", "ci"], "phases": ["pre"], "cmd": ["node", "tools/ci_bans.js", "--self-test"] },
+    { "id": "ci-bans", "dimension": "privacy-and-rules", "blocking": true, "levels": ["stop", "commit", "ci"], "phases": ["pre"], "cmd": ["node", "tools/ci_bans.js"] },
+
+    { "id": "reference-tabs", "dimension": "clinical-calculation", "blocking": true, "levels": ["stop", "commit", "ci"], "phases": ["sources", "compiled"], "harness": "test/verify-reference-tabs.cjs" },
+    { "id": "calc-sum", "dimension": "clinical-calculation", "blocking": true, "levels": ["stop", "commit", "ci"], "phases": ["sources", "compiled"], "harness": "test/verify-calc-sum.cjs", "when_changed": ["calculator.jsx", "data.js"], "needs": ["jsdom", "react", "react-dom", "@babel/core", "@babel/preset-react"] },
+    { "id": "clinical-rules", "dimension": "clinical-calculation", "blocking": true, "levels": ["stop", "commit", "ci"], "phases": ["sources", "compiled"], "harness": "test/verify-clinical-rules.cjs", "when_changed": ["calculator.jsx", "data.js"], "needs": ["jsdom", "react", "react-dom", "@babel/core", "@babel/preset-react"] },
+    { "id": "calc-oracle", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-calc-oracle.cjs" },
+    { "id": "calc-clicks", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-calc-clicks.cjs" },
+    { "id": "calc-fuzz", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-calc-fuzz.cjs" },
+    { "id": "clinical-0924", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-clinical-0924.cjs" },
+    { "id": "kcmh-constants", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-kcmh-constants.cjs" },
+    { "id": "kcmh-factor", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-kcmh-factor.cjs" },
+    { "id": "kcmh-factor-no-dead-space", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "cmd": ["node", "test/verify-kcmh-factor.cjs"], "env": { "DEAD": "0" } },
+    { "id": "stock-ml", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-stock-ml-1027.cjs" },
+    { "id": "tpn-calc-weight", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-tpn-calc-weight.cjs" },
+    { "id": "quick-calc", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-quick-calc.cjs" },
+    { "id": "review-0917-calc", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-review-0917-calc.cjs" },
+    { "id": "tpn-team-0922", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-tpn-team-0922.cjs" },
+    { "id": "tpn-meeting-0928", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-tpn-meeting-0928.cjs" },
+    { "id": "tpn-answers-1027", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-tpn-answers-1027.cjs" },
+    { "id": "no-tpn-1101", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-no-tpn-1101.cjs" },
+    { "id": "alarm-fatigue", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-alarm-fatigue.cjs" },
+    { "id": "calcmoved-unstamped", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-calcmoved-unstamped-1017.cjs" },
+
+    { "id": "build-shells", "dimension": "build-integrity", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-build-shells.cjs" },
+    { "id": "pdpa-erased-dob-backend", "dimension": "privacy-and-rules", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-pdpa-erased-dob-backend.cjs" },
+    { "id": "pdpa-erased-dob-frontend", "dimension": "privacy-and-rules", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-pdpa-erased-dob-frontend.cjs" },
+    { "id": "session-revocation", "dimension": "privacy-and-rules", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-gas-session-revocation.cjs" },
+    { "id": "backend-security-0917", "dimension": "privacy-and-rules", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-review-0917-backend-security.cjs" },
+
+    { "id": "every-other-harness", "dimension": "app-behaviour", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-*.cjs" },
+
+    { "id": "center-point-install", "dimension": "center-point", "blocking": true, "levels": ["ci"], "phases": ["center-point"], "cmd": ["npm", "ci", "--prefix", "center-point"] },
+    { "id": "center-point-build", "dimension": "center-point", "blocking": true, "levels": ["ci"], "phases": ["center-point"], "cmd": ["npm", "run", "build", "--prefix", "center-point"] },
+    { "id": "center-point-tests", "dimension": "center-point", "blocking": true, "levels": ["ci"], "phases": ["center-point"], "cmd": ["node", "--test", "test/center-point.test.mjs"] }
+  ]
+}

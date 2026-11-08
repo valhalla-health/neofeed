@@ -35,6 +35,11 @@ Read before you act:
   feedback (read it before any UI work) and the stakeholder map live in Pp's private notes,
   `~\OneDrive\Desktop\PraewPP\NeoFeed\Product\` (Pp, 2026-10-11). Never add product, meeting or
   stakeholder documents here; `PRD.md` is the one product page this repo keeps.
+- **Before any PR**: `node tools/run_checks.js --level ci --phase pre`, then the harnesses your change
+  touches, or `--level ci` for all of them. It is the one command CI, the pre-commit hook and the Stop hook
+  all call. A new check goes in `tools/checks.json` with a dimension and `blocking: true`; a harness named
+  `test/verify-*.cjs` is picked up by itself. Every dimension closes the gate (Pp, 2026-11-08), and moving
+  one to `false` is her call (NF-32).
 - **Running the harnesses**: `test/README.md`.
 - **A correction Pp makes a second time** becomes a rule in `tools/ci_bans.js` with a failing and a
   passing case in `test/ci-bans-fixtures.json` (NF-19), not a third review comment. CI runs it.
