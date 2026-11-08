@@ -7,6 +7,14 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-08 (2) — NF-42, after its review
+
+A reader planted changes and the first version of `tools/calc-compare.cjs` missed them. It now compares every saved field
+(it kept only top-level numbers), each alert's level, the GIR readout, each tile's whole text and the rest of the screen,
+and its orders include a second feed, No TPN, oral orders and a typed dosing weight. `verify-calc-compare.cjs` plants one
+change of each kind. `--intended` cannot explain an order that was not entered, and a run where no order reaches Submit
+exits 2 instead of passing. `REFERENCE.md` now says what it does not cover, which corrects its "checks everything else".
+
 ## Session 2026-11-08 — Old Calculator against new, on made-up orders, for every release (NF-42)
 
 `tools/calc-compare.cjs` (new), `.github/PULL_REQUEST_TEMPLATE/release.md`, `REFERENCE.md`; `test/verify-calc-compare.cjs` (new).

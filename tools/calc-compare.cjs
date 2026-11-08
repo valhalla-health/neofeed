@@ -39,7 +39,8 @@ function args(argv) {
   o.n = Number(o.n); o.seed = Number(o.seed);
   return o;
 }
-function die(msg) { console.error(`calc-compare: ${msg}`); process.exit(2); }
+class Stop extends Error {}
+function die(msg) { throw new Stop(msg); }
 
 // ── the orders ──────────────────────────────────────────────────────────────
 // The ranges of test/verify-calc-fuzz.cjs: ordinary orders and very odd ones.
@@ -64,7 +65,14 @@ function makeCases(n, seed0) {
       ca: pick([0, between(0, 150, 5)]), soluvit: rnd() > 0.2, pedi: rnd() > 0.2, zn: pick([0, between(0, 2, 0.05)]), hep: pick([0, 0.5, 1]),
       feed: pick(FEEDS), enVol: pick([0, between(0, 60, 0.5)]), enFreq: pick([0, 6, 8, 12]), men: rnd() > 0.7,
       ioIn: between(10, 300, 1), ioOut: between(0, 200, 1), drain: pick([0, 0, between(0, 40, 1)]),
+      feed2: pick([null, null, pick(FEEDS)]), enVol2: between(1, 30, 0.5), enFreq2: pick([6, 8, 12]),
+      wOver: pick([0, 0, 0, between(Math.max(400, cur - 100), cur + 100, 10)]),
+      mtv: rnd() > 0.7, vitD: pick([0, 0, between(100, 400, 100)]), fe: pick([0, 0, between(1, 4, 0.5)]),
+      oCa: pick([0, 0, between(10, 60, 5)]), oP: pick([0, 0, between(5, 30, 5)]),
+      noTpn: rnd() > 0.82,
     };
+    // A day with no bag: the short sheet, or no sheet at all (D.orderPrints).
+    if (s.noTpn) for (const k of ['tpn', 'dex', 'aa', 'lip', 'naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn']) s[k] = 0;
     cases.push(s);
   }
   return cases;
@@ -123,34 +131,63 @@ async function snapshot(o) {
   };
   const box = (lbl) => need([...container.querySelectorAll('label.chk-label')].find(l => l.textContent.trim().startsWith(lbl)), `tick ${lbl}`).querySelector('input');
   const tick = (lbl, want) => { const b = box(lbl); if (b.checked !== want) act(() => b.click()); };
-  function selectFeed(key) {
+  function selectFeed(key, n = 1) {
     const at = need(D.enProductOf(key), `feed ${key} on Step 2`);
     for (const [cls, v] of [['en-product', at.product.id], ['en-strength', key]]) {
-      const sel = need(container.querySelector(`.en-feed-1 .${cls}`), `.${cls}`);
+      const sel = need(container.querySelector(`.en-feed-${n} .${cls}`), `.${cls}`);
       act(() => { selSetter.call(sel, v); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
     }
   }
+  const setIn = (scope, label, v) => {
+    const fi = need([...scope.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith(label)), `field ${label}`);
+    const i = fi.querySelector('input');
+    act(() => { valueSetter.call(i, String(v)); i.dispatchEvent(new window.Event('input', { bubbles: true })); });
+  };
+  const selectOption = (value) => {
+    const sel = need([...container.querySelectorAll('select')].find(x => [...x.options].some(o => o.value === value)), `a list offering ${value}`);
+    act(() => { selSetter.call(sel, value); sel.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  };
   const button = (t) => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === t);
 
+  // Who and when are the same made-up values on both sides, and stay out of the
+  // report; the version is named once, at its top.
+  const NOT_A_FIGURE = /(^|\.)(ts|timestamp|date|entryId|sessionId|lastModified|lastModifiedBy|submittedBy|savedBy|savedAt|orderBy|orderByName|userEmail|userLabel|constantsVersion|appVersion)$/i;
   function flatten(prefix, v, out) {
-    if (/constantsVersion/.test(prefix)) return;           // named once, at the top of the report
-    if (typeof v === 'number') out[prefix] = String(v);
-    else if (typeof v === 'string' && /stickers/.test(prefix)) out[prefix] = v;
-    else if (Array.isArray(v)) v.forEach((x, i) => flatten(`${prefix}[${i}]`, x, out));
-    else if (v && typeof v === 'object') for (const k of Object.keys(v)) flatten(`${prefix}.${k}`, v[k], out);
+    if (NOT_A_FIGURE.test(prefix) || v === undefined) return;
+    if (v === null || typeof v !== 'object') { out[prefix] = String(v); return; }
+    const keys = Object.keys(v);
+    if (Array.isArray(v)) out[`${prefix}.length`] = String(v.length);
+    else if (!keys.length) out[prefix] = '{}';
+    for (const k of keys) flatten(`${prefix}.${k}`, v[k], out);
   }
-  function readFigures(saved) {
+  const STATUS = /\bs-(\w+)/;
+  // Everything on the screen before Submit. The tiles, alerts and the GIR readout
+  // are named; whatever else is shown is one last field, so nothing goes unread.
+  function screenFigures() {
     const f = {};
     for (const m of container.querySelectorAll('.metric')) {
       const lbl = clean(m.querySelector('.lbl')?.textContent);
-      f[`tile: ${lbl}`] = clean(m.querySelector('.val')?.textContent);
-      f[`colour: ${lbl}`] = (m.className.match(/s-(\w+)/) || [])[1] || '';
+      f[`tile: ${lbl}`] = clean(m.textContent);
+      f[`colour: ${lbl}`] = (m.className.match(STATUS) || [])[1] || '';
     }
-    f['alerts'] = [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => clean(a.textContent)).sort().join(' | ');
+    const gir = container.querySelector('.gir-readout');
+    if (gir) { f['tile: GIR readout'] = clean(gir.textContent); f['colour: GIR readout'] = (gir.className.match(STATUS) || [])[1] || ''; }
+    f['alerts'] = [...container.querySelectorAll('.calc-bottom .alert-row')]
+      .map(a => `[${a.className.replace('alert-row', '').trim()}] ${clean(a.textContent)}`).sort().join(' | ');
     f['Submit enabled'] = String(!!button('Submit') && !button('Submit').disabled);
+    f['screen: colours'] = [...container.querySelectorAll('[class*="s-"]')]
+      .filter(e => !e.classList.contains('metric') && !e.classList.contains('gir-readout'))
+      .map(e => (String(e.className).match(STATUS) || [])[1]).filter(Boolean).join(',');
+    const rest = container.cloneNode(true);
+    rest.querySelectorAll('.metric, .alert-row, .gir-readout, #print-form, select').forEach(e => e.remove());
+    f['screen: other text'] = clean(rest.textContent);
+    return f;
+  }
+  function orderFigures(saved) {
+    const f = {};
     if (saved) {
       const { printJson, ...row } = saved;
-      for (const k of Object.keys(row)) if (typeof row[k] === 'number') f[`saved: ${k}`] = String(row[k]);
+      flatten('saved', row, f);
       flatten('stickers', printJson, f);
     }
     const form = container.querySelector('#print-form');
@@ -186,9 +223,16 @@ async function snapshot(o) {
       });
       click(need(button('Open all'), 'Open all'));
       setField('Current weight', s.cur);
+      if (s.wOver) setField('TPN calc. weight', s.wOver);
       setField('Target fluid', s.fluid); setField('Other IV', s.otherIV); setField('Drug volume', s.drug);
       selectFeed(s.feed);
       setField('Volume(mL/feed)', s.enVol); setField('Frequency', s.enFreq);
+      if (s.feed2) {
+        click(need(button('+ Add a second feed (นมชนิดที่ 2)'), 'second feed button'));
+        selectFeed(s.feed2, 2);
+        const second = container.querySelector('.en-feed-2');
+        setIn(second, 'Volume(mL/feed)', s.enVol2); setIn(second, 'Frequency', s.enFreq2);
+      }
       tick('MEN', s.men);
       click(need([...container.querySelectorAll('.step2-ctrl .seg button')].find(b => b.textContent === (s.route === 'central' ? 'Central' : 'Peripheral')), 'route button'));
       setField('Volume(mL/day)', s.tpn); setField('ปริมาตรคาสาย', s.dead);
@@ -200,10 +244,16 @@ async function snapshot(o) {
       tick('Soluvit N', s.soluvit); tick('Peditrace', s.pedi);
       setField('ZnSO₄', s.zn); setField('Heparin(U/mL)', s.hep);
       setField('Input', s.ioIn); setField('Urine output', s.ioOut); setField('Drain content', s.drain);
-      const before = readFigures(null);
+      tick('Munti-vim Drop', s.mtv);
+      setField('Vitamin D', s.vitD);
+      if (s.fe) { selectOption('FE_FERDEK'); setField('Iron', s.fe); }
+      if (s.oCa) { selectOption('CA_CACO3_350'); setField('ปริมาณ elem Ca', s.oCa); }
+      if (s.oP) { selectOption('PO4_PHOSPHATE'); setField('ปริมาณ elem P', s.oP); }
+      if (s.noTpn) tick('No TPN', true);
+      const screen = screenFigures();
       const submit = button('Submit');
       if (submit && !submit.disabled) await clickAsync(submit);
-      out.cases.push({ i: s.i, saved: !!saved, fields: { ...before, ...readFigures(saved) } });
+      out.cases.push({ i: s.i, saved: !!saved, fields: { ...screen, ...orderFigures(saved) } });
     } catch (e) {
       out.cases.push({ i: s.i, error: e.message });
     }
@@ -247,7 +297,7 @@ function compare(a, b, intended) {
     const d = diff.get(field) || { field, n: 0, largest: null, textOnly: false, example: null };
     d.n++;
     const by = amount(before, after);
-    if (by === null) d.textOnly = true; else d.largest = Math.max(d.largest ?? 0, by);
+    if (by === null || by === 0) d.textOnly = true; else d.largest = Math.max(d.largest ?? 0, by);
     if (!d.example) d.example = { i, before: before ?? '(absent)', after: after ?? '(absent)' };
     diff.set(field, d);
   };
@@ -261,7 +311,7 @@ function compare(a, b, intended) {
     for (const k of names) if (ca.fields[k] !== cb.fields[k]) note(k, ca.i, ca.fields[k], cb.fields[k]);
   });
   const rows = [...diff.values()].sort((p, q) => q.n - p.n || p.field.localeCompare(q.field));
-  for (const r of rows) r.intended = intended ? intended.test(r.field) : false;
+  for (const r of rows) r.intended = !!intended && r.field !== NOT_ENTERED && intended.test(r.field);
   return { rows, compared, fields };
 }
 
@@ -281,6 +331,9 @@ function report(o, base, head, a, b, res, cases) {
   L.push(`- **Before:** ${base.label}, constants ${a.constants}`);
   L.push(`- **After:** ${head.label}, constants ${b.constants}`);
   L.push(`- **Made-up orders:** ${cases.length} (seed ${o.seed}), ${res.compared} entered in both, ${a.cases.filter(c => c.saved).length} saved before and ${b.cases.filter(c => c.saved).length} after`);
+  const entered = cases.filter(c => !a.cases[cases.indexOf(c)].error && !b.cases[cases.indexOf(c)].error);
+  const count = (fn) => entered.filter(fn).length;
+  L.push(`- **Kinds of order entered:** ${count(c => c.feed2)} with a second feed, ${count(c => c.noTpn)} No TPN, ${count(c => c.fe || c.oCa || c.oP || c.vitD || c.mtv)} with oral orders, ${count(c => c.wOver)} with a typed dosing weight`);
   L.push(`- **Figures compared:** ${res.fields}`);
   if (o.intended) L.push(`- **Intended (fields matching):** \`${o.intended}\``);
   L.push('');
@@ -289,7 +342,7 @@ function report(o, base, head, a, b, res, cases) {
   } else {
     L.push('| Field | Orders that differ | Largest difference | Example: order, before → after | Explained? |', '|---|---|---|---|---|');
     for (const r of res.rows) {
-      const by = r.textOnly ? 'text' : String(Number(r.largest.toFixed(4)));
+      const by = r.largest === null ? 'text' : `${Number(r.largest.toFixed(4))}${r.textOnly ? ', and text' : ''}`;
       L.push(`| ${short(r.field)} | ${r.n} | ${by} | #${r.example.i}: ${near(r.example.before, r.example.after)} | ${r.intended ? 'intended' : '**NO**'} |`);
     }
     L.push('', bad.length ? `**${bad.length} field(s) differ with no explanation. This stops the release.**` : '**Every difference is marked intended. Check each one against the release table.**');
@@ -313,14 +366,15 @@ async function main() {
     const a = takeSnapshot(base.dir, casesFile, path.join(tmp, 'a.json'));
     const b = takeSnapshot(head.dir, casesFile, path.join(tmp, 'b.json'));
     const res = compare(a, b, intended);
-    if (!res.compared) { console.log(report(o, base, head, a, b, res, cases).text); die('no order could be entered in both versions'); }
     const { text, bad } = report(o, base, head, a, b, res, cases);
     if (o.out) fs.writeFileSync(o.out, text);
     console.log(text);
-    process.exit(bad ? 1 : 0);
+    if (!res.compared) die('no order could be entered in both versions');
+    if (!a.cases.some(c => c.saved) && !b.cases.some(c => c.saved)) die('no order reached Submit on either side, so the saved figures and the printed form were not compared');
+    process.exitCode = bad ? 1 : 0;
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
 
-main().catch(e => die(e.stack || e.message));
+main().catch(e => { console.error(`calc-compare: ${e instanceof Stop ? e.message : e.stack}`); process.exitCode = 2; });

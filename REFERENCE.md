@@ -226,19 +226,25 @@ order. Pick the cases to cover the change, one inside the usual range and one at
 touches. Write each in the release PR's table: inputs, figure before, figure after, and whether the
 difference is the intended one. A difference nobody intended stops the merge.
 
-**The comparison on every release (NF-42, 2026-11-08).** The three hand cases are what a person reads; this checks
-everything else. It types the same made-up orders into the `release` Calculator and the PR's, and compares every tile,
-colour, alert, saved number, sticker figure and printed line:
+**The comparison on every release (NF-42, 2026-11-08).** The three hand cases are what a person reads; this reads many
+more orders than a person would. It types the same made-up orders into the `release` Calculator and the PR's, and
+compares every tile, colour, alert and its level, the GIR readout, the rest of the screen's text, every saved field, the
+sticker figures and the printed form:
 
 ```bash
 node tools/calc-compare.cjs --base origin/release --head origin/main --out compare.md
 ```
 
-Paste the report into the release PR. No difference is the answer for a release that changes no calculation. For one
-that does, name what it means to move with `--intended "<regular expression over field names>"`. A field left
-unexplained exits 1 and stops the merge, the same as a difference nobody intended in the table above. It reads no
-patient's figures and puts nothing on a ward device. It covers the seeded range in `tools/calc-compare.cjs`, so it does
-not replace the hand cases at the edges a change touches.
+Paste the report into the release PR. For a release that changes no calculation the answer is no difference. For one
+that does, name what it means to move with `--intended "<regular expression over field names>"`, usually with
+`screen:` among them, since most figures also appear there. A field left unexplained exits 1 and stops the merge, the
+same as a difference nobody intended in the table above. Exit 2 means it could not compare at all (a bad ref, or no
+order entered or submitted), which is not a pass.
+
+The orders cover one or two feeds, No TPN, oral orders and a typed dosing weight, over the ranges in the tool. It does
+not cover a reopened or revised order, the copy from yesterday's order, Quick calc or Center Point, and it never sees a
+real input, so the hand cases at the edges a change touches are still needed. It reads no patient's figures and puts
+nothing on a ward device.
 
 **Rolling back.** The rollback targets are the release tags, `release-YYYY-MM-DD-prNN`, one per release
 merge since PR #60 (§ Frontend; #172's was never pushed). List them with `git tag -l 'release-*'` or on

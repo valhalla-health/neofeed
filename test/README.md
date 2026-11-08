@@ -2207,6 +2207,7 @@ goes to 6 mL, not 7 (0.18 g/kg/h); under 0.5 mL nothing moves; the TPN pump's Ra
 
 ## Old against new, 2026-11-08 — one harness added
 
-`verify-calc-compare.cjs` (NF-42): `tools/calc-compare.cjs` on a version against itself, a planted stock strength
-(named, with its amount, exit 1), `--intended`, a version number alone, an order that cannot be entered, git refs,
-and that the release template and `REFERENCE.md` name the tool. Needs the jsdom set above; about two minutes.
+`verify-calc-compare.cjs` (NF-42): `tools/calc-compare.cjs` on a version against itself; one planted change of each kind
+the report must name (printed line, sticker, alert level, GIR colour, tile, other screen text, saved string, empty object);
+`--intended`, a version number alone, orders that cannot be entered or submitted, git refs, and that the release template
+and `REFERENCE.md` name the tool and its limits. Needs the jsdom set above; about three minutes.
