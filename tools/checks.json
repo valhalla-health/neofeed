@@ -41,6 +41,8 @@
     { "id": "tpn-answers-1027", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-tpn-answers-1027.cjs" },
     { "id": "no-tpn-1101", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-no-tpn-1101.cjs" },
     { "id": "alarm-fatigue", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-alarm-fatigue.cjs" },
+    { "id": "status-zones", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-status-zones.cjs" },
+    { "id": "safety-fixes-0923", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-safety-fixes-0923.cjs" },
     { "id": "calcmoved-unstamped", "dimension": "clinical-calculation", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-calcmoved-unstamped-1017.cjs" },
 
     { "id": "build-shells", "dimension": "build-integrity", "blocking": true, "levels": ["ci"], "phases": ["sources", "compiled"], "harness": "test/verify-build-shells.cjs" },

@@ -7,6 +7,14 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-08 (2) — NF-32, after its review
+
+Corrects the entry below: "the rest still run" holds inside one phase. A phase that fails stops the job's later steps,
+as a failing step always did, so each step's log carries the dimensions of its own phase. Also: the Stop hook's loop guard
+now runs before `tools/checks.json` is read, so a broken config cannot trap an agent; `verify-status-zones.cjs` and
+`verify-safety-fixes-0923.cjs` moved to the clinical dimension, since they pin GIR, protein and osmolarity limits;
+`tools/ci_bans.js` skips a tracked file that is deleted and not yet staged, which only a hook can meet.
+
 ## Session 2026-11-08 — One list of checks and one runner, reported per dimension (NF-32)
 
 `tools/checks.json` and `tools/run_checks.js` (new), `.github/workflows/test.yml`, `.claude/settings.json` and

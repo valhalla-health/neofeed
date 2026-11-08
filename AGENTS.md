@@ -36,7 +36,7 @@ Read before you act:
   `~\OneDrive\Desktop\PraewPP\NeoFeed\Product\` (Pp, 2026-10-11). Never add product, meeting or
   stakeholder documents here; `PRD.md` is the one product page this repo keeps.
 - **Before any PR**: `node tools/run_checks.js --level ci --phase pre`, then the harnesses your change
-  touches, or `--level ci` for all of them. It is the one command CI, the pre-commit hook and the Stop hook
+  touches, or `--level ci --phase sources` for all of them (the compiled pass needs Playwright, and CI runs it). It is the one command CI, the pre-commit hook and the Stop hook
   all call. A new check goes in `tools/checks.json` with a dimension and `blocking: true`; a harness named
   `test/verify-*.cjs` is picked up by itself. Every dimension closes the gate (Pp, 2026-11-08), and moving
   one to `false` is her call (NF-32).

@@ -142,6 +142,12 @@ const STOP = (extra = {}) => chk('a', 'clinical', 'test/verify-a.cjs', { levels:
   ok('the agent is told the dimension and the check, on stderr', /clinical/.test(blocked.err) && /\ba\b/.test(blocked.err), blocked.err);
   const none = run(root, ['--level', 'stop', '--hook', '--changed', ''], { input: '{}' });
   ok('a Stop with nothing changed runs nothing', none.code === 0 && marks(root).length === 1, { none, m: marks(root) });
+  fs.writeFileSync(path.join(root, 'checks.json'), '<<<<<<< a merge conflict');
+  const broken = run(root, ['--level', 'stop', '--hook', '--changed', 'x.txt'], { input: '{"stop_hook_active":true}' });
+  ok('a broken checks.json cannot trap an agent on its second Stop', broken.code === 0, broken);
+  const brokenFirst = run(root, ['--level', 'stop', '--hook', '--changed', 'x.txt'], { input: '{}' });
+  ok('on the first Stop it is still sent back', brokenFirst.code === 2, brokenFirst);
+  fs.writeFileSync(path.join(root, 'checks.json'), JSON.stringify(base([STOP()])));
   const commit = run(root, ['--level', 'ci']);
   ok('outside --hook a closed gate is exit 1', commit.code === 1, commit);
 }
@@ -175,7 +181,7 @@ console.log('\n── #5 the real tools/checks.json ──');
   const loose = cfg.checks.filter(c => c.blocking !== true).map(c => c.id);
   ok('every check blocks (Pp, 2026-11-08)', loose.length === 0, loose);
   const byId = Object.fromEntries(cfg.checks.map(c => [c.id, c]));
-  for (const id of ['calc-sum', 'clinical-rules', 'reference-tabs']) {
+  for (const id of ['calc-sum', 'clinical-rules', 'reference-tabs', 'status-zones', 'safety-fixes-0923']) {
     ok(`${id} is clinical, and the dimension is binary`, byId[id]?.dimension === 'clinical-calculation' && cfg.dimensions['clinical-calculation'].binary === true, byId[id]);
   }
   for (const id of ['ci-bans', 'ci-bans-self-test', 'reference-tabs', 'calc-sum', 'clinical-rules']) {

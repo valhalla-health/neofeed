@@ -2210,5 +2210,5 @@ goes to 6 mL, not 7 (0.18 g/kg/h); under 0.5 mL nothing moves; the TPN pump's Ra
 `verify-run-checks.cjs` (NF-32): `tools/run_checks.js` on made-up configs (the gate, one line per dimension and no
 average, levels and phases, a bad config refused), the loop guard and skip rules of the hooks, CI's two compiled-pass
 guards, Pp's gate in the real `tools/checks.json`, and that CI, both hooks and `AGENTS.md` call the runner. No npm
-install. To run every harness the way CI does, set `NODE_PATH` as above and run
+install. To run every harness as CI's sources pass does, set `NODE_PATH` as above and run
 `node tools/run_checks.js --level ci --phase sources`.

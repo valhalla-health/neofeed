@@ -173,6 +173,9 @@ function readHookInput() {
 
 async function main() {
   const o = parseArgs(process.argv.slice(2));
+  // Sent back once already: never loop. Before the config is read, so a broken
+  // checks.json or a deleted harness cannot trap an agent either.
+  if (o.hook && readHookInput().stop_hook_active) return 0;
   if (o.install) {
     const r = spawnSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: o.root, stdio: 'inherit' });
     process.exit(r.status === 0 ? 0 : 1);
@@ -186,7 +189,6 @@ async function main() {
   if (o.phase && !cfg.phases[o.phase]) fail2(`unknown phase "${o.phase}"`);
 
   const isCi = o.level === 'ci';
-  if (o.hook && readHookInput().stop_hook_active) return 0;   // sent back once already: never loop
   const changed = isCi ? null : changedFiles(o);
   if (changed && !changed.length) return 0;
 
