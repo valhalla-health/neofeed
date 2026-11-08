@@ -1489,6 +1489,8 @@ function doPost(e) {
     if (action === "logDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
+      // N1: a nurse's new order is a draft for a doctor to Submit.
+      if (user.role === "nurse" && (body.entry || {}).status !== "draft") return jsonOut(NURSE_SUBMIT_REFUSAL);
       var logResult = logDailyNutrition(body.sessionId, body.entry, user.email);
       // DuplicateDate carries the existing row's entryId, so a client can open
       // that entry instead of just reporting the refusal.
@@ -1500,7 +1502,8 @@ function doPost(e) {
     if (action === "updateDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
-      var updResult = updateDailyNutrition(body.sessionId, body.entryId, body.expectedLastModified, body.entry, user.email);
+      var updResult = updateDailyNutrition(body.sessionId, body.entryId, body.expectedLastModified, body.entry, user.email,
+        user.role === "nurse");
       if (updResult.error) return jsonOut(_errorBody(updResult));
       if (updResult.conflict) return jsonOut({ conflict: true, current: updResult.current });
       if (updResult.completed) _recordUsage(body.sessionId, (body.entry || {}).route);   // NF-02, as above
@@ -1520,7 +1523,8 @@ function doPost(e) {
     if (action === "publishLog") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
-      var pubResult = publishDailyLog(body.sessionId, body.entryId, user.email, body.expectedLastModified);
+      var pubResult = publishDailyLog(body.sessionId, body.entryId, user.email, body.expectedLastModified,
+        user.role === "nurse");
       if (pubResult.error) return jsonOut(_errorBody(pubResult));
       if (pubResult.conflict) return jsonOut({ conflict: true, current: pubResult.current });
       return jsonOut({ ok: true, publishedAt: pubResult.publishedAt, alreadyPublished: !!pubResult.alreadyPublished });
@@ -2268,8 +2272,18 @@ function _normStatus(v) {
 // decimal 1,484, a critical override with 8 alerts and its 300-character reason
 // 1,557. test/verify-hardening-1102.cjs §8 fails if a real save passes half this cap.
 var CALC_INPUT_MAX_CHARS = 10000;
+// The cap is on what a client sent: the server's own orderBy/orderRev/orderAt
+// stamp (_withOrderBy) is left out, so it never tips a full order over.
+var SERVER_CALC_KEYS = { orderBy: 1, orderRev: 1, orderAt: 1 };
 function _checkCalcInputSize(calcInput) {
-  var chars = JSON.stringify(calcInput || {}).length;
+  var measured = calcInput || {};
+  if (typeof measured === "object" && Object.prototype.toString.call(measured) !== "[object Array]") {
+    measured = {};
+    for (var key in calcInput) {
+      if (Object.prototype.hasOwnProperty.call(calcInput, key) && !SERVER_CALC_KEYS[key]) measured[key] = calcInput[key];
+    }
+  }
+  var chars = JSON.stringify(measured).length;
   if (chars > CALC_INPUT_MAX_CHARS) {
     throw new Error("ข้อมูลใบสั่งยาวเกินที่ระบบรับได้ (" + chars + " ตัวอักษร รับได้ไม่เกิน " + CALC_INPUT_MAX_CHARS +
       ") — รีเฟรชหน้าแล้วบันทึกใหม่ ถ้ายังไม่ได้ให้แจ้ง admin");
@@ -2753,6 +2767,7 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
     // on exactly the input that most needed catching.
     var entryId = Utilities.getUuid();
     var lastModified = new Date().toISOString();
+    entry = _withOrderBy(entry, submittedBy, 1);
     var row = _buildLogRow(sessionId, entry, submittedBy)
       .concat([_sheetSafe(JSON.stringify(entry.calcInput || {})), entryId, lastModified, _sheetSafe(submittedBy || "")])
       .concat(_ioLogFields(entry))
@@ -2790,12 +2805,132 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
   }
 }
 
+// ── N1: only a doctor submits a doctor's order (stakeholder walk, 2026-11-07) ──
+// The walk signed in as a nurse, pressed Submit on an order NeoFeed had held
+// for a new save, and the TPN room then listed the nurse as its saver. Pp,
+// 2026-11-07: while the nursing log is off (_nursingEnabled; with it on a nurse
+// writes no order at all), a nurse account records Intake/Output through the
+// order, and that is all it may change: "บันทึกได้แค่ I/O". The backend refuses
+// the rest because it otherwise trusts the client (BACKLOG, the 2026-10-08
+// outside review). The words are the calculator's NURSE_SUBMIT_TEXT.
+var NURSE_SUBMIT_REFUSAL = {
+  error: "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O",
+  code: "DoctorSubmits",
+};
+// calcInput keys a nurse's save may change, or that every save writes anew
+// without being part of the order: the three I/O boxes, the save's time and
+// saver label, and figures derived from the order (stops, the sticker marker,
+// replacesTpn, printedFigures, a draft's blank-box list).
+var IO_FREE_CALC_KEYS = { ioInput: 1, ioOutput: 1, drainContent: 1, savedAt: 1, savedByLabel: 1,
+  stops: 1, replacesTpn: 1, printJsonV: 1, printedFigures: 1, blankFields: 1, orderBy: 1, orderRev: 1, orderAt: 1 };
+// Whose order a row is: calcInput.orderBy, the account that last changed it
+// beyond I/O, with that save's revision number (orderRev) and time (orderAt).
+// The server stamps them on every save but a nurse's I/O-only one, which keeps
+// the stored values (_ioOnlyEntryFrom), so I/O never makes a doctor's draft a
+// nurse's (Vera's third review, 2026-11-07), and the printed "Revision · ฉบับที่"
+// and the TPN room's "ฉบับ" count only saves that changed the order (workflow
+// check, 2026-11-07). A row from before falls back to its last saver (AB), then P.
+function _orderByOf(cur) {
+  var ci = _parseJson(cur[24], null);
+  var by = ci && typeof ci === "object" && typeof ci.orderBy === "string" ? ci.orderBy : "";
+  return String(by || cur[27] || cur[15] || "").trim().toLowerCase();
+}
+// Whose draft it is, for N1's rule, failing closed (Vera's fourth review): a row
+// saved before orderBy is the account that both created and last saved it, and
+// "" (no one's, so a nurse may change only I/O) when those differ.
+function _draftOwnerOf(cur) {
+  var ci = _parseJson(cur[24], null);
+  if (ci && typeof ci === "object" && typeof ci.orderBy === "string" && ci.orderBy) return ci.orderBy.trim().toLowerCase();
+  var p = String(cur[15] || "").trim().toLowerCase(), ab = String(cur[27] || "").trim().toLowerCase();
+  return !ab || ab === p ? p : "";
+}
+// The order's own revision on a row: orderRev, else (a row from before it) its
+// row number.
+function _orderRevOf(cur) {
+  var ci = _parseJson(cur[24], null);
+  return (ci && typeof ci === "object" ? _numSafe(ci.orderRev, 0) : 0) || _numSafe(cur[35], 1);
+}
+function _withOrderBy(entry, by, rev) {
+  entry = entry || {};
+  // Only a calcInput that is an object takes the stamp: anything else is left for
+  // _validateLogEntry to measure and refuse exactly as before.
+  var ci = entry.calcInput;
+  if (!ci || typeof ci !== "object" || Object.prototype.toString.call(ci) === "[object Array]") return entry;
+  return Object.assign({}, entry, { calcInput: Object.assign({}, ci, {
+    orderBy: String(by || "").trim().toLowerCase(), orderRev: rev, orderAt: new Date().toISOString() }) });
+}
+// One text per value whatever its key order, so two saves of one order compare equal.
+function _canonicalJson(v) {
+  if (v === null || typeof v !== "object") return JSON.stringify(v === undefined ? null : v);
+  if (Object.prototype.toString.call(v) === "[object Array]") {
+    var parts = [];
+    for (var i = 0; i < v.length; i++) parts.push(_canonicalJson(v[i]));
+    return "[" + parts.join(",") + "]";
+  }
+  var keys = Object.keys(v).sort(), out = [];
+  for (var k = 0; k < keys.length; k++) {
+    if (v[keys[k]] === undefined) continue;
+    out.push(JSON.stringify(keys[k]) + ":" + _canonicalJson(v[keys[k]]));
+  }
+  return "{" + out.join(",") + "}";
+}
+function _orderWithoutIo(ci) {
+  var o = {};
+  for (var key in ci) {
+    if (Object.prototype.hasOwnProperty.call(ci, key) && !IO_FREE_CALC_KEYS[key]) o[key] = ci[key];
+  }
+  return _canonicalJson(o);
+}
+// True when `entry` changes nothing of the submitted row `cur` but its I/O, on
+// the same constants: an order the app holds (calculation moved, dosing weight
+// moved) differs in constantsVersion or tpnWtG and is refused here.
+function _ioOnlyRevision(cur, entry) {
+  entry = entry || {};
+  if (entry.status === "draft") return false;
+  return _ioOnlyChange(cur, entry);
+}
+// The same order as `cur` apart from I/O, on the same constants, whatever status
+// the entry asks for.
+function _ioOnlyChange(cur, entry) {
+  entry = entry || {};
+  if (String(entry.constantsVersion || "") !== String(cur[31] || "")) return false;
+  var was = _parseJson(cur[24], null), now = entry.calcInput;
+  if (!was || typeof was !== "object" || !now || typeof now !== "object") return false;
+  return _orderWithoutIo(was) === _orderWithoutIo(now);
+}
+
+// The entry a nurse's I/O save writes over the submitted row `cur`: every
+// column as stored, the I/O figures from her calcInput (cells AC–AE too) and
+// its save time. Keeps the date updateDailyNutrition set.
+function _ioOnlyEntryFrom(cur, entry, status) {
+  var sent = (entry && entry.calcInput) || {};
+  var ci = _parseJson(cur[24], {}) || {};
+  var stored = _parseJson(cur[24], {}) || {};
+  ci.orderBy = _orderByOf(cur);
+  ci.orderRev = _orderRevOf(cur);
+  ci.orderAt = typeof stored.orderAt === "string" && stored.orderAt ? stored.orderAt : String(cur[26] || "");
+  ci.ioInput = sent.ioInput; ci.ioOutput = sent.ioOutput; ci.drainContent = sent.drainContent;
+  if (sent.savedAt) ci.savedAt = sent.savedAt;
+  // Plain text: _buildLogRow and _provenanceFields escape it on the way in.
+  var str = function (v) { return String(v == null ? "" : v); };
+  return {
+    ts: entry.ts, dol: cur[2], weight: cur[3], fluid: cur[4], gir: cur[5], pro: cur[6], kcal: cur[7],
+    na: cur[8], k: cur[9], ca: cur[10], p: cur[11], enVolPerKg: cur[12], route: str(cur[13]), status: status,
+    suppMTV: cur[16], suppVitD_IU: cur[17], suppCa_mg: cur[18], suppCaType: str(cur[19]),
+    suppPO4_mmol: cur[20], suppPO4Type: str(cur[21]), suppFe_mg: cur[22], suppFeType: str(cur[23]),
+    // AC–AE from the same three figures, so the cells and the reopened order agree.
+    calcInput: ci, ioInput: sent.ioInput, ioOutput: sent.ioOutput, drainContent: sent.drainContent,
+    constantsVersion: str(cur[31]), appVersion: str(cur[32]),
+    printJson: _parseJson(cur[38], null),
+  };
+}
+
 // ── updateDailyNutrition (optimistic-locked update by entryId) ─
 // Rejects the write (rather than overwriting) if the row's lastModified has
 // moved on since the client last fetched it — a concurrent edit from another
 // device. submittedBy (col 16, the original creator) is preserved as-is;
 // only lastModified/lastModifiedBy (col 27/28) track the editor.
-function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, editedBy) {
+function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, editedBy, nurseIoOnly) {
   if (!_requiredString(entryId)) return { error: "entryId is required" };
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
   var lock = LockService.getScriptLock();
@@ -2830,6 +2965,41 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       } };
     }
 
+    // The revision number this save will carry: a submitted or locked row is
+    // revised (below), a draft is written in place (orderBy stamp).
+    // Counted on the order's own revisions, so a nurse's I/O rows in between are
+    // not counted (Pp: an I/O edit is not a numbered version; Vera's fourth review).
+    var orderRevNext = (cur[33] || String(cur[14] || "").trim().toLowerCase() !== "draft")
+      ? _orderRevOf(cur) + 1 : _orderRevOf(cur);
+
+    // N1: a nurse's write (see NURSE_SUBMIT_REFUSAL). On a draft it stays a
+    // draft; on a submitted order it is Intake/Output only, on the constants the
+    // order was computed with, and stays submitted (a draft revision would take
+    // the order out of the TPN room).
+    if (nurseIoOnly) {
+      // By column O alone: a draft someone locked (AH) is still a draft, and a
+      // nurse's save on it stays one (Vera's second review).
+      var curSubmitted = String(cur[14] || "").trim().toLowerCase() !== "draft";
+      // A draft another account saved, unless that account is a nurse's: I/O only
+      // as well (Pp, 2026-11-07, "ได้แค่ I/O เหมือนกัน"), so a doctor's later Submit
+      // never signs figures a nurse typed. An account the Staff tab does not know
+      // counts as not a nurse.
+      var draftSaver = _draftOwnerOf(cur);
+      var me = String(editedBy || "").trim().toLowerCase();
+      var saverRow = draftSaver && draftSaver !== me ? getStaffRow(draftSaver) : null;
+      var othersDraft = !curSubmitted && draftSaver !== me
+        && !(saverRow && _staffRole(saverRow.data[1]) === "nurse");
+      var nurseRefused = curSubmitted ? !_ioOnlyRevision(cur, entry)
+        : (entry || {}).status !== "draft" || (othersDraft && !_ioOnlyChange(cur, entry));
+      if (nurseRefused) return { error: NURSE_SUBMIT_REFUSAL.error, code: NURSE_SUBMIT_REFUSAL.code };
+      // Written from the stored row, its orderBy kept.
+      if (curSubmitted) entry = _ioOnlyEntryFrom(cur, entry, "submitted");
+      else if (othersDraft) entry = _ioOnlyEntryFrom(cur, entry, "draft");
+      else entry = _withOrderBy(entry, editedBy, orderRevNext);
+    } else {
+      entry = _withOrderBy(entry, editedBy, orderRevNext);
+    }
+
     // An edit keeps the row's own calendar date. `entry.ts` from the client
     // is ignored here: accepting it let an update move an entry onto a date
     // that already had one, bypassing logDailyNutrition's one-row-per-date
@@ -2857,6 +3027,10 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     // " draft" typed into the Sheet by hand reads as a draft, as the client
     // reads it (data.js isDraftEntry).
     if (cur[33] || String(cur[14] || "").trim().toLowerCase() !== "draft") {
+      // A nurse's I/O save (checked above) is written from the stored row, not from
+      // what her client sent: its figure columns and sticker figures stay the
+      // doctor's, whatever a modified client puts beside an unchanged calcInput
+      // (Vera on this change, 2026-11-07).
       var newEntryId = Utilities.getUuid();
       var nextRevisionNumber = _numSafe(cur[35], 1) + 1;
       var revisionRow = _buildLogRow(sessionId, entry, originalSubmittedBy)
@@ -2955,7 +3129,7 @@ function _removeAppendedRevision(sheet, newEntryId) {
 // match, or someone else's later save would be locked under the submitter's
 // name. A superseded row can't be submitted, and re-submitting an already
 // published row is a no-op rather than a silent overwrite of who/when.
-function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) {
+function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified, nurseIoOnly) {
   if (!_requiredString(entryId)) return { error: "entryId is required" };
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
   if (!expectedLastModified) return { error: "expectedLastModified is required" };
@@ -2970,6 +3144,12 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
     var cur = hit.data;
     if (String(cur[1]) !== String(sessionId)) return { error: "บันทึกนี้ไม่ตรงกับผู้ป่วยรายนี้" };
     if (cur[37]) return { error: "รายการนี้มีฉบับแก้ไขใหม่แล้ว — เปิดฉบับล่าสุดก่อนส่ง" };
+    // N1: a nurse locks nothing. Submit is a signature on specific numbers: a
+    // lock on a draft read as submitted to her next save (Vera's second review),
+    // and one on a doctor's submitted order set the TPN room's "Submit" time to
+    // hers (pen test, 2026-11-07). Her I/O revision stays unlocked; a submitted
+    // row is revised all the same.
+    if (nurseIoOnly) return { error: NURSE_SUBMIT_REFUSAL.error, code: NURSE_SUBMIT_REFUSAL.code };
     if (cur[33]) return { ok: true, alreadyPublished: true, publishedAt: String(cur[33]) };
     var currentLastModified = String(cur[26] || "");
     if (currentLastModified !== String(expectedLastModified)) {
@@ -3108,13 +3288,34 @@ function pharmacyOrders(dateKey) {
     if (_onUnitStatus(pat[i][9])) active++;
   }
   var staff = getSheetStaff().getDataRange().getValues();
-  var staffName = {};
+  var staffName = {}, staffIsNurse = {};
   for (var s = 1; s < staff.length; s++) {
+    var email = String(staff[s][0] || "").trim().toLowerCase();
     var name = String(staff[s][2] || "").trim();
-    if (name && name.indexOf("@") === -1) staffName[String(staff[s][0] || "").trim().toLowerCase()] = name;
+    if (name && name.indexOf("@") === -1) staffName[email] = name;
+    if (_staffRole(staff[s][1]) === "nurse") staffIsNurse[email] = true;
   }
   var orders = [], submitted = 0, drafts = 0;
   var rows = _pharmacyLogRows(sheet, dateKey);
+  var byEntryId = {};
+  for (var b = 0; b < rows.length; b++) byEntryId[String(rows[b][25] || "")] = rows[b];
+  // AB (lastModifiedBy), else P (submittedBy) for a row from before AB.
+  var saverOf = function (row) { return String(row[27] || row[15] || "").trim().toLowerCase(); };
+  // Who submitted a submitted order (P1, stakeholder walk 2026-11-07): a revision a
+  // nurse saved with only its I/O changed (_ioOnlyRevision) names the account that
+  // submitted the order before it. Any other row names its own saver. `ids` are the
+  // entryIds walked, the current row's first: every one of them carries the same bag,
+  // so a print of any of them is not "changed after print" (tpn-room-core.js).
+  var submitterRow = function (row) {
+    var ids = [String(row[25] || "")];
+    for (var hops = 0; hops < 50 && staffIsNurse[saverOf(row)]; hops++) {
+      var prev = byEntryId[String(row[36] || "")];
+      if (!prev || !_ioOnlyRevision(prev, { constantsVersion: String(row[31] || ""), calcInput: _parseJson(row[24], null) })) break;
+      row = prev;
+      ids.push(String(row[25] || ""));
+    }
+    return { row: row, ids: ids };
+  };
   if (rows.length) {
     for (var r = 0; r < rows.length; r++) {
       var row = rows[r];
@@ -3123,8 +3324,10 @@ function pharmacyOrders(dateKey) {
       if (row[37]) continue;   // superseded by a later revision
       var isDraft = String(row[14] || "").trim().toLowerCase() === "draft";
       if (isDraft) drafts++; else submitted++;
-      // AB (lastModifiedBy), else P (submittedBy) for a row from before AB.
-      var saver = String(row[27] || row[15] || "").trim().toLowerCase();
+      var walked = isDraft ? { row: row, ids: [String(row[25] || "")] } : submitterRow(row);
+      var signer = walked.row;
+      // A draft names whose order it is (orderBy), not a nurse who added I/O to it.
+      var saver = isDraft ? _orderByOf(row) : saverOf(signer);
       var prescriber = Object.prototype.hasOwnProperty.call(staffName, saver) ? staffName[saver] : "";
       var rowSid = String(row[1] || "");
       orders.push({
@@ -3136,10 +3339,13 @@ function pharmacyOrders(dateKey) {
         multiplesCount: setOf[rowSid] || 0,
         dol: _numSafe(row[2], 0),
         status: isDraft ? "draft" : "submitted",
-        revision: _numSafe(row[35], 1),
+        // The revision that changed the order: a nurse's I/O-only revision keeps the
+        // number pharmacy already has (workflow check, 2026-11-07).
+        revision: _numSafe((_parseJson(row[24], {}) || {}).orderRev, 0) || _numSafe(signer[35], 1),
         prescriber: prescriber,
         savedAt: _pharmacyTime(row[26]),
-        submittedAt: _pharmacyTime(row[33]),
+        submittedAt: _pharmacyTime(signer[33]),
+        sameBagEntryIds: walked.ids.filter(function (id) { return PHARMACY_UUID.test(id); }),
         printJson: isDraft ? null : _parseJson(row[38], null),
       });
     }

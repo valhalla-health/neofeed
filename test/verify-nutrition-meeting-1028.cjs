@@ -240,7 +240,9 @@ function typeOrder(extra = {}) {
   });
 
   await section('§6 a revision prints "Revision" at the top right of the doctor\'s sheet', async () => {
-    mount({ ...recorder(), editEntry: reopened({ revisionNumber: 2, revisionOf: 'e1' }) });
+    // A revision as the server stores it: since 2026-11-07 it stamps the order's own revision in calcInput.orderRev
+    // (a nurse's I/O rows do not count), and the sheet reads that.
+    mount({ ...recorder(), editEntry: reopened({ revisionNumber: 2, revisionOf: 'e1', calcInput: { ...saved.calcInput, orderRev: 2 } }) });
     const tag = printForm()?.querySelector('.print-revision');
     ok('the order form is on the page', !!printForm());
     ok('it carries a revision mark', !!tag);

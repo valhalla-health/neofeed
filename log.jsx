@@ -640,7 +640,7 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
                           ? <span className="chip"><span className="d" />กำลังบันทึก…</span>
                           : <span className={`chip${D_L.isDraftEntry(e) ? " warn" : " ok"}`}>
                               <span className="d" />{D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit"
-                                : Number(e.revisionNumber) > 1 ? "Submitted · ฉบับแก้ไข" : "Submitted"}
+                                : Number(e.calcInput?.orderRev || e.revisionNumber) > 1 ? "Submitted · ฉบับแก้ไข" : "Submitted"}
                             </span>}
                       </td>
                       {onDeleteEntry && (

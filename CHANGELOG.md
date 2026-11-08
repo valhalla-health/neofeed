@@ -7,6 +7,91 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-07 (3) — Stakeholder walk: only a doctor submits a doctor's order; a held order lists what changed; Quick calc opens with no route
+
+`calculator.jsx`, `app.jsx`, `log.jsx`, `gas-backend.gs`, `tpn-room.jsx`, `tpn-room-core.js`, `compiled/`, both shells' `?v=`
+tokens and `tpn-room.html`; `test/verify-walk-1107.cjs` (new), and six harnesses that pinned the old behaviour:
+`verify-pharmacy-backend-1030.cjs` (§9's nurse save is a draft; the order's field list), `verify-nursing-backend.cjs`
+(a nurse's order with the switch off is a draft), `verify-hardening-1102.cjs` §5 and §8 and `verify-nutrition-meeting-1028.cjs` §6 (the server stamp), `verify-incident-gaps-1021.cjs` §6 (the quick calc started on
+Central) and `verify-tpn-room-page-1105.cjs` ("Submit โดย"). The clinical-rules skill's line numbers moved
+(`--fix-lines`); no rule changed.
+
+A Playwright walk on 2026-11-07 used the app as each of its users, with made-up infants on dev local. Pp picked three
+of its findings for before the 16 Nov ward start; the print-sheet gaps (osmolarity value, aqueous rate, feeds on the
+front) wait until after it.
+
+1. **N1 / P1: a nurse account re-submitted an order NeoFeed had held, and the TPN room then named the nurse.** Signed
+   in as a nurse, Submit on a held order saved at once, with seven alerts showing, and the room read "ฉบับ 2 · บันทึกโดย
+   Nurse Dev". The nursing log is off (`NURSING_LOG_ENABLED`), so a nurse still records Intake/Output by saving the
+   order, and D5's refusal of nurse order writes does not apply. Pp chose (2026-11-07, all three in Thai): a nurse saves
+   **Intake/Output only** on a doctor's order; the **backend refuses too**; the words are "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด
+   Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O".
+   - Calculator (`nurseAccount`, from `app.jsx`'s role): a nurse's Submit is refused, with that line above the button
+     and as a toast, on a new order, a draft, an order where anything but the three I/O boxes changed
+     (`orderKeyWithoutIo`), and an order the app holds: the calculation or dosing weight moved, a critical value nobody
+     confirmed, no sticker figures yet. A nurse is never shown the critical-value prompt; her I/O save keeps the
+     doctor's confirmation as saved. Save draft stays for a new order or a draft. A doctor's Submit is unchanged.
+   - Backend: `logDailyNutrition` takes only a draft from a nurse; `updateDailyNutrition` keeps a nurse's save on a
+     draft a draft, and on a submitted order takes it only when its `calcInput` is the same order apart from I/O and
+     the keys every save writes anew (`IO_FREE_CALC_KEYS`), on the same `constantsVersion` (`_ioOnlyRevision`). The
+     revision it then writes comes from the stored row (`_ioOnlyEntryFrom`): every figure column, the sticker figures
+     (AM) and `calcInput` as the doctor saved them, with only the three I/O figures and the save time from the nurse.
+     Vera's 🔴 on the first version: it compared `calcInput` and wrote the client's figure columns and `printJson`, so
+     a modified client could change a sticker under the doctor's name. Her second review found another way in: a
+     nurse's `publishLog` locked a doctor's draft, and her next save read the lock as "submitted". A pen test on dev
+     local the same day found the other half: her lock on a doctor's submitted order set the TPN room's "Submit" time
+     to hers. Now a nurse locks nothing (`publishDailyLog` refuses her; the calculator neither locks after her save nor
+     offers Submit with nothing changed), and a nurse's save reads a row as submitted by its status column alone.
+   - **A doctor's draft, too** (Pp, 2026-11-07, after Vera asked: "ได้แค่ I/O เหมือนกัน"): on a draft another account
+     saved, unless the Staff tab lists that account as a nurse, a nurse's Save draft may change only I/O, on the same
+     calculation and dosing weight, and the backend writes it from the stored row. Her own draft she may change freely.
+     Whose draft it is reads `calcInput.orderBy`, which the server stamps on every save except a nurse's I/O-only
+     one, so her I/O save never makes a doctor's draft hers (Vera's third review: it read the row's last saver, and
+     her second save could change any dose). A row from before is its creator's only when the same account last saved
+     it, and no one's otherwise, so a nurse may change only I/O on it (Vera's fourth review: it fell back to the last
+     saver, which a nurse's pre-deploy I/O save had made her). The calculator reads
+     the same `orderBy` but does not know roles, so it is stricter than the backend in one case: it also holds a
+     colleague nurse's draft to I/O only.
+   - **An I/O save is not a new ฉบับ** (a workflow check on dev local, then Pp: "IO ... ไม่เกี่ยวกับใบสั่ง TPN ... ไม่น่าจะ
+     ต้องไปเรคคอร์ดว่าเป็นฉบับที่เท่าไหร่"). Each nurse I/O save still adds a history row to Daily_Log, but the server
+     stamps with `orderBy` the revision and time of the save that changed the order (`orderRev`, `orderAt`), and a
+     nurse's I/O save keeps them. The front sheet's "Revision · ฉบับที่", the Save card's "บันทึกโดย", the ward list's
+     "ฉบับแก้ไข" and the TPN room's "ฉบับ" read them, so twice-daily I/O no longer prints "Revision · ฉบับที่ 3" or
+     names the nurse. `orderRev` counts the order's own revisions, so a doctor's change after two I/O saves is
+     ฉบับ 2, not the row number 4 (Vera's fourth review). One legacy gap stays: on a chain whose nurse I/O rows were
+     saved before this deploy, the room (which walks back to the doctor's row) and the sheet (the row number) can
+     show different numbers until a doctor next saves; the bag is the same. The room names whose order a draft is
+     the same way. The stamp is left out of the
+     10,000-character `calcInput` cap, and only an object `calcInput` takes it (`verify-hardening-1102.cjs` measures
+     what the client sent).
+   - **I/O on a held order** (same check and Pp's words): a nurse could record no I/O on an order NeoFeed held for a
+     doctor, which on release day is every order submitted before it. Now she can. The calculator sends the order as
+     stored with her I/O (`storedOrderWithIo`), the server writes the stored row, and the order stays held, with the
+     line saying a doctor must check and Submit it.
+   - TPN room: `pharmacyOrders` names who submitted. A nurse's I/O-only revision names the account and the Submit time
+     of the row before it (walking `revisionOf`, at most 50 rows); a revision a nurse saved with anything else changed
+     (possible before this backend) still names the nurse. The room page reads "Submit โดย" for a submitted order and
+     "บันทึกโดย" for a draft. Each order also carries `sameBagEntryIds`, the rows that walk passed, so a nurse's I/O save
+     after the room printed no longer reads "หมอแก้ order หลังพิมพ์" (`tpn-room-core.js` `sameBag`, Vera's 🟠), and the
+     print-time recheck lets it through.
+   - **Deploy the backend first.** The old frontend against the new backend: a nurse's I/O save still lands (its
+     `calcInput` carries no `printedFigures`, which the comparison skips anyway), and every other nurse Submit is
+     refused with the same Thai line as a toast. The new frontend against the old backend refuses in the app only.
+2. **Top insight 3: a held order said "ตัวเลขบางรายการเปลี่ยน" and not which.** Every save now keeps the figures the
+   front sheet prints, as printed (`calcInput.printedFigures`, 37 figures, about 550 characters; the fullest order with
+   a confirmed critical value is about 2,600 of the backend's 10,000). An order held because the calculation or the
+   dosing weight moved lists each figure that changed, old → new, under the hold, and nothing else. A first version
+   added one line per NeoFeed version since the order's and a note on what was compared; Pp, on the dev-local
+   screenshot: "พวกคำบรรยายพวกนี้ไม่ต้องโชว์ได้ไหม", so both are gone. With nothing changed it reads "ตัวเลข TPN บน
+   ใบสั่งนี้ไม่เปลี่ยน" (Vera's 🟡: the oral lines under "8. Other" are not in the list). An order saved before this
+   release has only the Daily_Log columns to compare (Fluid, GIR, Protein, Energy, Na, K, Ca, P, EN). Print ทั้งหมด's
+   list of held orders carries the same changes in its reason. No figure moves, so `CONSTANTS_VERSION` stays.
+3. **D13: Quick calc opened with Central pressed.** Its prefill passed no route, and `normalizeCalcInput` reads a
+   missing route as the old default, Central. It passes `route: null`, so it opens like a patient's first order.
+
+**Not checked:** a real nurse account on the live backend, and the new page on a ward phone. The room page's
+"Submit โดย" assertion is a browser section, which runs in CI's compiled pass only.
+
 ## Session 2026-11-07 (2) — QI export, pseudonymized inside Apps Script
 
 `gas-backend.gs` (a new section after `logAudit`, and four `NON_USAGE_AUDIT_ACTIONS`), the new

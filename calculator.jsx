@@ -234,6 +234,122 @@ function diffOrderInputs(prev, cur) {
   return out;
 }
 
+// N1 (stakeholder walk, 2026-11-07; Pp: "บันทึกได้แค่ I/O"): while the nursing
+// log is off, a nurse account records Intake/Output through the order itself, so
+// on a doctor's order it may save those three boxes and nothing else. Any other
+// Submit, or a re-save of an order the app holds, goes back to a doctor. The
+// backend refuses the same writes in the same words (gas-backend.gs
+// NURSE_SUBMIT_REFUSAL), so the two must stay identical.
+const NURSE_SUBMIT_TEXT = "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O";
+// The fingerprint of an order without its Intake/Output: equal before and after
+// a nurse's save, or the nurse changed more than I/O.
+const orderKeyWithoutIo = (inputs) => calcInputKey({ ...inputs, ioInput: 0, ioOutput: 0, drainContent: 0 });
+
+// Top insight 3 (stakeholder walk, 2026-11-07): an order held because NeoFeed's
+// calculation or the dosing weight moved since it was saved lists each figure
+// that changed, old against new, before anyone saves it again (Pp: "เก็บทุกตัว
+// จากนี้ไป"). Every save keeps these figures, as printed (the same decimals as
+// the front sheet, as strings), in calcInput.printedFigures; the held order
+// compares them with the figures it would print now. A key added here later is
+// skipped for rows saved before it. Not an input: normalizeCalcInput ignores it.
+const PRINTED_FIGURES = [
+  ["wtKg", "Weight for calculation", "kg", 2, (x) => x.wtKg],
+  ["deliveredMl", "TPN delivered", "mL/day", 1, (x) => x.totalTPN_mL],
+  ["preparedMl", "TPN prepared", "mL/day", 1, (x) => x.calc.preparedVol],
+  ["dexG", "Dextrose in bag", "g", 1, (x) => x.calc.dexG_bag],
+  ["dexGkg", "Dextrose", "g/kg/d", 2, (x) => x.calc.dexGPerKg],
+  ["d50wMl", "D50W", "mL", 1, (x) => x.calc.d50wVol],
+  ["aaMl", "Amino acid", "mL", 1, (x) => x.calc.solVol?.aa],
+  ["lipidMl", "20% SMOF", "mL", 1, (x) => x.calc.solVol?.lipidSMOF],
+  ["vitalipidMl", "Vitalipid N infant", "mL", 1, (x) => x.calc.vitalipidVol],
+  ["lipidBagMl", "Lipid syringe total", "mL", 1, (x) => x.calc.lipidBagVol],
+  ["lipidRate", "Lipid pump rate", "mL/hr", 1, (x) => x.lipidPump?.rate],
+  ["lipidHours", "Lipid infusion", "h", 1, (x) => x.lipidPump?.hours],
+  ["lipidGkgh", "Lipid", "g/kg/h", 2, (x) => x.lipidPerKg > 0 ? window.NEOFEED_DATA.lipidGkghAt(x.lipidPerKg, x.calc.lipidBagVol, x.lipidDripHours || 24) : 0],
+  ["naClMeq", "20% NaCl", "mEq", 1, (x) => x.naCl * (x.calc.factor || 0)],
+  ["naClMl", "20% NaCl", "mL", 1, (x) => x.calc.solVol?.naCl],
+  ["naAcetMeq", "Na acetate", "mEq", 1, (x) => x.naAcet * (x.calc.factor || 0)],
+  ["naAcetMl", "Na acetate", "mL", 1, (x) => x.calc.solVol?.naAcet],
+  ["glycophosMl", "Glycophos", "mL", 1, (x) => x.calc.solVol?.glycophos],
+  ["naKg", "Na", "mEq/kg/d", 2, (x) => x.calc.naKg],
+  ["k2hpo4Meq", "K₂HPO₄", "mEq", 1, (x) => x.k2hpo4 * (x.calc.factor || 0)],
+  ["k2hpo4Ml", "K₂HPO₄", "mL", 1, (x) => x.calc.solVol?.k2hpo4],
+  ["kClMeq", "KCl", "mEq", 1, (x) => x.kCl * (x.calc.factor || 0)],
+  ["kClMl", "KCl", "mL", 1, (x) => x.calc.solVol?.kCl],
+  ["mgMg", "MgSO₄", "mg", 1, (x) => x.mgPerKg * window.NEOFEED_DATA.MG_MG_PER_MEQ * (x.calc.factor || 0)],
+  ["mgMl", "MgSO₄ 10%", "mL", 1, (x) => x.calc.solVol?.mg],
+  ["caMg", "Ca gluconate", "mg", 0, (x) => x.caPerKg * (x.calc.factor || 0)],
+  ["caMl", "10% Ca gluconate", "mL", 1, (x) => x.calc.solVol?.ca],
+  ["soluvitMl", "Soluvit N", "mL/day", 1, (x) => x.inclSoluvit ? x.calc.soluvitVol : 0],
+  ["peditraceMl", "Peditrace", "mL/day", 1, (x) => x.inclPeditrace ? x.calc.peditrace_vol : 0],
+  ["znMg", "ZnSO₄", "mg Zn", 2, (x) => x.znPerKg > 0 ? x.calc.znSO4_bag_mg : 0],
+  ["heparinMl", "Heparin", "mL", 1, (x) => x.calc.solVol?.heparin],
+  ["factor", "Factor", "", 3, (x) => x.calc.factor],
+  ["gir", "GIR", "mg/kg/min", 1, (x) => x.calc.gir],
+  ["protein", "Protein", "g/kg/d", 2, (x) => x.calc.proteinKg],
+  ["kcal", "Energy", "kcal/kg/d", 0, (x) => x.calc.kcalKg],
+  ["osm", "Osmolarity", "mOsm/L", 0, (x) => x.calc.osm],
+  ["kBag", "K⁺ in bag", "mEq/L", 0, (x) => x.calc.kMeqPerL],
+];
+// A figure as the sheet prints it: "—" when there is none (PrintOrderForm's f).
+const printedFigureText = (v, d) => (isFinite(v) && v > 0) ? window.NEOFEED_DATA.displayNum(v, d) : "—";
+function printedFiguresOf(x) {
+  const out = {};
+  for (const [key, , , d, get] of PRINTED_FIGURES) out[key] = printedFigureText(get(x), d);
+  return out;
+}
+// The Daily_Log columns every row has carried, for an order saved before
+// printedFigures existed: the only old figures there are to compare.
+const STORED_FIGURES = [
+  ["fluid", "Fluid", "mL/kg/d", 1, (c) => c.totalFluidPerKg],
+  ["gir", "GIR", "mg/kg/min", 1, (c) => c.gir],
+  ["pro", "Protein", "g/kg/d", 2, (c) => c.proteinKg],
+  ["kcal", "Energy", "kcal/kg/d", 0, (c) => c.kcalKg],
+  ["na", "Na", "mEq/kg/d", 2, (c) => c.naTotalDelivered],
+  ["k", "K", "mEq/kg/d", 2, (c) => c.kTotalDelivered],
+  ["ca", "Ca", "mg/kg/d", 0, (c) => c.caKg],
+  ["p", "P", "mg/kg/d", 0, (c) => c.pKg],
+  ["enVolPerKg", "EN", "mL/kg/d", 1, (c) => c.enVolPerKg],
+];
+// → { basis: "printed" | "stored", changes: [{ label, from, to, unit }] }
+function heldFigureChanges(entry, x) {
+  const saved = entry?.calcInput?.printedFigures;
+  const changes = [];
+  if (saved && typeof saved === "object") {
+    const now = printedFiguresOf(x);
+    for (const [key, label, unit] of PRINTED_FIGURES) {
+      if (typeof saved[key] !== "string" || saved[key] === now[key]) continue;
+      changes.push({ label, from: saved[key], to: now[key], unit });
+    }
+    return { basis: "printed", changes };
+  }
+  for (const [key, label, unit, d, get] of STORED_FIGURES) {
+    const from = printedFigureText(Number(entry?.[key]), d), to = printedFigureText(get(x.calc), d);
+    if (from !== to) changes.push({ label, from, to, unit });
+  }
+  return { basis: "stored", changes };
+}
+// A nurse's I/O save on another account's order (N1) sends the order as stored,
+// with only her Intake/Output and the save's time: the server writes the stored
+// row whatever else is sent (gas-backend.gs _ioOnlyEntryFrom), and the ward's own
+// copy then matches it until the next sync. An order the app holds for a doctor
+// (calculation or dosing weight moved) stays held: Pp, 2026-11-07, "IO ... ไม่
+// เกี่ยวกับใบสั่ง TPN", so I/O is recorded on it all the same.
+const STORED_ORDER_FIELDS = ["dol", "weight", "fluid", "gir", "pro", "kcal", "na", "k", "ca", "p", "enVolPerKg", "route",
+  "suppMTV", "suppVitD_IU", "suppCa_mg", "suppCaType", "suppPO4_mmol", "suppPO4Type", "suppFe_mg", "suppFeType"];
+function storedOrderWithIo(saved, e) {
+  const out = { ts: e.ts, status: e.status, ioInput: e.ioInput, ioOutput: e.ioOutput, drainContent: e.drainContent };
+  for (const k of STORED_ORDER_FIELDS) out[k] = saved?.[k] !== undefined ? saved[k] : e[k];
+  const ci = e.calcInput || {};
+  out.calcInput = { ...(saved?.calcInput || {}), ioInput: ci.ioInput, ioOutput: ci.ioOutput, drainContent: ci.drainContent,
+    savedAt: ci.savedAt, orderBy: ci.orderBy, orderRev: ci.orderRev, orderAt: ci.orderAt };
+  out.constantsVersion = saved?.calcInput?.constantsVersion || saved?.constantsVersion || "";
+  out.appVersion = saved?.appVersion || "";
+  out.printJson = null;
+  return out;
+}
+const heldChangeLine = (c) => `${c.label} ${c.from} → ${c.to}${c.unit ? " " + c.unit : ""}`;
+
 // Unsaved work survives a forced logout (session expiry mid-save) — 2026-09-11
 // review, F3. Keyed per patient AND per order date, so it can never be offered
 // on a different day's order. Cleared on a successful save and on deliberate
@@ -263,8 +379,10 @@ function draftOwnerOf(userEmail, userLabel) {
 // calcInput.savedByLabel. That name is shown only while its email is the row's
 // — lastModifiedBy, else submittedBy — so it can never sit on someone else's
 // save. Otherwise, and on rows saved before names were kept, the email alone.
+// Since 2026-11-07 the row's order is calcInput.orderBy's (gas-backend.gs
+// _orderByOf), so a nurse's I/O save does not put her name on a doctor's order.
 function savedByOf(entry) {
-  const email = String(entry?.lastModifiedBy || entry?.submittedBy || "").trim();
+  const email = String(entry?.calcInput?.orderBy || entry?.lastModifiedBy || entry?.submittedBy || "").trim();
   const label = String(entry?.calcInput?.savedByLabel || "").trim();
   return label && email && draftOwnerOf("", label) === email.toLowerCase() ? label : email;
 }
@@ -672,7 +790,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d", mlPerK
 // that mode still saves, just somewhere else.
 function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onOrderDate, onDelete, centerPoint, scratch,
   autoPrint = null, requestPrint = null,
-  nursing = [], ordersReadOnly = false }) {
+  nursing = [], ordersReadOnly = false, nurseAccount = false }) {
   // ── The date this order is FOR (review 2026-09-17, UP-C11) ────────────────
   // A new, non-back-dated order used to read "today" on every render, so a
   // form left open across midnight silently became the next day's order: its
@@ -1042,6 +1160,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // "draft" | "submitted" | null (nothing saved yet). A draft cannot print or
   // copy until it is completed and Submitted (D.isDraftEntry — Praew, 2026-09-23).
   const [savedStatus, setSavedStatus] = useState(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
+  // Whose order the row is (lower-case email), for N1's rule on someone else's
+  // draft: calcInput.orderBy, which the server stamps on every save but a nurse's
+  // I/O-only one (gas-backend.gs _orderByOf), else the row's last saver.
+  // A row from before orderBy is its creator's only when the same account last
+  // saved it; otherwise no one's, so a nurse may change only I/O (fail closed).
+  const saverOf = (e) => {
+    const by = String(e?.calcInput?.orderBy || "").trim().toLowerCase();
+    if (by) return by;
+    const p = String(e?.submittedBy || "").trim().toLowerCase(), ab = String(e?.lastModifiedBy || "").trim().toLowerCase();
+    return !ab || ab === p ? p : (e ? "(unknown)" : "");
+  };
+  const [savedSaver, setSavedSaver] = useState(() => saverOf(editEntry));
   // The saved row's TPN, for a same-day TPN order cancelled by a No TPN revision
   // (D.orderCancelsTpn; Vera, fifth review; Pp, 2026-11-01): whether it had TPN,
   // and whether it already replaced a submitted order that did
@@ -1064,6 +1194,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // entry printed under that entry's id without ever being saved
   // (2026-09-11 review, F2).
   const [savedKey, setSavedKey] = useState(null);
+  // The same, without Intake/Output (orderKeyWithoutIo): what a nurse may not change (N1).
+  const [savedOrderKey, setSavedOrderKey] = useState(null);
   // Fingerprint right after prefill, with an untouched ioInput blanked — so
   // the auto-tracking Input figure never counts as the user having typed.
   const [prefillKey, setPrefillKey] = useState(null);
@@ -1242,8 +1374,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // read or written. It opens as an empty order carrying only the ward's
     // usual dead space, so the first number typed is the weight it exists for.
     if (scratch) {
-      applyCalcInput({ deadVol_mL: D.defaultDeadVolFor(null) }, 0, false, 0);
-      setSavedKey(null);
+      // No route, as on an infant's first order (D13, stakeholder walk 2026-11-07):
+      // a source with no route key reads as the old default, Central.
+      applyCalcInput({ deadVol_mL: D.defaultDeadVolFor(null), route: null }, 0, false, 0);
+      setSavedKey(null); setSavedOrderKey(null);
       setPrefilledFrom(null);
       setDraftOffer(null);
       return;
@@ -1267,15 +1401,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setSavedEntryId(editEntry?.entryId || null);
     setSavedLastModified(editEntry?.lastModified || null);
     setSavedStatus(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
+    setSavedSaver(saverOf(editEntry));
     setSavedHadTpn(!!editEntry && D.orderHadTpn(editEntry));
     setSavedReplacesTpn(editEntry?.calcInput?.replacesTpn === true);
     setPublished(!!editEntry?.published);   // it now decides Submit's lock (Vera, 2026-10-28)
     setConflict(null);
     setCritOverride(editEntry?.calcInput?.critOverride || null);
+    // The order's own save (orderAt, orderRev), not a nurse's I/O save after it.
     setSavedMeta(editEntry ? {
       by: savedByOf(editEntry),
-      at: editEntry.lastModified || "",
-      revision: editEntry.revisionNumber || 1,
+      at: editEntry.calcInput?.orderAt || editEntry.lastModified || "",
+      revision: Number(editEntry.calcInput?.orderRev) || editEntry.revisionNumber || 1,
     } : null);
     setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
     setSavedCalcVersion(editEntry ? savedCalcVersionOf(editEntry) : null);
@@ -1314,11 +1450,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       const saved = withEntryIO(editEntry);
       const src = { ...saved, route: bagRouteFrom(saved) };
       const n = applyCalcInput(src, editEntry.weight, true, fluidMidpoint(src.curWtG ?? src.wtG ?? editEntry.weight));
-      setSavedKey(calcInputKey(n));
+      setSavedKey(calcInputKey(n)); setSavedOrderKey(orderKeyWithoutIo(n));
       setPrefilledFrom(null);
       return;
     }
-    setSavedKey(null);
+    setSavedKey(null); setSavedOrderKey(null);
 
     // Intake / Output is measured bedside for ONE day. A new order borrows
     // yesterday's plan, never yesterday's urine output or drain: carried over,
@@ -2454,6 +2590,36 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
 
+  // N1: a nurse account saves Intake/Output on a doctor's submitted order, and
+  // nothing else (NURSE_SUBMIT_TEXT). Its Submit is refused on a new order or a
+  // draft, when anything but I/O changed, and on an order the app holds for a
+  // doctor (the calculation or dosing weight moved, a critical value not
+  // confirmed, no sticker figures yet). Not with the nursing log on, where a
+  // nurse has no Submit at all (ordersReadOnly).
+  const nurseIoOnly = nurseAccount && !ordersReadOnly && !scratch && !centerPoint;
+  const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted"
+    || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
+  // An order held for a doctor (the calculation or dosing weight moved, a
+  // critical value not confirmed, no sticker figures): she may still record I/O
+  // on it (storedOrderWithIo), and the line says the order waits for a doctor.
+  const nurseHeldOrder = nurseIoOnly && savedStatus === "submitted" && !!savedEntryId
+    && (calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || figuresMissing);
+  // …and on a draft another account saved (a doctor's, Pp 2026-11-07: "ได้แค่ I/O
+  // เหมือนกัน"), her Save draft too may change only I/O, on the same calculation
+  // and dosing weight. Her own draft she may change freely.
+  const nurseDraftRefused = nurseIoOnly && !!savedEntryId && savedStatus === "draft"
+    && !!savedSaver && savedSaver !== draftOwner
+    && (savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
+  // Top insight 3: what changed on an order held for a new save because the
+  // calculation or the dosing weight moved (heldFigureChanges). Only the row as
+  // it was opened can be held this way: a save in this visit stamps both anew.
+  // The figures as the front sheet prints them, from the same values it reads.
+  const printedFigureInput = { calc, wtKg, totalTPN_mL, lipidPerKg, lipidDripHours,
+    lipidPump: D.pumpRate(calc.lipidBagVol, lipidDripHours || 24),
+    naCl, naAcet, kCl, k2hpo4, mgPerKg, caPerKg, znPerKg, inclSoluvit, inclPeditrace };
+  const heldChanges = (calcMoved || dosingWeightChanged) && !pendingSave && editEntry
+    ? heldFigureChanges(editEntry, printedFigureInput) : null;
+
   // ── Print handler — opens all steps, prints, then restores ─────
   React.useEffect(() => {
     const ALL = new Set([1, 2, 3, 4, 5, 6]);
@@ -2503,7 +2669,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // reason as it stands when the request goes, the same text the toast shows.
   const autoPrintDone = React.useRef(null);
   const printBlockRef = React.useRef("");
-  printBlockRef.current = printBlockToast;
+  printBlockRef.current = printBlockToast && heldChanges && heldChanges.changes.length > 0
+    ? `${printBlockToast} (${heldChanges.changes.map(heldChangeLine).join(" · ")})`
+    : printBlockToast;
   React.useEffect(() => {
     if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
     const go = () => { autoPrintDone.current = autoPrint; requestPrint(printBlockRef.current); };
@@ -2534,6 +2702,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // …and nor does a nurse's form once the backend refuses a nurse's order
     // write (D5): no Save button is rendered either — this is the belt.
     if (ordersReadOnly) return;
+    // N1: a nurse's Submit goes back to a doctor unless only I/O changed
+    // (nurseSubmitRefused), before any prompt can ask her for a reason.
+    if (!asDraft && nurseSubmitRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
+    if (asDraft && nurseDraftRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
     // An order submitted before the lock existed and reopened unchanged is only
     // locked: a revision of identical numbers would tell pharmacy nothing.
@@ -2543,7 +2715,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // (Vera, 2026-10-28). A No TPN order with no short sheet never prints, and is
     // locked all the same (Pp, 2026-11-02). An order with no sticker figures
     // (figuresMissing) takes the full save too: locking it would leave it without them.
-    const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
+    // A nurse locks nothing (gas-backend.gs publishDailyLog refuses her, N1).
+    const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing) {
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
@@ -2649,8 +2822,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A critical value can still be ordered — the attending may have a
     // reason — but never silently: the reason is required, saved with the
     // order (calcInput.critOverride) and printed on the pharmacy form.
-    const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
-    let override = null;
+    // A nurse never answers the critical-value prompt: her I/O save keeps the
+    // doctor's confirmation as saved, and nurseSubmitRefused holds an order
+    // with a critical value nobody confirmed (N1).
+    const critical = asDraft || nurseIoOnly ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+    let override = nurseIoOnly && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
       // into an order packet that deliberately carries no identity), so both
@@ -2667,6 +2843,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map(a => a.title), at: new Date().toISOString() };
     }
     const keyAtSave = formKey;
+    // A nurse's save on an order another account owns: by now it is I/O only.
+    const ioOnlyOnOthers = nurseIoOnly && !!savedEntryId && !!savedSaver && savedSaver !== draftOwner;
+    // The order's next revision, as the server will count it (gas-backend.gs
+    // orderRevNext): a submitted order is revised, a draft keeps its number. The
+    // server's stamp is what is stored; this keeps the ward's copy right until the
+    // next sync.
+    const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + (savedStatus === "submitted" || published ? 1 : 0);
+    const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;   // what every dose on this save was computed from (UP-C2)
     // Center Point saves pass the same required-field gate and F1 stop above.
     // The F1 override goes with the order: CP's snapshot carries it to CP's
@@ -2680,7 +2864,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           critOverride:override});
         setSavedEntryId(result.sourceRecordId);setSavedLastModified(result.recordedAt);
         // What CP now holds is what was on the form when Save was pressed.
-        setSavedKey(keyAtSave);setCritOverride(override);setSavedDosingWt({ g: dosingWtAtSave, exact: true });setSavedCalcVersion(D.CONSTANTS_VERSION);
+        setSavedKey(keyAtSave);setSavedOrderKey(orderKeyAtSave);setCritOverride(override);setSavedDosingWt({ g: dosingWtAtSave, exact: true });setSavedCalcVersion(D.CONSTANTS_VERSION);
       } catch (error) { centerPoint.failed?.(error);showToast('บันทึกไป Center Point ไม่สำเร็จ กรุณาตรวจสถานะและลองใหม่','error'); }
       finally { setSaving(false); }
       return;
@@ -2744,6 +2928,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // Daily_Log AM). Absent for an order with no bag. Not an input either.
       calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
         stops: submitStops,
+        // printedFigures: every figure the front sheet prints, as printed, so a
+        // later release that moves one can say which (heldFigureChanges). Not an
+        // input either.
+        printedFigures: printedFiguresOf(printedFigureInput),
+        // Whose order this stays, on a nurse's I/O-only save: the server writes the
+        // stored values whatever is sent; these keep the ward's copy right until the
+        // next sync. Not inputs.
+        ...(ioOnlyOnOthers
+          ? { orderBy: savedSaver === "(unknown)" ? String(editEntry?.submittedBy || "").toLowerCase() : savedSaver,
+              orderRev: savedMeta?.revision || 1, orderAt: savedMeta?.at || "" }
+          : { orderRev: nextOrderRev }),
         ...(figures ? { printJsonV: figures.v } : {}),
         // replacesTpn: this row replaces a submitted order of its day that had
         // TPN (replacesTpn above). Not an input — normalizeCalcInput ignores it.
@@ -2768,6 +2963,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // midnight is still filed under the day it was written for (UP-C11).
       ts: editEntry ? editEntry.ts : (logDate || newOrderDate),
     });
+    const sent = ioOnlyOnOthers && editEntry ? storedOrderWithIo(editEntry, entry) : entry;
 
     setSaving(true);
     // An edit of a submitted order lands as a revision beside it, locked or
@@ -2776,8 +2972,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // 2026-10-28, failed for every order saved before calcInput.stops, since
     // publishDailyLog refuses a row with no stop list (Vera, second review).
     const res = savedEntryId
-      ? await onUpdate(savedEntryId, savedLastModified, entry)
-      : await onLog(entry);
+      ? await onUpdate(savedEntryId, savedLastModified, sent)
+      : await onLog(sent);
     setSaving(false);
 
     // Make sure the typed order is on disk as this user's draft before showing
@@ -2799,19 +2995,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     }
     setSavedLastModified(res.lastModified);
     setSavedStatus(asDraft ? "draft" : "submitted");
+    // A nurse's save on another account's draft was I/O only: it stays theirs.
+    setSavedSaver(prev => nurseIoOnly && prev && prev !== draftOwner ? prev : draftOwner);
     setSavedHadTpn(D.orderHadTpn(entry));
     setSavedReplacesTpn(replacesTpn);
     // What was just saved is what may now be printed — the inputs as they
     // were when Save was pressed, not whatever was typed while it ran.
-    setSavedKey(keyAtSave);
-    setCritOverride(override);
-    setSavedDosingWt({ g: dosingWtAtSave, exact: true });
-    setSavedCalcVersion(D.CONSTANTS_VERSION);
-    setSavedFiguresV(figures ? figures.v : null);
-    setSavedMeta({
+    setSavedKey(keyAtSave); setSavedOrderKey(orderKeyAtSave);
+    // Her I/O save wrote the stored order back: whatever held it still does.
+    if (!ioOnlyOnOthers) {
+      setCritOverride(override);
+      setSavedDosingWt({ g: dosingWtAtSave, exact: true });
+      setSavedCalcVersion(D.CONSTANTS_VERSION);
+      setSavedFiguresV(figures ? figures.v : null);
+    }
+    // A nurse's I/O save on another account's order leaves whose order it is,
+    // its time and its revision as they were (the server keeps them too).
+    if (!ioOnlyOnOthers) setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || new Date().toISOString(),
-      revision: res.revisionNumber || savedMeta?.revision || 1,
+      revision: nextOrderRev,
     });
     clearDraft();
     setDraftOffer(null);
@@ -2820,7 +3023,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // or the revision the server appended. If the lock fails the order is
     // still saved and submitted; Submit again locks it (lockFirst), and an
     // edit is a revision all the same.
-    if (!asDraft && onPublish) {
+    if (!asDraft && onPublish && !nurseIoOnly) {
       const lockId = res.revised ? res.entryId : (savedEntryId || res.entryId);
       const pub = await onPublish(lockId, res.lastModified, { quiet: true });
       if (pub.ok) setPublished(true);
@@ -4176,6 +4379,22 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {!pendingSave && !dosingWeightChanged && uncoveredCritical.length > 0 && (
                   <div style={{ fontWeight: 400 }}>{uncoveredCritical.join(" · ")}</div>
                 )}
+                {heldChanges && (
+                  <div className="held-changes" style={{ fontWeight: 400, color: "var(--ink)", marginTop: 4 }}>
+                    {heldChanges.changes.length > 0 ? (
+                      <>
+                        <div style={{ fontWeight: 600 }}>ตัวเลขที่เปลี่ยน (เดิม → ใหม่) ตรวจก่อนบันทึกใหม่</div>
+                        <ul style={{ margin: "2px 0 0", paddingLeft: 18 }}>
+                          {heldChanges.changes.map(c => (
+                            <li key={c.label + c.unit}>{c.label} <span className="num">{c.from}</span> → <span className="num" style={{ fontWeight: 700 }}>{c.to}</span>{c.unit ? ` ${c.unit}` : ""}</li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <div>{heldChanges.basis === "printed" ? "ตัวเลข TPN บนใบสั่งนี้ไม่เปลี่ยน" : "ตัวเลขที่เทียบได้ไม่เปลี่ยน"}</div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -4409,12 +4628,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* A locked order saved before the sticker figures existed: say why
                 Submit is offered again (figuresMissing). */}
-            {figuresMissing && !scratch && !ordersReadOnly && (
+            {figuresMissing && !scratch && !ordersReadOnly && !nurseIoOnly && (
               <div className="sticker-figures-missing" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
                 ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง
               </div>
             )}
-            {revisingForRoom && (
+            {(nurseSubmitRefused || nurseHeldOrder) && (
+              <div className="nurse-doctor-submits" role="note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {NURSE_SUBMIT_TEXT}
+              </div>
+            )}
+            {revisingForRoom && !nurseIoOnly && (
               <div className="revise-phone-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย
               </div>
@@ -4424,7 +4648,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 order that never prints is still settled. An order with no sticker figures
                 yet (figuresMissing) is offered Submit too. */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled && !figuresMissing)}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled && !figuresMissing) || (nurseIoOnly && !dirty)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>

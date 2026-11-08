@@ -2927,6 +2927,8 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
         onLog={handleLogToGAS} onUpdate={handleUpdateToGAS} onPublish={handlePublishToGAS}
         onSaved={() => goTo("log")}
         nursing={nursing} ordersReadOnly={ordersReadOnly}
+        // N1 (stakeholder walk, 2026-11-07): a nurse saves only I/O on a doctor's order.
+        nurseAccount={role === "nurse"}
         onDelete={role === "admin" ? (entry) => handleDeleteEntry(entry).then(res => { if (res.ok) goTo("log"); return res; }) : undefined} />
     </>
   );

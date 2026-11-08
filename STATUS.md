@@ -1,7 +1,13 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-07 — QI export inside Apps Script (`setupQiExportKey`, `exportQi`, `lookupResearchId`): open PR, not
-> merged, not live.** Backend only, editor-run, no `doPost` action and no new scope. Live needs a backend
+> ⏳ **2026-11-07 — Stakeholder walk fixes (only a doctor submits a doctor's order, a nurse saves I/O only; a held
+> order lists each changed figure, old → new; Quick calc opens with no route): PR #232, merged into `main` on Praew's instruction; not live.**
+> Frontend **and backend**: the backend refuses a nurse's Submit and names who submitted on the TPN room's page, so it
+> deploys **first** (`CHANGELOG.md` 2026-11-07 (3)). No dose constant moved; `CONSTANTS_VERSION` stays `2026-11-06.1`.
+> Recorded here by its own PR. Release waits for Pp: backend `clasp` deploy first, then frontend `release`.
+>
+> ⏳ **2026-11-07 — QI export inside Apps Script (`setupQiExportKey`, `exportQi`, `lookupResearchId`): PR #231, merged
+> into `main` (`ed28e22`), not live.** Backend only, editor-run, no `doPost` action and no new scope. Live needs a backend
 > `clasp push` + `clasp update-deployment` on Pp's go-ahead, then `setupQiExportKey()` once; the first
 > `exportQi()` adds a `QI_Export` tab. Before a real export: Pp and the DPO settle its lawful basis (`BACKLOG.md`).
 > Recorded here by its own PR.
