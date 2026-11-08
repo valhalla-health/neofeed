@@ -136,7 +136,7 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
 }
 function NoTpnTag({ p, entries }) {
   if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
-  return /* @__PURE__ */ React.createElement("span", { className: "log-badge is-no-tpn", style: { marginLeft: 4 }, title: "ใบสั่งล่าสุดไม่มี TPN" }, "No TPN");
+  return /* @__PURE__ */ React.createElement("span", { className: "log-badge is-no-tpn", title: "ใบสั่งล่าสุดไม่มี TPN" }, "No TPN");
 }
 const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {

@@ -243,6 +243,14 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
   );
 }
 
+// "No TPN" beside the today badge, on an infant still on the unit whose latest
+// Submitted order has no bag (nutrition team, 2026-10-28). The ward then sees
+// who is off PN without opening each infant.
+function NoTpnTag({ p, entries }) {
+  if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
+  return <span className="log-badge is-no-tpn" title="ใบสั่งล่าสุดไม่มี TPN">No TPN</span>;
+}
+
 // Today's submitted orders for one ward, for printing only (Pp, 2026-10-12:
 // "มีแค่แดชบอร์ดรายชื่อผู้ป่วย … ของแต่ละวอร์ดในวันนั้น เพื่อปริ้นอย่างเดียว").
 // Reached from the ward gate's Print order button. A tap opens that order in
@@ -262,14 +270,6 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
 // opened (UP-C9, as log.jsx does). Two submitted orders on one day should not
 // exist (the duplicate-date guard); if they do, the row opens the patient's
 // Dashboard to choose, rather than this list guessing which one is the order.
-// "No TPN" beside the today badge, on an infant still on the unit whose latest
-// Submitted order has no bag (nutrition team, 2026-10-28). The ward then sees
-// who is off PN without opening each infant.
-function NoTpnTag({ p, entries }) {
-  if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
-  return <span className="log-badge is-no-tpn" style={{ marginLeft: 4 }} title="ใบสั่งล่าสุดไม่มี TPN">No TPN</span>;
-}
-
 const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {
   return D_R.finalEntries(entries).filter(e => D_R.normalizeDateStr(e.ts) === today);
