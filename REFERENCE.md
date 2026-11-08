@@ -228,8 +228,8 @@ difference is the intended one. A difference nobody intended stops the merge.
 
 **The comparison on every release (NF-42, 2026-11-08).** The three hand cases are what a person reads; this reads many
 more orders than a person would. It types the same made-up orders into the `release` Calculator and the PR's, and
-compares every tile, colour, alert and its level, the GIR readout, the rest of the screen's text, every saved field, the
-sticker figures and the printed form:
+compares each tile and its colour, the alerts and their levels, the GIR readout, the rest of the screen's text, the boxes,
+lists and colours, every saved field, the sticker figures and the printed form:
 
 ```bash
 node tools/calc-compare.cjs --base origin/release --head origin/main --out compare.md

@@ -24,6 +24,7 @@ function ok(name, cond, detail) {
   cond ? pass++ : fail++;
 }
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nf42t-'));
+process.on('exit', () => fs.rmSync(tmp, { recursive: true, force: true }));
 function tree(name, edit) {
   const d = path.join(tmp, name);
   fs.mkdirSync(d);
@@ -55,9 +56,17 @@ const planted = tree('planted', (f, s) => {
   if (f !== 'calculator.jsx') return s;
   s = plant(s, 'className={`alert-row ${a.level}`}', 'className={`alert-row ${a.level === "warn" ? "info" : a.level}`}');
   s = plant(s, 'className={`gir-readout s-${sGir}`}', 'className={`gir-readout s-${sGir === "ok" ? "warn" : sGir}`}');
-  s = plant(s, '<Tile label="Calcium" value={calc.caKg}', '<Tile label="Calcium" value={calc.caKg + 1}');
+  s = plant(s, '<Tile label="Calcium" value={calc.caKg} unit=" mg/kg/d" target={tCa} status={sCa}',
+    '<Tile label="Calcium" value={calc.caKg + 1} unit=" mg/kg/d" target={tCa} status={sCa === "crit" ? "warn" : "crit"}');
+  s = plant(s, '`${target[0]}–${target[1]}`', '`${target[0]}–${target[1]}+`');
+  s = plant(s, '{fmt(calc.gir,1)}<wbr />', '{fmt(calc.gir + 1,1)}<wbr />');
+  s = plant(s, 'value={tpnPump ? tpnPump.rate : 0}', 'value={tpnPump ? tpnPump.rate + 1 : 0}');
+  s = plant(s, '{v.label} · {v.fe_mg_per_ml} mg elem Fe/mL', '{v.label} · {v.fe_mg_per_ml * 2} mg elem Fe/mL');
+  s = plant(s, 'color: FLUID_TONE[fluidTone].ink,', 'color: "red",');
+  s = plant(s, 'disabled={saving || missingFields.length > 0 ||', 'disabled={wtKg > 1.5 || saving || missingFields.length > 0 ||');
+  s = plant(s, 'calcInput: { ...captureState(),', 'calcInput: { plantedCi: 1, ...captureState(),');
   s = plant(s, '`${Math.round(suppVitD * wtKg)} IU`', '`${Math.round(suppVitD * wtKg * 2)} IU`');
-  s = plant(s, 'printJson: figures,', 'printJson: figures, plantedNote: "x", plantedEmpty: {},');
+  s = plant(s, 'printJson: figures,', 'printJson: figures, plantedNote: "x", plantedEmpty: {}, plantedList: [],');
   return s;
 });
 const bumped = tree('bumped', (f, s) => (f === 'data.js' ? s.replace(/CONSTANTS_VERSION = "[^"]+"/, 'CONSTANTS_VERSION = "2099-01-01.1"') : s));
@@ -94,13 +103,25 @@ const moved = run(same, planted);
     ['an alert whose level alone moved', /\| alerts \|/],
     ['the GIR readout colour', /\| colour: GIR readout \|/],
     ['a tile', /\| tile: Calcium \|/],
+    ['a tile colour', /\| colour: Calcium \|/],
+    ['a tile whose range alone moved', /\| tile: Protein \|/],
+    ['the GIR readout value', /\| tile: GIR readout \|/],
+    ['a status chip', /\| screen: colours \|/],
+    ['a figure in a box', /\| screen: boxes \|/],
+    ['a label in a list', /\| screen: lists \|/],
+    ['an inline colour', /\| screen: inline colours \|/],
+    ['the Submit button', /\| Submit enabled \|/],
+    ['a field inside calcInput', /\| saved\.calcInput\.plantedCi \|/],
+    ['an empty list', /\| saved\.plantedList\.length \|/],
     ['a figure elsewhere on the screen', /\| screen: other text \|/],
     ['a saved string', /\| saved\.plantedNote \|/],
     ['a saved empty object', /\| saved\.plantedEmpty \|/],
   ]) ok(`names ${what}`, re.test(moved.out), moved.out);
   ok('each row says how much', /\| \d+ \| \d+(\.\d+)? \| #\d+:/.test(moved.out), moved.out);
   ok('and is marked unexplained', /\*\*NO\*\*/.test(moved.out) && /stops the release/.test(moved.out), moved.out);
-  ok('no name reaches the report', !/Compare\b(?! \(NF| any)|CMP\d/.test(moved.out.replace('Calculator comparison', '')), moved.out);
+  const nameText = moved.out.replace('Calculator comparison', '');
+  const nameHit = nameText.match(/Compare\b|CMP\d/);
+  ok('no name reaches the report', !nameHit, nameHit && nameText.slice(Math.max(0, nameHit.index - 90), nameHit.index + 40));
 }
 
 console.log('\n── #3 --intended ──');
@@ -126,6 +147,7 @@ console.log('\n── #4 an order that cannot be entered ──');
 {
   const r = run(noSubmit, noSubmit);
   ok('no order reached Submit anywhere: it cannot vouch for the print', r.code === 2 && /reached Submit/.test(r.out), r);
+  ok('and the report does not say no difference', !/No difference/.test(r.out), r.out);
 }
 
 console.log('\n── #5 git refs and the release path ──');
@@ -143,6 +165,5 @@ console.log('\n── #5 git refs and the release path ──');
   ok('tools/ is never published', /^tools\/$/m.test(ignored));
 }
 
-fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n${fail ? 'FAILED' : 'ALL PASS'}: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

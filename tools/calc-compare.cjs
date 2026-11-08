@@ -115,7 +115,8 @@ async function snapshot(o) {
   let root = ReactDOM.createRoot(container);
   const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
   const selSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-  const clean = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+  // The made-up infant's name and ID are the same on both sides and are not figures.
+  const clean = (t) => String(t || '').replace(/\bCompare\b|CMP\d+/g, '—').replace(/\s+/g, ' ').trim();
   const click = (el) => act(() => el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
   const clickAsync = async (el) => { await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }); };
   const need = (el, what) => { if (!el) throw new Error(`no ${what}`); return el; };
@@ -151,10 +152,10 @@ async function snapshot(o) {
 
   // Who and when are the same made-up values on both sides, and stay out of the
   // report; the version is named once, at its top.
-  const NOT_A_FIGURE = /(^|\.)(ts|timestamp|date|entryId|sessionId|lastModified|lastModifiedBy|submittedBy|savedBy|savedAt|orderBy|orderByName|userEmail|userLabel|constantsVersion|appVersion)$/i;
+  const NOT_A_FIGURE = /(^|\.)(ts|timestamp|date|entryId|sessionId|lastModified|lastModifiedBy|submittedBy|savedBy|savedByLabel|savedAt|at|orderDate|orderBy|orderByName|userEmail|userLabel|constantsVersion|appVersion)$/i;
   function flatten(prefix, v, out) {
     if (NOT_A_FIGURE.test(prefix) || v === undefined) return;
-    if (v === null || typeof v !== 'object') { out[prefix] = String(v); return; }
+    if (v === null || typeof v !== 'object') { out[prefix] = typeof v === 'string' ? JSON.stringify(v) : String(v); return; }
     const keys = Object.keys(v);
     if (Array.isArray(v)) out[`${prefix}.length`] = String(v.length);
     else if (!keys.length) out[prefix] = '{}';
@@ -162,7 +163,7 @@ async function snapshot(o) {
   }
   const STATUS = /\bs-(\w+)/;
   // Everything on the screen before Submit. The tiles, alerts and the GIR readout
-  // are named; whatever else is shown is one last field, so nothing goes unread.
+  // are named; the rest of the text, the boxes, the lists and the colours follow.
   function screenFigures() {
     const f = {};
     for (const m of container.querySelectorAll('.metric')) {
@@ -178,6 +179,13 @@ async function snapshot(o) {
     f['screen: colours'] = [...container.querySelectorAll('[class*="s-"]')]
       .filter(e => !e.classList.contains('metric') && !e.classList.contains('gir-readout'))
       .map(e => (String(e.className).match(STATUS) || [])[1]).filter(Boolean).join(',');
+    f['screen: boxes'] = [...container.querySelectorAll('input')]
+      .map(i => (i.type === 'checkbox' || i.type === 'radio' ? String(i.checked) : i.value)).join(' | ');
+    f['screen: lists'] = [...container.querySelectorAll('select')]
+      .map(x => `${x.value}: ${[...x.options].map(o => clean(o.textContent)).join(', ')}`).join(' | ');
+    f['screen: inline colours'] = [...container.querySelectorAll('[style]')]
+      .map(e => (e.getAttribute('style').match(/(?:^|;)\s*(?:color|background[a-z-]*|border[a-z-]*):[^;]+/g) || []).join(''))
+      .filter(Boolean).join(' | ');
     const rest = container.cloneNode(true);
     rest.querySelectorAll('.metric, .alert-row, .gir-readout, #print-form, select').forEach(e => e.remove());
     f['screen: other text'] = clean(rest.textContent);
@@ -250,10 +258,19 @@ async function snapshot(o) {
       if (s.oCa) { selectOption('CA_CACO3_350'); setField('ปริมาณ elem Ca', s.oCa); }
       if (s.oP) { selectOption('PO4_PHOSPHATE'); setField('ปริมาณ elem P', s.oP); }
       if (s.noTpn) tick('No TPN', true);
+      // What the form really holds, so the report counts orders that were entered,
+      // not orders that were only generated.
+      const held = (l) => Number(inputFor(l)?.value || 0);
+      const kinds = {
+        feed2: !!container.querySelector('.en-feed-2 .en-product'),
+        noTpn: box('No TPN').checked,
+        oral: box('Munti-vim Drop').checked || ['Vitamin D', 'Iron', 'ปริมาณ elem Ca', 'ปริมาณ elem P'].some(l => held(l) > 0),
+        typedWeight: s.wOver > 0 && held('TPN calc. weight') === s.wOver,
+      };
       const screen = screenFigures();
       const submit = button('Submit');
       if (submit && !submit.disabled) await clickAsync(submit);
-      out.cases.push({ i: s.i, saved: !!saved, fields: { ...screen, ...orderFigures(saved) } });
+      out.cases.push({ i: s.i, saved: !!saved, kinds, fields: { ...screen, ...orderFigures(saved) } });
     } catch (e) {
       out.cases.push({ i: s.i, error: e.message });
     }
@@ -315,7 +332,7 @@ function compare(a, b, intended) {
   return { rows, compared, fields };
 }
 
-function report(o, base, head, a, b, res, cases) {
+function report(o, base, head, a, b, res, cases, stop) {
   const short = (s) => { const t = String(s).replace(/\|/g, '/'); return t.length > 70 ? t.slice(0, 67) + '…' : t; };
   // A long line differs somewhere in the middle: show that part of each.
   const near = (x, y) => {
@@ -331,14 +348,14 @@ function report(o, base, head, a, b, res, cases) {
   L.push(`- **Before:** ${base.label}, constants ${a.constants}`);
   L.push(`- **After:** ${head.label}, constants ${b.constants}`);
   L.push(`- **Made-up orders:** ${cases.length} (seed ${o.seed}), ${res.compared} entered in both, ${a.cases.filter(c => c.saved).length} saved before and ${b.cases.filter(c => c.saved).length} after`);
-  const entered = cases.filter(c => !a.cases[cases.indexOf(c)].error && !b.cases[cases.indexOf(c)].error);
-  const count = (fn) => entered.filter(fn).length;
-  L.push(`- **Kinds of order entered:** ${count(c => c.feed2)} with a second feed, ${count(c => c.noTpn)} No TPN, ${count(c => c.fe || c.oCa || c.oP || c.vitD || c.mtv)} with oral orders, ${count(c => c.wOver)} with a typed dosing weight`);
+  const count = (k) => b.cases.filter(c => c.kinds && c.kinds[k]).length;
+  L.push(`- **Kinds of order entered:** ${count('feed2')} with a second feed, ${count('noTpn')} No TPN, ${count('oral')} with oral orders, ${count('typedWeight')} with a typed dosing weight`);
   L.push(`- **Figures compared:** ${res.fields}`);
   if (o.intended) L.push(`- **Intended (fields matching):** \`${o.intended}\``);
   L.push('');
+  if (stop) L.push(`**Not compared: ${stop}.**`, '');
   if (!res.rows.length) {
-    L.push('**No difference in any figure.**');
+    if (!stop) L.push('**No difference in any figure.**');
   } else {
     L.push('| Field | Orders that differ | Largest difference | Example: order, before → after | Explained? |', '|---|---|---|---|---|');
     for (const r of res.rows) {
@@ -366,11 +383,12 @@ async function main() {
     const a = takeSnapshot(base.dir, casesFile, path.join(tmp, 'a.json'));
     const b = takeSnapshot(head.dir, casesFile, path.join(tmp, 'b.json'));
     const res = compare(a, b, intended);
-    const { text, bad } = report(o, base, head, a, b, res, cases);
+    const stop = !res.compared ? 'no order could be entered in both versions'
+      : !a.cases.some(c => c.saved) && !b.cases.some(c => c.saved) ? 'no order reached Submit on either side, so the saved figures and the printed form were not compared' : null;
+    const { text, bad } = report(o, base, head, a, b, res, cases, stop);
     if (o.out) fs.writeFileSync(o.out, text);
     console.log(text);
-    if (!res.compared) die('no order could be entered in both versions');
-    if (!a.cases.some(c => c.saved) && !b.cases.some(c => c.saved)) die('no order reached Submit on either side, so the saved figures and the printed form were not compared');
+    if (stop) die(stop);
     process.exitCode = bad ? 1 : 0;
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });

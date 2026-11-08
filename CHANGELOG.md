@@ -7,6 +7,13 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-08 (3) — NF-42, after its second review
+
+A second reader found the tool still skipped the values in boxes, the lists and inline colours, and removed captures
+without `verify-calc-compare.cjs` noticing, so "one change of each kind" in (2) overclaimed. The harness now plants one for
+each field it names. The counts of each kind of order come from what the form holds, not what was generated, and a run
+that compared nothing no longer writes "No difference" to `--out`.
+
 ## Session 2026-11-08 (2) — NF-42, after its review
 
 A reader planted changes and the first version of `tools/calc-compare.cjs` missed them. It now compares every saved field
