@@ -1,0 +1,4 @@
+#!/bin/sh
+# NF-32: the same list CI runs, at the commit level (tools/checks.json).
+# Turn it on once per clone: node tools/run_checks.js --install-hooks
+exec node tools/run_checks.js --level commit

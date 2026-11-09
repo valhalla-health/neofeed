@@ -22,7 +22,7 @@
 // 2 when the self-test fails. Needs Node 18+ and git, and no npm install.
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -704,7 +704,9 @@ function report(hit, why) {
 }
 
 function runRepo() {
-  const files = trackedSources();
+  // A hook runs on a working tree, where a tracked file may be deleted and not
+  // yet staged. There is nothing in it to check; CI's checkout has no such file.
+  const files = trackedSources().filter((f) => existsSync(path.join(ROOT, f)));
   let failed = false;
   for (const rule of RULES) {
     const used = new Set();
