@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-08 — One list of checks, one runner (NF-32): `tools/checks.json`, `tools/run_checks.js`.** CI and both
+> ⏳ **2026-11-08 — One list of checks, one runner (NF-32): `tools/checks.json`, `tools/run_checks.js`: PR #233, merged into `main` on Praew's instruction.** CI and both
 > hooks call the runner, which reports per dimension. Nothing reaches the ward: no frontend or backend file moved. The
 > pre-commit hook needs `node tools/run_checks.js --install-hooks` once per clone (`CHANGELOG.md` 2026-11-08).
 >
