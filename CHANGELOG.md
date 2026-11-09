@@ -7,6 +7,43 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-08 (9) — NF-42, one wording in (8)
+
+jsdom drops a gradient built on `var()`, which all three in `calculator.jsx` are; a plain gradient is kept.
+
+## Session 2026-11-08 (8) — NF-42, after its third review
+
+Corrects (7): the tree of plants can move a neighbouring field, so a pass shows each field is reported, not that its own
+plant alone moved it; the harness says so. Ticks, list choices, list labels, text colours and backgrounds are separate fields
+now, and the plants cover them and the printed text outside tables. A gradient background is out of reach, because jsdom
+drops it; `REFERENCE.md` lists that. The counts of each kind of order cover only orders entered on both sides.
+
+## Session 2026-11-08 (7) — NF-42, after its second review
+
+A second reader found the tool still skipped the values in boxes, the lists and inline colours, and removed captures
+without `verify-calc-compare.cjs` noticing, so "one change of each kind" in (6) overclaimed. The harness now plants one for
+each field it names. The counts of each kind of order come from what the form holds, not what was generated, and a run
+that compared nothing no longer writes "No difference" to `--out`.
+
+## Session 2026-11-08 (6) — NF-42, after its review
+
+A reader planted changes and the first version of `tools/calc-compare.cjs` missed them. It now compares every saved field
+(it kept only top-level numbers), each alert's level, the GIR readout, each tile's whole text and the rest of the screen,
+and its orders include a second feed, No TPN, oral orders and a typed dosing weight. `verify-calc-compare.cjs` plants one
+change of each kind. `--intended` cannot explain an order that was not entered, and a run where no order reaches Submit
+exits 2 instead of passing. `REFERENCE.md` now says what it does not cover, which corrects its "checks everything else".
+
+## Session 2026-11-08 (5) — Old Calculator against new, on made-up orders, for every release (NF-42)
+
+`tools/calc-compare.cjs` (new), `.github/PULL_REQUEST_TEMPLATE/release.md`, `REFERENCE.md`; `test/verify-calc-compare.cjs` (new).
+
+NF-42 asked for old and new calculation modules side by side on the ward during the NF-05 pilot. Pp dropped that pilot on
+2026-10-28, and the calculation is one `useMemo` inside `<Calculator>`, so there was no module to run twice. Pp chose
+the form that touches no ward device (2026-11-08). The tool types the same seeded made-up orders into two versions of
+the real Calculator and compares every tile, colour, alert, saved number, sticker figure and printed line, and reports
+each field that moved and by how much. A field not named by `--intended` exits 1 and stops the release. It sees no real
+input, so it does not replace the three hand cases at the edges a change touches.
+
 ## Session 2026-11-08 (4) — "No TPN" on the ward list
 
 `registry.jsx`, `data.js` (`latestOrderIsNoTpn`), both shells' styles, `compiled/`; `test/verify-no-tpn-ward-tag-1108.cjs` (new).

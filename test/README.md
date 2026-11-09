@@ -2217,3 +2217,10 @@ install. To run every harness as CI's sources pass does, set `NODE_PATH` as abov
 
 `verify-no-tpn-ward-tag-1108.cjs`: the latest Submitted order decides by date, whatever the array order; a draft and a
 discharged infant are not tagged; both the phone card and the desktop row show it. Needs the jsdom set above.
+
+## Old against new, 2026-11-08 — one harness added
+
+`verify-calc-compare.cjs` (NF-42): `tools/calc-compare.cjs` on a version against itself; one planted change of each kind
+the report must name (printed line, sticker, alert level, GIR colour, tile, other screen text, saved string, empty object);
+`--intended`, a version number alone, orders that cannot be entered or submitted, git refs, and that the release template
+and `REFERENCE.md` name the tool and its limits. Needs the jsdom set above; about three minutes.
