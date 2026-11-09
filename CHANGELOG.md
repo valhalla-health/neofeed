@@ -9,8 +9,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 ## Session 2026-11-09 — an agent can open dev local unattended
 
-`tools/dev-local.mjs` no longer serves the Google Sign-In script: the sandbox refuses every Google token, and the
-popup froze the Browser pane until a person closed it. `.claude/launch.json` starts the tool as `neofeed-dev-local`,
+`tools/dev-local.mjs` no longer serves the Google Sign-In script: the sandbox refuses every Google token, and a
+Google window seen on the PR #163 run blocked the Browser pane until a person closed it. The cause was not traced. `.claude/launch.json` starts the tool as `neofeed-dev-local`,
 and `AGENTS.md` now says it exists. `verify-dev-local` gained 1.6 and 5.0.
 
 ## Session 2026-11-08 (9) — NF-42, one wording in (8)

@@ -65,9 +65,12 @@ function servedCopy(tree, gasUrl) {
   if (/script\.google\.com\/macros/.test(out)) throw new Error("boot.js still names the production backend");
   fs.writeFileSync(boot, out);
   // Google Sign-In cannot work here (the sandbox refuses every Google token), and
-  // the popup it opens at load freezes the Browser pane until a person closes it.
+  // a Google window seen on a dev-local run (PR #163) blocked the Browser pane
+  // until a person closed it. The login page's red "could not load" alert is expected.
   const shell = path.join(dir, "index.html");
-  fs.writeFileSync(shell, fs.readFileSync(shell, "utf8").replace(GSI_SCRIPT, ""));
+  const html = fs.readFileSync(shell, "utf8");
+  if (!GSI_SCRIPT.test(html)) throw new Error("index.html: the Google Sign-In script tag was not found");
+  fs.writeFileSync(shell, html.replace(GSI_SCRIPT, ""));
   return dir;
 }
 

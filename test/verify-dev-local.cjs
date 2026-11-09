@@ -110,7 +110,8 @@ const post = async (url, body) => (await fetch(url, { method: 'POST', headers: {
   try { launch = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude', 'launch.json'), 'utf8')); } catch {}
   const entry = launch && (launch.configurations || []).find(c => c.name === 'neofeed-dev-local');
   ok('5.0 .claude/launch.json runs tools/dev-local.mjs on 127.0.0.1', !!entry && entry.runtimeExecutable === 'node'
-    && entry.runtimeArgs[0] === 'tools/dev-local.mjs' && entry.url === `http://127.0.0.1:${entry.port}`, entry);
+    && entry.runtimeArgs[0] === 'tools/dev-local.mjs' && entry.url === `http://127.0.0.1:${entry.port}`
+    && entry.runtimeArgs[entry.runtimeArgs.indexOf('--port') + 1] === String(entry.port), entry);
 
   console.log(`\n${fail === 0 ? 'DEV-LOCAL: ALL PASS' : `DEV-LOCAL: ${fail} FAILED`} (${pass} passed, ${fail} failed)`);
   process.exit(fail === 0 ? 0 : 1);
