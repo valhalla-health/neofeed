@@ -2212,3 +2212,8 @@ average, levels and phases, a bad config refused), the loop guard and skip rules
 guards, Pp's gate in the real `tools/checks.json`, and that CI, both hooks and `AGENTS.md` call the runner. No npm
 install. To run every harness as CI's sources pass does, set `NODE_PATH` as above and run
 `node tools/run_checks.js --level ci --phase sources`.
+
+## "No TPN" on the ward list, 2026-11-08 — one harness added
+
+`verify-no-tpn-ward-tag-1108.cjs`: the latest Submitted order decides by date, whatever the array order; a draft and a
+discharged infant are not tagged; both the phone card and the desktop row show it. Needs the jsdom set above.

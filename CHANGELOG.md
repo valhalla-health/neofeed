@@ -7,6 +7,15 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-08 (4) — "No TPN" on the ward list
+
+`registry.jsx`, `data.js` (`latestOrderIsNoTpn`), both shells' styles, `compiled/`; `test/verify-no-tpn-ward-tag-1108.cjs` (new).
+
+The nutrition team asked on 2026-10-28 for a TPN / no-TPN tag on the ward list; PR #206 tagged only the Print order list.
+The phone card and the desktop row now show a grey "No TPN" beside the today badge when the infant's latest Submitted
+order, by date, has no bag. A draft does not count, and a discharged infant is not tagged. No figure moves, so
+`CONSTANTS_VERSION` stays.
+
 ## Session 2026-11-08 (3) — NF-32, two wordings in (2)
 
 `verify-safety-fixes-0923.cjs` pins GIR only; `verify-status-zones.cjs` pins GIR, protein and osmolarity. And any run on a
