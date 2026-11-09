@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-08 — "No TPN" on the ward list
+## Session 2026-11-08 (4) — "No TPN" on the ward list
 
 `registry.jsx`, `data.js` (`latestOrderIsNoTpn`), both shells' styles, `compiled/`; `test/verify-no-tpn-ward-tag-1108.cjs` (new).
 
@@ -15,6 +15,41 @@ The nutrition team asked on 2026-10-28 for a TPN / no-TPN tag on the ward list; 
 The phone card and the desktop row now show a grey "No TPN" beside the today badge when the infant's latest Submitted
 order, by date, has no bag. A draft does not count, and a discharged infant is not tagged. No figure moves, so
 `CONSTANTS_VERSION` stays.
+
+## Session 2026-11-08 (3) — NF-32, two wordings in (2)
+
+`verify-safety-fixes-0923.cjs` pins GIR only; `verify-status-zones.cjs` pins GIR, protein and osmolarity. And any run on a
+working tree can meet a deleted, unstaged file, not only a hook.
+
+## Session 2026-11-08 (2) — NF-32, after its review
+
+Corrects the entry below: "the rest still run" holds inside one phase. A phase that fails stops the job's later steps,
+as a failing step always did, so each step's log carries the dimensions of its own phase. Also: the Stop hook's loop guard
+now runs before `tools/checks.json` is read, so a broken config cannot trap an agent; `verify-status-zones.cjs` and
+`verify-safety-fixes-0923.cjs` moved to the clinical dimension, since they pin GIR, protein and osmolarity limits;
+`tools/ci_bans.js` skips a tracked file that is deleted and not yet staged, which only a hook can meet.
+
+## Session 2026-11-08 — One list of checks and one runner, reported per dimension (NF-32)
+
+`tools/checks.json` and `tools/run_checks.js` (new), `.github/workflows/test.yml`, `.claude/settings.json` and
+`.githooks/pre-commit` (new), `.assetsignore`, `AGENTS.md`; `test/verify-run-checks.cjs` (new).
+
+**The list.** Every check CI ran is now a row in `tools/checks.json` with a dimension and a `blocking` flag.
+A `test/verify-*.cjs` file nobody names falls to `every-other-harness`, so a new harness still runs without an
+edit here, and the runner refuses a harness no CI check claims. The clinical dimension is binary: the runner
+refuses a non-blocking check in it.
+
+**The gate is as strict as it was.** Pp, 2026-11-08: every dimension closes it, so every row is `blocking: true`
+and `test/verify-run-checks.cjs` pins that. A failing check no longer stops the run at once: the rest still run
+and the job ends with one line per dimension, and no average. The job is still called `harnesses`, the name the
+`release` branch rule requires.
+
+**Three callers.** CI runs `--level ci`, one step per phase. The pre-commit hook and the Stop hook run the 5-second
+set (the shells, `ci_bans` and its self-test, the reference tabs); `verify-calc-sum.cjs` and
+`verify-clinical-rules.cjs`, about 2 minutes together, join them only when `calculator.jsx` or `data.js` changed.
+The Stop hook sends an agent back once and then lets it stop. A hook with no `node_modules` skips a check that
+needs one and says so; CI never skips. The pre-commit hook runs in a clone only after
+`node tools/run_checks.js --install-hooks`.
 
 ## Session 2026-11-07 (3) — Stakeholder walk: only a doctor submits a doctor's order; a held order lists what changed; Quick calc opens with no route
 
