@@ -17,6 +17,7 @@
 # later release, not this one.
 
 .git/
+.githooks/
 .claude/
 .gitignore
 .gitleaksignore

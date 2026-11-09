@@ -7,25 +7,25 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-08 (5) — NF-42, one wording in (4)
+## Session 2026-11-08 (9) — NF-42, one wording in (8)
 
 jsdom drops a gradient built on `var()`, which all three in `calculator.jsx` are; a plain gradient is kept.
 
-## Session 2026-11-08 (4) — NF-42, after its third review
+## Session 2026-11-08 (8) — NF-42, after its third review
 
-Corrects (3): the tree of plants can move a neighbouring field, so a pass shows each field is reported, not that its own
+Corrects (7): the tree of plants can move a neighbouring field, so a pass shows each field is reported, not that its own
 plant alone moved it; the harness says so. Ticks, list choices, list labels, text colours and backgrounds are separate fields
 now, and the plants cover them and the printed text outside tables. A gradient background is out of reach, because jsdom
 drops it; `REFERENCE.md` lists that. The counts of each kind of order cover only orders entered on both sides.
 
-## Session 2026-11-08 (3) — NF-42, after its second review
+## Session 2026-11-08 (7) — NF-42, after its second review
 
 A second reader found the tool still skipped the values in boxes, the lists and inline colours, and removed captures
-without `verify-calc-compare.cjs` noticing, so "one change of each kind" in (2) overclaimed. The harness now plants one for
+without `verify-calc-compare.cjs` noticing, so "one change of each kind" in (6) overclaimed. The harness now plants one for
 each field it names. The counts of each kind of order come from what the form holds, not what was generated, and a run
 that compared nothing no longer writes "No difference" to `--out`.
 
-## Session 2026-11-08 (2) — NF-42, after its review
+## Session 2026-11-08 (6) — NF-42, after its review
 
 A reader planted changes and the first version of `tools/calc-compare.cjs` missed them. It now compares every saved field
 (it kept only top-level numbers), each alert's level, the GIR readout, each tile's whole text and the rest of the screen,
@@ -33,7 +33,7 @@ and its orders include a second feed, No TPN, oral orders and a typed dosing wei
 change of each kind. `--intended` cannot explain an order that was not entered, and a run where no order reaches Submit
 exits 2 instead of passing. `REFERENCE.md` now says what it does not cover, which corrects its "checks everything else".
 
-## Session 2026-11-08 — Old Calculator against new, on made-up orders, for every release (NF-42)
+## Session 2026-11-08 (5) — Old Calculator against new, on made-up orders, for every release (NF-42)
 
 `tools/calc-compare.cjs` (new), `.github/PULL_REQUEST_TEMPLATE/release.md`, `REFERENCE.md`; `test/verify-calc-compare.cjs` (new).
 
@@ -43,6 +43,50 @@ the form that touches no ward device (2026-11-08). The tool types the same seede
 the real Calculator and compares every tile, colour, alert, saved number, sticker figure and printed line, and reports
 each field that moved and by how much. A field not named by `--intended` exits 1 and stops the release. It sees no real
 input, so it does not replace the three hand cases at the edges a change touches.
+
+## Session 2026-11-08 (4) — "No TPN" on the ward list
+
+`registry.jsx`, `data.js` (`latestOrderIsNoTpn`), both shells' styles, `compiled/`; `test/verify-no-tpn-ward-tag-1108.cjs` (new).
+
+The nutrition team asked on 2026-10-28 for a TPN / no-TPN tag on the ward list; PR #206 tagged only the Print order list.
+The phone card and the desktop row now show a grey "No TPN" beside the today badge when the infant's latest Submitted
+order, by date, has no bag. A draft does not count, and a discharged infant is not tagged. No figure moves, so
+`CONSTANTS_VERSION` stays.
+
+## Session 2026-11-08 (3) — NF-32, two wordings in (2)
+
+`verify-safety-fixes-0923.cjs` pins GIR only; `verify-status-zones.cjs` pins GIR, protein and osmolarity. And any run on a
+working tree can meet a deleted, unstaged file, not only a hook.
+
+## Session 2026-11-08 (2) — NF-32, after its review
+
+Corrects the entry below: "the rest still run" holds inside one phase. A phase that fails stops the job's later steps,
+as a failing step always did, so each step's log carries the dimensions of its own phase. Also: the Stop hook's loop guard
+now runs before `tools/checks.json` is read, so a broken config cannot trap an agent; `verify-status-zones.cjs` and
+`verify-safety-fixes-0923.cjs` moved to the clinical dimension, since they pin GIR, protein and osmolarity limits;
+`tools/ci_bans.js` skips a tracked file that is deleted and not yet staged, which only a hook can meet.
+
+## Session 2026-11-08 — One list of checks and one runner, reported per dimension (NF-32)
+
+`tools/checks.json` and `tools/run_checks.js` (new), `.github/workflows/test.yml`, `.claude/settings.json` and
+`.githooks/pre-commit` (new), `.assetsignore`, `AGENTS.md`; `test/verify-run-checks.cjs` (new).
+
+**The list.** Every check CI ran is now a row in `tools/checks.json` with a dimension and a `blocking` flag.
+A `test/verify-*.cjs` file nobody names falls to `every-other-harness`, so a new harness still runs without an
+edit here, and the runner refuses a harness no CI check claims. The clinical dimension is binary: the runner
+refuses a non-blocking check in it.
+
+**The gate is as strict as it was.** Pp, 2026-11-08: every dimension closes it, so every row is `blocking: true`
+and `test/verify-run-checks.cjs` pins that. A failing check no longer stops the run at once: the rest still run
+and the job ends with one line per dimension, and no average. The job is still called `harnesses`, the name the
+`release` branch rule requires.
+
+**Three callers.** CI runs `--level ci`, one step per phase. The pre-commit hook and the Stop hook run the 5-second
+set (the shells, `ci_bans` and its self-test, the reference tabs); `verify-calc-sum.cjs` and
+`verify-clinical-rules.cjs`, about 2 minutes together, join them only when `calculator.jsx` or `data.js` changed.
+The Stop hook sends an agent back once and then lets it stop. A hook with no `node_modules` skips a check that
+needs one and says so; CI never skips. The pre-commit hook runs in a clone only after
+`node tools/run_checks.js --install-hooks`.
 
 ## Session 2026-11-07 (3) — Stakeholder walk: only a doctor submits a doctor's order; a held order lists what changed; Quick calc opens with no route
 

@@ -3,6 +3,12 @@
 > ⏳ **2026-11-08 — A release compares old and new on made-up orders (NF-42): `tools/calc-compare.cjs`.** The release
 > PR carries its report. Nothing reaches the ward: no frontend or backend file moved (`REFERENCE.md` § Before and after).
 >
+> ⏳ **2026-11-08 — "No TPN" tag on the ward list: PR #234, merged into `main` on Praew's instruction; frontend only, not live.** Release waits for Pp.
+>
+> ⏳ **2026-11-08 — One list of checks, one runner (NF-32): `tools/checks.json`, `tools/run_checks.js`: PR #233, merged into `main` on Praew's instruction.** CI and both
+> hooks call the runner, which reports per dimension. Nothing reaches the ward: no frontend or backend file moved. The
+> pre-commit hook needs `node tools/run_checks.js --install-hooks` once per clone (`CHANGELOG.md` 2026-11-08).
+>
 > ⏳ **2026-11-07 — Stakeholder walk fixes (only a doctor submits a doctor's order, a nurse saves I/O only; a held
 > order lists each changed figure, old → new; Quick calc opens with no route): PR #232, merged into `main` on Praew's instruction; not live.**
 > Frontend **and backend**: the backend refuses a nurse's Submit and names who submitted on the TPN room's page, so it
