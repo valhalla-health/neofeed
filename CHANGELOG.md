@@ -7,6 +7,12 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-09 — an agent can open dev local unattended
+
+`tools/dev-local.mjs` no longer serves the Google Sign-In script: the sandbox refuses every Google token, and the
+popup froze the Browser pane until a person closed it. `.claude/launch.json` starts the tool as `neofeed-dev-local`,
+and `AGENTS.md` now says it exists. `verify-dev-local` gained 1.6 and 5.0.
+
 ## Session 2026-11-08 (9) — NF-42, one wording in (8)
 
 jsdom drops a gradient built on `var()`, which all three in `calculator.jsx` are; a plain gradient is kept.
