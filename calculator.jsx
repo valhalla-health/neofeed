@@ -2140,9 +2140,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // actual hours, so it is graded on what the pump does (CR-LIPID-RATE).
   const tpnPump = D.pumpRate(totalTPN_mL, 24);
   const lipidPump = D.pumpRate(calc.lipidBagVol, lipidDripHours);
-  const lipidGkgh = D.lipidGkghAt(lipidPerKg, calc.lipidBagVol, lipidDripHours);
+  const lipidGrade = D.lipidRateGrade(lipidPerKg, calc.lipidBagVol, lipidDripHours);
+  const lipidGkgh = lipidGrade.gkgh;
   const pumpHoursText = (pump) => pump ? `${fmt(pump.hours, 1)} h` : "—";
-  const sLipidGkgh = lipidGkgh > D.LIPID_GKGH.max ? "crit" : lipidGkgh > D.LIPID_GKGH.warn ? "warn" : "ok";
+  const sLipidGkgh = lipidGrade.status;
+  const tpnEarlyStopH = D.pumpEarlyStopHours(totalTPN_mL, 24);
   // EN volume: short of 100 mL/kg/d is a caution; nothing ordered is not.
   const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
 
@@ -2439,6 +2441,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // and still be far from the day's plan (Vera, 2026-11-01); there, a shortfall
   // already said in red or amber above is not said again.
   if ((calc.totalTPN_mL > 0 || (noTpnOn && !noTpnEnLow && !noTpnPlanLow)) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
+  // A small bag's rate rounded up empties it early; GIR is still over 24 h (Q21).
+  if (tpnEarlyStopH > 0) alerts.push({ level: "info", title: "TPN bag ends early", body: `${fmt(tpnPump.rate, 1)} mL/hr empties the bag in ${pumpHoursText(tpnPump)}, ${fmt(tpnEarlyStopH, 1)} h before the next one. While it runs, glucose is ${Math.round((24 / tpnPump.hours - 1) * 100)} % above the GIR shown.`, ref: "Pp, 2026-11-09" });
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   // The title is unchanged so a saved critOverride still names it; the limit
   // is ESPGHAN's 17.3 g/kg/d since 2026-10-27, no longer the sheet's 18.
@@ -2452,7 +2456,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   else if (kMeqPerLGraded > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (${kRedIsMax(kLim) ? `max ${kLim.hardMax}` : `critical above ${kLim.red}`}).`, ref: "TPN team, 2026-09-28" });
   // Lipid infusion rate, per the ceiling the TPN team set (2026-09-28).
   if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
-  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
+  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: lipidGrade.overByRounding
+    ? `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} because the pump rate rounds up; ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered. The ceiling is ${D.LIPID_GKGH.max} g/kg/h.`
+    : `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
@@ -3575,7 +3581,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <NumField label="Rate" unit="mL/hr"
                   value={tpnPump ? tpnPump.rate : 0}
                   onChange={(r) => setTotalTPN_mL(parseFloat((r * 24).toFixed(2)))} step={0.1}
-                  hint={totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day · infusion ${pumpHoursText(tpnPump)}` : "ใส่ rate pump"} />
+                  hint={totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day · infusion ${pumpHoursText(tpnPump)}${tpnEarlyStopH > 0 ? ` · หยุด ${fmt(tpnEarlyStopH, 1)} h ก่อนถุงใหม่` : ""}` : "ใส่ rate pump"} />
               </div>
 
               {/* ── Overfill: dead space → prepared volume ──────────────────

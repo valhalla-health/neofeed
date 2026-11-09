@@ -1469,9 +1469,11 @@ function Calculator({
   const sOsm = osmStatusAt(calc.osm);
   const tpnPump = D.pumpRate(totalTPN_mL, 24);
   const lipidPump = D.pumpRate(calc.lipidBagVol, lipidDripHours);
-  const lipidGkgh = D.lipidGkghAt(lipidPerKg, calc.lipidBagVol, lipidDripHours);
+  const lipidGrade = D.lipidRateGrade(lipidPerKg, calc.lipidBagVol, lipidDripHours);
+  const lipidGkgh = lipidGrade.gkgh;
   const pumpHoursText = (pump) => pump ? `${fmt(pump.hours, 1)} h` : "—";
-  const sLipidGkgh = lipidGkgh > D.LIPID_GKGH.max ? "crit" : lipidGkgh > D.LIPID_GKGH.warn ? "warn" : "ok";
+  const sLipidGkgh = lipidGrade.status;
+  const tpnEarlyStopH = D.pumpEarlyStopHours(totalTPN_mL, 24);
   const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
   const ivLipidKg = wtKg > 0 ? calc.lipidG / wtKg : 0;
   const ivKKg = calc.kKg;
@@ -1662,12 +1664,13 @@ function Calculator({
     ref: "Pp, 2026-11-01"
   });
   if ((calc.totalTPN_mL > 0 || noTpnOn && !noTpnEnLow && !noTpnPlanLow) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
+  if (tpnEarlyStopH > 0) alerts.push({ level: "info", title: "TPN bag ends early", body: `${fmt(tpnPump.rate, 1)} mL/hr empties the bag in ${pumpHoursText(tpnPump)}, ${fmt(tpnEarlyStopH, 1)} h before the next one. While it runs, glucose is ${Math.round((24 / tpnPump.hours - 1) * 100)} % above the GIR shown.`, ref: "Pp, 2026-11-09" });
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose 12 mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
   if (kOverMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (${kRedIsMax(kLim) ? `max ${kLim.hardMax}` : `critical above ${kLim.red}`}).`, ref: "TPN team, 2026-09-28" });
   if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
-  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
+  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: lipidGrade.overByRounding ? `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} because the pump rate rounds up; ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered. The ceiling is ${D.LIPID_GKGH.max} g/kg/h.` : `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
   if (bagCannotBeMade) alerts.push({
     level: "crit",
@@ -2563,7 +2566,7 @@ function Calculator({
       value: tpnPump ? tpnPump.rate : 0,
       onChange: (r) => setTotalTPN_mL(parseFloat((r * 24).toFixed(2))),
       step: 0.1,
-      hint: totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day · infusion ${pumpHoursText(tpnPump)}` : "ใส่ rate pump"
+      hint: totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day · infusion ${pumpHoursText(tpnPump)}${tpnEarlyStopH > 0 ? ` · หยุด ${fmt(tpnEarlyStopH, 1)} h ก่อนถุงใหม่` : ""}` : "ใส่ rate pump"
     }
   )), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(
     NumField,

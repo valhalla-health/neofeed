@@ -1091,13 +1091,35 @@ function lipidGkghAt(lipidPerKg, bagMl, hours) {
   const pump = pumpRate(bagMl, hours);
   return lipidPerKg > 0 && pump ? Math.round(lipidPerKg / pump.hours * 100) / 100 : 0;
 }
+// The grade of CR-LIPID-RATE. The figure shown and the amber come from the pump's
+// hours. Critical needs the dose above the ceiling over the hours ordered as well,
+// so a rate rounded up to the next 0.1 cannot make a line critical by itself: at
+// 4 g/kg/d over 24 h it did at 30 of the 50 weights under 1 kg, each asking a
+// reason (Pp, 2026-11-09). `overByRounding` marks an amber line above the ceiling.
+function lipidRateGrade(lipidPerKg, bagMl, hours) {
+  const gkgh = lipidGkghAt(lipidPerKg, bagMl, hours);
+  const gkghOrdered = lipidPerKg > 0 && hours > 0 ? Math.round(lipidPerKg / hours * 100) / 100 : 0;
+  const over = gkgh > LIPID_GKGH.max;
+  const status = over && gkghOrdered > LIPID_GKGH.max ? "crit" : gkgh > LIPID_GKGH.warn ? "warn" : "ok";
+  return { status, gkgh, gkghOrdered, overByRounding: over && status !== "crit" };
+}
+// Hours before the next bag that a pump empties its volume, as the screen shows
+// them, or 0 under PUMP_EARLY_STOP_NOTE_H. Rounding a small TPN bag's rate up stops
+// the pump early while GIR is still over 24 h, so it is said (Pp, 2026-11-09, Q21).
+const PUMP_EARLY_STOP_NOTE_H = 1;
+function pumpEarlyStopHours(volMl, hours = 24) {
+  const pump = pumpRate(volMl, hours);
+  if (!pump) return 0;
+  const gap = Number((PUMP_MAX_HOURS - Number(displayNum(pump.hours, 1))).toFixed(1));
+  return gap >= PUMP_EARLY_STOP_NOTE_H ? gap : 0;
+}
 // The 20% lipid syringe to a whole mL/day (Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ
 // rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ"). Tapping Step 3's "Lipid
 // volume" rounds the syringe to the nearest whole mL (half up) and sets the dose
 // that volume gives, so the pump rate and g/kg/h follow it. A tap never makes a
 // critical lipid line the typed dose did not have (Pp, the same day, for 4.0): where
-// the nearest mL would take the dose above 4.0 g/kg/d (CR-LIPID-IV-MAX) or the
-// g/kg/h above its ceiling (CR-LIPID-RATE, Vera on this PR), the whole mL below is
+// the nearest mL would take the dose above 4.0 g/kg/d (CR-LIPID-IV-MAX) or make the
+// g/kg/h grade critical (lipidRateGrade, CR-LIPID-RATE), the whole mL below is
 // used. A line the typed dose already had stays. Under 0.5 mL there is no whole mL
 // to round to, and the dose is returned unchanged (Vera on this PR: 1 mL would
 // multiply a small dose). The dose is kept to 2 decimals, else 3, whichever still
@@ -1111,7 +1133,7 @@ function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = 
   let ml = Number(displayNum(lipidPerKg * wtKg / gPerMl, 0));
   if (!(ml > 0)) return lipidPerKg;
   const overDose = (dose) => Number(dose.toPrecision(12)) > LIPID_IV_HARD_HI;
-  const overRate = (dose, mlNow) => lipidGkghAt(dose, mlNow + vitalipidMl, hours) > LIPID_GKGH.max;
+  const overRate = (dose, mlNow) => lipidRateGrade(dose, mlNow + vitalipidMl, hours).status === "crit";
   const typedOverDose = overDose(lipidPerKg);
   const typedOverRate = overRate(lipidPerKg, lipidPerKg * wtKg / gPerMl);
   const crosses = (m) => (!typedOverDose && overDose(m * gPerMl / wtKg))
@@ -3028,7 +3050,7 @@ window.NEOFEED_DATA = {
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
   // Step 3's Lipid volume tap: the syringe to a whole mL, the dose from it;
   // both pumps' rates to 0.1 mL/hr and the hours they run; lipid g/kg/h on those
-  lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt,
+  lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt, lipidRateGrade, pumpEarlyStopHours, PUMP_EARLY_STOP_NOTE_H,
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings

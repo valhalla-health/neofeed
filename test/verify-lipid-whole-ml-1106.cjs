@@ -164,6 +164,17 @@ const critTitles = () => [...container.querySelectorAll('.calc-bottom .alert-row
     const hint = text(fieldOf('Rate')?.querySelector('.field-hint') || fieldOf('Rate')?.lastElementChild);
     ok('TPN 200 mL/day: the Rate box reads 8.4 (200 ÷ 24 = 8.33, half up)', rate === '8.4', rate);
     ok('…and says it runs 23.8 h', hint.includes('= 200 mL/day · infusion 23.8 h'), hint);
+    ok('…and says nothing about stopping early', !hint.includes('หยุด'), hint);
+  });
+
+  await section('§5 a small bag that stops early says so (Q21)', async () => {
+    const infoTitles = () => [...container.querySelectorAll('.calc-bottom .alert-row.info .title')].map(t => t.textContent);
+    mount(0, { g: 1000, tpn: 12.5 });
+    const hint = text(fieldOf('Rate')?.querySelector('.field-hint') || fieldOf('Rate')?.lastElementChild);
+    ok('12.5 mL: the Rate box reads 0.6', fieldOf('Rate')?.querySelector('input')?.value === '0.6', fieldOf('Rate')?.querySelector('input')?.value);
+    ok('…and the hint says it runs 20.8 h and stops 3.2 h before the next bag', hint.includes('infusion 20.8 h · หยุด 3.2 h ก่อนถุงใหม่'), hint);
+    ok('…and the alert list says so too', infoTitles().includes('TPN bag ends early'), infoTitles());
+    ok('…and Submit is not stopped by it', !critTitles().includes('TPN bag ends early'), critTitles());
   });
 
   act(() => { root.unmount(); });

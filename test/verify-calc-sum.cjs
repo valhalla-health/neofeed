@@ -363,6 +363,8 @@ const grabT = (re) => { const m = bodyText().match(re); return m ? numOrDash(m[1
 const screenFigures = () => ({
   components: grabT(/Components(-?[\d.]+|—) mL/),
   bagTotal: grabT(/Bag total \(prepared\)(-?[\d.]+|—) mL/),
+  pumpHours: grabT(/= [\d,]+ mL\/day · infusion ([\d.]+) h/),
+  earlyStop: grabT(/· หยุด ([\d.]+) h ก่อนถุงใหม่/),
   cannotOnScreen: /cannot be compounded/.test(bodyText()),
 });
 
@@ -509,6 +511,8 @@ function sumCheck(sc, label, Vd) {
     ok(sc, `${label}: Σ(printed stock mL) = on-screen Components (±${TOL > EPS ? '0.05' : '0'})`, scr.components !== null && Math.abs(sr - scr.components) <= TOL, detail);
     ok(sc, `${label}: on-screen Components = printed Components`, scr.components === make.components, detail);
     ok(sc, `${label}: on-screen Bag total = printed prepared`, scr.bagTotal === make.prepared, detail);
+    const stopGap = scr.pumpHours === null ? null : Number((24 - scr.pumpHours).toFixed(1));
+    ok(sc, `${label}: the early-stop note is 24 h less the pump's hours, from 1 h up`, stopGap >= 1 ? scr.earlyStop === stopGap : scr.earlyStop === null, { ...detail, stopGap, earlyStop: scr.earlyStop });
   }
   return { make, S: sr, overflow: false };
 }

@@ -1,5 +1,9 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-10 — Lipid rate critical only when over the ceiling as ordered too; a TPN bag that ends early says so: branch `claude/lipid-grade-early-stop`, not live.** Part of release #236 once merged into `main` (`CHANGELOG.md` 2026-11-10).
+>
+> **Backend is `@69` since 2026-11-08**, with #231 and #232 (`clasp list-deployments`; mirror commit `d4a90a1`). The lines below that say that deploy is to come are older. Pp ran `setupQiExportKey()` from the editor on 2026-11-09.
+>
 > ⏳ **2026-11-08 — A release compares old and new on made-up orders (NF-42): `tools/calc-compare.cjs`: PR #235, merged into `main` on Praew's instruction.** The release
 > PR carries its report. Nothing reaches the ward: no frontend or backend file moved (`REFERENCE.md` § Before and after).
 >
