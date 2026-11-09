@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-08 — A release compares old and new on made-up orders (NF-42): `tools/calc-compare.cjs`.** The release
+> ⏳ **2026-11-08 — A release compares old and new on made-up orders (NF-42): `tools/calc-compare.cjs`: PR #235, merged into `main` on Praew's instruction.** The release
 > PR carries its report. Nothing reaches the ward: no frontend or backend file moved (`REFERENCE.md` § Before and after).
 >
 > ⏳ **2026-11-08 — "No TPN" tag on the ward list: PR #234, merged into `main` on Praew's instruction; frontend only, not live.** Release waits for Pp.
