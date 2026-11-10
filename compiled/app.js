@@ -132,7 +132,7 @@ function computeAlerts(patient, allEntries) {
   const entries = D_A.finalEntries(allEntries);
   const last = entries[entries.length - 1];
   if (last) {
-    const isEN = (last.enVolPerKg || 0) >= 100;
+    const isEN = D_A.isFullEn(last);
     const T = isEN ? D_A.ENTERAL_TARGETS : D_A.TPN_TARGETS;
     const src = isEN ? "ESPGHAN 2022" : "ESPGHAN 2018";
     const route = isEN ? "enteral" : "parenteral";

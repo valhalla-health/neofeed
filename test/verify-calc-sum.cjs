@@ -363,6 +363,8 @@ const grabT = (re) => { const m = bodyText().match(re); return m ? numOrDash(m[1
 const screenFigures = () => ({
   components: grabT(/Components(-?[\d.]+|—) mL/),
   bagTotal: grabT(/Bag total \(prepared\)(-?[\d.]+|—) mL/),
+  overGiven: grabT(/· 24 ชม\. ได้ ([\d.]+) mL เกิน/),
+  pumpRate: (() => { const v = [...container.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith('Rate'))?.querySelector('input')?.value; return v ? Number(v) : null; })(),
   cannotOnScreen: /cannot be compounded/.test(bodyText()),
 });
 
@@ -509,6 +511,9 @@ function sumCheck(sc, label, Vd) {
     ok(sc, `${label}: Σ(printed stock mL) = on-screen Components (±${TOL > EPS ? '0.05' : '0'})`, scr.components !== null && Math.abs(sr - scr.components) <= TOL, detail);
     ok(sc, `${label}: on-screen Components = printed Components`, scr.components === make.components, detail);
     ok(sc, `${label}: on-screen Bag total = printed prepared`, scr.bagTotal === make.prepared, detail);
+    const given = scr.pumpRate === null ? null : Number((scr.pumpRate * 24).toFixed(1));
+    const overPct = given === null ? 0 : Math.round(Number((given - Vd).toFixed(1)) / Vd * 100);
+    ok(sc, `${label}: the over-delivery note is the Rate box × 24 h, from 5 % up`, overPct >= 5 ? scr.overGiven === given : scr.overGiven === null, { ...detail, given, overGiven: scr.overGiven });
   }
   return { make, S: sr, overflow: false };
 }
