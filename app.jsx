@@ -206,7 +206,8 @@ function computeAlerts(patient, allEntries) {
     // while citing ESPGHAN 2018 — the guideline that sets that ceiling.
     // Legacy rows predate enVolPerKg and fall to the parenteral branch, which
     // is both pickTarget's default and the safer of the two.
-    const isEN  = (last.enVolPerKg || 0) >= 100;
+    // Full EN never counts a MEN feed (Pp, 2026-11-10; D_A.isFullEn).
+    const isEN  = D_A.isFullEn(last);
     const T     = isEN ? D_A.ENTERAL_TARGETS : D_A.TPN_TARGETS;
     const src   = isEN ? "ESPGHAN 2022" : "ESPGHAN 2018";
     const route = isEN ? "enteral" : "parenteral";

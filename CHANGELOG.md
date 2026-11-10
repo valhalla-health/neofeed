@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-10 (3) — Limits written out on the Calculator read data.js
+## Session 2026-11-10 (4) — Limits written out on the Calculator read data.js
 
 `data.js`, `calculator.jsx`, `log.jsx`, `app.jsx`, the neofeed-clinical-rules skill (CR-NPE-AA),
 `docs/CLINICAL_CONSTANTS.md`, `tools/reference-tabs.json` (a unit for the new constant); `test/verify-one-source-thresholds-1110.cjs` (new).
@@ -40,7 +40,7 @@ would print beside the paper's layout. Which of the two the form follows is a qu
 No value changed and no figure moved, so `CONSTANTS_VERSION` stays. The new harness plants other values in
 `data.js`'s exports and reads the screen, the printed form and the Copy: 12 of its 23 checks fail on `e555695`.
 
-Left out: Full EN at 100 mL/kg/d, which open PR #239 moves into `isFullEn`; `calculator.jsx` still tests
+Left out: Full EN at 100 mL/kg/d, which PR #239 moved into `isFullEn` for a saved row; `calculator.jsx` still tests
 `> 100` in two places (the P:E alert and its panel) where everything else tests `>= 100`, and that boundary
 is Pp's call. The nursing form's 200–8,000 g and the backend's `_checkRange` bounds stay literal: they
 mirror input validation in another runtime. `gas-backend.gs:2394`'s comment still says 300–8,000 g; the
@@ -60,6 +60,16 @@ the Reference page's rows other than the GIR card (amino acid, lipid, PN and EN 
 `ESPGHAN_TARGETS` holds), the lipid "1–24 h" hint (`PUMP_MAX_HOURS`) and "MEF 12–"
 (`ESPGHAN_TARGETS.en.advancement.mef`). The harness plants the dextrose ceiling and heparin; the other
 replacements are held only by today's text (calc-compare, the oracle and the rule cases).
+
+## Session 2026-11-10 (3) — Full EN never counts a MEN feed
+
+Pp, 2026-11-10: a feed ticked MEN does not count toward Full EN. The calculator already switched targets on counted EN
+only, but the Daily log's target bands and the patient page's targets read the saved `enVolPerKg`, which includes MEN, so a
+MEN-ticked feed of 100 mL/kg/d or more showed enteral targets there and parenteral ones on the order. `D.isFullEn` is now the
+one rule for a saved row, and `log.jsx` (two places) and `app.jsx` call it. A row without `calcInput` still reads the volume;
+a row without `enVolPerKg` stays parenteral. `test/verify-full-en-men-1110.cjs` pins it; `verify-targets-and-dates.cjs` calls
+the same rule instead of its own copy. Left as is: Step 5 still shows done for a MEN feed of 100 or more, which is progress,
+not target choice.
 
 ## Session 2026-11-10 (2) — A second lipid ceiling at the pump; the TPN pump runs 24 h
 
