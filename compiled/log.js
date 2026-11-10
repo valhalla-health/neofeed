@@ -3,7 +3,7 @@ const D_L = window.NEOFEED_DATA;
 const n = (v, d = 1) => D_L.displayNum(v, d);
 function pickTarget(metricKey, entry, patient) {
   if (!entry) return null;
-  const isEN = (entry.enVolPerKg || 0) >= 100;
+  const isEN = D_L.isFullEn(entry);
   const dol = D_L.entryDol(patient, entry);
   const wt = entry.weight || patient?.bw || 1e3;
   if (isEN) {
@@ -125,7 +125,7 @@ function TrendGraph({ entries, patient }) {
   };
   const latest = points[points.length - 1];
   const targetBand = latest ? latest.band : null;
-  const isENMode = latest && (latest.raw.enVolPerKg || 0) >= 100;
+  const isENMode = latest && D_L.isFullEn(latest.raw);
   let status = "empty";
   if (latest && targetBand) {
     const [lo, hi] = targetBand;

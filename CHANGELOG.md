@@ -7,6 +7,16 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-10 — Full EN never counts a MEN feed
+
+Pp, 2026-11-10: a feed ticked MEN does not count toward Full EN. The calculator already switched targets on counted EN
+only, but the Daily log's target bands and the patient page's targets read the saved `enVolPerKg`, which includes MEN, so a
+MEN-ticked feed of 100 mL/kg/d or more showed enteral targets there and parenteral ones on the order. `D.isFullEn` is now the
+one rule for a saved row, and `log.jsx` (two places) and `app.jsx` call it. A row without `calcInput` still reads the volume;
+a row without `enVolPerKg` stays parenteral. `test/verify-full-en-men-1110.cjs` pins it; `verify-targets-and-dates.cjs` calls
+the same rule instead of its own copy. Left as is: Step 5 still shows done for a MEN feed of 100 or more, which is progress,
+not target choice.
+
 ## Session 2026-11-08 (9) — NF-42, one wording in (8)
 
 jsdom drops a gradient built on `var()`, which all three in `calculator.jsx` are; a plain gradient is kept.
