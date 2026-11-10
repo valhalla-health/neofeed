@@ -1573,8 +1573,9 @@ failure that matters most, a copy that still talks to production: `boot.js` name
 never `script.google.com`, every script the shell names loads, internal files and a file beside the copy
 (`..%2f`) are not served, the seeded doctor signs in through the real `gas-backend.gs` and a wrong
 password is refused, the seed is there (AA submitted, BB draft, CC under an older `CONSTANTS_VERSION`, DD
-nothing), a `boot.js` it cannot rewrite stops it, and stop removes the copy. 17 checks, each seen to fail
-on a tool broken for it.
+nothing), a `boot.js` it cannot rewrite stops it, and stop removes the copy. The served shell does not load
+Google Sign-In, and `.claude/launch.json` starts the tool by name. 19 checks; 1.6 and 5.0 were seen to fail
+before the change, the other 17 on a tool broken for them.
 
 ## The Fenton rows at exact age, 2026-10-17 — one harness added
 

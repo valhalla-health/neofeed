@@ -41,6 +41,9 @@ Read before you act:
   `test/verify-*.cjs` is picked up by itself. Every dimension closes the gate (Pp, 2026-11-08), and moving
   one to `false` is her call (NF-32).
 - **Running the harnesses**: `test/README.md`.
+- **Seeing the app run**: start `neofeed-dev-local` from `.claude/launch.json`, or `node tools/dev-local.mjs`.
+  It runs the real `gas-backend.gs` on made-up infants and never reaches production. Sign in with an account
+  the server prints, click through what you changed, and restart it after a backend commit.
 - **A correction Pp makes a second time** becomes a rule in `tools/ci_bans.js` with a failing and a
   passing case in `test/ci-bans-fixtures.json` (NF-19), not a third review comment. CI runs it.
 - **Writing a log line** (`Logger.log`, `console.*`, an `Audit_Log` row, or a function that logs its
