@@ -154,6 +154,9 @@ function order({ dex, aa }) {
   setField('Dextrose final', dex); setField('Amino acid', aa);
   setField('Volume(mL/day)', 100);
 }
+// The P:E tile by its own label cell (.metric .lbl): the alert "Protein : Energy
+// off target" carries the same words, so page text cannot tell the two apart.
+const peTile = () => [...container.querySelectorAll('.metric .lbl')].some(l => l.textContent.trim() === 'Protein : Energy');
 function tick(label, want) {
   const lab = [...container.querySelectorAll('label.chk-label')].find(l => l.textContent.includes(label));
   if (!lab) throw new Error('no checkbox labelled ' + JSON.stringify(label));
@@ -320,21 +323,21 @@ const printText = () => text(container.querySelector('#print-form'));
     mountPatient('Central');
     feedOnly(11.5);   // 92 mL/kg/d
     ok('92 mL/kg/d is Full EN at a planted 90: "Full EN ≥90 mL/kg/d"', text(container).includes('Full EN ≥90 mL/kg/d'), '');
-    ok('…the P:E tile shows', text(container).includes('Protein : Energy'), '');
+    ok('…the P:E tile shows', peTile(), '');
     ok('…and breast milk\'s P:E is flagged', alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
     restore();
     mountPatient('Central');
     feedOnly(11.5);
     ok('at the real 100, 92 mL/kg/d is not Full EN', !text(container).includes('Full EN ≥'), '');
-    ok('…and has no P:E tile', !text(container).includes('Protein : Energy'), '');
+    ok('…and has no P:E tile', !peTile(), '');
     mountPatient('Central');
     feedOnly(12.5);   // exactly 100: the switch and P:E together (CR-TGT-PE, Pp 2026-11-10)
     ok('exactly 100 mL/kg/d: "Full EN ≥100 mL/kg/d"', text(container).includes('Full EN ≥100 mL/kg/d'), '');
-    ok('…the P:E tile shows at 100 itself', text(container).includes('Protein : Energy'), '');
+    ok('…the P:E tile shows at 100 itself', peTile(), '');
     ok('…and its alert fires at 100 itself', alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
     mountPatient('Central');
     feedOnly(12.5, true);
-    ok('100 mL/kg/d ticked MEN: no P:E tile, no alert', !text(container).includes('Protein : Energy') && !alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
+    ok('100 mL/kg/d ticked MEN: no P:E tile, no alert', !peTile() && !alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);

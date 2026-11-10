@@ -923,7 +923,7 @@ Source: ESPGHAN 2022, Embleton Table 1.
 {"rule": "CR-TGT-PE", "kind": "target", "where": [{"file": "calculator.jsx", "line": 2406, "has": "if (calc.useEnteralTargets && sPE === \"warn\") alerts.push"}, {"file": "calculator.jsx", "line": 2060, "has": "const tPE  = D.TARGETS.peRatio();"}]}
 {"case": "Hi-Q LBW 24 at 152 mL/kg/d (3.3 g/100 kcal): in range", "side": "inside", "infant": {"g": 1000}, "fluid": 160, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 19, "Frequency": 8}, "expect": {"no_alert": "Protein : Energy off target"}}
 {"case": "breast milk at 152 mL/kg/d (1.8 g/100 kcal): amber", "side": "outside", "infant": {"g": 1000}, "fluid": 160, "order": {"Volume(mL/feed)": 19, "Frequency": 8}, "expect": {"alert": "Protein : Energy off target", "level": "warn"}}
-{"case": "breast milk 12.5 mL × 8 = 100 mL/kg/d, the switch itself: amber", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 12.5, "Frequency": 8}, "expect": {"alert": "Protein : Energy off target", "level": "warn", "shows": "Protein : Energy"}}
+{"case": "breast milk 12.5 mL × 8 = 100 mL/kg/d, the switch itself: amber", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 12.5, "Frequency": 8}, "expect": {"alert": "Protein : Energy off target", "level": "warn"}}
 {"case": "12.4 mL × 8 = 99.2 mL/kg/d, parenteral targets: no P:E tile or alert", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 12.4, "Frequency": 8}, "expect": {"no_alert": "Protein : Energy off target", "hides": "Protein : Energy"}}
 ```
 
@@ -1308,8 +1308,10 @@ the dead space, so the hours above do not apply to it and Step 3 no longer shows
 5 % or more above the volume ordered, Step 3 says "24 ชม. ได้ X mL เกิน Y mL (Z%)" under Rate and the alert list
 carries the info line "TPN rate gives more than ordered". No figure changes (Pp, 2026-11-10, Q21); the 5 % is the
 agent's default, for her to change.
-The hours typed into the lipid card are held at the same `PUMP_MAX_HOURS` (lipid hangs 24 h at most), and
-its hint reads "1–24 h" from it.
+The hours typed into the lipid card are held at the same `PUMP_MAX_HOURS`, and its hint reads "1–24 h"
+from it. That cap is older than the pump rule: lipid hangs 24 h at most (TPN team, 2026-09-28, with the
+typed hours). Since 2026-11-10 both read the one constant; the cap is also what keeps a lipid run at or
+under 24 h, since `pumpRate` holds that only for hours of 24 or fewer.
 Source: Pp, 2026-11-06: "Pump rate ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง infusion in กี่ hr ให้ ถ้าเกิน 24 ชม.
 ให้ปัดเพิ่ม rate แทน ให้ไม่เกิน"; asked, she chose 24 h as the limit (not the hours typed) and both pumps.
 Not a clinical threshold.

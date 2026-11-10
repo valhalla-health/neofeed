@@ -3243,7 +3243,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
     if (!row) return `${key}: not in the feed list`;
     return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
   };
-  const band = useEN ? "เป้าหมาย enteral เพราะนมที่นับได้ถึง 100 mL/kg/d (CR-U-SWITCH)" : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
+  const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = /* @__PURE__ */ React.createElement(React.Fragment, null, "kg = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "wtG", v: wtG, d: 0 }), " g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)");
   const feedRow = (n, unit, total, k) => {
     if (given.length === 0) return /* @__PURE__ */ React.createElement(React.Fragment, null, "ไม่มีนม: ", /* @__PURE__ */ React.createElement(WorkVal, { k, v: total }), " ", unit);

@@ -4927,7 +4927,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
     if (!row) return `${key}: not in the feed list`;
     return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
   };
-  const band = useEN ? "เป้าหมาย enteral เพราะนมที่นับได้ถึง 100 mL/kg/d (CR-U-SWITCH)" : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
+  const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = <>kg = <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)</>;
   // `n` is the EN_DB nutrient; with two feeds calc.en is their mix, so each
   // feed's line reads its own row and the lines add up to calc's total.

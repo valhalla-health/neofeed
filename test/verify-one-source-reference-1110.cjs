@@ -149,6 +149,13 @@ try {
     d.TPN_TARGETS.mg = (dol) => dol <= REAL_FD ? [2.6, 5.1] : [5.2, 7.6];
     G.pn.fluid.elbw = { d1: [81, 101], d2: [102, 122], d3: [123, 143], d4: [144, 164], d5: [165, 185], d6plus: [146, 166] };
     G.pn.fluid.term.d6plus = [147, 167];
+    G.pn.fluid.vlbw = { d1: [71, 91], d2: [92, 112], d3: [113, 133], d4: [134, 154], d5: [161, 181], d6plus: [142, 162] };
+    G.pn.fluid.preterm = { d1: [61, 81], d2: [82, 102], d3: [103, 123], d4: [124, 144], d5: [145, 165], d6plus: [143, 163] };
+    G.pn.electrolytes.na.over1500 = { d1to2: [0.3, 2.3], d3: [0.4, 3.4], d4to7: [2.5, 5.5], stable: [2.6, 5.6] };
+    G.pn.electrolytes.k.under1500 = { d1to3: [0.6, 3.6], d4to5: [2.7, 3.7], d6to7: [1.8, 3.8], stable: [2.9, 5.9] };
+    G.pn.micronutrients.cu = { ...G.pn.micronutrients.cu, preterm: 41, term: 21 };
+    d.KCMH_STOCK.smof20 = { ...d.KCMH_STOCK.smof20, gPerMl: 0.25 };
+    d.TPN_TARGETS.lipid = (dol) => dol <= 1 ? [0.5, 1.1] : [1, 4];
     G.pn.electrolytes.na.under1500 = { d1to2: [0.1, 2.1], d3: [0.2, 5.2], d4to7: [2.3, 5.3], stable: [2.4, 5.4] };
     G.pn.electrolytes.k.over1500 = { d1to3: [0.5, 3.5], d4to5: [2.6, 3.6], d6to7: [1.7, 3.7], stable: [2.8, 3.8] };
     G.pn.micronutrients.zn.preterm = [401, 501];
@@ -166,11 +173,12 @@ try {
     ['Term stable 1.22–2.88', row('Term stable', '1.22', '2.88')],
   ]);
   check('Lipid', pn, [
-    ['Start 0.44', row('Start (Day 1–2)', '0.44', '1')],
+    ['Start 0.44–1.1 (TPN_TARGETS.lipid DOL 1)', row('Start (Day 1–2)', '0.44', '1.1')],
     ['Advance +0.99', row('Advance', '+0.5', '+0.99')],
     ['Max 3.77', row('Max', '—', '3.77')],
     ['TG 222', row('TG threshold', '—', '222')],
     ['20% ILE 1.9 kcal/mL', '20% ILE = 1.9 kcal/mL'],
+    ['1 g fat = 4 mL at 0.25 g/mL', '1 g fat = 4 mL SMOF 20%'],
   ]);
   check('Ca P Mg', pn, [
     ['Ca first days 0.71–1.91 = 33–81 mg', row('Ca', '0.71', '1.91', 'mmol/kg/day = 33–81 mg/kg')],
@@ -186,10 +194,15 @@ try {
   check('Fluid table', pn, [
     ['ELBW row', 'ELBW <1000g 81–101 102–122 123–143 144–164 165–185 146–166'],
     ['Term DOL 6+', '60–100 100–140 147–167'],
+    ['VLBW row', 'VLBW 1000–1500g 71–91 92–112 113–133 134–154 161–181 142–162'],
+    ['Preterm row', 'Preterm >1500g 61–81 82–102 103–123 124–144 145–165 143–163'],
   ]);
   check('Electrolytes', pn, [
     ['Na <1500 g row', 'Na — preterm <1500g 0.1–2.1 0.2–5.2 2.3–5.3 2.3–5.3 2.4–5.4'],
     ['K ≥1500 g row', 'K — ≥1500g 0.5–3.5 0.5–3.5 2.6–3.6 1.7–3.7 2.8–3.8'],
+    ['Na ≥1500 g row', 'Na — ≥1500g 0.3–2.3 0.4–3.4 2.5–5.5 2.5–5.5 2.6–5.6'],
+    ['K <1500 g row', 'K — preterm <1500g 0.6–3.6 0.6–3.6 2.7–3.7 1.8–3.8 2.9–5.9'],
+    ['Cu 41 preterm, 21 term', '41 preterm · 21 term µg/kg/day'],
     ['Zn 401–501', '401–501 µg/kg/day'],
     ['Fe 201–251', '201–251 µg/kg/day'],
     ['Peditrace 1.5 mL/kg (max 14)', 'Peditrace® 1.5 mL/kg/day (maximum 14 mL/day)'],
@@ -252,6 +265,11 @@ console.log('\n── §3 WHO tab: the 2022 column reads ESPGHAN_TARGETS.en ─�
 try {
   planted((G) => {
     Object.assign(G.en.energy, { range: [111, 141], max: 151 });
+    Object.assign(G.en.protein, { range: [3.4, 3.9], max: 4.4 });
+    G.en.fat.range = [4.7, 8.2];
+    G.en.k.range = [2.4, 4.7];
+    G.en.ca.range = [3.1, 5.1];
+    G.en.p.range = [2.3, 3.8];
     Object.assign(G.en.na, { range: [3.1, 5.1], high: 7.9 });
     G.en.vitD.range = [401, 701];
     Object.assign(G.en.fe, { range: [2.1, 3.1], max: 5.9 });
@@ -260,6 +278,11 @@ try {
   const { who } = page();
   check('2022 column', who, [
     ['Energy', 'Energy 110–135 111–141 (max 151)'],
+    ['Protein', 'Protein 3.5–4.5 3.4–3.9 (max 4.4)'],
+    ['Fat', 'Fat 4.8–6.6 4.7–8.2'],
+    ['K', 'K 1.7–3.4 2.4–4.7'],
+    ['Ca', 'Ca 3–3.5 mmol 3.1–5.1 mmol'],
+    ['P', 'P 1.9–2.9 mmol 2.3–3.8 mmol'],
     ['Na', 'Na 3–5 3.1–5.1 (–7.9)'],
     ['Vitamin D', 'Vitamin D 800–1000 IU/day 401–701 IU/kg/day'],
     ['Iron', 'Iron 2–3 mg/kg 2.1–3.1 (up to 5.9)'],
@@ -275,7 +298,9 @@ try {
   check('PN', pn, [
     ['Day 1 1.5–2.5', row('Day 1 (preterm)', '1.5', '2.5')],
     ['Term 1.5–3', row('Term stable', '1.5', '3')],
+    ['Lipid start 0.5–1', row('Start (Day 1–2)', '0.5', '1')],
     ['Lipid max 4', row('Max', '—', '4')],
+    ['1 g fat = 5 mL', '1 g fat = 5 mL SMOF 20%'],
     ['TG 265', row('TG threshold', '—', '265')],
     ['P growing 1.6–3.5 = 50–108 mg', row('P', '1.6', '3.5', 'mmol/kg/day = 50–108 mg/kg')],
     ['Mg first days = 2.5–5 mg', row('Mg', '0.1', '0.2', 'mmol/kg/day = 2.5–5 mg elemental')],

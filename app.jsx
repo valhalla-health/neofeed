@@ -4421,9 +4421,10 @@ function GuidelinesPanel() {
               Lipid Emulsion
             </div>
             <div className="card-b">
-              {/* data.js holds the start (0.5) and the largest step (1) only; the
-                  start's top of 1 and the smallest step of 0.5 are typed here. */}
-              <RangeRow label="Start (Day 1–2)" min={n(LIP.start)} max="1" unit="g/kg/day" highlight />
+              {/* The start's top is the DOL 1 band the lipid tile grades with,
+                  TPN_TARGETS.lipid(1). The smallest step, 0.5, is held only in the
+                  comment beside ESPGHAN_TARGETS.pn.lipid.step, so it is typed. */}
+              <RangeRow label="Start (Day 1–2)" min={n(LIP.start)} max={n(D_A.TPN_TARGETS.lipid(1)[1])} unit="g/kg/day" highlight />
               <RangeRow label="Advance" min="+0.5" max={`+${n(LIP.step)}`} unit="g/kg/day per day" />
               <RangeRow label="Max" min="—" max={n(LIP.max)} unit="g/kg/day" />
               <RangeRow label="TG threshold" min="—" max={n(LIP.tgCutoff)} unit="mg/dL → reduce ILE" />
@@ -4434,7 +4435,8 @@ function GuidelinesPanel() {
               </div>
               <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--bg-2)",
                 borderRadius: 6, fontSize: 11.5 }}>
-                20% ILE = <strong className="mono">{n(LIP.kcalPerMl_20pct)} kcal/mL</strong> · 1 g fat = 5 mL SMOF 20%
+                {/* mL per g from the strength the Calculator doses with, KCMH_STOCK.smof20. */}
+                20% ILE = <strong className="mono">{n(LIP.kcalPerMl_20pct)} kcal/mL</strong> · 1 g fat = {n(1 / D_A.KCMH_STOCK.smof20.gPerMl)} mL SMOF 20%
               </div>
             </div>
           </div>
@@ -4492,6 +4494,8 @@ function GuidelinesPanel() {
                   ["Preterm >1500g", PN.fluid.preterm], ["Term ≥2500g", PN.fluid.term],
                 ].map(([label, t]) => [label, ...["d1", "d2", "d3", "d4", "d5", "d6plus"].map((d) => rng(t[d]))])}
               />
+              {/* IWL 30 and 120 are held only in PN.fluid.note's text, the UO target
+                  nowhere, so they are typed. */}
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-3)" }}>
                 ELBW in humidified incubator (80–90%): IWL ≈30 mL/kg/day.
                 Open warmer: IWL up to 120 mL/kg/day. Target UO 1–3 mL/kg/hr.
@@ -4588,7 +4592,8 @@ function GuidelinesPanel() {
             </div>
             <div className="card-b">
               <RangeRow label="Na" {...span(EN.na.range)} unit={`mmol/kg/day (up to ${n(EN.na.high)} ELBW)`} highlight />
-              {/* 2010 figures (K 1.7–3.4, Zn 1.1–2) are held nowhere. */}
+              {/* 2010 figures are typed: K 1.7–3.4 is held nowhere, Zn 1.1–2 only in
+                  EN.zn.note's text. */}
               <RangeRow label="K" {...span(EN.k.range)} unit="mmol/kg/day (↑↑ from 1.7–3.4)" highlight />
               <RangeRow label="Ca" {...span(EN.ca.mgPerKg)} unit={`mg/kg/day = ${rng(EN.ca.range)} mmol/kg (↑)`} highlight />
               <RangeRow label="P" {...span(EN.p.mgPerKg)} unit={`mg/kg/day = ${rng(EN.p.range)} mmol/kg (↑)`} highlight />
@@ -4658,6 +4663,10 @@ function GuidelinesPanel() {
               WHO 2023 Preterm Feeding — New & Changed Recommendations
             </div>
             <div className="card-b">
+              {/* WHO's own figures, typed on purpose: they are the guideline's words
+                  (ESPGHAN_TARGETS.who2023 holds the same as text), not NeoFeed's
+                  values, as the GIR card shows ESPGHAN's. Only the HMF start is
+                  NeoFeed's, and it reads en.advancement.hmfStart. */}
               {[
                 { level:"crit", title:"Ca/P supplementation: NOT recommended",
                   body:"Changed from 2015 — routine Ca/P supplement for formula-fed preterm/LBW no longer recommended (insufficient evidence)." },
@@ -4704,7 +4713,8 @@ function GuidelinesPanel() {
                 cols={["Nutrient","ESPGHAN 2010","ESPGHAN 2022","Change","Unit"]}
                 rows={[
                   // The 2022 column reads ESPGHAN_TARGETS.en (DHA and ARA are
-                  // only in EN.fat.note's text); data.js holds no 2010 figure.
+                  // only in EN.fat.note's text). The 2010 column is typed: data.js
+                  // holds no 2010 figure as a number (a few sit in a note's text).
                   ["Energy",    "110–135", `${rng(EN.energy.range)} (max ${n(EN.energy.max)})`, "↑ upper", "kcal/kg/day"],
                   ["Protein",   "3.5–4.5", `${rng(EN.protein.range)} (max ${n(EN.protein.max)})`, "Quality focus", "g/kg/day"],
                   ["Fat",       "4.8–6.6", rng(EN.fat.range),     "↑↑ upper",      "g/kg/day"],

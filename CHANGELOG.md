@@ -7,46 +7,53 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-10 (5) — The Reference page and the last Calculator copies read data.js
+## Session 2026-11-10 (5) — The Reference page, the lipid hours, MEF and Full EN read data.js
 
 `data.js`, `app.jsx` (GuidelinesPanel), `calculator.jsx`, the neofeed-clinical-rules skill (CR-U-SWITCH, CR-TGT-PE,
 CR-R-PUMP-RATE), `docs/CLINICAL_CONSTANTS.md`, `tools/reference-tabs.json`; `test/verify-one-source-reference-1110.cjs`
-(new), `test/verify-one-source-thresholds-1110.cjs` (§7–§9).
+(new), `test/verify-one-source-thresholds-1110.cjs` (§7–§9), and the source-text checks in
+`test/verify-tpn-answers-1027.cjs` §7 and `test/verify-review-0911.cjs`, which matched the old literals' spelling.
 
 What 2026-11-10 (4) left, done:
 
 - **The Reference page** (Clinical Guidelines). Every figure `ESPGHAN_TARGETS` holds is read from it: amino acid,
-  lipid (start, step, max 4, TG 265, 2 kcal/mL), Ca · P · Mg and Ca:P, the fluid and electrolyte tables, Zn and Fe,
+  lipid (start, step, max 4, TG 265, 2 kcal/mL), Ca · P · Mg and Ca:P, the fluid and electrolyte tables, Zn, Fe and Cu,
   every EN target, the feeding steps (MEF, step, HMF at 40, Full EN at 100), the growth targets and the 2022 column of
   "ESPGHAN 2022 vs 2010". The mg beside Ca, P and Mg are the tiles' own bands (`TPN_TARGETS`), as the growing-P row
-  already was; Glycophos, Peditrace and Soluvit are `KCMH_STOCK`, the strengths and doses the Calculator uses. In
+  already was, and so is the lipid start's top (`TPN_TARGETS.lipid(1)`, the DOL 1 band). Glycophos, Peditrace,
+  Soluvit and "1 g fat = 5 mL" are `KCMH_STOCK`, the strengths and doses the Calculator uses. In
   `data.js`, `ESPGHAN_TARGETS.en.vitD.maxIuDay` is `VIT_D_MAX_IU_DAY`, `en.advancement.mef` ends at `MEN_MAX_ML_KG`,
   and `pn.electrolytes.caP_mass` is `TARGETS.caP()`, the band the tile grades.
 - **No trailing zero on that page** (Pp, 2026-11-10: "ตัดศูนย์ท้าย"): 3.0 → 3, 4.0 → 4, 1.0–1.7 → 1–1.7, and the
   typed 2010 figures too (3.0–5.0 → 3–5). That is the only text change on the page: a before/after dump of all three
   tabs differs in nothing else.
 - **Lipid "Infuse over"**: its "1–24 h" hint and the 24 h the typed hours are held at both read `PUMP_MAX_HOURS`.
-  They are the same rule: a bag runs 24 h at most, which Pp chose as the pump limit on 2026-11-06 (CR-R-PUMP-RATE).
-  The 1 h floor stays typed; it guards a division, not a clinical limit.
+  They are one rule: the cap (lipid hangs 24 h at most, TPN team 2026-09-28) is older than the pump limit Pp chose
+  on 2026-11-06 (CR-R-PUMP-RATE), and it is what keeps a lipid run at or under 24 h, since `pumpRate` holds that
+  only for hours of 24 or fewer (30 h typed would run 28 h). The 1 h floor stays typed; it guards a division.
 - **"MEF 12–24"** on the MEN caution reads `ESPGHAN_TARGETS.en.advancement.mef[0]` and `MEN_MAX_ML_KG`.
 - **Full EN, `FULL_EN_ML_KG` = 100** (new). `isFullEn`, the switch to enteral targets, Step 2's done mark, the EN
-  volume tile and its band (to `en.advancement.maxVol`), the "Full EN ≥100" banner, the P:E tile and its alert read it.
+  volume tile and its band (to `en.advancement.maxVol`), the "Full EN ≥100" banner, the show-working panel's
+  "นมที่นับได้ถึง 100 mL/kg/d", and the P:E tile and its alert read it.
 - **One behaviour change, Pp's call.** The P:E tile and its alert showed only above 100 mL/kg/d while the enteral
   targets switched on at 100, so an infant fed exactly 100 got enteral targets and no P:E. Asked, Pp chose "≥ 100
   เหมือนกันหมด": both now show on `calc.useEnteralTargets`, the switch itself (never for MEN, as before).
   CR-TGT-PE gains cases at 100 and 99.2.
 
-Still typed, because data.js holds no number for them (each says so in a comment): the lipid start's top of 1 and
-the smallest step of 0.5, cysteine 50–75 and the 65 kcal/kg (text only), DHA and ARA (inside `en.fat.note`), the EN
-fluid row's 180 (`en.fluid.range` is the attending's 150–200; ESPGHAN's 180 is only in its note), the Cl row, the
-2010 column, WHO's own figures, the HMF indication, oral feeding at PMA 32, and Vitalipid's 4 mL/kg and 10 mL (literals
-in `calculator.jsx`'s dose code, CR-VITALIPID-CAP). The Reference page does not show Soluvit's 10 mL/day cap, which
+Still typed, because data.js holds no number for them, only text or nothing (a comment beside each says which): the
+lipid's smallest step of 0.5, cysteine 50–75 and the 65 kcal/kg, DHA and ARA (inside `en.fat.note`), the EN fluid
+row's 180 (`en.fluid.range` is the attending's 150–200; ESPGHAN's 180 is only in its note), IWL 30 and 120 and the
+UO target, the Cl row, the 2010 figures, WHO's own figures on the WHO tab (the guideline's words, as the GIR card shows
+ESPGHAN's), the HMF indication, oral feeding at PMA 32, and Vitalipid's 4 mL/kg and 10 mL (literals in
+`calculator.jsx`'s dose code, CR-VITALIPID-CAP). The Reference page does not show Soluvit's 10 mL/day cap, which
 `KCMH_STOCK.soluvit.maxMl` holds; adding it would be new text, so it is left for Pp.
 
 No dose or printed figure moved, so `CONSTANTS_VERSION` stays. `node tools/calc-compare.cjs` against `origin/main`
 and against PR #240's head: see the PR. The new Reference harness plants other values in `window.NEOFEED_DATA` and
-reads the three tabs: 59 of its 72 checks fail on `a360580` (PR #240's head). The Calculator harness's new §7–§9 fail
-there too (8 checks), and its "30 h is held at 24" check passes on both, as it should.
+reads the three tabs: 70 of its 85 checks fail on `a360580` (PR #240's head). The Calculator harness's new §7–§9 fail
+there too (8 checks), and its "30 h is held at 24" check passes on both, as it should. Its P:E checks find the tile by
+its label cell: the alert's title carries the same words, and a page-text check passed with the tile reverted to
+`> 100` (the second reader's mutation). CR-TGT-PE's case at 100 checks the alert only, for the same reason.
 
 ## Session 2026-11-10 (4) — Limits written out on the Calculator read data.js
 
