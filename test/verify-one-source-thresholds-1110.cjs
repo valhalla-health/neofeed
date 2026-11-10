@@ -20,6 +20,11 @@
 //   §4  "Central only!" follows DEX_PERIPHERAL_MAX_PCT
 //   §5  with the real constants nothing moved: the same words as before
 //   §6  heparin: the hint and the printed form follow HEPARIN_USUAL_MAX_U_ML
+//   §7  lipid "Infuse over": its hint and the hours it holds follow PUMP_MAX_HOURS
+//   §8  the MEN caution's "MEF 12–24" follows ESPGHAN_TARGETS.en.advancement.mef
+//   §9  Full EN follows FULL_EN_ML_KG: the banner, the P:E tile and its alert, and
+//       at the real 100 the P:E alert shows from 100 itself (Pp, 2026-11-10: "≥ 100
+//       เหมือนกันหมด"; it was above 100 only)
 //
 // Fails against e555695, where every one of these is a literal. Mounts the real
 // <Calculator> in jsdom (the dev-only deps every calculator harness uses — see
@@ -82,16 +87,19 @@ for (const f of ['icons.jsx', 'calculator.jsx']) {
 
 // ── planting values in data.js's exports ───────────────────────────────────
 const SCALARS = ['GIR_HARD_HI', 'OSM_PERIPHERAL_MAX', 'NPE_IV_WARN_LO', 'DEX_PERIPHERAL_MAX_PCT', 'MAX_DEXTROSE_G_KG',
-  'HEPARIN_USUAL_MAX_U_ML'];
-const REAL = { girTarget: D.TARGETS.girTarget };
+  'HEPARIN_USUAL_MAX_U_ML', 'PUMP_MAX_HOURS', 'FULL_EN_ML_KG'];
+const REAL = { girTarget: D.TARGETS.girTarget, mef: D.ESPGHAN_TARGETS.en.advancement.mef };
 for (const k of SCALARS) REAL[k] = D[k];
 function plant(vals) {
   for (const [k, v] of Object.entries(vals)) {
-    if (k === 'girTarget') D.TARGETS.girTarget = () => v; else D[k] = v;
+    if (k === 'girTarget') D.TARGETS.girTarget = () => v;
+    else if (k === 'mef') D.ESPGHAN_TARGETS.en.advancement.mef = v;
+    else D[k] = v;
   }
 }
 function restore() {
   D.TARGETS.girTarget = REAL.girTarget;
+  D.ESPGHAN_TARGETS.en.advancement.mef = REAL.mef;
   for (const k of SCALARS) D[k] = REAL[k];
 }
 
@@ -145,6 +153,19 @@ function order({ dex, aa }) {
   setField('ปริมาตรคาสาย', 0);
   setField('Dextrose final', dex); setField('Amino acid', aa);
   setField('Volume(mL/day)', 100);
+}
+function tick(label, want) {
+  const lab = [...container.querySelectorAll('label.chk-label')].find(l => l.textContent.includes(label));
+  if (!lab) throw new Error('no checkbox labelled ' + JSON.stringify(label));
+  const box = lab.querySelector('input[type=checkbox]');
+  if (box.checked !== want) act(() => { box.click(); });
+}
+// 1 kg on breast milk alone, no TPN: the CR-U-SWITCH and CR-TGT-PE orders.
+function feedOnly(mlPerFeed, men = false) {
+  setField('Current weight', 1000);
+  setField('Target fluid', 150);
+  setField('Volume(mL/feed)', mlPerFeed); setField('Frequency', 8);
+  tick('MEN (trophic)', men);
 }
 const submitBtn = () => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Submit');
 const printText = () => text(container.querySelector('#print-form'));
@@ -258,6 +279,62 @@ const printText = () => text(container.querySelector('#print-form'));
     order({ dex: 20, aa: 2 });
     const dex = alertTexts().find(t => t.includes('Dextrose over KCMH max'));
     ok('17.3 g/kg/d still reads "(glucose 12 mg/kg/min)"', !!dex && dex.includes('(glucose 12 mg/kg/min)'), dex);
+  });
+
+  await section('§7 lipid "Infuse over" follows PUMP_MAX_HOURS', async () => {
+    // 1 kg, lipid 2 g/kg/d: 10 mL + Vitalipid 4 mL = a 14 mL bag. Typed 22 h it
+    // would run 0.6 mL/hr for 23.3 h; held at a planted 20 h, 0.7 mL/hr for 20 h.
+    // With the real 24, 30 h typed is held at 24 (0.6 mL/hr, 23.3 h); not held,
+    // 0.5 mL/hr would run 28 h.
+    plant({ PUMP_MAX_HOURS: 20 });
+    mountPatient('Central');
+    order({ dex: 10, aa: 2 });
+    setField('20% lipid', 2);
+    ok('hint reads "1–20 h"', text(fieldOf('Infuse over')).includes('1–20 h'), text(fieldOf('Infuse over')));
+    setField('Infuse over', 22);
+    ok('22 h typed is held at a planted 20: "infusion 20 h"', text(container).includes('infusion 20 h'), (text(container).match(/[^·]{0,30}infusion [\d.]+ h/) || [])[0]);
+    restore();
+    mountPatient('Central');
+    order({ dex: 10, aa: 2 });
+    setField('20% lipid', 2);
+    ok('with the real 24: hint "1–24 h"', text(fieldOf('Infuse over')).includes('1–24 h'), text(fieldOf('Infuse over')));
+    setField('Infuse over', 30);
+    ok('…and 30 h typed is held at 24: "infusion 23.3 h", not 28 h', text(container).includes('infusion 23.3 h'), (text(container).match(/[^·]{0,30}infusion [0-9.]+ h/) || [])[0]);
+  });
+
+  await section('§8 the MEN caution\'s MEF range follows ESPGHAN_TARGETS.en.advancement.mef', async () => {
+    plant({ mef: [11, 24] });
+    mountPatient('Central');
+    feedOnly(3.1, true);   // 24.8 mL/kg/d ticked MEN: above the 24 ceiling
+    const men = alertTexts().find(t => t.includes('MEN ticked above trophic volume'));
+    ok('its line reads "MEF 11–24 mL/kg/d"', !!men && men.includes('MEF 11–24 mL/kg/d'), men);
+    restore();
+    mountPatient('Central');
+    feedOnly(3.1, true);
+    const real = alertTexts().find(t => t.includes('MEN ticked above trophic volume'));
+    ok('with the real values: "MEF 12–24 mL/kg/d"', !!real && real.includes('MEF 12–24 mL/kg/d'), real);
+  });
+
+  await section('§9 Full EN follows FULL_EN_ML_KG, and P:E shows from it', async () => {
+    plant({ FULL_EN_ML_KG: 90 });
+    mountPatient('Central');
+    feedOnly(11.5);   // 92 mL/kg/d
+    ok('92 mL/kg/d is Full EN at a planted 90: "Full EN ≥90 mL/kg/d"', text(container).includes('Full EN ≥90 mL/kg/d'), '');
+    ok('…the P:E tile shows', text(container).includes('Protein : Energy'), '');
+    ok('…and breast milk\'s P:E is flagged', alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
+    restore();
+    mountPatient('Central');
+    feedOnly(11.5);
+    ok('at the real 100, 92 mL/kg/d is not Full EN', !text(container).includes('Full EN ≥'), '');
+    ok('…and has no P:E tile', !text(container).includes('Protein : Energy'), '');
+    mountPatient('Central');
+    feedOnly(12.5);   // exactly 100: the switch and P:E together (CR-TGT-PE, Pp 2026-11-10)
+    ok('exactly 100 mL/kg/d: "Full EN ≥100 mL/kg/d"', text(container).includes('Full EN ≥100 mL/kg/d'), '');
+    ok('…the P:E tile shows at 100 itself', text(container).includes('Protein : Energy'), '');
+    ok('…and its alert fires at 100 itself', alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
+    mountPatient('Central');
+    feedOnly(12.5, true);
+    ok('100 mL/kg/d ticked MEN: no P:E tile, no alert', !text(container).includes('Protein : Energy') && !alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);

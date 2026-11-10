@@ -2225,6 +2225,16 @@ the report must name (printed line, sticker, alert level, GIR colour, tile, othe
 `--intended`, a version number alone, orders that cannot be entered or submitted, git refs, and that the release template
 and `REFERENCE.md` name the tool and its limits. Needs the jsdom set above; about three minutes.
 
+## The Reference page and the last copies read data.js, 2026-11-10 — one harness added, one extended
+
+`verify-one-source-reference-1110.cjs`: renders the real `<GuidelinesPanel>` (the Reference page) in jsdom after
+planting other values in `ESPGHAN_TARGETS`, `TPN_TARGETS`, `KCMH_STOCK` and `VIT_D_MAX_IU_DAY`, and reads each
+RangeRow by its own label, the fluid and electrolyte tables, the feeding steps and the 2022 column of the WHO tab;
+then the real values read today's words and no figure on any tab ends in ".0". 59 of its 72 checks fail on `a360580`.
+`verify-one-source-thresholds-1110.cjs` gains §7 (lipid "Infuse over" and `PUMP_MAX_HOURS`), §8 (the MEN caution's
+MEF range) and §9 (`FULL_EN_ML_KG`: the banner, the P:E tile and alert, and P:E at exactly 100 mL/kg/d). Both need
+the jsdom set above.
+
 ## Limits written out read data.js, 2026-11-10 — one harness added
 
 `verify-one-source-thresholds-1110.cjs`: plants other values for `TARGETS.girTarget`, `GIR_HARD_HI`,

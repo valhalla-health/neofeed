@@ -1,5 +1,8 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-10 — The Reference page, the lipid hours, "MEF 12–24" and Full EN read `data.js`; P:E shows from 100 mL/kg/d itself: PR #PR_NUMBER, open, not merged, not live.**
+> Frontend only. The Reference page drops its trailing zeros; P:E at exactly 100 mL/kg/d is new (Pp's call); no dose moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-10 (5)).
+>
 > ⏳ **2026-11-10 — Limits written out on the Calculator read `data.js` (GIR line, "<900 mOsm/L" on the printed form
 > and Copy, NPE:AA 20, "Central only!" at 12.5 %, heparin, vitamin D, No TPN, salt strengths): PR #240, open, not merged, not live.**
 > Frontend only. No value or printed figure moved (the oral P hint now reads its graded ~70); `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-10 (4)).
