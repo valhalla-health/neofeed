@@ -826,7 +826,7 @@ const kBagLimitsFor = (route) => K_BAG_MEQ_PER_L[route === "central" ? "central"
 // Lipid infusion rate ceiling, g/kg/h (TPN team meeting and Praew, 2026-09-28):
 // amber above `warn`, critical above `max`. Graded on the figure the pump card
 // shows (2 decimals), so its colour never disagrees with its number.
-const LIPID_GKGH = { warn: 0.13, max: 0.17 };
+const LIPID_GKGH = { warn: 0.13, max: 0.17, pumpMax: 0.2 };
 // Total elemental zinc reaching the infant per day — Peditrace plus ZnSO₄ —
 // above which an order is a critical alert (KCMH TPN team, 2026-09-22).
 const MAX_ZN_MG_DAY = 5;
@@ -1091,13 +1091,40 @@ function lipidGkghAt(lipidPerKg, bagMl, hours) {
   const pump = pumpRate(bagMl, hours);
   return lipidPerKg > 0 && pump ? Math.round(lipidPerKg / pump.hours * 100) / 100 : 0;
 }
+// The grade of CR-LIPID-RATE. The figure shown and the amber come from the pump's
+// hours. Critical needs the dose above the ceiling over the hours ordered as well,
+// so a rate rounded up to the next 0.1 cannot make a line critical by itself: at
+// 4 g/kg/d over 24 h it did at 30 of the 50 weights under 1 kg, each asking a
+// reason (Pp, 2026-11-09). Above LIPID_GKGH.pumpMax at the pump it is critical
+// whatever the hours ordered: 200 g on 4 g/kg/d runs 0.24 (Vera; Pp, 2026-11-10).
+// `overByRounding` marks an amber line above the ceiling.
+function lipidRateGrade(lipidPerKg, bagMl, hours) {
+  const gkgh = lipidGkghAt(lipidPerKg, bagMl, hours);
+  const gkghOrdered = lipidPerKg > 0 && hours > 0 ? Math.round(lipidPerKg / hours * 100) / 100 : 0;
+  const over = gkgh > LIPID_GKGH.max;
+  const status = (over && gkghOrdered > LIPID_GKGH.max) || gkgh > LIPID_GKGH.pumpMax ? "crit" : gkgh > LIPID_GKGH.warn ? "warn" : "ok";
+  return { status, gkgh, gkghOrdered, overByRounding: over && status !== "crit" };
+}
+// The ward sets no volume limit on the TPN pump (Pp, 2026-11-10), so it runs its
+// rate for 24 h and draws the extra from the bag's dead space. A rate rounded up
+// then gives more than ordered: 12.5 mL at 0.6 mL/hr is 14.4 mL, 15 % more. From
+// TPN_OVER_NOTE_PCT up it is said (Q21; Pp chose to say it, 2026-11-10). null below.
+const TPN_OVER_NOTE_PCT = 5;
+function tpnOverDelivery(volMl) {
+  const pump = pumpRate(volMl, 24);
+  if (!pump) return null;
+  const givenMl = Number((pump.rate * 24).toFixed(1));
+  const extraMl = Number((givenMl - volMl).toFixed(1));
+  const pct = Math.round(extraMl / volMl * 100);
+  return pct >= TPN_OVER_NOTE_PCT ? { givenMl, extraMl, pct } : null;
+}
 // The 20% lipid syringe to a whole mL/day (Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ
 // rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ"). Tapping Step 3's "Lipid
 // volume" rounds the syringe to the nearest whole mL (half up) and sets the dose
 // that volume gives, so the pump rate and g/kg/h follow it. A tap never makes a
 // critical lipid line the typed dose did not have (Pp, the same day, for 4.0): where
-// the nearest mL would take the dose above 4.0 g/kg/d (CR-LIPID-IV-MAX) or the
-// g/kg/h above its ceiling (CR-LIPID-RATE, Vera on this PR), the whole mL below is
+// the nearest mL would take the dose above 4.0 g/kg/d (CR-LIPID-IV-MAX) or make the
+// g/kg/h grade critical (lipidRateGrade, CR-LIPID-RATE), the whole mL below is
 // used. A line the typed dose already had stays. Under 0.5 mL there is no whole mL
 // to round to, and the dose is returned unchanged (Vera on this PR: 1 mL would
 // multiply a small dose). The dose is kept to 2 decimals, else 3, whichever still
@@ -1111,7 +1138,7 @@ function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = 
   let ml = Number(displayNum(lipidPerKg * wtKg / gPerMl, 0));
   if (!(ml > 0)) return lipidPerKg;
   const overDose = (dose) => Number(dose.toPrecision(12)) > LIPID_IV_HARD_HI;
-  const overRate = (dose, mlNow) => lipidGkghAt(dose, mlNow + vitalipidMl, hours) > LIPID_GKGH.max;
+  const overRate = (dose, mlNow) => lipidRateGrade(dose, mlNow + vitalipidMl, hours).status === "crit";
   const typedOverDose = overDose(lipidPerKg);
   const typedOverRate = overRate(lipidPerKg, lipidPerKg * wtKg / gPerMl);
   const crosses = (m) => (!typedOverDose && overDose(m * gPerMl / wtKg))
@@ -3028,7 +3055,7 @@ window.NEOFEED_DATA = {
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
   // Step 3's Lipid volume tap: the syringe to a whole mL, the dose from it;
   // both pumps' rates to 0.1 mL/hr and the hours they run; lipid g/kg/h on those
-  lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt,
+  lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt, lipidRateGrade, tpnOverDelivery, TPN_OVER_NOTE_PCT,
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
