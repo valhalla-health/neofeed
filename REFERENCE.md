@@ -105,7 +105,9 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
   where the paper has it. Oral orders go under "8. Other", and "แพทย์" is a
   blank line the checking doctor writes and signs (Pp, 2026-11-06; it printed the saver's name before). Alerts are settled in the app, where a critical one needs a confirmation with a
   reason at Save; the only alert text on the front is that confirmation, since 2026-10-28. The "Normal Requirement" column is NeoFeed's targets, not
-  the paper's printed ranges, which disagree with the app (review F4).
+  the paper's printed ranges, which disagree with the app (review F4). The route line's "Peripheral
+  (<900 mOsm/L)" prints `OSM_PERIPHERAL_MAX`: where a limit is the app's, the front prints the app's figure,
+  not the paper's (Pp, 2026-11-10, PR #240: "ตามค่าในแอป").
 - **Back: pharmacy.** The Factor, the aqueous bag stock by stock in mL with the WFI q.s., K⁺ in the bag,
   Ca·PO₄, what reaches the infant, changes since the last order, and who saved it.
 

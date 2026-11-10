@@ -294,7 +294,8 @@ exceeding" 900, which would allow 900. No guideline sets a central limit (Kolač
 and Fanaroff give no mOsm figure, only dextrose above 12.5 % on a central line (Avery ch 60 p. 8, Fanaroff
 ch 42 p. 10). The 850 caution and the central 1,800 warning had no source and are gone. Dextrose above
 12.5 % on a peripheral line, or with no route yet, adds a "Central only!" flag under the dextrose field
-(`DEX_PERIPHERAL_MAX_PCT`, 2026-11-10); it is not an alert and changes nothing at Submit.
+(`DEX_PERIPHERAL_MAX_PCT`, 2026-11-10); it is not an alert and changes nothing at Submit. The printed form's
+route line prints `OSM_PERIPHERAL_MAX`, not the paper form's fixed "<900" (Pp, 2026-11-10, PR #240).
 
 ```rule
 {"rule": "CR-OSM-PERIPH", "kind": "critical", "coded": {"OSM_PERIPHERAL_MAX": 900, "DEX_PERIPHERAL_MAX_PCT": 12.5}, "where": [{"file": "calculator.jsx", "line": 3628, "has": "route!==\"central\" && dexPct > D.DEX_PERIPHERAL_MAX_PCT && ("}, {"file": "data.js", "line": 1074, "has": "const OSM_PERIPHERAL_MAX = 900;"}, {"file": "calculator.jsx", "line": 2132, "has": "? (Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? \"crit\" : \"ok\")"}, {"file": "calculator.jsx", "line": 2427, "has": "if (bagOrdered && sOsm === \"crit\") alerts.push"}]}
