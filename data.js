@@ -599,7 +599,18 @@ const TPN_TARGETS = {
   caP: () => [1.0, 1.7],   // mass ratio; full ESPGHAN range; KCMH aim 1.7:1
 };
 
-// ── ENTERAL_TARGETS — used when EN ≥ 100 mL/kg/d ────────────
+// ── Full EN on a saved row (Pp, 2026-11-10) ──────────────────
+// Counted EN of at least 100 mL/kg/d. A MEN feed never counts, the same rule
+// the calculator's useEnteralTargets applies before saving. enVolPerKg stays
+// the feed actually given, so the MEN tick in calcInput decides. A row
+// without enVolPerKg (legacy) is parenteral, the safer of the two.
+function isFullEn(entry) {
+  if (!entry) return false;
+  if (entry.calcInput && entry.calcInput.isMEN) return false;
+  return (Number(entry.enVolPerKg) || 0) >= 100;
+}
+
+// ── ENTERAL_TARGETS — used when Full EN (isFullEn) ──────────
 // Source: ESPGHAN Committee on Nutrition 2022 (JPGN 2022)
 //         WHO 2023 Preterm Feeding Guidelines
 const ENTERAL_TARGETS = {
@@ -3040,7 +3051,7 @@ window.NEOFEED_DATA = {
   // for by mistake alongside KCMH_STOCK; see the warning at its declaration.
   SALT_SOURCES_REFERENCE_ONLY: SALT_SOURCES,
   // Target systems (backward-compatible function API)
-  TARGETS, TPN_TARGETS, ENTERAL_TARGETS,
+  TARGETS, TPN_TARGETS, ENTERAL_TARGETS, isFullEn,
   // Comprehensive ESPGHAN reference object (for display panels)
   ESPGHAN_TARGETS,
   // Growth charts
