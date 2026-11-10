@@ -2,7 +2,11 @@
 
 > ⏳ **2026-11-10 — Limits written out on the Calculator read `data.js` (GIR line, "<900 mOsm/L" on the printed form
 > and Copy, NPE:AA 20, "Central only!" at 12.5 %): open PR, not merged, not live.** Frontend only. No value or figure
-> moved; `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-10).
+> moved; `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-10 (3)).
+>
+> ⏳ **2026-11-10 — Lipid rate critical only when over the ceiling as ordered too; above 0.20 at the pump critical always; the TPN line says how much more a rounded-up rate gives: PR #237, merged into `main` on Praew's instruction; not live.** Part of release #236 once merged into `main` (`CHANGELOG.md` 2026-11-10).
+>
+> **Backend is `@69` since 2026-11-08**, with #231 and #232 (`clasp list-deployments`; mirror commit `d4a90a1`). The lines below that say that deploy is to come are older. Pp ran `setupQiExportKey()` from the editor on 2026-11-09.
 >
 > ⏳ **2026-11-08 — A release compares old and new on made-up orders (NF-42): `tools/calc-compare.cjs`: PR #235, merged into `main` on Praew's instruction.** The release
 > PR carries its report. Nothing reaches the ward: no frontend or backend file moved (`REFERENCE.md` § Before and after).
