@@ -30,7 +30,8 @@ What 2026-11-10 (4) left, done:
 - **Lipid "Infuse over"**: its "1–24 h" hint and the 24 h the typed hours are held at both read `PUMP_MAX_HOURS`.
   They are one rule: the cap (lipid hangs 24 h at most, TPN team 2026-09-28) is older than the pump limit Pp chose
   on 2026-11-06 (CR-R-PUMP-RATE), and it is what keeps a lipid run at or under 24 h, since `pumpRate` holds that
-  only for hours of 24 or fewer (30 h typed would run 28 h). The 1 h floor stays typed; it guards a division.
+  only for hours of 24 or fewer (a 14 mL lipid bag typed at 30 h would run 28 h). The 1 h floor stays typed; it
+  guards a division.
 - **"MEF 12–24"** on the MEN caution reads `ESPGHAN_TARGETS.en.advancement.mef[0]` and `MEN_MAX_ML_KG`.
 - **Full EN, `FULL_EN_ML_KG` = 100** (new). `isFullEn`, the switch to enteral targets, Step 2's done mark, the EN
   volume tile and its band (to `en.advancement.maxVol`), the "Full EN ≥100" banner, the show-working panel's
@@ -42,18 +43,20 @@ What 2026-11-10 (4) left, done:
 
 Still typed, because data.js holds no number for them, only text or nothing (a comment beside each says which): the
 lipid's smallest step of 0.5, cysteine 50–75 and the 65 kcal/kg, DHA and ARA (inside `en.fat.note`), the EN fluid
-row's 180 (`en.fluid.range` is the attending's 150–200; ESPGHAN's 180 is only in its note), IWL 30 and 120 and the
-UO target, the Cl row, the 2010 figures, WHO's own figures on the WHO tab (the guideline's words, as the GIR card shows
-ESPGHAN's), the HMF indication, oral feeding at PMA 32, and Vitalipid's 4 mL/kg and 10 mL (literals in
-`calculator.jsx`'s dose code, CR-VITALIPID-CAP). The Reference page does not show Soluvit's 10 mL/day cap, which
+row's 180 (`en.fluid.range` is the attending's 150–200; ESPGHAN's 180 is only in its note), IWL 30 and 120, the
+incubator's 80–90 % humidity and the UO target, the Cl row, the 2010 figures, iron's "start at 2 wks", the GIR card's
++1 step and "step down 1–2", WHO's own figures on the WHO tab (the guideline's words), the HMF indication, oral
+feeding at PMA 32, and Vitalipid's 4 mL/kg and 10 mL (literals in `calculator.jsx`'s dose code, CR-VITALIPID-CAP).
+The GIR card's figures, from #240, read data.js without displayNum; none has a trailing zero today. The Reference page does not show Soluvit's 10 mL/day cap, which
 `KCMH_STOCK.soluvit.maxMl` holds; adding it would be new text, so it is left for Pp.
 
 No dose or printed figure moved, so `CONSTANTS_VERSION` stays. `node tools/calc-compare.cjs` against `origin/main`
 and against PR #240's head: see the PR. The new Reference harness plants other values in `window.NEOFEED_DATA` and
 reads the three tabs: 70 of its 85 checks fail on `a360580` (PR #240's head). The Calculator harness's new §7–§9 fail
-there too (8 checks), and its "30 h is held at 24" check passes on both, as it should. Its P:E checks find the tile by
+there too (9 checks), and its "30 h is held at 24" check passes on both, as it should. Its P:E checks find the tile by
 its label cell: the alert's title carries the same words, and a page-text check passed with the tile reverted to
-`> 100` (the second reader's mutation). CR-TGT-PE's case at 100 checks the alert only, for the same reason.
+`> 100` (the first new reader's mutation). CR-TGT-PE's case at 100 checks the alert only, for the same reason.
+§9 also reads the show-working panel's "นมที่นับได้ถึง 90 mL/kg/d" at a planted 90.
 
 ## Session 2026-11-10 (4) — Limits written out on the Calculator read data.js
 

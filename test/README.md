@@ -2233,7 +2233,7 @@ RangeRow by its own label, the fluid and electrolyte tables, the feeding steps a
 then the real values read today's words and no figure on any tab ends in ".0". 70 of its 85 checks fail on `a360580`.
 `verify-one-source-thresholds-1110.cjs` gains §7 (lipid "Infuse over" and `PUMP_MAX_HOURS`), §8 (the MEN caution's
 MEF range) and §9 (`FULL_EN_ML_KG`: the banner, the P:E tile by its label cell and the alert, and P:E at exactly
-100 mL/kg/d); 8 of them fail on `a360580`. Both need
+100 mL/kg/d, and the show-working line at a planted 90); 9 of them fail on `a360580`. Both need
 the jsdom set above.
 
 ## Limits written out read data.js, 2026-11-10 — one harness added

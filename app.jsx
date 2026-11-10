@@ -4403,6 +4403,8 @@ function GuidelinesPanel() {
                 note="Optimal anabolism without excess lipogenesis" highlight />
               <RangeRow label="Max (all)" min="—" max={G.pn.gir.preterm.max} unit="mg/kg/min"
                 note={`>${G.pn.gir.preterm.max} → ↑lipogenesis, ↑TG, ↑CO₂, ventilator weaning difficulty`} />
+              {/* The step's lower +1 and "step down 1–2" are ESPGHAN's words that
+                  data.js does not hold as numbers, so they are typed. */}
               <RangeRow label="Advance" min="+1" max={`+${G.pn.gir.preterm.step}`} unit="mg/kg/min per day" />
               <RangeRow label="Term start" min={G.pn.gir.term.start[0]} max={G.pn.gir.term.start[1]} unit="mg/kg/min" />
               <SectionHead>Hyperglycemia management</SectionHead>
@@ -4494,8 +4496,8 @@ function GuidelinesPanel() {
                   ["Preterm >1500g", PN.fluid.preterm], ["Term ≥2500g", PN.fluid.term],
                 ].map(([label, t]) => [label, ...["d1", "d2", "d3", "d4", "d5", "d6plus"].map((d) => rng(t[d]))])}
               />
-              {/* IWL 30 and 120 are held only in PN.fluid.note's text, the UO target
-                  nowhere, so they are typed. */}
+              {/* Typed: IWL 30 and 120 are held only in PN.fluid.note's text, the
+                  incubator's 80–90 % humidity and the UO target nowhere. */}
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-3)" }}>
                 ELBW in humidified incubator (80–90%): IWL ≈30 mL/kg/day.
                 Open warmer: IWL up to 120 mL/kg/day. Target UO 1–3 mL/kg/hr.
@@ -4592,8 +4594,9 @@ function GuidelinesPanel() {
             </div>
             <div className="card-b">
               <RangeRow label="Na" {...span(EN.na.range)} unit={`mmol/kg/day (up to ${n(EN.na.high)} ELBW)`} highlight />
-              {/* 2010 figures are typed: K 1.7–3.4 is held nowhere, Zn 1.1–2 only in
-                  EN.zn.note's text. */}
+              {/* Typed, as data.js holds them only as text: the 2010 figures (K 1.7–3.4
+                  in a comment, Zn 1.1–2 in EN.zn.note) and iron's "start at 2 wks"
+                  (EN.fe.note). */}
               <RangeRow label="K" {...span(EN.k.range)} unit="mmol/kg/day (↑↑ from 1.7–3.4)" highlight />
               <RangeRow label="Ca" {...span(EN.ca.mgPerKg)} unit={`mg/kg/day = ${rng(EN.ca.range)} mmol/kg (↑)`} highlight />
               <RangeRow label="P" {...span(EN.p.mgPerKg)} unit={`mg/kg/day = ${rng(EN.p.range)} mmol/kg (↑)`} highlight />
@@ -4663,10 +4666,10 @@ function GuidelinesPanel() {
               WHO 2023 Preterm Feeding — New & Changed Recommendations
             </div>
             <div className="card-b">
-              {/* WHO's own figures, typed on purpose: they are the guideline's words
-                  (ESPGHAN_TARGETS.who2023 holds the same as text), not NeoFeed's
-                  values, as the GIR card shows ESPGHAN's. Only the HMF start is
-                  NeoFeed's, and it reads en.advancement.hmfStart. */}
+              {/* WHO's own figures, typed on purpose: they are the guideline's words,
+                  not NeoFeed's values (ESPGHAN_TARGETS.who2023 holds some of them as
+                  text; the trial figures, the schedule and probiotics it does not).
+                  Only the HMF start is NeoFeed's, and it reads en.advancement.hmfStart. */}
               {[
                 { level:"crit", title:"Ca/P supplementation: NOT recommended",
                   body:"Changed from 2015 — routine Ca/P supplement for formula-fed preterm/LBW no longer recommended (insufficient evidence)." },

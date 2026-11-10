@@ -325,6 +325,11 @@ const printText = () => text(container.querySelector('#print-form'));
     ok('92 mL/kg/d is Full EN at a planted 90: "Full EN ≥90 mL/kg/d"', text(container).includes('Full EN ≥90 mL/kg/d'), '');
     ok('…the P:E tile shows', peTile(), '');
     ok('…and breast milk\'s P:E is flagged', alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
+    // The show-working panels name the switch: "นมที่นับได้ถึง 90 mL/kg/d (CR-U-SWITCH)".
+    act(() => { container.querySelectorAll('button.working-toggle').forEach(b => {
+      if (b.getAttribute('aria-expanded') !== 'true') b.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }); });
+    const working = [...container.querySelectorAll('.working-panel')].map(p => text(p)).join(' | ');
+    ok('…the show-working panels say "นมที่นับได้ถึง 90 mL/kg/d"', working.includes('นมที่นับได้ถึง 90 mL/kg/d'), working.slice(0, 160));
     restore();
     mountPatient('Central');
     feedOnly(11.5);

@@ -18,7 +18,8 @@
 //   §3  WHO 2023 tab: the 2022 column of "ESPGHAN 2022 vs 2010"
 //   §4  the real constants: today's words, and no figure ends in ".0"
 //
-// Fails against a360580 (PR #240's head), where all of these were literals.
+// Fails against a360580 (PR #240's head), where these were literals: 70 of its 85
+// checks fail there. Cu, which already read data.js, and some of §4's real values pass.
 // Mounts app.jsx in jsdom with the dev-only deps every app harness uses (see
 // test/README.md). No patient, real or made up.
 const fs = require('fs');
