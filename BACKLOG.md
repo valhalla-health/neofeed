@@ -42,8 +42,8 @@ clinical judgement. Everything else is engineering sequencing.
       - **"ไม่มี PN แล้ว"**: one button that fills an enteral-only order, and a TPN / no-TPN tag on the
         ward list. Full-feed infants are entered every 3 days or at each step-up. ⏳ **PR #206** builds the
         button as Step 3's "No TPN" tick (it clears the bag and the order saves as `calcInput.noTpn`); a No
-        TPN order is never printed, and the ward's Print order list tags it "No TPN — ไม่ต้องพิมพ์". Still
-        open: the tag on the ward list itself.
+        TPN order is never printed, and the ward's Print order list tags it "No TPN — ไม่ต้องพิมพ์". The
+        tag on the ward list itself: built 2026-11-08, a grey "No TPN" from the latest Submitted order.
       - **The Dashboard counts pending TPN orders** (joins 19 · 27, the pharmacist view, under C below).
         `pharmacyOrders` already returns a date's counts (TPN-room stickers, PR A, not live).
         Pp, 2026-11-01: a No TPN order never counts as waiting for TPN, so pharmacy sees in real time how
@@ -126,6 +126,9 @@ clinical judgement. Everything else is engineering sequencing.
         contradictory inputs. Separate hardening; size it after the ward acceptance.
       - Decided, not to do (Pp, 2026-10-08): nurse order writes stay tied to `NURSING_LOG_ENABLED` (D5
         holds once the nursing form is on); the lipid rate stays graded on the 2-decimal figure shown.
+        ➡️ 2026-11-07 (stakeholder walk N1): with the switch still off, a nurse account now saves only
+        Intake/Output on a submitted order, and the backend refuses any other nurse Submit (`CHANGELOG.md`
+        2026-11-07 (3)). D5 still takes over once the switch is on.
 - [ ] 💬 **ops · Send one real help request** (`CHANGELOG.md` 2026-10-05). Shipped on 2026-10-06 by #136
       with backend `@62`. Left: send one from the app and check it reaches praew.tvl@gmail.com through the
       valhalla.team.th filter. Once PR #144 is live (`@64` first), send it from the topbar button on a phone,
@@ -411,6 +414,20 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## ⏭ Next
 
+- [ ] ⚖️ **PDPA · The QI export (2026-11-07) waits on two answers — Praew / DPO.** `exportQi()` is built and
+      tested, not deployed (`CHANGELOG.md` 2026-11-07 (2)).
+      1. **Lawful basis.** `REFERENCE.md` § PDPA: the Sec 26(6) treatment basis does not cover a QI export. QI
+         as part of the hospital's own care quality, or research under Sec 26(5)(e) with IRB approval, is the
+         DPO's call, before the first real export.
+      2. **A Thai diagnosis is `[REDACTED]`** (free Thai text can hold a name), so the local checker cannot map
+         it. Keep that, or pass Thai text through for the checker to map on the PC.
+      3. **An erasure and a CSV already downloaded.** `pseudonymizePatient` clears `QI_Export`, but a copy on a
+         PC or with an analyst keeps the infant's rows. The erasure procedure needs a step for it: a list of
+         who holds which export, and a way to give the infant's `research_id` per project (none is built).
+- [ ] 🧹 **chore · praewpp-workspace: the local checker reads the one `QI_Export` CSV.** A `--check-only` mode
+      for `neofeed_pseudonymize.py` (PR praewxtvl/praewpp-workspace#80): the identifier scan and the k-report on
+      the downloaded CSV, a small-cell rule (≤ 7 suppressed or rounded to 5) for any table made from it, and the
+      diagnosis map read from the `diagnosis` column. Not this repo.
 - [ ] **product · Two leftovers of #223 (FBM 24 ↔ Infatrini 30 off Step 2's list, 2026-11-06), for Pp.**
       1. The Formula reference page still lists FBM ↔ Infatrini under "High-energy / Mixed" (`app.jsx`
          `FormulasPanel`). It is no longer orderable; taking it off is Pp's call.

@@ -151,13 +151,18 @@
     "NO_TPN_EN_MIN_ML_KG": { "unit": "mL/kg/d", "sign": "positive" },
     "NO_TPN_PLAN_GAP_ML_KG": { "unit": "mL/kg/d below the fluid plan", "sign": "positive" },
     "NEWBORN_DEAD_VOL_ML": { "unit": "mL/d", "sign": "positive" },
+    "PUMP_MAX_HOURS": { "unit": "h a pump may run its volume", "sign": "positive" },
+    "TPN_OVER_NOTE_PCT": { "unit": "% given above the TPN volume ordered", "sign": "positive" },
+    "LIPID_GKGH.pumpMax": { "unit": "g/kg/h", "sign": "positive" },
     "FIRST_DAYS_LAST_DOL": { "unit": "day of life", "sign": "positive" },
     "OLDER_CHILD_WARDS": { "type": "list", "unit": "ward names" },
     "EN_HMF_PROTEIN_G_PER_DOSE": { "unit": "g protein per 4 g HMF dose (one dose per 100 mL)", "sign": "positive" },
     "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": { "unit": "kcal per g of HMF protein", "sign": "positive" },
     "MG_MG_PER_MEQ": { "unit": "mg Mg/mEq", "sign": "positive",
       "range": { "lo": 12.1525, "hi": 12.1525, "proposed": "Mg 24.305 g/mol / valence 2 (data.js); display only, no rule codes it" } },
-    "MG_MEQ_HABIT_MG": { "unit": "mg Mg/kg/d", "sign": "positive" }
+    "MG_MEQ_HABIT_MG": { "unit": "mg Mg/kg/d", "sign": "positive" },
+    "GLYCO_NA_HABIT_MEQ": { "unit": "mEq Na/kg/d from Glycophos", "sign": "positive" },
+    "GLYCO_P_HABIT_MG": { "unit": "mg P/kg/d from Glycophos", "sign": "positive" }
   },
   "bands": {
     "TPN_TARGETS": {

@@ -180,27 +180,53 @@ const openAll = () => click(btnExact('Open all'));
   // the dependents of a few chips, as numbers
   click(chipsAfter('Glycophos').find(c => num(c.textContent) === 2));
   ok('Glycophos chip 2 (mEq Na) = 1 mmol P/kg', /→ P 1 mmol\/kg\/d = 31 mg\/kg\/d/.test(text()));
+  // Typed by P (Pp, 2026-11-06): the P button switches the box and its chips
+  // to mg P/kg/d, never the dose; switching back shows it in Na again.
+  const glyBy = (t) => [...container.querySelectorAll('.glycophos-by button')].find(b => b.textContent === t);
+  ok('Glycophos opens on Na', glyBy('Na')?.classList.contains('on') && !glyBy('P')?.classList.contains('on'));
+  click(glyBy('P'));
+  ok('P on: the label says ใส่เป็น P', /Glycophos® \(ใส่เป็น P\)/.test(text()));
+  ok('P on: the same 1 mmol P/kg reads 31 mg in the box', inputFor('Glycophos').value === '31', inputFor('Glycophos').value);
+  ok('P on: chips 15 / 30 / 45 / 60', chipsAfter('Glycophos').map(c => num(c.textContent)).join() === '15,30,45,60', chipsAfter('Glycophos').map(c => c.textContent));
+  for (const v of [15, 30, 45, 60]) {
+    click(chipsAfter('Glycophos').find(c => num(c.textContent) === v));
+    ok(`P chip ${v} → field shows ${v}`, num(inputFor('Glycophos').value) === v, inputFor('Glycophos').value);
+    ok(`P chip ${v} is the active chip`, chipsAfter('Glycophos').filter(c => c.classList.contains('active')).map(c => num(c.textContent)).join() === String(v));
+  }
+  // 60 mg P = 60/31 mmol = 1.94 mL/kg, bringing 3.87 mEq Na/kg
+  ok('P 60 mg/kg → Na 3.87 mEq/kg/d · P 1.94 mmol/kg/d', /→ Na 3\.87 mEq\/kg\/d · P 1\.94 mmol\/kg\/d/.test(text()), container.querySelector('.glycophos-p')?.textContent);
+  setField('Glycophos', 20);
+  ok('P typed 20 → P 20 mg/kg/d = 0.65 mL/kg/d', /P 20 mg\/kg\/d = 0\.65 mL\/kg\/d · Na 1\.29 mEq\/kg\/d/.test(text()), text().match(/P [\d.]+ mg\/kg\/d = [^เ]*/)?.[0]);
+  click(glyBy('Na'));
+  ok('back on Na: 20 mg P reads 1.29 mEq Na (3 decimals at most)', inputFor('Glycophos').value === '1.29', inputFor('Glycophos').value);
+  ok('back on Na: chips 1–4 again, none lit', chipsAfter('Glycophos').map(c => num(c.textContent)).join() === '1,2,3,4' && !chipsAfter('Glycophos').some(c => c.classList.contains('active')));
+  click(chipsAfter('Glycophos').find(c => num(c.textContent) === 2));
   click(chipsAfter('Dextrose final').find(c => num(c.textContent) === 10));
   // 100 mL delivered, dead 30 (last chip set above was 30), D10 → 13 g in the bag → 26 mL D50W
-  ok('D10 chip → D50W 26 mL/d on a 130 mL bag', /D50W: 26 mL\/d/.test(text()), text().match(/D50W: [\d.]+ mL\/d/)?.[0]);
+  // The D50W mL (26 on this 130 mL bag) left the screen on 2026-11-06 (Pp: "Hide them all").
+  ok('D10 chip: no D50W mL on screen', !/D50W: [\d.]+ mL/.test(text()), text().match(/D50W: [\d.]+ mL\/d/)?.[0]);
 
   // ── 3 · segmented toggles ─────────────────────────────────────
   setField('20% lipid', 2);
   for (const h of [16, 20, 24]) {
     click([...container.querySelectorAll('button')].find(b => b.textContent === `${h}h`));
     // 2 g/kg × 1.2 kg = 2.4 g = 12 mL SMOF + Vitalipid 4.8 mL, rounded down to 4 since 2026-10-28 = 16 mL
+    // Since 2026-11-06 (Pp) the pump is set to 0.1 mL/hr, rounded up where the
+    // nearest would run past 24 h, and g/kg/h is over the hours it actually runs.
+    let want = Math.round(16 / h * 10 + 1e-9) / 10;
+    if (!(want > 0) || 16 / want > 24 + 1e-9) want = Math.ceil(16 / h * 10 - 1e-9) / 10;
     const rate = num(text().match(/PUMP RATE([\d.]+)mL\/hr/)?.[1]);
-    ok(`lipid over ${h}h → rate ${(16 / h).toFixed(2)}`, Math.abs(rate - 16 / h) <= 0.005, rate);
-    ok(`lipid over ${h}h → g/kg/h`, Math.abs(num(container.querySelector('.lipid-gkgh').textContent) - 2 / h) <= 0.005 + 1e-9);   // 2 decimals since 2026-09-28 (0.125 shows 0.13)
+    ok(`lipid over ${h}h → rate ${want}`, rate === want, rate);
+    ok(`lipid over ${h}h → g/kg/h over ${(16 / want).toFixed(2)} h`, Math.abs(num(container.querySelector('.lipid-gkgh').textContent) - 2 / (16 / want)) <= 0.005 + 1e-9);
   }
   setField('MgSO₄', 4.861);   // 0.4 mEq/kg/d, typed in mg since 2026-10-28
   // KCMH stocks 10% MgSO₄ only (Praew, 2026-09-23): no vial choice, no 50% mL.
   const vialLbl = [...container.querySelectorAll('span')].find(s => s.textContent === 'Vial 10%');
   ok('MgSO₄ vial reads 10%, with no strength toggle', !!vialLbl && !vialLbl.parentElement.querySelector('.seg'));
   ok('no 50% MgSO₄ figure anywhere on the card', !/50% =|MgSO₄ 50%/.test(text()));
-  // 0.4 × factor(1.2 × 130/100 = 1.56) = 0.624 mEq ÷ 0.812 = 0.768 → 0.8 mL
-  // (one decimal since 2026-10-27; it printed 0.77)
-  ok('Mg 10% vial → 0.8 mL', /→ 0\.8 mL\/d/.test(text()));
+  // The vial's prepared mL (0.4 × 1.56 ÷ 0.812 → 0.8 mL) left the screen on
+  // 2026-11-06 (Pp: not for doctors and nurses); the printed order still has it.
+  ok('Mg 10% vial: no prepared mL on screen', !/→ 0\.8 mL\/d/.test(text()) && !/เตรียม [\d.]+ mL\/d/.test(text()), text().match(/→ [\d.]+ mL\/d/g));
 
   // ── 4 · checkboxes ────────────────────────────────────────────
   const chk = (start) => [...container.querySelectorAll('label.chk-label')].find(l => l.textContent.trim().startsWith(start)).querySelector('input');
@@ -243,7 +269,7 @@ const openAll = () => click(btnExact('Open all'));
   typeChars('Volume(mL/day)', '120');
   ok('Volume 120 → Rate 5', inputFor('Rate').value === '5', inputFor('Rate').value);
   typeChars('Volume(mL/day)', '100');
-  ok('Volume 100 → Rate 4.17', inputFor('Rate').value === '4.17', inputFor('Rate').value);
+  ok('Volume 100 → Rate 4.2 (the pump at 0.1 mL/hr, 2026-11-06)', inputFor('Rate').value === '4.2', inputFor('Rate').value);
   typeChars('Dextrose final', '12.5');
   ok('typed 12.5 stays 12.5', inputFor('Dextrose final').value === '12.5');
   typeChars('Amino acid', '0.05');
@@ -370,6 +396,81 @@ const openAll = () => click(btnExact('Open all'));
   act(() => { document.dispatchEvent(new window.CustomEvent('__neofeed_print')); });
   await act(async () => { await new Promise(r => setTimeout(r, 10)); });
   ok('quick calc refuses to print', printed === 0 && toasts.some(t => /พิมพ์ใบสั่ง TPN ไม่ได้/.test(t.msg)));
+
+  // ── Glycophos by P: back to Na on the next infant, and the changes list (Vera, 2026-11-06) ──
+  {
+    mount();
+    const glyBy = (t) => [...container.querySelectorAll('.glycophos-by button')].find(b => b.textContent === t);
+    click(btnExact('Open all'));
+    click(glyBy('P'));
+    setField('Glycophos', 30);
+    ok('infant A: P on, 30 mg typed', glyBy('P')?.classList.contains('on') && inputFor('Glycophos').value === '30');
+    // The header's "Switch patient" re-renders the same mounted Calculator with another infant.
+    const infantB = { sessionId: 'CS-2', name: 'Other', initials: 'OT', bw: 1000, ga: 30, sex: 'girls',
+      admissionDate: '2026-09-01', currentBed: 'SCN 4', diagnosis: '-', weights: [{ dol: 1, w: 1000 }], lengths: [], hcs: [] };
+    const props = (patient, previousEntry = null) => ({ patient, dol: 10, editEntry: null, baselineEntry: null, previousEntry, logDate: null,
+      userLabel: 'Dr Sweep (sweep@kcmh.test)', userEmail: 'sweep@kcmh.test', onLog() { return Promise.resolve({ ok: true }); },
+      onUpdate() { return Promise.resolve({ ok: true }); }, onDelete() { return Promise.resolve({ ok: true }); }, onSaved() {}, onWeightChange() {} });
+    act(() => { root.render(React.createElement(window.Calculator, props(infantB))); });
+    ok('infant B: Glycophos is back on Na', glyBy('Na')?.classList.contains('on') && !glyBy('P')?.classList.contains('on'));
+    ok('infant B: the label says ใส่เป็น Na and the chips are 1–4', /Glycophos® \(ใส่เป็น Na\)/.test(text()) && chipsAfter('Glycophos').map(c => num(c.textContent)).join() === '1,2,3,4');
+    setField('Glycophos', 2);
+    ok('infant B: a habitual 2 is 2 mEq Na = 1 mmol P/kg', /→ P 1 mmol\/kg\/d = 31 mg\/kg\/d/.test(text()), container.querySelector('.glycophos-p')?.textContent);
+    // The other half of the reset: the same infant, another saved order opened.
+    click(glyBy('P'));
+    const saved = { entryId: 'e-gly', lastModified: 'lm-gly', ts: '2026-09-22', weight: 1000, status: 'submitted', calcInput: { totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, glycophosP: 1, route: 'central' } };
+    act(() => { root.render(React.createElement(window.Calculator, { ...props(infantB), editEntry: saved })); });
+    ok('another order opened: Glycophos is back on Na, chips 1–4', glyBy('Na')?.classList.contains('on') && chipsAfter('Glycophos').map(c => num(c.textContent)).join() === '1,2,3,4');
+
+    // CR-GLYCO-UNIT-HABIT's low line, which only the P button reaches (Pp, 2026-11-06):
+    // on P, a dose above 0 and below 10 mg P/kg/d asks whether it was mEq Na.
+    {
+      const LOW = 'Glycophos below 10 mg P/kg/d: พิมพ์เป็น mEq Na หรือเปล่า';
+      const crit = () => [...container.querySelectorAll('.alert-row.crit')].map(r => r.textContent);
+      click(glyBy('P'));
+      setField('Glycophos', 2);
+      ok('P 2 mg/kg (meant 2 mEq Na): critical, asking whether it was mEq Na', crit().some(t => t.includes(LOW)), crit());
+      setField('Glycophos', 9.99);
+      ok('P 9.99 mg/kg: still the low line', crit().some(t => t.includes(LOW)), crit());
+      setField('Glycophos', 10);
+      ok('P 10 mg/kg: no such line', !crit().some(t => t.includes(LOW)), crit());
+      // The high line is graded on the dose, so it fires from the P box too: 155 mg P = 10 mEq Na.
+      const HIGH = 'Glycophos 10 mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า';
+      setField('Glycophos', 155);
+      ok('P 155 mg/kg (= 10 mEq Na): the high line, not the low one', crit().some(t => t.includes(HIGH)) && !crit().some(t => t.includes(LOW)), crit());
+      // On P its body speaks of the P box, not "press P" (Vera, 2026-11-07).
+      ok('…and, on P, its body says the P box takes 15–60 mg, not "กดปุ่ม P"', crit().some(t => t.includes(HIGH) && /ช่อง P รับ mg P\/kg\/d \(15–60\)/.test(t) && !/กดปุ่ม P/.test(t)), crit());
+      setField('Glycophos', 154);
+      ok('P 154 mg/kg: no high line', !crit().some(t => t.includes(HIGH)), crit());
+      setField('Glycophos', 2);
+      click(glyBy('Na'));
+      ok('the same dose shown on Na (0.13 mEq): no line', !crit().some(t => t.includes(LOW)), crit());
+      setField('Glycophos', 2);
+    }
+
+    // Na/P pressed while the box still has focus (a phone may not blur it): the
+    // box shows the dose in the new unit, not the old number under the new label.
+    {
+      const inp = inputFor('Glycophos');
+      act(() => { inp.dispatchEvent(new window.FocusEvent('focusin', { bubbles: true })); valueSetter.call(inp, '30'); inp.dispatchEvent(new window.Event('input', { bubbles: true })); });
+      click(glyBy('P'));
+      ok('typed 30 on Na, P pressed with no blur: the box reads 465 (mg P)', inputFor('Glycophos').value === '465', inputFor('Glycophos').value);
+      click(glyBy('Na'));
+      ok('…and Na again reads 30', inputFor('Glycophos').value === '30', inputFor('Glycophos').value);
+    }
+
+    // The changes list against yesterday's Glycophos 1 mL/kg/d: today 20 mg P reads 0.6452, not 12 digits.
+    const yesterday = { entryId: 'prev-1', ts: '2026-09-22', weight: 1000, status: 'submitted',
+      calcInput: { totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, glycophosP: 1, route: 'central' } };
+    mount({ previousEntry: yesterday });
+    click(btnExact('Open all'));
+    click(glyBy('P'));
+    setField('Glycophos', 20);
+    const rows = [...container.querySelectorAll('.order-changes tbody tr')].map(tr => tr.textContent.replace(/\s+/g, ' '));
+    const gly = rows.find(r => /Glycophos/.test(r));
+    ok('changes list: Glycophos 1 → 0.6452', !!gly && /0\.6452/.test(gly) && !/0\.645161/.test(gly), rows);
+    ok('no figure on the Calculator carries a float tail', !/\d\.\d{6,}/.test(text()), text().match(/\d\.\d{6,}/g));
+  }
 
   failures.forEach(f => console.log('  FAIL  ' + f));
   console.log(fail === 0

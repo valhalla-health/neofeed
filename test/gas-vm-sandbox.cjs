@@ -65,7 +65,7 @@ function boot(opts) {
   opts = opts || {};
   const env = {
     sheets: {}, injections: [], logs: [], cacheThrows: false, propsThrow: false, propSetThrows: false,
-    openByIdThrows: null, lockTimeout: false, lockWaits: 0, lockReleases: 0, lockHeld: 0,
+    openByIdThrows: null, strictRows: false, lockTimeout: false, lockWaits: 0, lockReleases: 0, lockHeld: 0,
     urlFetch: { code: 400, body: '{"error":"invalid_token"}' }, urlFetchThrows: null, hmacCalls: 0, hmacHook: null,
     mails: [], mailThrows: null,
   };
@@ -141,6 +141,8 @@ function boot(opts) {
       getRange(row, col, nr, nc) {
         nr = nr || 1; nc = nc || 1;
         if (col < 1 || col + nc - 1 > sh.maxColumns) throw new Error('The coordinates of the range are outside the dimensions of the sheet.');
+        // Opt-in (env.strictRows): Sheets also refuses a range below the grid's last row.
+        if (env.strictRows && (row < 1 || row + nr - 1 > sh.getMaxRows())) throw new Error('The coordinates of the range are outside the dimensions of the sheet.');
         return {
           getValue: () => sh._read(row, col, 1, 1)[0][0],
           getValues: () => sh._read(row, col, nr, nc),
@@ -170,6 +172,18 @@ function boot(opts) {
         sh._guard('deleteRow');
         data.splice(row - 1, 1);
       },
+      // The grid's rows, for a tab that is rewritten and trimmed whole (QI_Export,
+      // verify-qi-export-1107.cjs). Sheets refuses to delete every row.
+      insertRowsAfter(after, n) { sh._guard('insertRowsAfter'); sh.maxRows = Math.max(sh.maxRows, data.length) + n; },
+      deleteRows(pos, n) {
+        sh._guard('deleteRows');
+        const rows = Math.max(sh.maxRows, data.length);
+        if (pos < 1 || pos + n - 1 > rows) throw new Error('Those rows are out of bounds.');
+        if (n >= rows) throw new Error('You can\'t delete all the rows on the sheet.');
+        data.splice(pos - 1, n);
+        sh.maxRows = rows - n;
+      },
+      clearContents() { sh._guard('clearContents'); data.length = 0; },
     };
     return sh;
   }

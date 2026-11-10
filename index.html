@@ -1438,6 +1438,10 @@
   .log-badge.is-draft {
     color: var(--warn-ink); background: var(--warn-bg); border-color: var(--warn-line);
   }
+  /* The latest submitted order has no bag: information, not a warning. */
+  .log-badge.is-no-tpn {
+    color: var(--ink-2); background: transparent; border-color: var(--line);
+  }
   .reg-stat.s-ok   .reg-stat-val { color: var(--ok); }
   .reg-stat.s-warn .reg-stat-val { color: var(--warn-ink); }
   .reg-stat.s-crit .reg-stat-val { color: var(--crit); }
@@ -1648,8 +1652,13 @@
     /* Step 1: 5-col inputs → 2-col */
     .s1-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
     /* Step 2 sub-rows: 3-col → 2-col */
-    .s2-aa-row  { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+    /* The amino-acid row is one column since its stock Volume left the screen
+       (Pp, 2026-11-06), so its five chips sit on one line. */
+    .s2-aa-row  { grid-template-columns: minmax(0, 1fr) !important; }
     .s2-lip-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+    /* The 20% lipid box and its five chips take the whole row, so the chips sit
+       on one line; the two tiles share the row below (Pp, 2026-11-06). */
+    .s2-lip-row > :first-child { grid-column: 1 / -1; }
     /* Bottom (energy+alerts+save): 3-col → 1-col */
     .calc-bottom { grid-template-columns: 1fr !important; }
     /* SaltRow: 1.6fr 1fr 90px → 1fr 80px (hide = total col, shown in readout below) */
@@ -1716,6 +1725,9 @@
        Small fixed font (not ellipsis/wrap) so a dose value never gets
        truncated or split across lines where a digit could be misread. */
     .preset-chips { flex-wrap: wrap; gap: 3px; }
+    /* Dextrose final + GIR stack, so the five % chips have the card's width
+       and sit on one line, easier to tap (Pp, 2026-11-06). */
+    .dex-gir-row { grid-template-columns: minmax(0, 1fr) !important; }
     .preset-chip {
       flex: 1 1 44px; min-width: 44px; padding: 5px 1px; font-size: 10px;
       letter-spacing: -0.3px; white-space: nowrap; text-align: center;
@@ -2176,13 +2188,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=c6cdd985ae"></script>
+  <script src="data.js?v=b7c27b3bcf"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
-  <script src="compiled/calculator.js?v=bcff5598cd"></script>
+  <script src="compiled/calculator.js?v=4fa7cd6fe8"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
-  <script src="compiled/registry.js?v=7d630b9003"></script>
-  <script src="compiled/log.js?v=7b665ce3f8"></script>
-  <script src="compiled/app.js?v=c917a7bae0"></script>
+  <script src="compiled/registry.js?v=3e25e8db68"></script>
+  <script src="compiled/log.js?v=2136511751"></script>
+  <script src="compiled/app.js?v=136ada23f3"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

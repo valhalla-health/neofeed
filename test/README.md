@@ -2096,14 +2096,14 @@ at least 14 px below the reason and the box has 8 px under it. §1c: the amino-a
 ticked product with its dose, then the other four choices and "Other"), no figure is set below 10 px. §1d: the
 same for an order saved with Aminoplasmal 15% (the ward gate is stubbed, as in `verify-ward-requests-0918.cjs`
 §9): the ticked line reads "☑ 15% Aminoplasmal", the others start with "☐ 10% Aminoven infant". §1e:
-calculator.jsx still has 21 `level: "crit"` alert lines; the fit test's `ALERTS_13` is every title among them
+calculator.jsx still has 23 `level: "crit"` alert lines (21 until the Glycophos unit guard, 2026-11-06); the fit test's `ALERTS_15` is every title among them
 that takes a reason and can print (the others are `noReason`, a No TPN order's, or stops), so a new critical
 alert fails here until it is added or excused. §1f: both shells carry the `break-inside: avoid` and 1.35
 line-height rules. §2 puts each order's form into a page with the shells' own CSS, in a wide fallback font
 (Verdana here, DejaVu Sans on CI, about 4 % taller than IBM Plex Sans), emulates print and counts the pages of
-`page.pdf`: one each, for no alert, one alert, and all 13 titles with a 300-character reason; it reads the computed
+`page.pdf`: one each, for no alert, one alert, and all 15 titles with a 300-character reason; it reads the computed
 `break-inside` and the line height, the room around the signature line, and that its three parts do not overlap
-even with a 36-character ID. §2b prints an order that does not fit (all 13 titles, a 300-character reason, a
+even with a 36-character ID. §2b prints an order that does not fit (all 15 titles, a 300-character reason, a
 600-character diagnosis) with a link around each part of the box: Chrome writes a link annotation on the page
 where the link falls, as plain text in the PDF, so the check reads which page holds what with no PDF library. It
 expects two pages and the whole box, its signature, and the ID and date on page 2; with `break-inside` switched off
@@ -2195,3 +2195,32 @@ flow under the real CSP on `tools/dev-local.mjs`, with an origin-private folder 
 is a `printJson` string, one A4 page, and the sentinel name reaches no request. `TPN_ROOM_PDF_OUT=<file>` keeps the sample sheet,
 `TPN_ROOM_SHOT_DIR=<dir>` keeps screenshots. **`tpn-room-fixture.cjs`** makes a synthetic order's figures with the real
 `stickerFigures`. `verify-build-shells.cjs` § 8 pins the two room shells.
+
+## The lipid pump, 2026-11-06 — one harness added
+
+Pp: "ถ้ากดที่ลิพิตโวลุ่มจะ rounding ให้ หน่วยเป็น ml/day" and "Pump rate ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง infusion in กี่ hr"
+(`CHANGELOG.md` 2026-11-06 (5); `CR-R-LIPID-WHOLE-ML`, `CR-R-PUMP-RATE`). **`verify-lipid-whole-ml-1106.cjs`** (jsdom; it
+also runs against `compiled/`) taps the real box: 1,680 g on 2 g/kg/d goes 16.8 → 17 mL, the 20 % lipid box reads 2.02,
+the pump 1 mL/hr for 23 h and 0.09 g/kg/h; 4 g/kg/d goes to 33 mL (3.93), not 34 (4.05); 400 g on 3.4 g/kg/d over 20 h
+goes to 6 mL, not 7 (0.18 g/kg/h); under 0.5 mL nothing moves; the TPN pump's Rate box reads 8.4 for 200 mL with
+"infusion 23.8 h". 25 checks. It fails on `ce06e16` (no box to tap; rates at 2 decimals).
+
+## One list of checks, 2026-11-08 — one harness added
+
+`verify-run-checks.cjs` (NF-32): `tools/run_checks.js` on made-up configs (the gate, one line per dimension and no
+average, levels and phases, a bad config refused), the loop guard and skip rules of the hooks, CI's two compiled-pass
+guards, Pp's gate in the real `tools/checks.json`, and that CI, both hooks and `AGENTS.md` call the runner. No npm
+install. To run every harness as CI's sources pass does, set `NODE_PATH` as above and run
+`node tools/run_checks.js --level ci --phase sources`.
+
+## "No TPN" on the ward list, 2026-11-08 — one harness added
+
+`verify-no-tpn-ward-tag-1108.cjs`: the latest Submitted order decides by date, whatever the array order; a draft and a
+discharged infant are not tagged; both the phone card and the desktop row show it. Needs the jsdom set above.
+
+## Old against new, 2026-11-08 — one harness added
+
+`verify-calc-compare.cjs` (NF-42): `tools/calc-compare.cjs` on a version against itself; one planted change of each kind
+the report must name (printed line, sticker, alert level, GIR colour, tile, other screen text, saved string, empty object);
+`--intended`, a version number alone, orders that cannot be entered or submitted, git refs, and that the release template
+and `REFERENCE.md` name the tool and its limits. Needs the jsdom set above; about three minutes.

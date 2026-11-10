@@ -179,8 +179,14 @@ function expected(sc) {
   // Vitalipid rounded down to a whole mL, at least 1, since 2026-10-28 (CR-VITALIPID-CAP).
   e.vitalipid = sc.lip > 0 ? Math.max(1, Math.floor(Math.min(4 * W, 10) + 1e-9)) : 0;
   e.lipBag = e.lipG / STOCK.smof + e.vitalipid;
-  e.lipRate = e.lipBag / sc.lipH;
-  e.lipGkgh = sc.lip / sc.lipH;
+  // The pump at 0.1 mL/hr: the nearest, or the next 0.1 up where the nearest would
+  // run the bag past 24 h; g/kg/h over the hours it then runs (Pp, 2026-11-06).
+  // Written out here, not read from data.js.
+  { let r = Math.round(e.lipBag / sc.lipH * 10 + 1e-9) / 10;
+    if (e.lipBag > 0 && (!(r > 0) || e.lipBag / r > 24 + 1e-9)) r = Math.ceil(e.lipBag / sc.lipH * 10 - 1e-9) / 10;
+    e.lipRate = e.lipBag > 0 ? r : 0;
+    e.lipHours = e.lipBag > 0 ? e.lipBag / r : sc.lipH; }
+  e.lipGkgh = sc.lip / e.lipHours;
   // electrolytes (per kg delivered = as ordered)
   e.naKg = sc.naCl + sc.naAc + glyMl * STOCK.glyNa;
   e.kKg = sc.kCl + sc.k2;
@@ -371,9 +377,17 @@ function expectedAlerts(sc, e) {
     const v = Number(e.kPerL.toPrecision(12));
     if (k.hardMax && v > k.hardMax) add('crit', 'K⁺ above the maximum');
     else if (v > k.red) add('crit', 'K⁺ concentration too high'); else if (v > k.warn) add('warn', 'K⁺ concentration high'); }
-  // Lipid g/kg/h against 0.13 / 0.17, on the 2-decimal figure shown (TPN team and Praew, 2026-09-28).
-  if (sc.lip > 0) { const g = Math.round(sc.lip / sc.lipH * 100) / 100;
-    if (g > 0.17) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
+  // Lipid g/kg/h against 0.13 / 0.17, on the 2-decimal figure shown (TPN team and Praew, 2026-09-28),
+  // over the hours the pump actually runs (Pp, 2026-11-06).
+  // Critical only when it is above the ceiling over the hours ordered as well: a rate
+  // rounded up cannot make it critical by itself (Pp, 2026-11-09).
+  if (sc.lip > 0) { const g = Math.round(e.lipGkgh * 100) / 100, ordered = Math.round(sc.lip / sc.lipH * 100) / 100;
+    if ((g > 0.17 && ordered > 0.17) || g > 0.2) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
+  // The TPN pump runs 24 h with no volume limit; 5 % or more above the volume is said (Pp, 2026-11-10, Q21).
+  if (e.Vd > 0) { let r = Math.round(e.Vd / 24 * 10 + 1e-9) / 10;
+    if (!(r > 0) || e.Vd / r > 24 + 1e-9) r = Math.ceil(e.Vd / 24 * 10 - 1e-9) / 10;
+    const extra = Math.round((r * 24 - e.Vd) * 10) / 10;
+    if (Math.round(extra / e.Vd * 100) >= 5) add('info', 'TPN rate gives more than ordered'); }
   if (e.znTot > 5) add('crit', 'Zinc total above 5 mg/day');
   // A bag with volume and no amino acid is a caution (Pp, 2026-10-21); one
   // without MgSO₄ is not, since 2026-10-27 (TPN team; Pp: "เอาออก").
@@ -655,11 +669,14 @@ async function run(scIn) {
       mismatches.push({ sc: sc.name, what: 'No TPN ticked: the pumps are hidden', got: 'shown', want: 'hidden' });
   } else {
     near(sc, 'Prepared mL/day', grabT(/Prepared \(เตรียมจริง\)([\d.]+) mL\/day/), e.Vp, 1);
-    near(sc, 'Factor', grabT(/Factor([\d.]+)/), e.F, 3);
+    // The Factor is pharmacy's: off the screen since 2026-11-06 (Pp); the
+    // back sheet's Factor (rendered, not printed) is checked below ('print Factor').
+    near(sc, 'no Factor figure on screen', grabT(/Factor([\d.]+)/) === null ? 1 : 0, 1, 0);
     near(sc, 'GIR readout', num(container.querySelector('.gir-readout .num')?.firstChild?.textContent), e.gir, 1);
-    near(sc, 'AA stock mL/day', grabT(/Volume([\d.]+) mL\/day/), e.aaMl, 1);
+    // The amino-acid and D50W stock mL left the screen on 2026-11-06 (Pp: "Hide
+    // them all"); 'print AA mL' and 'print D50W mL' below hold them to the oracle.
+    near(sc, 'no AA / D50W stock mL on screen', /Volume[\d.]+ mL\/day|D50W: [\d.]+ mL/.test(t) ? 0 : 1, 1, 0);
   }
-  if (e.d50 > 0) near(sc, 'D50W mL/d', grabT(/D50W: ([\d.]+) mL\/d/), e.d50, 1);
   if (e.Vd > 0) {
     near(sc, 'Components mL', grabT(/Components([\d.]+) mL/), e.components, 1);
     // WFI q.s. left the screen on 2026-09-28 (TPN team); the print and copy
@@ -668,6 +685,8 @@ async function run(scIn) {
   if (sc.lip > 0) {
     near(sc, 'Lipid pump rate mL/hr', grabT(/PUMP RATE([\d.]+)mL\/hr/), e.lipRate, 2);
     near(sc, 'Lipid g/kg/h', num(container.querySelector('.lipid-gkgh')?.textContent), e.lipGkgh, 2);   // 2 decimals since 2026-09-28
+    // Lipid volume stays on screen: a tap on it rounds the syringe to a whole mL
+    // (#227; Pp kept it when the other stock mL left, 2026-11-07).
     near(sc, 'Lipid mL/day', grabT(/Lipid volume([\d.]+) mL\/day/), e.smof, 1);
     near(sc, 'Vitalipid mL/day', grabT(/\+ Vitalipid N([\d.]+) mL\/day/), e.vitalipid, 1);
   }

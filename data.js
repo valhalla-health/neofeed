@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-10-28.1";
+const CONSTANTS_VERSION = "2026-11-06.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -599,7 +599,18 @@ const TPN_TARGETS = {
   caP: () => [1.0, 1.7],   // mass ratio; full ESPGHAN range; KCMH aim 1.7:1
 };
 
-// ── ENTERAL_TARGETS — used when EN ≥ 100 mL/kg/d ────────────
+// ── Full EN on a saved row (Pp, 2026-11-10) ──────────────────
+// Counted EN of at least 100 mL/kg/d. A MEN feed never counts, the same rule
+// the calculator's useEnteralTargets applies before saving. enVolPerKg stays
+// the feed actually given, so the MEN tick in calcInput decides. A row
+// without enVolPerKg (legacy) is parenteral, the safer of the two.
+function isFullEn(entry) {
+  if (!entry) return false;
+  if (entry.calcInput && entry.calcInput.isMEN) return false;
+  return (Number(entry.enVolPerKg) || 0) >= 100;
+}
+
+// ── ENTERAL_TARGETS — used when Full EN (isFullEn) ──────────
 // Source: ESPGHAN Committee on Nutrition 2022 (JPGN 2022)
 //         WHO 2023 Preterm Feeding Guidelines
 const ENTERAL_TARGETS = {
@@ -826,7 +837,7 @@ const kBagLimitsFor = (route) => K_BAG_MEQ_PER_L[route === "central" ? "central"
 // Lipid infusion rate ceiling, g/kg/h (TPN team meeting and Praew, 2026-09-28):
 // amber above `warn`, critical above `max`. Graded on the figure the pump card
 // shows (2 decimals), so its colour never disagrees with its number.
-const LIPID_GKGH = { warn: 0.13, max: 0.17 };
+const LIPID_GKGH = { warn: 0.13, max: 0.17, pumpMax: 0.2 };
 // Total elemental zinc reaching the infant per day — Peditrace plus ZnSO₄ —
 // above which an order is a critical alert (KCMH TPN team, 2026-09-22).
 const MAX_ZN_MG_DAY = 5;
@@ -848,6 +859,16 @@ const MG_MG_PER_MEQ = 12.1525;
 // habit, it is a twelfth of the dose meant (Pp, 2026-10-29). An alert
 // threshold: it moves no dose, so CONSTANTS_VERSION stays.
 const MG_MEQ_HABIT_MG = 1;
+// Glycophos typed in the wrong unit (Pp, 2026-11-06, after Vera). Its box takes
+// mEq Na/kg/d (chips 1–4) or, with the P button, mg P/kg/d (chips 15–60), and
+// one unit is 15.5 times the other. A Glycophos dose of this many mEq Na/kg/d
+// or more (= P 155 mg/kg/d), whichever unit it was typed in, is critical and
+// asks "พิมพ์เป็น mg P หรือเปล่า". Alert thresholds: they move no dose, so
+// CONSTANTS_VERSION stays.
+const GLYCO_NA_HABIT_MEQ = 10;
+// …and one typed on P above 0 and below this many mg P/kg/d asks
+// "พิมพ์เป็น mEq Na หรือเปล่า" (graded only while the box is on P).
+const GLYCO_P_HABIT_MG = 10;
 // Ceiling of minimal enteral / trophic feeding, mL/kg/day — the "MEF (trophic)
 // 12–24 mL/kg/day" step of the app's own Feeding Advancement card. A feed
 // ticked MEN counts toward neither fluid nor nutrition, and orders prefill
@@ -1058,6 +1079,89 @@ const LIPID_IV_HARD_HI = 4.0;
 const K_IV_HARD_HI = 5.0;
 const NPE_IV_CRIT_LO = 12;
 const OSM_PERIPHERAL_MAX = 900;
+// Pump rates to 0.1 mL/hr (Pp, 2026-11-06: "Pump rate ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง
+// infusion in กี่ hr ให้ ถ้าเกิน 24 ชม. ให้ปัดเพิ่ม rate แทน"). Both pumps: the TPN aqueous
+// pump (its volume over 24 h) and the lipid syringe (its bag over the hours typed).
+// The rate is the nearest 0.1 mL/hr, half up; where that would run the volume past
+// 24 h, it is rounded up to the next 0.1 instead (asked, Pp chose 24 h, not the hours
+// typed, as the limit). `hours` is how long the pump actually runs at that rate:
+// volume ÷ rate. null with no volume.
+const PUMP_MAX_HOURS = 24;
+function pumpRate(volMl, hours = 24) {
+  if (!(volMl > 0) || !(hours > 0)) return null;
+  const exact = volMl / hours;
+  let rate = Number(displayNum(exact, 1));
+  if (!(rate > 0) || Number((volMl / rate).toPrecision(12)) > PUMP_MAX_HOURS) {
+    rate = Math.ceil(Number((exact * 10).toPrecision(12))) / 10;
+  }
+  return { rate, hours: volMl / rate };
+}
+// Lipid g/kg/h, graded by CR-LIPID-RATE: the dose over the hours the lipid pump
+// actually runs at its rounded rate (Pp, 2026-11-06), to 2 decimals as shown.
+function lipidGkghAt(lipidPerKg, bagMl, hours) {
+  const pump = pumpRate(bagMl, hours);
+  return lipidPerKg > 0 && pump ? Math.round(lipidPerKg / pump.hours * 100) / 100 : 0;
+}
+// The grade of CR-LIPID-RATE. The figure shown and the amber come from the pump's
+// hours. Critical needs the dose above the ceiling over the hours ordered as well,
+// so a rate rounded up to the next 0.1 cannot make a line critical by itself: at
+// 4 g/kg/d over 24 h it did at 30 of the 50 weights under 1 kg, each asking a
+// reason (Pp, 2026-11-09). Above LIPID_GKGH.pumpMax at the pump it is critical
+// whatever the hours ordered: 200 g on 4 g/kg/d runs 0.24 (Vera; Pp, 2026-11-10).
+// `overByRounding` marks an amber line above the ceiling.
+function lipidRateGrade(lipidPerKg, bagMl, hours) {
+  const gkgh = lipidGkghAt(lipidPerKg, bagMl, hours);
+  const gkghOrdered = lipidPerKg > 0 && hours > 0 ? Math.round(lipidPerKg / hours * 100) / 100 : 0;
+  const over = gkgh > LIPID_GKGH.max;
+  const status = (over && gkghOrdered > LIPID_GKGH.max) || gkgh > LIPID_GKGH.pumpMax ? "crit" : gkgh > LIPID_GKGH.warn ? "warn" : "ok";
+  return { status, gkgh, gkghOrdered, overByRounding: over && status !== "crit" };
+}
+// The ward sets no volume limit on the TPN pump (Pp, 2026-11-10), so it runs its
+// rate for 24 h and draws the extra from the bag's dead space. A rate rounded up
+// then gives more than ordered: 12.5 mL at 0.6 mL/hr is 14.4 mL, 15 % more. From
+// TPN_OVER_NOTE_PCT up it is said (Q21; Pp chose to say it, 2026-11-10). null below.
+const TPN_OVER_NOTE_PCT = 5;
+function tpnOverDelivery(volMl) {
+  const pump = pumpRate(volMl, 24);
+  if (!pump) return null;
+  const givenMl = Number((pump.rate * 24).toFixed(1));
+  const extraMl = Number((givenMl - volMl).toFixed(1));
+  const pct = Math.round(extraMl / volMl * 100);
+  return pct >= TPN_OVER_NOTE_PCT ? { givenMl, extraMl, pct } : null;
+}
+// The 20% lipid syringe to a whole mL/day (Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ
+// rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ"). Tapping Step 3's "Lipid
+// volume" rounds the syringe to the nearest whole mL (half up) and sets the dose
+// that volume gives, so the pump rate and g/kg/h follow it. A tap never makes a
+// critical lipid line the typed dose did not have (Pp, the same day, for 4.0): where
+// the nearest mL would take the dose above 4.0 g/kg/d (CR-LIPID-IV-MAX) or make the
+// g/kg/h grade critical (lipidRateGrade, CR-LIPID-RATE), the whole mL below is
+// used. A line the typed dose already had stays. Under 0.5 mL there is no whole mL
+// to round to, and the dose is returned unchanged (Vera on this PR: 1 mL would
+// multiply a small dose). The dose is kept to 2 decimals, else 3, whichever still
+// gives exactly that mL at the 0.1 mL the TPN room measures (CR-R-STOCK-ML); 3 is
+// always enough up to 8 kg. `hours` and `vitalipidMl` are the lipid pump's, for the
+// g/kg/h. Returns the dose in g/kg/d, or null with no lipid or no weight.
+function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = {}) {
+  const gPerMl = KCMH_STOCK.smof20.gPerMl;
+  if (!(lipidPerKg > 0) || !(wtKg > 0)) return null;
+  const mlOf = (dose) => Number(displayNum(dose * wtKg / gPerMl, 1));
+  let ml = Number(displayNum(lipidPerKg * wtKg / gPerMl, 0));
+  if (!(ml > 0)) return lipidPerKg;
+  const overDose = (dose) => Number(dose.toPrecision(12)) > LIPID_IV_HARD_HI;
+  const overRate = (dose, mlNow) => lipidRateGrade(dose, mlNow + vitalipidMl, hours).status === "crit";
+  const typedOverDose = overDose(lipidPerKg);
+  const typedOverRate = overRate(lipidPerKg, lipidPerKg * wtKg / gPerMl);
+  const crosses = (m) => (!typedOverDose && overDose(m * gPerMl / wtKg))
+    || (!typedOverRate && overRate(m * gPerMl / wtKg, m));
+  while (ml > 1 && crosses(ml)) ml -= 1;
+  const exact = ml * gPerMl / wtKg;
+  for (const d of [2, 3]) {
+    const dose = Math.round(exact * 10 ** d) / 10 ** d;
+    if (mlOf(dose) === ml) return dose;
+  }
+  return exact;
+}
 function girStatus(gir) {
   return rangeStatus(gir, TARGETS.gir(), { hardHi: GIR_HARD_HI });
 }
@@ -1711,6 +1815,12 @@ function previousFinalEntry(entries, targetDate) {
     .sort((a, b) => normalizeDateStr(a.ts).localeCompare(normalizeDateStr(b.ts)))
     .slice(-1)[0] || null;
 }
+// The infant's latest submitted order says No TPN, so the ward list can tag it
+// (nutrition team, 2026-10-28; Pp, 2026-11-08). By date, not array order: a
+// back-filled day arrives last. A draft is not an order.
+function latestOrderIsNoTpn(entries) {
+  return orderIsNoTpn(previousFinalEntry(entries, "9999-12-31"));
+}
 function isDraftEntry(e) {
   return !!e && String(e.status || "").toLowerCase() === "draft";
 }
@@ -2360,6 +2470,14 @@ function aaProductsFor(patient) {
 // saved order keeps its own. A future older-children ward starts at 0 until
 // its own value is decided.
 const NEWBORN_DEAD_VOL_ML = 30;
+// Soluvit N or Peditrace for the day, mL: mL/kg × kg, capped at the label's daily
+// maximum (CR-SOLUVIT-CAP, CR-PEDITRACE-CAP), before the overfill. A function so
+// the caps, which no orderable weight reaches, are tested directly: since
+// 2026-11-06 the Calculator no longer shows the mL (Pp: "Hide them all").
+function vitaminMlPerDay(stockKey, wtKg) {
+  const s = KCMH_STOCK[stockKey];
+  return Math.min(s.mlPerKg * wtKg, s.maxMl);
+}
 function defaultDeadVolFor(patient) {
   return isNewbornUnit(patient) ? NEWBORN_DEAD_VOL_ML : 0;
 }
@@ -2933,7 +3051,7 @@ window.NEOFEED_DATA = {
   // for by mistake alongside KCMH_STOCK; see the warning at its declaration.
   SALT_SOURCES_REFERENCE_ONLY: SALT_SOURCES,
   // Target systems (backward-compatible function API)
-  TARGETS, TPN_TARGETS, ENTERAL_TARGETS,
+  TARGETS, TPN_TARGETS, ENTERAL_TARGETS, isFullEn,
   // Comprehensive ESPGHAN reference object (for display panels)
   ESPGHAN_TARGETS,
   // Growth charts
@@ -2946,13 +3064,16 @@ window.NEOFEED_DATA = {
   // the same saved GIR can never be amber on one screen and red on the other.
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
+  // Step 3's Lipid volume tap: the syringe to a whole mL, the dose from it;
+  // both pumps' rates to 0.1 mL/hr and the hours they run; lipid g/kg/h on those
+  lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt, lipidRateGrade, tpnOverDelivery, TPN_OVER_NOTE_PCT,
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, GLYCO_NA_HABIT_MEQ, GLYCO_P_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
-  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor,
+  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, vitaminMlPerDay,
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.
@@ -2998,7 +3119,7 @@ window.NEOFEED_DATA = {
   useTodayLocal,
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
-  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, latestOrderIsNoTpn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
   // THE current weight — every screen calls it with the patient's Daily_Log
   // (see currentWeight) — and the joined series it reads.
   currentWeight, weightSeries,

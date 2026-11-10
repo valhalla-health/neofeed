@@ -141,6 +141,12 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   ok('Step 4\'s KCl box is empty', ['', '0'].includes(inputOf('KCl')?.value), inputOf('KCl')?.value);
   ok('the bag left the fluid: Prescribed is the feed alone', text(container).includes('Plan 150 · Prescribed 96 mL/d'));
   ok('the feeds (96 mL/kg/d) reach 80: no critical line', !text(container).includes("No TPN: feeds below 80 mL/kg/d or the day's minimum"));
+  // Soluvit and Peditrace stay ticked (their default) but there is no bag to give
+  // them in: since the screen gives their dose, not their mL (2026-11-06), it must
+  // not claim one on a day without TPN (Vera).
+  ok('Soluvit and Peditrace: no dose claimed with no bag', !/Soluvit N \(water-sol\.\)1mL\/kg\/day|Peditrace1mL\/kg\/day/.test(text(container).replace(/\s+/g, ''))
+    && !/Soluvit 1 mL\/kg|Peditrace 1 mL\/kg/.test(text(container)) && /ไม่มีถุง TPN วันนี้ — ไม่ได้ให้/.test(text(container)),
+    text(container).match(/(Soluvit|Peditrace)[^·]{0,40}/g));
 
   section('2 · unticking it in the same visit puts the bag back');
   toast = null;

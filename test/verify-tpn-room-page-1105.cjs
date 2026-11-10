@@ -153,7 +153,7 @@ const INIT = `
     ok('…with no print button', (await row(page, 'BB-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' }).count()) === 0);
     const pick = page.locator('input[type=date]').first();
     eq('the date picker stays inside the server\'s window', [await pick.getAttribute('min') <= today, await pick.getAttribute('max') > today], [true, true]);
-    ok('saver labelled บันทึกโดย', /บันทึกโดย/.test(await row(page, 'AA-1').innerText()));
+    ok('a submitted order names who submitted it (Submit โดย)', /Submit โดย/.test(await row(page, 'AA-1').innerText()));
     ok('the row shows BW and the weight used to calculate', /BW 1200 g/.test(await row(page, 'AA-1').innerText()) && /น้ำหนักที่ใช้คำนวณ 0\.9 kg/.test(await row(page, 'AA-1').innerText()));
     ok('a doctor-confirmed critical value shows on the row', /GIR สูงกว่าเกณฑ์/.test(await row(page, 'SS-1').innerText()) && /เหตุผลตัวอย่างจากหมอ/.test(await row(page, 'SS-1').innerText()));
     ok('the twin shows', /Twin B of 2/.test(await row(page, 'SS-1').innerText()));

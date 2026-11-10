@@ -243,6 +243,14 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
   );
 }
 
+// "No TPN" beside the today badge, on an infant still on the unit whose latest
+// Submitted order has no bag (nutrition team, 2026-10-28). The ward then sees
+// who is off PN without opening each infant.
+function NoTpnTag({ p, entries }) {
+  if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
+  return <span className="log-badge is-no-tpn" title="ใบสั่งล่าสุดไม่มี TPN">No TPN</span>;
+}
+
 // Today's submitted orders for one ward, for printing only (Pp, 2026-10-12:
 // "มีแค่แดชบอร์ดรายชื่อผู้ป่วย … ของแต่ละวอร์ดในวันนั้น เพื่อปริ้นอย่างเดียว").
 // Reached from the ward gate's Print order button. A tap opens that order in
@@ -889,6 +897,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                         : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"}>
                   {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                 </span>
+                <NoTpnTag p={p} entries={log[p.sessionId]} />
               </div>
 
               {/* Actions. ⇄ opens the same TransferBedModal as the desktop
@@ -1070,6 +1079,7 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
                               : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"}>
                         {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                       </span>
+                      <NoTpnTag p={p} entries={log[p.sessionId]} />
                     </div>
                   </td>
                   <td>

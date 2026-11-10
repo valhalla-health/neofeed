@@ -118,7 +118,8 @@ eq('80 mg/kg/d P is on target for growing PN', D.rangeStatus(80, D.TPN_TARGETS.p
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n── #2 parenteral vs enteral target selection ──');
 // Mirrors computeAlerts()/pickTarget(): >=100 mL/kg/d enteral means full feeds.
-const pickT = (entry) => ((entry.enVolPerKg || 0) >= 100 ? D.ENTERAL_TARGETS : D.TPN_TARGETS);
+// Since 2026-11-10 both go through D.isFullEn, which never counts a MEN feed.
+const pickT = (entry) => (D.isFullEn(entry) ? D.ENTERAL_TARGETS : D.TPN_TARGETS);
 
 const pnDay10 = { dol: 10, enVolPerKg: 0, pro: 3.0, kcal: 100 };
 const enDay10 = { dol: 10, enVolPerKg: 140, pro: 3.6, kcal: 125 };

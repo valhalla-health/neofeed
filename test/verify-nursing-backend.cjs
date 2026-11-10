@@ -80,8 +80,9 @@ T.section('§0 Off until switched on: deploying this code changes nothing (D7)',
     T.eq(`${action} is refused as NotEnabled, in Thai`, [r.code, isThai(r.error)], ['NotEnabled', true]);
   }
   T.ok('…and no Nursing_Log tab is created', !g.sheet('Nursing_Log'));
-  const nLog = g.as(g.nt, { action: 'logDailyNutrition', sessionId: 'AA-900', entry: E({ ts: TODAY }) });
-  T.ok('a nurse still saves an order, exactly as before (no D5 yet)', nLog.ok === true && !!nLog.entryId, nLog);
+  // Since 2026-11-07 (N1, verify-walk-1107.cjs) a nurse's new order is a draft for a doctor to Submit.
+  const nLog = g.as(g.nt, { action: 'logDailyNutrition', sessionId: 'AA-900', entry: E({ ts: TODAY, status: 'draft' }) });
+  T.ok('a nurse still saves an order as a draft (no D5 yet)', nLog.ok === true && !!nLog.entryId, nLog);
   for (const v of ['TRUE', '1', 'yes', ' true']) {
     g.props.set('NURSING_LOG_ENABLED', v);
     T.ok(`"${v}" is not "true": still off`, !('nursing' in sync(g)));
@@ -97,8 +98,8 @@ T.section('§0 Off until switched on: deploying this code changes nothing (D7)',
   T.ok('…and the nurse records I/O instead', rec.ok === true, rec);
   g.props.delete('NURSING_LOG_ENABLED');
   T.ok('switched off again: the next sync has no `nursing`', !('nursing' in sync(g)));
-  const nLog3 = g.as(g.nt, { action: 'logDailyNutrition', sessionId: 'AA-900', entry: E({ ts: addDays(TODAY, -2) }) });
-  T.ok('…and nurses save orders again', nLog3.ok === true, nLog3);
+  const nLog3 = g.as(g.nt, { action: 'logDailyNutrition', sessionId: 'AA-900', entry: E({ ts: addDays(TODAY, -2), status: 'draft' }) });
+  T.ok('…and nurses save order drafts again', nLog3.ok === true, nLog3);
   // Erasure does not wait for the switch: rows written while it was on go
   // with the patient.
   const del = g.as(g.at, { action: 'deletePatient', sessionId: 'AA-900' });

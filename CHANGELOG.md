@@ -7,6 +7,406 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-10 (3) — Full EN never counts a MEN feed
+
+Pp, 2026-11-10: a feed ticked MEN does not count toward Full EN. The calculator already switched targets on counted EN
+only, but the Daily log's target bands and the patient page's targets read the saved `enVolPerKg`, which includes MEN, so a
+MEN-ticked feed of 100 mL/kg/d or more showed enteral targets there and parenteral ones on the order. `D.isFullEn` is now the
+one rule for a saved row, and `log.jsx` (two places) and `app.jsx` call it. A row without `calcInput` still reads the volume;
+a row without `enVolPerKg` stays parenteral. `test/verify-full-en-men-1110.cjs` pins it; `verify-targets-and-dates.cjs` calls
+the same rule instead of its own copy. Left as is: Step 5 still shows done for a MEN feed of 100 or more, which is progress,
+not target choice.
+
+## Session 2026-11-10 (2) — A second lipid ceiling at the pump; the TPN pump runs 24 h
+
+Vera on (1) and Pp's answers the same morning. **Above 0.20 g/kg/h at the pump is critical** whatever the hours ordered
+(`LIPID_GKGH.pumpMax`): 200 g on 4 g/kg/d over 24 h runs 0.3 mL/hr for 16.7 h, 0.24, which (1) left amber. The lipid
+syringe stops at the volume ordered, so its hours stand. **The TPN pump has no volume limit** (Pp): it runs the rate
+for 24 h, so (1)'s "หยุด N h ก่อนถุงใหม่" was wrong. Step 3 now drops the TPN hours and, from 5 % up, says what 24 h
+gives: 12.5 mL at 0.6 mL/hr gives 14.4 mL, 1.9 mL (15 %) more, from the dead space; the alert is "TPN rate gives more
+than ordered". The copied order says "over 24 h" for TPN. The 5 % is the agent's default. `CONSTANTS_VERSION` stays
+2026-11-06.1: it has not reached the ward and ships with this. No second clinician has reviewed this; Pp only.
+The TPN hint gives the volume to 1 decimal when it shows the note (Vera).
+
+## Session 2026-11-10 (1) — Lipid rate: critical only when over the ceiling as ordered too; a TPN bag that ends early says so
+
+`data.js` (`lipidRateGrade`, `pumpEarlyStopHours`, `PUMP_EARLY_STOP_NOTE_H`), `calculator.jsx`, the
+`neofeed-clinical-rules` skill (`CR-LIPID-RATE`, `CR-R-PUMP-RATE`, `CR-R-LIPID-WHOLE-ML`, Q21), `docs/CLINICAL_CONSTANTS.md`,
+`tools/reference-tabs.json`, `test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`, `test/verify-lipid-whole-ml-1106.cjs`,
+`compiled/` and both shells' `?v=` tokens.
+
+Reading the 53 fields of the comparison for release #236 turned up two consequences of the pump rule (2026-11-06 (5)) that
+`CHANGELOG.md` had not shown. Pp chose on 2026-11-09:
+
+1. **Critical needs the hours ordered above the ceiling as well** (`CR-LIPID-RATE`). 4 g/kg/d over 24 h was 0.17 and amber on
+   `release`. With the rate rounded up it became 0.18 and critical at 52 of 351 weights from 500 to 4,000 g, 30 of the 50 under
+   1 kg, each asking a reason, where the alert's advice to give it over more hours cannot be followed. Pp: amber where only
+   the rounding puts it over. The tile still shows 0.18; the line says "because the pump rate rounds up" and gives the figure
+   over the hours ordered. A tap on Lipid volume guards the same grade. Above the ceiling on both counts is critical as before.
+2. **A TPN bag that ends early says so** (Q21, `CR-R-PUMP-RATE`). 1 h or more before the next bag, the Rate hint adds
+   "หยุด N h ก่อนถุงใหม่" and the alert list an info line with the percentage above the GIR shown (12.5 mL: 0.6 mL/hr, 20.8 h,
+   3.2 h early, 15 %). GIR and every figure stay as they were. The 1 h is the agent's default, for Pp to change.
+
+A typed dose prints as before. A tap on Lipid volume can now keep a higher whole mL (580 g, 3.7 g/kg/d: 11 mL, 3.79, where it
+stepped down to 10 mL, 3.45; Vera). `CONSTANTS_VERSION` stays 2026-11-06.1 for now: whether this needs a bump is Pp's call. No second
+clinician has reviewed this. Backend unchanged.
+
+## Session 2026-11-08 (9) — NF-42, one wording in (8)
+
+jsdom drops a gradient built on `var()`, which all three in `calculator.jsx` are; a plain gradient is kept.
+
+## Session 2026-11-08 (8) — NF-42, after its third review
+
+Corrects (7): the tree of plants can move a neighbouring field, so a pass shows each field is reported, not that its own
+plant alone moved it; the harness says so. Ticks, list choices, list labels, text colours and backgrounds are separate fields
+now, and the plants cover them and the printed text outside tables. A gradient background is out of reach, because jsdom
+drops it; `REFERENCE.md` lists that. The counts of each kind of order cover only orders entered on both sides.
+
+## Session 2026-11-08 (7) — NF-42, after its second review
+
+A second reader found the tool still skipped the values in boxes, the lists and inline colours, and removed captures
+without `verify-calc-compare.cjs` noticing, so "one change of each kind" in (6) overclaimed. The harness now plants one for
+each field it names. The counts of each kind of order come from what the form holds, not what was generated, and a run
+that compared nothing no longer writes "No difference" to `--out`.
+
+## Session 2026-11-08 (6) — NF-42, after its review
+
+A reader planted changes and the first version of `tools/calc-compare.cjs` missed them. It now compares every saved field
+(it kept only top-level numbers), each alert's level, the GIR readout, each tile's whole text and the rest of the screen,
+and its orders include a second feed, No TPN, oral orders and a typed dosing weight. `verify-calc-compare.cjs` plants one
+change of each kind. `--intended` cannot explain an order that was not entered, and a run where no order reaches Submit
+exits 2 instead of passing. `REFERENCE.md` now says what it does not cover, which corrects its "checks everything else".
+
+## Session 2026-11-08 (5) — Old Calculator against new, on made-up orders, for every release (NF-42)
+
+`tools/calc-compare.cjs` (new), `.github/PULL_REQUEST_TEMPLATE/release.md`, `REFERENCE.md`; `test/verify-calc-compare.cjs` (new).
+
+NF-42 asked for old and new calculation modules side by side on the ward during the NF-05 pilot. Pp dropped that pilot on
+2026-10-28, and the calculation is one `useMemo` inside `<Calculator>`, so there was no module to run twice. Pp chose
+the form that touches no ward device (2026-11-08). The tool types the same seeded made-up orders into two versions of
+the real Calculator and compares every tile, colour, alert, saved number, sticker figure and printed line, and reports
+each field that moved and by how much. A field not named by `--intended` exits 1 and stops the release. It sees no real
+input, so it does not replace the three hand cases at the edges a change touches.
+
+## Session 2026-11-08 (4) — "No TPN" on the ward list
+
+`registry.jsx`, `data.js` (`latestOrderIsNoTpn`), both shells' styles, `compiled/`; `test/verify-no-tpn-ward-tag-1108.cjs` (new).
+
+The nutrition team asked on 2026-10-28 for a TPN / no-TPN tag on the ward list; PR #206 tagged only the Print order list.
+The phone card and the desktop row now show a grey "No TPN" beside the today badge when the infant's latest Submitted
+order, by date, has no bag. A draft does not count, and a discharged infant is not tagged. No figure moves, so
+`CONSTANTS_VERSION` stays.
+
+## Session 2026-11-08 (3) — NF-32, two wordings in (2)
+
+`verify-safety-fixes-0923.cjs` pins GIR only; `verify-status-zones.cjs` pins GIR, protein and osmolarity. And any run on a
+working tree can meet a deleted, unstaged file, not only a hook.
+
+## Session 2026-11-08 (2) — NF-32, after its review
+
+Corrects the entry below: "the rest still run" holds inside one phase. A phase that fails stops the job's later steps,
+as a failing step always did, so each step's log carries the dimensions of its own phase. Also: the Stop hook's loop guard
+now runs before `tools/checks.json` is read, so a broken config cannot trap an agent; `verify-status-zones.cjs` and
+`verify-safety-fixes-0923.cjs` moved to the clinical dimension, since they pin GIR, protein and osmolarity limits;
+`tools/ci_bans.js` skips a tracked file that is deleted and not yet staged, which only a hook can meet.
+
+## Session 2026-11-08 — One list of checks and one runner, reported per dimension (NF-32)
+
+`tools/checks.json` and `tools/run_checks.js` (new), `.github/workflows/test.yml`, `.claude/settings.json` and
+`.githooks/pre-commit` (new), `.assetsignore`, `AGENTS.md`; `test/verify-run-checks.cjs` (new).
+
+**The list.** Every check CI ran is now a row in `tools/checks.json` with a dimension and a `blocking` flag.
+A `test/verify-*.cjs` file nobody names falls to `every-other-harness`, so a new harness still runs without an
+edit here, and the runner refuses a harness no CI check claims. The clinical dimension is binary: the runner
+refuses a non-blocking check in it.
+
+**The gate is as strict as it was.** Pp, 2026-11-08: every dimension closes it, so every row is `blocking: true`
+and `test/verify-run-checks.cjs` pins that. A failing check no longer stops the run at once: the rest still run
+and the job ends with one line per dimension, and no average. The job is still called `harnesses`, the name the
+`release` branch rule requires.
+
+**Three callers.** CI runs `--level ci`, one step per phase. The pre-commit hook and the Stop hook run the 5-second
+set (the shells, `ci_bans` and its self-test, the reference tabs); `verify-calc-sum.cjs` and
+`verify-clinical-rules.cjs`, about 2 minutes together, join them only when `calculator.jsx` or `data.js` changed.
+The Stop hook sends an agent back once and then lets it stop. A hook with no `node_modules` skips a check that
+needs one and says so; CI never skips. The pre-commit hook runs in a clone only after
+`node tools/run_checks.js --install-hooks`.
+
+## Session 2026-11-07 (3) — Stakeholder walk: only a doctor submits a doctor's order; a held order lists what changed; Quick calc opens with no route
+
+`calculator.jsx`, `app.jsx`, `log.jsx`, `gas-backend.gs`, `tpn-room.jsx`, `tpn-room-core.js`, `compiled/`, both shells' `?v=`
+tokens and `tpn-room.html`; `test/verify-walk-1107.cjs` (new), and six harnesses that pinned the old behaviour:
+`verify-pharmacy-backend-1030.cjs` (§9's nurse save is a draft; the order's field list), `verify-nursing-backend.cjs`
+(a nurse's order with the switch off is a draft), `verify-hardening-1102.cjs` §5 and §8 and `verify-nutrition-meeting-1028.cjs` §6 (the server stamp), `verify-incident-gaps-1021.cjs` §6 (the quick calc started on
+Central) and `verify-tpn-room-page-1105.cjs` ("Submit โดย"). The clinical-rules skill's line numbers moved
+(`--fix-lines`); no rule changed.
+
+A Playwright walk on 2026-11-07 used the app as each of its users, with made-up infants on dev local. Pp picked three
+of its findings for before the 16 Nov ward start; the print-sheet gaps (osmolarity value, aqueous rate, feeds on the
+front) wait until after it.
+
+1. **N1 / P1: a nurse account re-submitted an order NeoFeed had held, and the TPN room then named the nurse.** Signed
+   in as a nurse, Submit on a held order saved at once, with seven alerts showing, and the room read "ฉบับ 2 · บันทึกโดย
+   Nurse Dev". The nursing log is off (`NURSING_LOG_ENABLED`), so a nurse still records Intake/Output by saving the
+   order, and D5's refusal of nurse order writes does not apply. Pp chose (2026-11-07, all three in Thai): a nurse saves
+   **Intake/Output only** on a doctor's order; the **backend refuses too**; the words are "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด
+   Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O".
+   - Calculator (`nurseAccount`, from `app.jsx`'s role): a nurse's Submit is refused, with that line above the button
+     and as a toast, on a new order, a draft, an order where anything but the three I/O boxes changed
+     (`orderKeyWithoutIo`), and an order the app holds: the calculation or dosing weight moved, a critical value nobody
+     confirmed, no sticker figures yet. A nurse is never shown the critical-value prompt; her I/O save keeps the
+     doctor's confirmation as saved. Save draft stays for a new order or a draft. A doctor's Submit is unchanged.
+   - Backend: `logDailyNutrition` takes only a draft from a nurse; `updateDailyNutrition` keeps a nurse's save on a
+     draft a draft, and on a submitted order takes it only when its `calcInput` is the same order apart from I/O and
+     the keys every save writes anew (`IO_FREE_CALC_KEYS`), on the same `constantsVersion` (`_ioOnlyRevision`). The
+     revision it then writes comes from the stored row (`_ioOnlyEntryFrom`): every figure column, the sticker figures
+     (AM) and `calcInput` as the doctor saved them, with only the three I/O figures and the save time from the nurse.
+     Vera's 🔴 on the first version: it compared `calcInput` and wrote the client's figure columns and `printJson`, so
+     a modified client could change a sticker under the doctor's name. Her second review found another way in: a
+     nurse's `publishLog` locked a doctor's draft, and her next save read the lock as "submitted". A pen test on dev
+     local the same day found the other half: her lock on a doctor's submitted order set the TPN room's "Submit" time
+     to hers. Now a nurse locks nothing (`publishDailyLog` refuses her; the calculator neither locks after her save nor
+     offers Submit with nothing changed), and a nurse's save reads a row as submitted by its status column alone.
+   - **A doctor's draft, too** (Pp, 2026-11-07, after Vera asked: "ได้แค่ I/O เหมือนกัน"): on a draft another account
+     saved, unless the Staff tab lists that account as a nurse, a nurse's Save draft may change only I/O, on the same
+     calculation and dosing weight, and the backend writes it from the stored row. Her own draft she may change freely.
+     Whose draft it is reads `calcInput.orderBy`, which the server stamps on every save except a nurse's I/O-only
+     one, so her I/O save never makes a doctor's draft hers (Vera's third review: it read the row's last saver, and
+     her second save could change any dose). A row from before is its creator's only when the same account last saved
+     it, and no one's otherwise, so a nurse may change only I/O on it (Vera's fourth review: it fell back to the last
+     saver, which a nurse's pre-deploy I/O save had made her). The calculator reads
+     the same `orderBy` but does not know roles, so it is stricter than the backend in one case: it also holds a
+     colleague nurse's draft to I/O only.
+   - **An I/O save is not a new ฉบับ** (a workflow check on dev local, then Pp: "IO ... ไม่เกี่ยวกับใบสั่ง TPN ... ไม่น่าจะ
+     ต้องไปเรคคอร์ดว่าเป็นฉบับที่เท่าไหร่"). Each nurse I/O save still adds a history row to Daily_Log, but the server
+     stamps with `orderBy` the revision and time of the save that changed the order (`orderRev`, `orderAt`), and a
+     nurse's I/O save keeps them. The front sheet's "Revision · ฉบับที่", the Save card's "บันทึกโดย", the ward list's
+     "ฉบับแก้ไข" and the TPN room's "ฉบับ" read them, so twice-daily I/O no longer prints "Revision · ฉบับที่ 3" or
+     names the nurse. `orderRev` counts the order's own revisions, so a doctor's change after two I/O saves is
+     ฉบับ 2, not the row number 4 (Vera's fourth review). One legacy gap stays: on a chain whose nurse I/O rows were
+     saved before this deploy, the room (which walks back to the doctor's row) and the sheet (the row number) can
+     show different numbers until a doctor next saves; the bag is the same. The room names whose order a draft is
+     the same way. The stamp is left out of the
+     10,000-character `calcInput` cap, and only an object `calcInput` takes it (`verify-hardening-1102.cjs` measures
+     what the client sent).
+   - **I/O on a held order** (same check and Pp's words): a nurse could record no I/O on an order NeoFeed held for a
+     doctor, which on release day is every order submitted before it. Now she can. The calculator sends the order as
+     stored with her I/O (`storedOrderWithIo`), the server writes the stored row, and the order stays held, with the
+     line saying a doctor must check and Submit it.
+   - TPN room: `pharmacyOrders` names who submitted. A nurse's I/O-only revision names the account and the Submit time
+     of the row before it (walking `revisionOf`, at most 50 rows); a revision a nurse saved with anything else changed
+     (possible before this backend) still names the nurse. The room page reads "Submit โดย" for a submitted order and
+     "บันทึกโดย" for a draft. Each order also carries `sameBagEntryIds`, the rows that walk passed, so a nurse's I/O save
+     after the room printed no longer reads "หมอแก้ order หลังพิมพ์" (`tpn-room-core.js` `sameBag`, Vera's 🟠), and the
+     print-time recheck lets it through.
+   - **Deploy the backend first.** The old frontend against the new backend: a nurse's I/O save still lands (its
+     `calcInput` carries no `printedFigures`, which the comparison skips anyway), and every other nurse Submit is
+     refused with the same Thai line as a toast. The new frontend against the old backend refuses in the app only.
+2. **Top insight 3: a held order said "ตัวเลขบางรายการเปลี่ยน" and not which.** Every save now keeps the figures the
+   front sheet prints, as printed (`calcInput.printedFigures`, 37 figures, about 550 characters; the fullest order with
+   a confirmed critical value is about 2,600 of the backend's 10,000). An order held because the calculation or the
+   dosing weight moved lists each figure that changed, old → new, under the hold, and nothing else. A first version
+   added one line per NeoFeed version since the order's and a note on what was compared; Pp, on the dev-local
+   screenshot: "พวกคำบรรยายพวกนี้ไม่ต้องโชว์ได้ไหม", so both are gone. With nothing changed it reads "ตัวเลข TPN บน
+   ใบสั่งนี้ไม่เปลี่ยน" (Vera's 🟡: the oral lines under "8. Other" are not in the list). An order saved before this
+   release has only the Daily_Log columns to compare (Fluid, GIR, Protein, Energy, Na, K, Ca, P, EN). Print ทั้งหมด's
+   list of held orders carries the same changes in its reason. No figure moves, so `CONSTANTS_VERSION` stays.
+3. **D13: Quick calc opened with Central pressed.** Its prefill passed no route, and `normalizeCalcInput` reads a
+   missing route as the old default, Central. It passes `route: null`, so it opens like a patient's first order.
+
+**Not checked:** a real nurse account on the live backend, and the new page on a ward phone. The room page's
+"Submit โดย" assertion is a browser section, which runs in CI's compiled pass only.
+
+## Session 2026-11-07 (2) — QI export, pseudonymized inside Apps Script
+
+`gas-backend.gs` (a new section after `logAudit`, and four `NON_USAGE_AUDIT_ACTIONS`), the new
+`test/verify-qi-export-1107.cjs`, `test/gas-vm-sandbox.cjs` (`clearContents`, `insertRowsAfter`, `deleteRows`, an opt-in
+row bound), and `openspec/changes/qi-export/`. Backend only; not deployed.
+
+Pp wants NeoFeed's orders for QI analysis, possibly by a cloud AI later. The only path was to download
+`Patient_Registry` and `Daily_Log` as CSV, names included, to `LocalOnly` and run the local pseudonymizer
+(praewxtvl/praewpp-workspace#80). That download is the weakest step, so the export now happens at the source.
+Pp chose option A on 2026-11-07: research IDs are a keyed HMAC computed at export time, not a stored column.
+
+- **`setupQiExportKey()`**, run once from the editor, puts three `Utilities.getUuid()` values (366 random
+  bits) in the Script Property `QI_EXPORT_KEY_QI1`. It never replaces a key, and the secret is in no return
+  value, log, sheet or audit row. A new project name gives a new key, so its IDs cannot be linked to the old.
+- **`exportQi()`** writes one row per `Daily_Log` order with its infant's registry fields to a `QI_Export`
+  tab, trimmed to its rows and columns. Research ID `R-` + 12 hex of HMAC-SHA256(key, `patient` NUL sessionId),
+  order `E-` + 12 hex, staff `S-` + 10 hex; days counted from admission plus Bangkok HH:MM; age at admission
+  instead of dob; BW in 100 g bands, GA in weeks, the bed's unit only; `constantsVersion` as C01… in release
+  order; `calcInputJson` and `printJson` cut to the local script's whitelists (no `savedByLabel`, no
+  `critical.reason`). It drops name, initials, dob, twin letter, sessionId, entryId, appVersion and every
+  e-mail. It leaves out an erased infant's orders and an order with no registry row, and counts both.
+- **It stops rather than leak.** A shifted header on either source tab stops it (`SchemaMismatch`), and so
+  does its own identifier scan of every output cell (e-mail, Thai, 13 digits, phone, HN/AN, calendar date,
+  UUID, any source id or name), which reports column counts and never a value. Free text that holds one, a
+  Thai diagnosis included, becomes `[REDACTED]` before the scan.
+- **`lookupResearchId(id)`** returns the sessionId for an admin re-identification request. `Audit_Log` gets
+  `qiKeyCreated`, `qiExport`, `qiReidentify` or `qiReidentifyMiss`, written before the action (no row, no
+  action), with the actor `apps-script-editor:QI1`: the runner's e-mail needs a scope the manifest lacks.
+  These rows are not product usage.
+- **No route from the ward.** No `doPost` action, no OAuth scope, no frontend change; `CONSTANTS_VERSION` stays.
+
+`test/verify-qi-export-1107.cjs`: all sections fail on `6c7f608`. §3 is the proof Pp asked for: on
+synthetic infants (a legacy id, Thai names, a saver's name and e-mail in `calcInputJson`, a Thai alert reason)
+no cell of the tab holds a name, initials, dob, sessionId, entryId, e-mail, Thai text, calendar date or UUID.
+
+Vera on `c3db40f`: NO BLOCK, four findings, all fixed in the next commit. The scan and the free-text check now
+know the ward's own formats (`081-234-5678`, `+66…`, `30/08/2026`, `5/9/69`, `1-2345-67890-12-3`); the coded
+columns are checked for the infant's name; `lookupResearchId` keeps the sessionId out of the execution log
+(it points to `Audit_Log`); and `pseudonymizePatient` and `deletePatient` clear `QI_Export` after they succeed.
+Each new check fails on `c3db40f`. 114 checks now.
+
+Open for Pp and the DPO (`BACKLOG.md`): the lawful basis for a QI export, which the treatment basis does not
+cover; whether a Thai diagnosis should pass instead of being redacted; and how an erasure reaches a CSV already
+downloaded.
+
+## Session 2026-11-06 (6) — Calculator: Glycophos typed by P, no Factor or stock mL on screen, Dextrose, amino-acid and lipid chips on one line
+
+`calculator.jsx`, `compiled/calculator.js`, `index.html` and `NeoFeed.html` (one CSS rule each), the
+`neofeed-clinical-rules` skill (`CR-U-SALTS`, `CR-U-FACTOR`), `test/verify-calc-clicks.cjs`, `test/verify-calc-sum.cjs`
+(order S9), and five harnesses that read the Factor off the screen.
+
+Pp sent three requests from her phone the same evening, each with a screenshot of the Calculator:
+
+1. **Glycophos by Na or by P.** "ช่อง glycophos มีปุ่มให้กดเลือกว่าจะใส่เป็นโซเดียมหรือใส่เป็นฟอสฟอรัส หากใส่เป็นฟอสเฟต
+   ตัวเลือก ให้ปรับเป็นค่าใกล้ๆกันกับโซเดียม เช่น 15, 30, 45, 60 mg/kg/day". The code had no such button: the box took
+   mEq Na/kg/d only. Now Na / P buttons sit beside the label. P makes the box mg P/kg/d with chips 15, 30, 45, 60
+   (Na 1–4 mEq is 15.5–62 mg P, so the chips sit beside the Na ones), and the line under it shows the Na it brings.
+   The buttons change what the box is typed in, never the dose: the order still stores one figure, `glycophosP`
+   (mL/kg/d = mmol P/kg/d), so nothing saved, synced, printed or sent to Center Point changes shape, and switching
+   back and forth leaves the order unchanged (not dirty). The choice is not saved: every Calculator opens on Na, and
+   goes back to Na when the infant or the order changes (the header's "Switch patient" keeps the Calculator mounted;
+   Vera's 🔴), so a number typed from habit is read as Na as before, and on a shared ward PC one doctor's P cannot
+   become the next doctor's unit. A dose typed by P has no end to its decimals (20 mg is 0.6451… mL/kg), so the four
+   places that showed `glycophosP` raw or to 12 digits now show 4 decimals at most: the order form's mL/kg cell, the
+   changes list, the Step 4 summary chip and the copied text. A dose typed in Na with up to 3 decimals of mEq prints
+   as before (0.5, 0.55, 0.625, 0.0625). The stock mL was always
+   rounded once (`CR-R-STOCK-ML`); order S9 in `verify-calc-sum.cjs` proves the bag still adds up at 20 mg P/kg.
+2. **No Factor on the Calculator.** "แฟคเตอร์ก็ไม่ต้องขึ้นโชว์หน้านี้ สำหรับแพทย์และพยาบาล". The Factor box beside
+   Prepared is gone. It is still on the pharmacy back sheet, which renders but has not printed since 2026-10-28,
+   and in the quick calc's copied text; pharmacy works it out from the front (`CR-U-FACTOR`). The fuzz and the oracle checked the
+   on-screen Factor: they now check it is absent, the oracle still checks the back sheet's, and every stock mL is
+   × Factor, so a wrong Factor still fails both. Three other harnesses read it there too and now read the prepared
+   volume or the stock it scales instead. The "× Factor" notes on the Soluvit, Peditrace and ZnSO₄ hints stay.
+3. **Dextrose % chips on one line on a phone.** "เปอร์เซ็นต์เด็กโต [dextrose %] ในหน้าจอของโมบายให้เรียงยาวต่อกันไป
+   เลย เพื่อให้กดง่ายมากขึ้น". Below 768 px the Dextrose final + GIR row stacks (`.dex-gir-row`), so the five chips
+   have the card's width and sit on one line at 44 px or more each; GIR follows under D50W. Desktop is unchanged.
+
+4. **No prepared mL under the Step 4 components.** "เตรียมเป็น ml เท่าไหร่ ไม่ต้องขึ้นในหน้าจอของแพทย์และพยาบาล ที่ขึ้นว่า
+   เตรียม กี่ ml ใต้ทุก component ไม่ต้องโชว์". The "เตรียม x mL/d" line under 20 % NaCl, Na acetate, Glycophos, KCl
+   and K₂HPO₄ is gone, and so is the same figure shown as "→ x mL/d" under MgSO₄ and Ca gluconate. Each still shows
+   its dose as mL/kg/d. The prepared mL stays on the printed order's "For Pharmacist Only" column. Step 3's Prepared
+   (เตรียมจริง) bag volume, D50W and amino-acid volume stay: they were not named. `verify-calc-fuzz.cjs` read NaCl's
+   mL off that line for its I1 round-trip; it now checks the line is gone (the oracle and `verify-calc-sum.cjs` check
+   the printed stock mL).
+5. **A guard against the wrong unit (`CR-GLYCO-UNIT-HABIT`).** Vera's second review (BLOCK): with the box back on Na
+   for every infant and P chips of 15–60 beside it, a "30" typed on Na is 30 mEq Na = 465 mg P/kg/d, and Na and P
+   have no hard limit, so only amber fired. Pp chose the thresholds (of 10 / 10, 5 / 15 or none): a Glycophos dose
+   of 10 mEq Na/kg/d or more (P 155 mg/kg/d), in either unit, is critical and asks "พิมพ์เป็น mg P หรือเปล่า"; on P,
+   above 0 and below 10 mg/kg/d asks "พิมพ์เป็น mEq Na หรือเปล่า". The high line is graded on the dose, so a reopened
+   order (on Na) never raises a line its saved reason did not name. Two alert thresholds, `GLYCO_NA_HABIT_MEQ` and
+   `GLYCO_P_HABIT_MG` (register row in `docs/CLINICAL_CONSTANTS.md`); they move no dose, so `CONSTANTS_VERSION` stays.
+   Same review: a Na/P press while the box still had focus left the old number under the new unit; the row now
+   remounts on a switch.
+
+6. **No stock mL anywhere on the Calculator.** Asked whether the rest of Step 3's and Step 5's mL should go too (the
+   D50W box, the amino-acid Volume, the lipid volume, Soluvit and Peditrace in the bag, ZnSO₄'s and heparin's mL),
+   Pp: "Hide them all". Gone from the screen: "D50W: x mL/d" (its box now holds only "Central only!" when that
+   applies), the amino-acid Volume (the row is one column, so its five chips sit on one line on a phone too),
+   SMOF's own mL/day and the lipid bag total line (but see below: Lipid volume is back), Soluvit's
+   and Peditrace's "x mL/day in bag (× Factor → delivers …)" and their Additives Summary mL (now the dose, 1 mL/kg/day),
+   ZnSO₄'s "= x mL of 1 mg/mL" and heparin's "→ x mL of 100 U/mL" and its volume readout. Kept: both pump rates and
+   the lipid syringe's "x mL/day over N h" (what a nurse sets and hangs), Vitalipid's mL/day (it is ordered in mL;
+   the form prints "Vitalipid N infant = x mL"), the bag total and components panel, and every mL/kg/d dose. The
+   printed order has every stock mL as before. The Soluvit and Peditrace caps (10 and 15 mL a day) were checked on
+   screen at 11 and 16 kg, weights no order can have; they are now `D.vitaminMlPerDay` in `data.js`, the same
+   arithmetic in the same order, and `CR-SOLUVIT-CAP` / `CR-PEDITRACE-CAP` test it as a function. Nine harnesses
+   that read these figures off the screen now check they are gone and read them on the print (the oracle already
+   held every one there); the fuzz still checks the lipid syringe, SMOF + Vitalipid, on screen. Vera (NO BLOCK)
+   found that the dose shown for Soluvit and Peditrace would claim 1 mL/kg/day on a No TPN day, which gives neither:
+   it now shows only with a bag, and says "ไม่มีถุง TPN วันนี้ — ไม่ได้ให้" otherwise (`verify-no-tpn-1101.cjs`).
+   Merging `main` into this PR (#222, #224) took `main`'s shells whole and dropped item 3's `.dex-gir-row` rule,
+   so the Dextrose chips wrapped again on a phone; a screenshot showed it, nothing else did. The rule is back, and
+   `verify-phone-sweep.cjs` now fails if either shell loses it (or the amino-acid row's).
+
+7. **The lipid chips on one line on a phone.** Asked, Pp: "y". Below 768 px the 20% lipid box and its five chips
+   span the lipid row (`.s2-lip-row > :first-child`); the Lipid and Vitalipid tiles share the row below.
+   `verify-phone-sweep.cjs` checks the rule in both shells. Asked whether the Components / Bag total (prepared)
+   panel under the amino acid should go too (Components is the TPN room's figure; Bag total repeats Prepared),
+   Pp: "keep it". It stays, and still turns red when the bag is over-full.
+8. **Lipid volume stays on screen, tappable.** #227 (merged into `main` the same night) made the Lipid volume
+   tile a button: it shows 20 % lipid in mL/day and a tap rounds it to a whole mL and sets the dose back. Item 6 had
+   taken that mL off the tile. Merging `main` into this PR, Pp chose to show the mL/day and keep the tap ("Show
+   mL/day, tappable"), an exception to "Hide them all": the mL is what is rounded. The tile is #227's as merged; the
+   fuzz and the oracle check its mL again, and the CR-U-FACTOR case shows "Lipid volume 10 mL/day".
+9. **Vera on the whole PR after that merge (NO BLOCK), three fixes.** Glycophos's row still showed "= x mL/d" on a
+   wide screen (the phone hides that column): delivered mL, not × Factor, so it disagreed with the printed mL, and
+   the last stock mL left besides Lipid volume. It is gone (Pp: "Hide them all"), though the TPN team asked for it on
+   2026-09-22 (`verify-tpn-team-0922.cjs` §4 now checks it is absent). The high wrong-unit line, reached from the P
+   box (155 mg P or more), told the user to press P; on P it now says the P box takes 15–60 mg. And the order form
+   printed the Glycophos P label to 1 decimal; a dose typed in mg P now prints as typed, to 3.
+
+Seven pieces of one evening's ward feedback, in one PR because this session has one branch; Pp can ask for a split.
+No dose constant, limit or `CONSTANTS_VERSION` moved (5 adds two alert thresholds). No second clinician has
+reviewed the P entry path or `CR-GLYCO-UNIT-HABIT`: Pp only; asked, she wanted none ("ไม่", 2026-11-06). Asked
+whether "ฟอสเฟต" means elemental mg P (as built, the form's 31 mg/mL) rather than mg of phosphate ion, she said yes. Center Point's packet keeps Glycophos mL/kg to 3
+decimals (`center-point/tpn-snapshot.mjs`), where the order form now shows up to 4; the stock mL is the same in
+both. With the two Glycophos titles, the fullest confirmed order (15 titles, a 300-character reason) measures
+272.4 mm on CI's fallback font, against 268.3 before and the page's 281: still one page
+(`verify-print-one-page-1102.cjs`). Asked in the same thread, not built: which amino-acid stocks to
+offer older children (`BACKLOG.md` item 14, Amiparen 10 % and Aminoplasmal 15 %) — a proposal went back to Pp.
+
+## Session 2026-11-06 (5) — The lipid pump: tap to a whole mL, and both pumps at 0.1 mL/hr
+
+`data.js` (`lipidDoseAtWholeMl`, `pumpRate`, `PUMP_MAX_HOURS`, `lipidGkghAt`), `calculator.jsx` (Step 3's two pumps, the
+step chips, the copied order, the printed lipid line), `center-point/tpn-snapshot.mjs` (`pnRate`, `lipidRate`,
+`lipidHours`, `lipidKg`), `tools/reference-tabs.json`, the `neofeed-clinical-rules` skill (`CR-R-LIPID-WHOLE-ML`,
+`CR-R-PUMP-RATE` new; `CR-LIPID-RATE` changed), `test/verify-lipid-whole-ml-1106.cjs` (new), `test/README.md`, the
+harnesses that pinned the old rates (below), `compiled/` and both shells' `?v=` tokens.
+
+Pp, 2026-11-06, from phone screenshots of the Lipid Pump card (1,680 g, 2 g/kg/d, 16.8 mL/day, 0.95 mL/hr):
+"ถ้ากดที่ลิพิตโวลุ่มจะ rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ ml/kg/hr ข้างบนอีกที", then "Pump rate
+ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง infusion in กี่ hr ให้ ถ้าเกิน 24 ชม. ให้ปัดเพิ่ม rate แทน ให้ไม่เกิน". Asked, she chose:
+the nearest whole mL; the whole mL below where rounding would cross 4.0 g/kg/d, so a tap never makes a critical
+alert; 24 h (not the hours typed) as the limit that rounds a rate up; both pumps; g/kg/h over the hours the pump
+actually runs; one PR for both.
+
+- **Tap Lipid volume** (`CR-R-LIPID-WHOLE-ML`). The box is a button: a tap rounds the 20 % lipid syringe to the nearest
+  whole mL/day (half up) and sets 20 % lipid to the dose that volume gives (mL × 0.2 ÷ kg): 16.8 → 17 mL, 2 → 2.02
+  g/kg/d. A toast names the mL and the dose before and after. Nothing rounds until the tap. A tap never makes a
+  critical lipid line the typed dose did not have: above 4.0 g/kg/d, or g/kg/h above 0.17 (Vera on this PR: the
+  rate ceiling is a critical line too); there the whole mL below is used. Under 0.5 mL it leaves the dose as typed
+  (Vera: a 1 mL floor multiplied a small dose; for Pp to confirm). The dose keeps 2 decimals, else 3, whichever gives
+  the whole mL at 0.1 mL; the printed order now prints the lipid dose to 3 decimals so dose and mL agree (Vera: 3.5
+  kg on 1.5 g/kg/d taps to 1.486 = 26 mL, which printed as 1.49).
+- **Both pumps at 0.1 mL/hr, with the hours they run** (`CR-R-PUMP-RATE`). The TPN pump (its volume over 24 h) and
+  the lipid pump (its bag over the hours typed) show the nearest 0.1 mL/hr; where that would run the volume past
+  24 h, the next 0.1 up. Step 3, the step chips, the copied order, the printed lipid line and Center Point show the
+  rate and "infusion N h" (volume ÷ rate): 100 mL is 4.2 mL/hr for 23.8 h; the lipid bag of 22.8 mL is 1 mL/hr for
+  22.8 h. No volume and no dose changes; a pump set up runs out a little before 24 h.
+- **Lipid g/kg/h is over the hours the pump runs** (`CR-LIPID-RATE`). Rounding a rate up shortens the run, so a dose
+  can grade higher than before: at 1 kg over 24 h, 3.05 g/kg/d is 0.9 mL/hr for 21.4 h = 0.14 (amber; it was 0.13),
+  and over 20 h, 3.4 g/kg/d is 1.1 mL/hr for 19.1 h = 0.18 (critical; it was 0.17). The rule's cases moved to the new
+  edges, with Pp's answer as their source. Under 24 h typed it can also grade lower: at 1 kg over 16 h, 2.85 g/kg/d
+  is 1.1 mL/hr for 16.6 h = 0.17, amber, where it was 0.18, critical (Vera; pinned as a case).
+- **Small TPN bags stop early** (Vera; Q21 for Pp): 12.1 mL/day is 0.6 mL/hr for 20.2 h, and GIR is still over 24 h.
+- **The tap guards only the lipid lines** (Vera; Q22 for Pp): not Energy 160 or NPE:AA 12, and a dose already above
+  4.0 rounds to the nearest mL (4.5 → 4.52).
+- **Printed figures**: on every order with lipid, the lipid line's two figures change ("over 24 h … Rate 0.84" →
+  "Rate 0.9, infusion 22.3 h"); `verify-review-0917-calc.cjs`'s five digests were recaptured after a figure-by-figure
+  comparison with `main` showed nothing else moved. **`CONSTANTS_VERSION` 2026-10-28.1 → 2026-11-06.1** (Vera: calculator
+  logic moves printed figures, the register's rule since 2026-09-18), with its rows in `docs/CLINICAL_CONSTANTS.md`:
+  the version history, `LIPID_GKGH` graded over the pump's hours, and `PUMP_MAX_HOURS`. So an order saved before this
+  release prints only after it is saved again. The backend's `MIN_SUBMIT_CONSTANTS_VERSION` stays 2026-10-28.1: no
+  `clasp` step.
+- **Harnesses that pinned the old rates**, updated to the new rule: `verify-calc-clicks.cjs` (lipid over 16/20/24 h,
+  Volume 100 → Rate 4.2), `verify-calc-oracle.cjs` (its own pump rule, written out), `verify-tpn-meeting-0928.cjs` §5 and
+  `verify-tpn-team-0922.cjs` §2 (they pinned "the pump rate keeps its 2 decimals", Praew 2026-09-28, which this
+  replaces). `tools/reference-tabs.json` gains `PUMP_MAX_HOURS`.
+- No second clinician reviewed this; Pp's request and her answers only. The skill's other line numbers were not
+  refreshed with `--fix-lines`, so this PR does not collide with #223's refresh.
 ## Session 2026-11-06 (4) — Step 2's milk list: no FBM ↔ Infatrini, "HiQ LF"
 
 `data.js` (`EN_PRODUCTS`), `test/verify-en-db-sources.cjs`, `test/verify-tpn-meeting-0928.cjs`,

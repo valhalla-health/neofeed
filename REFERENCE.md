@@ -130,7 +130,7 @@ Two harness contracts: the patient table stays the form's first direct `<table>`
 §6 figure sweeps skip it), and the provenance footer stays the form's last child.
 
 **One A4 page at its fullest (Pp, 2026-11-02).** The front must stay one page with the signature on it, also
-with a confirmed critical value (all 13 critical titles that take a reason, and the 300 characters Submit allows a reason). With a
+with a confirmed critical value (all 15 critical titles that take a reason, and the 300 characters Submit allows a reason). With a
 confirmation the signature line is **inside** the red box (`.print-crit-box`), and the box and the line never
 split (`break-inside: avoid` in both shells). In the box the line also carries "NeoFeed ID: … · วันที่ให้ TPN:
 …" (the strings the sheet prints at its top, "วันที่สั่ง" on a No TPN sheet) between the doctor and the code,
@@ -225,6 +225,26 @@ infant and the same inputs, then every figure the change could move, on screen a
 order. Pick the cases to cover the change, one inside the usual range and one at each edge it
 touches. Write each in the release PR's table: inputs, figure before, figure after, and whether the
 difference is the intended one. A difference nobody intended stops the merge.
+
+**The comparison on every release (NF-42, 2026-11-08).** The three hand cases are what a person reads; this reads many
+more orders than a person would. It types the same made-up orders into the `release` Calculator and the PR's, and
+compares each tile and its colour, the alerts and their levels, the GIR readout, the rest of the screen's text, the boxes,
+lists and colours, every saved field, the sticker figures and the printed form:
+
+```bash
+node tools/calc-compare.cjs --base origin/release --head origin/main --out compare.md
+```
+
+Paste the report into the release PR. For a release that changes no calculation the answer is no difference. For one
+that does, name what it means to move with `--intended "<regular expression over field names>"`, usually with
+`screen:` among them, since most figures also appear there. A field left unexplained exits 1 and stops the merge, the
+same as a difference nobody intended in the table above. Exit 2 means it could not compare at all (a bad ref, or no
+order entered or submitted), which is not a pass.
+
+The orders cover one or two feeds, No TPN, oral orders and a typed dosing weight, over the ranges in the tool. It does
+not cover a reopened or revised order, the copy from yesterday's order, Quick calc or Center Point. A gradient built on a
+CSS variable is also out of reach, because jsdom drops it; the status behind that colour is compared. It never sees a real input, so the hand cases at the edges a change touches are still needed. It reads no patient's figures and puts
+nothing on a ward device.
 
 **Rolling back.** The rollback targets are the release tags, `release-YYYY-MM-DD-prNN`, one per release
 merge since PR #60 (§ Frontend; #172's was never pushed). List them with `git tag -l 'release-*'` or on
@@ -680,6 +700,15 @@ secondary uses (e.g. research/QI exports) if those are ever added.
   `NF-` and six random digits (`data.js` `newSessionId`) and carries nothing.
 - *Access/rectification* — no self-service path yet; handled manually via
   admin editing the registry. Worth a real endpoint if request volume grows.
+
+**QI export (since 2026-11-07, not live):** `exportQi()`, run from the Apps Script editor, writes a
+pseudonymized table to the `QI_Export` tab (`openspec/changes/qi-export/design.md` has every column). Research
+IDs are an HMAC under a per-project key in Script Properties (`setupQiExportKey`), computed at export and stored
+nowhere; `lookupResearchId` re-identifies, and every key, export and lookup is in `Audit_Log`. It is
+**pseudonymized, not anonymous**: the key re-identifies every row, and on a census of about 90 infants no banding
+reaches k = 5, so the CSV stays personal data. The lawful basis above covers treatment, not this, so the basis
+for a QI export is open with Pp and the DPO (`BACKLOG.md`). Small cells (≤ 7) are suppressed or rounded to 5 in
+the analysis, on aggregates; the export itself is row-level.
 
 **A store of names outside the Sheet (not live):** the TPN room's name file holds the name, AN and edit history on
 one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with the change request (tasks.md

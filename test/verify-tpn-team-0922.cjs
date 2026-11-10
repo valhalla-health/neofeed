@@ -15,7 +15,8 @@
 //        (verify-ward-requests-0918 §1). What was missing is a word beside the
 //        totals themselves, so Step 3 now says it there.
 //   §4   "ช่อง Glycophos ขอให้เพิ่มช่องแสดง mL ของ Glycophos คู่ไปด้วย" — the mL/day
-//        sits beside the mEq Na/day, at the same size.
+//        sat beside the mEq Na/day until 2026-11-06, when Pp took every stock mL off
+//        the Calculator ("Hide them all"); the row keeps its mEq Na/day.
 //   §5   Osmolarity over the peripheral limit was already a critical alert; the
 //        Save stop now asks "ยืนยันการสั่งหรือไม่?" and the form says
 //        "แพทย์ยืนยันคำสั่ง" above the (unchanged) critical-value heading.
@@ -263,7 +264,8 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     baseOrder();
     const rate = () => text(container.querySelector('.lipid-gkgh'));
     // 2 decimals since the TPN team's 2026-09-28 meeting (verify-tpn-meeting-0928 §5).
-    ok('2 g/kg/d over 24 h = 0.08 g/kg/h', /(^|[^\d.])0\.08 g\/kg\/h/.test(rate()), rate());
+    // Over the hours the pump actually runs since 2026-11-06 (Pp): 28 mL at 1.2 mL/hr is 23.3 h.
+    ok('2 g/kg/d over 24 h: 1.2 mL/hr runs 23.3 h = 0.09 g/kg/h', /(^|[^\d.])0\.09 g\/kg\/h/.test(rate()), rate());
     lipidHours(20);
     ok('…over 20 h = 0.1 g/kg/h', /(^|[^\d.])0\.1 g\/kg\/h/.test(rate()), rate());
     lipidHours(16);
@@ -293,15 +295,17 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
   });
 
   // ═══════════════════════════ §4 Glycophos mL ═════════════════════════════
-  await section('§4 Glycophos shows its mL/day beside its mEq Na/day', async () => {
+  await section('§4 Glycophos shows its mEq Na/day; its stock mL/day left the screen on 2026-11-06', async () => {
     mount({ patient: pt('GP-2000', 2000), onLog: logger().onLog });
     baseOrder();
     const right = () => text(saltRow('Glycophos')?.lastElementChild);
     setField('Glycophos', 3);   // 3 mEq Na/kg = 1.5 mL/kg; × 2 kg
     ok('3 mEq Na/kg/d on 2 kg: = 6 mEq Na', /= 6 mEq Na/.test(right()), right());
-    ok('…and = 3 mL/d beside it', /= 3 mL\/d/.test(right()), right());
+    // The 3 mL/d it showed was delivered, not × Factor, so it disagreed with the
+    // printed mL (Vera, 2026-11-07); Pp: "Hide them all".
+    ok('…and no stock mL/d beside it, at any width (no .salt-ml)', !/mL\/d/.test(right()) && !saltRow('Glycophos')?.querySelector('.salt-ml'), right());
     setField('Glycophos', 1);
-    ok('1 mEq Na/kg/d: = 2 mEq Na and = 1 mL/d', /= 2 mEq Na/.test(right()) && /= 1 mL\/d/.test(right()), right());
+    ok('1 mEq Na/kg/d: = 2 mEq Na, no mL', /= 2 mEq Na/.test(right()) && !/mL/.test(right()), right());
     setField('20% NaCl', 2);
     const naCl = text(saltRow('20% NaCl')?.lastElementChild);
     ok('NaCl\'s row keeps its one line (= 4 mEq, no mL)', /= 4 mEq/.test(naCl) && !/mL/.test(naCl), naCl);
@@ -577,7 +581,7 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     ok('…while the Factor is computed from 1234 g: 1.234', /Factor:1\.234 = weight/.test(t), t.match(/Factor:[^(]{0,40}/));
     ok('…and says the weight to 2 decimals where it names it', !/1\.234 kg/.test(t), t.match(/[\d.]+ kg ×/g));
     ok('a typed ZnSO₄ 0.125 prints as typed, unrounded', /0\.125 mg Zn\/kg/.test(t), t.match(/[\d.—]+ mg Zn\/kg/));
-    ok('…and the Factor box on screen names 1.23 kg', /= 1\.23 kg/.test(text(container)) || !/1\.234 kg/.test(text(container)), text(container).match(/= [\d.]+ kg/g));
+    ok('…and the screen never names 1.234 kg (it has no Factor box since 2026-11-06)', !/1\.234 kg/.test(text(container)), text(container).match(/= [\d.]+ kg/g));
   });
 
   // ═══════════════════ the shared display helper ═══════════════════════════

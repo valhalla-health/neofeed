@@ -1,6 +1,42 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-06 — Step 2's milk list (#223): merged into `main` on Praew's instruction, not live.** "FBM 24 ↔
+> ⏳ **2026-11-10 — Full EN never counts a MEN feed on a saved order (the Daily log's target bands and the patient page's targets): PR #239, merged into `main` on Praew's instruction; frontend only, not live.** Release waits for Pp (`CHANGELOG.md` 2026-11-10 (3)).
+>
+> ⏳ **2026-11-10 — Lipid rate critical only when over the ceiling as ordered too; above 0.20 at the pump critical always; the TPN line says how much more a rounded-up rate gives: PR #237, merged into `main` on Praew's instruction; not live.** Part of release #236 once merged into `main` (`CHANGELOG.md` 2026-11-10).
+>
+> **Backend is `@69` since 2026-11-08**, with #231 and #232 (`clasp list-deployments`; mirror commit `d4a90a1`). The lines below that say that deploy is to come are older. Pp ran `setupQiExportKey()` from the editor on 2026-11-09.
+>
+> ⏳ **2026-11-08 — A release compares old and new on made-up orders (NF-42): `tools/calc-compare.cjs`: PR #235, merged into `main` on Praew's instruction.** The release
+> PR carries its report. Nothing reaches the ward: no frontend or backend file moved (`REFERENCE.md` § Before and after).
+>
+> ⏳ **2026-11-08 — "No TPN" tag on the ward list: PR #234, merged into `main` on Praew's instruction; frontend only, not live.** Release waits for Pp.
+>
+> ⏳ **2026-11-08 — One list of checks, one runner (NF-32): `tools/checks.json`, `tools/run_checks.js`: PR #233, merged into `main` on Praew's instruction.** CI and both
+> hooks call the runner, which reports per dimension. Nothing reaches the ward: no frontend or backend file moved. The
+> pre-commit hook needs `node tools/run_checks.js --install-hooks` once per clone (`CHANGELOG.md` 2026-11-08).
+>
+> ⏳ **2026-11-07 — Stakeholder walk fixes (only a doctor submits a doctor's order, a nurse saves I/O only; a held
+> order lists each changed figure, old → new; Quick calc opens with no route): PR #232, merged into `main` on Praew's instruction; not live.**
+> Frontend **and backend**: the backend refuses a nurse's Submit and names who submitted on the TPN room's page, so it
+> deploys **first** (`CHANGELOG.md` 2026-11-07 (3)). No dose constant moved; `CONSTANTS_VERSION` stays `2026-11-06.1`.
+> Recorded here by its own PR. Release waits for Pp: backend `clasp` deploy first, then frontend `release`.
+>
+> ⏳ **2026-11-07 — QI export inside Apps Script (`setupQiExportKey`, `exportQi`, `lookupResearchId`): PR #231, merged
+> into `main` (`ed28e22`), not live.** Backend only, editor-run, no `doPost` action and no new scope. Live needs a backend
+> `clasp push` + `clasp update-deployment` on Pp's go-ahead, then `setupQiExportKey()` once; the first
+> `exportQi()` adds a `QI_Export` tab. Before a real export: Pp and the DPO settle its lawful basis (`BACKLOG.md`).
+> Recorded here by its own PR.
+>
+> ⏳ **2026-11-06 — Calculator ward feedback (Glycophos by P with a wrong-unit guard, no Factor or stock mL on
+> screen, Dextrose, amino-acid and lipid chips on one line): open PR #226, not merged, not live.** Frontend only; no backend change; two new
+> alert thresholds, no dose constant moved. Recorded here by its own PR.
+>
+> ⏳ **2026-11-06 — the lipid pump (#227): merged into `main` (`4e71a25`), not live.** A tap on Lipid volume rounds the syringe to the nearest
+> whole mL/day and sets the dose from it; both pumps show 0.1 mL/hr and the hours they run, and lipid g/kg/h is over
+> those hours. The printed lipid line changes on every order with lipid, so `CONSTANTS_VERSION` moves to `2026-11-06.1`:
+> once released, an order saved before it prints only after it is saved again.
+>
+> ⏳ **2026-11-06 — Step 2's milk list (#223): merged into `main` 2026-11-07 03:36 ICT on Praew's instruction, not live.** "FBM 24 ↔
 > Infatrini 30 (alternating)" leaves the Feed type list (two feeds do it; orders saved on it still compute) and
 > "LF — HiQ LF" reads "HiQ LF". No figure moves. It goes out with the next release PR.
 >

@@ -151,7 +151,9 @@ const printForm = () => container.querySelector('#print-form');
 const printText = () => text(printForm());
 const enBox = () => container.querySelector('.en-delivered');
 const aaButtons = () => [...container.querySelectorAll('.s2-aa-row .aa-product button')];
-const aaVolume = () => { const m = text(container.querySelector('.s2-aa-row')).match(/Volume\s*([\d.]+) mL\/day/); return m ? parseFloat(m[1]) : null; };
+// The amino-acid stock mL left the screen on 2026-11-06 (Pp: "Hide them all");
+// each order below checks it on the print instead, and that the row shows none.
+const aaVolumeShown = () => /Volume\s*[\d.]+ mL\/day|[\d.]+ mL\/day/.test(text(container.querySelector('.s2-aa-row')));
 const aaLabel = () => container.querySelector('.s2-aa-row .field label')?.textContent || '';
 const componentsMl = () => { const m = text(container).match(/Components\s*([\d.]+) mL/); return m ? parseFloat(m[1]) : null; };
 
@@ -405,7 +407,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     screenshotOrder({ men: true });
     eq('no amino-acid product buttons', aaButtons().length, 0);
     ok('field reads "Amino acid (Aminoven 10%)"', aaLabel().startsWith('Amino acid (Aminoven 10%)'), aaLabel());
-    near('volume = 4 g ÷ 0.10 = 40 mL/day', aaVolume(), 40, 1);
+    ok('no amino-acid stock mL on screen (40 mL, on the print below)', !aaVolumeShown());
     await save();
     eq('calcInput.aaProduct = aminoven10', log.entry && log.entry.calcInput.aaProduct, 'aminoven10');
     ok('print: "☑ 10% Aminoven infant / PED AMINE = 2 g/kg/d = 4 g in bag = 40 mL"', /☑ 10% Aminoven infant \/ PED AMINE = 2 g\/kg\/d = 4 g in bag = 40 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
@@ -420,7 +422,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
         totalTPN_mL: 180, dexPct: 15, aaPerKg: 3, lipidPerKg: 2, naCl: 1, kCl: 1, enType: 'BM_20', enVol: 0, enFreq: 0 } };
     mount({ patient: pt('AL-2000', 2000), editEntry: legacy, onLog: logger().onLog });
     eq('fixture: the legacy order raises no critical alert', alertRows().filter(a => a.level === 'crit').map(a => a.title), []);
-    near('a legacy row (no aaProduct) reopens as Aminoven: 6 g ÷ 0.10 = 60 mL', aaVolume(), 60, 1);
+    ok('a legacy row (no aaProduct) reopens as Aminoven, no stock mL on screen (60 mL, on the print below)', /Amino acid \(Aminoven 10%\)/.test(aaLabel()) && !aaVolumeShown(), aaLabel());
     ok('…and, unstamped, waits for a save before it prints', !printForm());
     await save();
     ok('…saved again, it prints as 10% Aminoven infant / PED AMINE, 60 mL', /☑ 10% Aminoven infant \/ PED AMINE = 3 g\/kg\/d = 6 g in bag = 60 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
@@ -433,7 +435,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     mount({ patient: pt('AP-2000', 2000), editEntry: aplas, onLog: logger().onLog,
       onUpdate: (id, lm, e) => { updated = e; return Promise.resolve({ ok: true, lastModified: 'lm-apl-2' }); } });
     eq('no product buttons on NICU', aaButtons().length, 0);
-    near('the amino acid is Aminoven: 6 g ÷ 0.10 = 60 mL', aaVolume(), 60, 1);
+    ok('the amino acid is Aminoven (60 mL, on the print below)', /Amino acid \(Aminoven 10%\)/.test(aaLabel()) && !aaVolumeShown(), aaLabel());
     ok('…so the order reads as changed and does not print', !printForm());
     await save();
     eq('saving it records aminoven10', updated && updated.calcInput.aaProduct, 'aminoven10');
@@ -454,7 +456,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       const compAminoven = componentsMl();
       click(aaButtons()[1]);
       ok('field reads "Amino acid (Aminoplasmal 15%)"', aaLabel().startsWith('Amino acid (Aminoplasmal 15%)'), aaLabel());
-      near('volume = 4 g ÷ 0.15 = 26.7 mL/day', aaVolume(), 26.7, 1);
+      ok('no amino-acid stock mL on screen (26.7 mL, on the print below)', !aaVolumeShown());
       near('components fall by the 13.3 mL saved', compAminoven - componentsMl(), 13.3, 1);
       ok('the label caution shows under the choice', /2 ปี|2 years/.test(text(container.querySelector('.s2-aa-row'))), text(container.querySelector('.s2-aa-row')));
       await save();
@@ -480,7 +482,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       ['Target fluid', 'Other IV', 'Drug volume'].forEach(l => setField(l, l === 'Target fluid' ? 120 : 0));
       setField('Volume(mL/day)', 180); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 2); setField('20% lipid', 2);
       eq('CP entry: no product buttons even where the ward allows them', aaButtons().length, 0);
-      near('CP entry: Aminoven arithmetic, 40 mL', aaVolume(), 40, 1);
+      ok('CP entry: no amino-acid stock mL on screen (its packet holds 40 mL, below)', !aaVolumeShown());
       await save();
       ok('the CP save reached the bridge', !!payload);
       const { buildTpn } = await import(pathToFileURL(DIR + 'center-point/tpn-snapshot.mjs').href);
@@ -511,9 +513,12 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     eq('a new NICU order starts at 30 mL', deadVal(), 30);
     tpnOrder();
     near('prepared = delivered 120 + 30 = 150 mL/day', prepared(), 150, 1);
-    ok('Factor = 2 kg × 1.25 overfill = 2.5', /Factor\s*2\.5\s*= 2 kg × 1\.25 overfill/.test(text(container)), text(container).match(/Factor[^o]*overfill/));
-    near('amino acid in the bag scales with it: 2 g/kg × 2.5 = 5 g → 50 mL', aaVolume(), 50, 1);
+    // Factor 2 kg × 1.25 = 2.5: off the screen since 2026-11-06 (Pp, pharmacy's
+    // figure); the amino acid below is × 2.5, and the back sheet keeps the Factor.
+    ok('no Factor box on screen', !/Factor\s*[\d.]/.test(text(container)), text(container).match(/Factor.{0,30}/));
+    ok('no amino-acid stock mL on screen', !aaVolumeShown());
     await save();
+    ok('print: the amino acid in the bag scales with it: 2 g/kg × 2.5 = 5 g → 50 mL', /PED AMINE = 2 g\/kg\/d = 5 g in bag = 50 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
     eq('saved calcInput.deadVol_mL = 30', log.entry && log.entry.calcInput.deadVol_mL, 30);
     ok('print: 150 mL prepared · ปริมาตรคาสาย 30 mL', /150 mL \(Prepared Vol\.\)/.test(printText()) && /ปริมาตรคาสาย 30 mL/.test(printText()),
       printText().match(/Total Volume:[^F]*/));
@@ -590,8 +595,10 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     const log = logger();
     mount({ patient: pt('VT-2000', 2000), onLog: log.onLog });
     tpn(2000, 120);                                  // + 30 mL dead space → prepared 150, overfill 1.25
-    near('Soluvit in the bag = 1 mL/kg × 2 kg × 1.25 = 2.5 mL', readout('Soluvit N (water-sol.)'), 2.5, 1);
-    near('Peditrace in the bag = 2.5 mL', readout('Peditrace'), 2.5, 1);
+    // The in-bag mL left the screen on 2026-11-06 (Pp: "Hide them all"): the
+    // screen gives the dose, 1 mL/kg/day; the print below gives 2.5 mL.
+    eq('Soluvit on screen: the dose, 1 mL/kg/day', readout('Soluvit N (water-sol.)'), 1);
+    eq('Peditrace on screen: the dose, 1 mL/kg/day', readout('Peditrace'), 1);
     ok('the "not overfill-scaled" info line is gone', !alertTitles().some(t => /overfill-scaled/i.test(t)), alertTitles());
     await save();
     const t = printText();
@@ -610,14 +617,17 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     // No overfill, nothing to scale: 1 mL/kg as before.
     mount({ patient: pt('VN-2000', 2000), onLog: logger().onLog });
     tpn(2000, 120); setField('ปริมาตรคาสาย', 0);
-    near('dead space 0: Soluvit 2 mL', readout('Soluvit N (water-sol.)'), 2, 1);
-    near('dead space 0: Peditrace 2 mL', readout('Peditrace'), 2, 1);
+    await save();
+    const t0 = printText();
+    ok('dead space 0: the print gives Soluvit 2 mL', /Soluvit N2 mL\/day/.test(t0), t0.match(/Soluvit N[\d.—]+ mL\/day/));
+    ok('dead space 0: the print gives Peditrace 2 mL', /\(Zn 250 µg\/mL\)2 mL\/day/.test(t0), t0.match(/µg\/mL\)[\d.—]+ mL\/day/));
 
     // The caps are on what the infant receives (10 / 15 mL a day), then scaled.
-    mount({ patient: pt('VC-12000', 12000, { weights: [{ dol: 1, w: 12000 }] }), onLog: logger().onLog });
-    tpn(12000, 600);                                 // prepared 630, overfill 1.05
-    near('Soluvit capped at 10 mL delivered → 10.5 mL in the bag', readout('Soluvit N (water-sol.)'), 10.5, 1);
-    near('Peditrace 12 mL delivered (under its 15 cap) → 12.6 mL in the bag', readout('Peditrace'), 12.6, 1);
+    // No orderable weight (8 kg at most) reaches them, and since 2026-11-06 the
+    // Calculator no longer shows the mL, so the cap is pinned as a function:
+    // D.vitaminMlPerDay (CR-SOLUVIT-CAP, CR-PEDITRACE-CAP), × the overfill after.
+    eq('12 kg: Soluvit capped at 10 mL delivered', D.vitaminMlPerDay('soluvit', 12), 10);
+    eq('12 kg: Peditrace 12 mL delivered, under its 15 cap', D.vitaminMlPerDay('peditrace', 12), 12);
   });
 
   // ═══════════════════════ A saved order never reprints new numbers ════════
@@ -668,8 +678,9 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     // reviewer's case first: 1.5 kg, TPN 100 mL, dead space 20, vitamins
     // ticked. It printed Soluvit 1.5 mL; the calculator now says 1.8.
     got = open(row('s-leg-overfill', {}));
-    near('legacy overfilled row: Soluvit is now 1.5 × 1.2 = 1.8 mL', readout('Soluvit N (water-sol.)'), 1.8, 1);
-    ok('…so Print is held', !printForm());
+    // Soluvit is now 1.5 × 1.2 = 1.8 mL: on the print after the save below
+    // (the screen gives the dose only since 2026-11-06).
+    ok('legacy overfilled row: Print is held', !printForm());
     ok('…with the reason', /ปรับการคำนวณ/.test(banner()), banner());
     await save();
     ok('…until it is saved again', !!printForm() && /Soluvit N1\.8 mL\/day/.test(printText()), printText().match(/Soluvit N[\d.—]+ mL\/day/));
@@ -696,8 +707,8 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     // 2026-09-28.1 moved the version on (K⁺ limits by route, TPN team); since
     // then they are held like any older row, which the 2099 case below foresaw.
     open(row('s-win-overfill', { aaProduct: 'aminoven10' }));
-    near('a row saved by the 11:17 release (aaProduct, no stamp): Soluvit 1.8 mL, as it printed', readout('Soluvit N (water-sol.)'), 1.8, 1);
-    ok('…is held since 2026-09-28.1, until saved again', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
+    // It printed Soluvit 1.8 mL; the screen gives the dose only since 2026-11-06.
+    ok('a row saved by the 11:17 release (aaProduct, no stamp) is held since 2026-09-28.1, until saved again', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
     open(row('s-win-men', { aaProduct: 'aminoven10', deadVol_mL: 0, enType: 'BM_20', enVol: 5, enFreq: 8, isMEN: true }));
     ok('…and so is its MEN order', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());
     // Dated as 2026-09-18.1, not as "current": the next release that moves a

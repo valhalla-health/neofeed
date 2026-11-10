@@ -165,17 +165,19 @@ const REASON_40 = REASON_300.slice(0, 40);
 // (the ones whose line has no `noReason`, and that Submit does not refuse outright):
 //   TPN calc. weight far from automatic, GIR, Protein and Energy (the tile line), Lipid, Potassium, Magnesium,
 //   Ca:P with no P (its title says "(รวม oral supp)" when an oral Ca or P is ordered), Osmolarity, Dextrose,
-//   K⁺ concentration too high, Lipid rate, Zinc.
+//   K⁺ concentration too high, Lipid rate, Zinc, and Glycophos typed in the other unit, both ways
+//   (CR-GLYCO-UNIT-HABIT, 2026-11-06).
 // Not here: NPE:AA critically low (`noReason`); "No TPN: feeds below 80 mL/kg/d…" (a No TPN order has no bag
 // and prints the short sheet); and the stops Submit refuses with no reason: weight out of range, K⁺ above the
 // maximum, Bag cannot be made, Stock rounds to 0 mL, Feeds above 8 a day, Two feeds off a regular schedule,
 // Feed not in the formulary. §1e fails when calculator.jsx gains or loses a critical line, so this list is read again.
-const ALERTS_13 = ['TPN calc. weight far from automatic', 'GIR critically high', 'Protein critically out of range',
+const ALERTS_15 = ['TPN calc. weight far from automatic', 'GIR critically high', 'Protein critically out of range',
   'Energy critically out of range', 'Lipid critically out of range', 'Potassium critically out of range',
   'Magnesium below 1 mg/kg/d: พิมพ์เป็น mEq หรือเปล่า', 'Ca:P ratio (รวม oral supp) — ไม่มี P',
   'Osmolarity > peripheral limit', 'Dextrose over KCMH max', 'K⁺ concentration too high',
-  'Lipid rate above the ceiling', 'Zinc total above 5 mg/day'];
-const CRIT_LINES_IN_SOURCE = 21;   // `level: "crit"` pushes in calculator.jsx: 13 above + NPE:AA + No TPN feeds + 6 stops
+  'Lipid rate above the ceiling', 'Zinc total above 5 mg/day',
+  'Glycophos 10 mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า', 'Glycophos below 10 mg P/kg/d: พิมพ์เป็น mEq Na หรือเปล่า'];
+const CRIT_LINES_IN_SOURCE = 23;   // `level: "crit"` pushes in calculator.jsx: 15 above + NPE:AA + No TPN feeds + 6 stops
 const UUID = '2d0b8f3a-7c1e-4b5a-9f66-1a2b3c4d5e6f';   // the longest NeoFeed ID the sheet could carry
 const DIAG_600 = ('Preterm 27 wk, BPD, NEC stage IIB post bowel resection, short bowel syndrome, cholestasis, PDA ligation, '
   + 'ROP stage 2 zone II, IVH grade 3 with post-haemorrhagic ventricular dilatation, anaemia of prematurity on EPO, '
@@ -246,7 +248,7 @@ const topStrings = (form) => {
   });
 
   // Every title above, plus whatever the heavy order really raised: the fullest box an order can print.
-  const alertsAll = [...new Set([...heavy.alerts, ...ALERTS_13])];
+  const alertsAll = [...new Set([...heavy.alerts, ...ALERTS_15])];
   await section('§1b a confirmed critical value: the signature is inside the red box', async () => {
     mount({ ...recorder(), editEntry: reopened(heavy.row, { reason: REASON_300, alerts: alertsAll }) });
     const form = printForm();
@@ -332,8 +334,8 @@ const topStrings = (form) => {
 
   await section('§1e the fit test lists every critical title the app can raise', async () => {
     const lines = (R('calculator.jsx').match(/level: "crit"/g) || []).length;
-    eq(`calculator.jsx raises ${CRIT_LINES_IN_SOURCE} kinds of critical alert; a new one needs a place in ALERTS_13 or a reason it is not there`, lines, CRIT_LINES_IN_SOURCE);
-    eq('the list holds 13 distinct titles', new Set(ALERTS_13).size, 13);
+    eq(`calculator.jsx raises ${CRIT_LINES_IN_SOURCE} kinds of critical alert; a new one needs a place in ALERTS_15 or a reason it is not there`, lines, CRIT_LINES_IN_SOURCE);
+    eq('the list holds 15 distinct titles', new Set(ALERTS_15).size, 15);
     const src = R('calculator.jsx');
     const named = ['TPN calc. weight far from automatic', 'GIR critically high', 'Lipid critically out of range', 'Potassium critically out of range',
       'Osmolarity > peripheral limit', 'Dextrose over KCMH max', 'K⁺ concentration too high', 'Lipid rate above the ceiling', 'ไม่มี P'];

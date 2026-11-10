@@ -347,11 +347,12 @@ const asSaved = (entry, extra) => ({ ...entry, entryId: 'e-1', lastModified: 'lm
   });
 
   // ═════════════════════ §6 quick calc ═════════════════════════════════════
-  await section('§6 the quick calc still starts on Central', async () => {
+  // D13 (stakeholder walk, 2026-11-07, Pp's pick): it started on Central until then.
+  await section('§6 the quick calc starts with no route, like a patient\'s first order', async () => {
     mount({ patient: { sessionId: null, name: null, bw: 0, ga: 0, sex: '', currentBed: '', diagnosis: '', weights: [] },
       scratch: true, logDate: null, onLog: undefined });
-    eq('Central is on', routeOn(), ['Central']);
-    ok('no route notice', !routeNotice(), text(routeNotice()));
+    eq('no route is on', routeOn(), []);
+    ok('the route notice shows', !!routeNotice(), text(routeNotice()));
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);

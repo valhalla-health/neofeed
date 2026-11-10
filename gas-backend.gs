@@ -1489,6 +1489,8 @@ function doPost(e) {
     if (action === "logDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
+      // N1: a nurse's new order is a draft for a doctor to Submit.
+      if (user.role === "nurse" && (body.entry || {}).status !== "draft") return jsonOut(NURSE_SUBMIT_REFUSAL);
       var logResult = logDailyNutrition(body.sessionId, body.entry, user.email);
       // DuplicateDate carries the existing row's entryId, so a client can open
       // that entry instead of just reporting the refusal.
@@ -1500,7 +1502,8 @@ function doPost(e) {
     if (action === "updateDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
-      var updResult = updateDailyNutrition(body.sessionId, body.entryId, body.expectedLastModified, body.entry, user.email);
+      var updResult = updateDailyNutrition(body.sessionId, body.entryId, body.expectedLastModified, body.entry, user.email,
+        user.role === "nurse");
       if (updResult.error) return jsonOut(_errorBody(updResult));
       if (updResult.conflict) return jsonOut({ conflict: true, current: updResult.current });
       if (updResult.completed) _recordUsage(body.sessionId, (body.entry || {}).route);   // NF-02, as above
@@ -1520,7 +1523,8 @@ function doPost(e) {
     if (action === "publishLog") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
-      var pubResult = publishDailyLog(body.sessionId, body.entryId, user.email, body.expectedLastModified);
+      var pubResult = publishDailyLog(body.sessionId, body.entryId, user.email, body.expectedLastModified,
+        user.role === "nurse");
       if (pubResult.error) return jsonOut(_errorBody(pubResult));
       if (pubResult.conflict) return jsonOut({ conflict: true, current: pubResult.current });
       return jsonOut({ ok: true, publishedAt: pubResult.publishedAt, alreadyPublished: !!pubResult.alreadyPublished });
@@ -2268,8 +2272,18 @@ function _normStatus(v) {
 // decimal 1,484, a critical override with 8 alerts and its 300-character reason
 // 1,557. test/verify-hardening-1102.cjs §8 fails if a real save passes half this cap.
 var CALC_INPUT_MAX_CHARS = 10000;
+// The cap is on what a client sent: the server's own orderBy/orderRev/orderAt
+// stamp (_withOrderBy) is left out, so it never tips a full order over.
+var SERVER_CALC_KEYS = { orderBy: 1, orderRev: 1, orderAt: 1 };
 function _checkCalcInputSize(calcInput) {
-  var chars = JSON.stringify(calcInput || {}).length;
+  var measured = calcInput || {};
+  if (typeof measured === "object" && Object.prototype.toString.call(measured) !== "[object Array]") {
+    measured = {};
+    for (var key in calcInput) {
+      if (Object.prototype.hasOwnProperty.call(calcInput, key) && !SERVER_CALC_KEYS[key]) measured[key] = calcInput[key];
+    }
+  }
+  var chars = JSON.stringify(measured).length;
   if (chars > CALC_INPUT_MAX_CHARS) {
     throw new Error("ข้อมูลใบสั่งยาวเกินที่ระบบรับได้ (" + chars + " ตัวอักษร รับได้ไม่เกิน " + CALC_INPUT_MAX_CHARS +
       ") — รีเฟรชหน้าแล้วบันทึกใหม่ ถ้ายังไม่ได้ให้แจ้ง admin");
@@ -2753,6 +2767,7 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
     // on exactly the input that most needed catching.
     var entryId = Utilities.getUuid();
     var lastModified = new Date().toISOString();
+    entry = _withOrderBy(entry, submittedBy, 1);
     var row = _buildLogRow(sessionId, entry, submittedBy)
       .concat([_sheetSafe(JSON.stringify(entry.calcInput || {})), entryId, lastModified, _sheetSafe(submittedBy || "")])
       .concat(_ioLogFields(entry))
@@ -2790,12 +2805,132 @@ function logDailyNutrition(sessionId, entry, submittedBy) {
   }
 }
 
+// ── N1: only a doctor submits a doctor's order (stakeholder walk, 2026-11-07) ──
+// The walk signed in as a nurse, pressed Submit on an order NeoFeed had held
+// for a new save, and the TPN room then listed the nurse as its saver. Pp,
+// 2026-11-07: while the nursing log is off (_nursingEnabled; with it on a nurse
+// writes no order at all), a nurse account records Intake/Output through the
+// order, and that is all it may change: "บันทึกได้แค่ I/O". The backend refuses
+// the rest because it otherwise trusts the client (BACKLOG, the 2026-10-08
+// outside review). The words are the calculator's NURSE_SUBMIT_TEXT.
+var NURSE_SUBMIT_REFUSAL = {
+  error: "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O",
+  code: "DoctorSubmits",
+};
+// calcInput keys a nurse's save may change, or that every save writes anew
+// without being part of the order: the three I/O boxes, the save's time and
+// saver label, and figures derived from the order (stops, the sticker marker,
+// replacesTpn, printedFigures, a draft's blank-box list).
+var IO_FREE_CALC_KEYS = { ioInput: 1, ioOutput: 1, drainContent: 1, savedAt: 1, savedByLabel: 1,
+  stops: 1, replacesTpn: 1, printJsonV: 1, printedFigures: 1, blankFields: 1, orderBy: 1, orderRev: 1, orderAt: 1 };
+// Whose order a row is: calcInput.orderBy, the account that last changed it
+// beyond I/O, with that save's revision number (orderRev) and time (orderAt).
+// The server stamps them on every save but a nurse's I/O-only one, which keeps
+// the stored values (_ioOnlyEntryFrom), so I/O never makes a doctor's draft a
+// nurse's (Vera's third review, 2026-11-07), and the printed "Revision · ฉบับที่"
+// and the TPN room's "ฉบับ" count only saves that changed the order (workflow
+// check, 2026-11-07). A row from before falls back to its last saver (AB), then P.
+function _orderByOf(cur) {
+  var ci = _parseJson(cur[24], null);
+  var by = ci && typeof ci === "object" && typeof ci.orderBy === "string" ? ci.orderBy : "";
+  return String(by || cur[27] || cur[15] || "").trim().toLowerCase();
+}
+// Whose draft it is, for N1's rule, failing closed (Vera's fourth review): a row
+// saved before orderBy is the account that both created and last saved it, and
+// "" (no one's, so a nurse may change only I/O) when those differ.
+function _draftOwnerOf(cur) {
+  var ci = _parseJson(cur[24], null);
+  if (ci && typeof ci === "object" && typeof ci.orderBy === "string" && ci.orderBy) return ci.orderBy.trim().toLowerCase();
+  var p = String(cur[15] || "").trim().toLowerCase(), ab = String(cur[27] || "").trim().toLowerCase();
+  return !ab || ab === p ? p : "";
+}
+// The order's own revision on a row: orderRev, else (a row from before it) its
+// row number.
+function _orderRevOf(cur) {
+  var ci = _parseJson(cur[24], null);
+  return (ci && typeof ci === "object" ? _numSafe(ci.orderRev, 0) : 0) || _numSafe(cur[35], 1);
+}
+function _withOrderBy(entry, by, rev) {
+  entry = entry || {};
+  // Only a calcInput that is an object takes the stamp: anything else is left for
+  // _validateLogEntry to measure and refuse exactly as before.
+  var ci = entry.calcInput;
+  if (!ci || typeof ci !== "object" || Object.prototype.toString.call(ci) === "[object Array]") return entry;
+  return Object.assign({}, entry, { calcInput: Object.assign({}, ci, {
+    orderBy: String(by || "").trim().toLowerCase(), orderRev: rev, orderAt: new Date().toISOString() }) });
+}
+// One text per value whatever its key order, so two saves of one order compare equal.
+function _canonicalJson(v) {
+  if (v === null || typeof v !== "object") return JSON.stringify(v === undefined ? null : v);
+  if (Object.prototype.toString.call(v) === "[object Array]") {
+    var parts = [];
+    for (var i = 0; i < v.length; i++) parts.push(_canonicalJson(v[i]));
+    return "[" + parts.join(",") + "]";
+  }
+  var keys = Object.keys(v).sort(), out = [];
+  for (var k = 0; k < keys.length; k++) {
+    if (v[keys[k]] === undefined) continue;
+    out.push(JSON.stringify(keys[k]) + ":" + _canonicalJson(v[keys[k]]));
+  }
+  return "{" + out.join(",") + "}";
+}
+function _orderWithoutIo(ci) {
+  var o = {};
+  for (var key in ci) {
+    if (Object.prototype.hasOwnProperty.call(ci, key) && !IO_FREE_CALC_KEYS[key]) o[key] = ci[key];
+  }
+  return _canonicalJson(o);
+}
+// True when `entry` changes nothing of the submitted row `cur` but its I/O, on
+// the same constants: an order the app holds (calculation moved, dosing weight
+// moved) differs in constantsVersion or tpnWtG and is refused here.
+function _ioOnlyRevision(cur, entry) {
+  entry = entry || {};
+  if (entry.status === "draft") return false;
+  return _ioOnlyChange(cur, entry);
+}
+// The same order as `cur` apart from I/O, on the same constants, whatever status
+// the entry asks for.
+function _ioOnlyChange(cur, entry) {
+  entry = entry || {};
+  if (String(entry.constantsVersion || "") !== String(cur[31] || "")) return false;
+  var was = _parseJson(cur[24], null), now = entry.calcInput;
+  if (!was || typeof was !== "object" || !now || typeof now !== "object") return false;
+  return _orderWithoutIo(was) === _orderWithoutIo(now);
+}
+
+// The entry a nurse's I/O save writes over the submitted row `cur`: every
+// column as stored, the I/O figures from her calcInput (cells AC–AE too) and
+// its save time. Keeps the date updateDailyNutrition set.
+function _ioOnlyEntryFrom(cur, entry, status) {
+  var sent = (entry && entry.calcInput) || {};
+  var ci = _parseJson(cur[24], {}) || {};
+  var stored = _parseJson(cur[24], {}) || {};
+  ci.orderBy = _orderByOf(cur);
+  ci.orderRev = _orderRevOf(cur);
+  ci.orderAt = typeof stored.orderAt === "string" && stored.orderAt ? stored.orderAt : String(cur[26] || "");
+  ci.ioInput = sent.ioInput; ci.ioOutput = sent.ioOutput; ci.drainContent = sent.drainContent;
+  if (sent.savedAt) ci.savedAt = sent.savedAt;
+  // Plain text: _buildLogRow and _provenanceFields escape it on the way in.
+  var str = function (v) { return String(v == null ? "" : v); };
+  return {
+    ts: entry.ts, dol: cur[2], weight: cur[3], fluid: cur[4], gir: cur[5], pro: cur[6], kcal: cur[7],
+    na: cur[8], k: cur[9], ca: cur[10], p: cur[11], enVolPerKg: cur[12], route: str(cur[13]), status: status,
+    suppMTV: cur[16], suppVitD_IU: cur[17], suppCa_mg: cur[18], suppCaType: str(cur[19]),
+    suppPO4_mmol: cur[20], suppPO4Type: str(cur[21]), suppFe_mg: cur[22], suppFeType: str(cur[23]),
+    // AC–AE from the same three figures, so the cells and the reopened order agree.
+    calcInput: ci, ioInput: sent.ioInput, ioOutput: sent.ioOutput, drainContent: sent.drainContent,
+    constantsVersion: str(cur[31]), appVersion: str(cur[32]),
+    printJson: _parseJson(cur[38], null),
+  };
+}
+
 // ── updateDailyNutrition (optimistic-locked update by entryId) ─
 // Rejects the write (rather than overwriting) if the row's lastModified has
 // moved on since the client last fetched it — a concurrent edit from another
 // device. submittedBy (col 16, the original creator) is preserved as-is;
 // only lastModified/lastModifiedBy (col 27/28) track the editor.
-function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, editedBy) {
+function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, editedBy, nurseIoOnly) {
   if (!_requiredString(entryId)) return { error: "entryId is required" };
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
   var lock = LockService.getScriptLock();
@@ -2830,6 +2965,41 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       } };
     }
 
+    // The revision number this save will carry: a submitted or locked row is
+    // revised (below), a draft is written in place (orderBy stamp).
+    // Counted on the order's own revisions, so a nurse's I/O rows in between are
+    // not counted (Pp: an I/O edit is not a numbered version; Vera's fourth review).
+    var orderRevNext = (cur[33] || String(cur[14] || "").trim().toLowerCase() !== "draft")
+      ? _orderRevOf(cur) + 1 : _orderRevOf(cur);
+
+    // N1: a nurse's write (see NURSE_SUBMIT_REFUSAL). On a draft it stays a
+    // draft; on a submitted order it is Intake/Output only, on the constants the
+    // order was computed with, and stays submitted (a draft revision would take
+    // the order out of the TPN room).
+    if (nurseIoOnly) {
+      // By column O alone: a draft someone locked (AH) is still a draft, and a
+      // nurse's save on it stays one (Vera's second review).
+      var curSubmitted = String(cur[14] || "").trim().toLowerCase() !== "draft";
+      // A draft another account saved, unless that account is a nurse's: I/O only
+      // as well (Pp, 2026-11-07, "ได้แค่ I/O เหมือนกัน"), so a doctor's later Submit
+      // never signs figures a nurse typed. An account the Staff tab does not know
+      // counts as not a nurse.
+      var draftSaver = _draftOwnerOf(cur);
+      var me = String(editedBy || "").trim().toLowerCase();
+      var saverRow = draftSaver && draftSaver !== me ? getStaffRow(draftSaver) : null;
+      var othersDraft = !curSubmitted && draftSaver !== me
+        && !(saverRow && _staffRole(saverRow.data[1]) === "nurse");
+      var nurseRefused = curSubmitted ? !_ioOnlyRevision(cur, entry)
+        : (entry || {}).status !== "draft" || (othersDraft && !_ioOnlyChange(cur, entry));
+      if (nurseRefused) return { error: NURSE_SUBMIT_REFUSAL.error, code: NURSE_SUBMIT_REFUSAL.code };
+      // Written from the stored row, its orderBy kept.
+      if (curSubmitted) entry = _ioOnlyEntryFrom(cur, entry, "submitted");
+      else if (othersDraft) entry = _ioOnlyEntryFrom(cur, entry, "draft");
+      else entry = _withOrderBy(entry, editedBy, orderRevNext);
+    } else {
+      entry = _withOrderBy(entry, editedBy, orderRevNext);
+    }
+
     // An edit keeps the row's own calendar date. `entry.ts` from the client
     // is ignored here: accepting it let an update move an entry onto a date
     // that already had one, bypassing logDailyNutrition's one-row-per-date
@@ -2857,6 +3027,10 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     // " draft" typed into the Sheet by hand reads as a draft, as the client
     // reads it (data.js isDraftEntry).
     if (cur[33] || String(cur[14] || "").trim().toLowerCase() !== "draft") {
+      // A nurse's I/O save (checked above) is written from the stored row, not from
+      // what her client sent: its figure columns and sticker figures stay the
+      // doctor's, whatever a modified client puts beside an unchanged calcInput
+      // (Vera on this change, 2026-11-07).
       var newEntryId = Utilities.getUuid();
       var nextRevisionNumber = _numSafe(cur[35], 1) + 1;
       var revisionRow = _buildLogRow(sessionId, entry, originalSubmittedBy)
@@ -2955,7 +3129,7 @@ function _removeAppendedRevision(sheet, newEntryId) {
 // match, or someone else's later save would be locked under the submitter's
 // name. A superseded row can't be submitted, and re-submitting an already
 // published row is a no-op rather than a silent overwrite of who/when.
-function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) {
+function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified, nurseIoOnly) {
   if (!_requiredString(entryId)) return { error: "entryId is required" };
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
   if (!expectedLastModified) return { error: "expectedLastModified is required" };
@@ -2970,6 +3144,12 @@ function publishDailyLog(sessionId, entryId, publishedBy, expectedLastModified) 
     var cur = hit.data;
     if (String(cur[1]) !== String(sessionId)) return { error: "บันทึกนี้ไม่ตรงกับผู้ป่วยรายนี้" };
     if (cur[37]) return { error: "รายการนี้มีฉบับแก้ไขใหม่แล้ว — เปิดฉบับล่าสุดก่อนส่ง" };
+    // N1: a nurse locks nothing. Submit is a signature on specific numbers: a
+    // lock on a draft read as submitted to her next save (Vera's second review),
+    // and one on a doctor's submitted order set the TPN room's "Submit" time to
+    // hers (pen test, 2026-11-07). Her I/O revision stays unlocked; a submitted
+    // row is revised all the same.
+    if (nurseIoOnly) return { error: NURSE_SUBMIT_REFUSAL.error, code: NURSE_SUBMIT_REFUSAL.code };
     if (cur[33]) return { ok: true, alreadyPublished: true, publishedAt: String(cur[33]) };
     var currentLastModified = String(cur[26] || "");
     if (currentLastModified !== String(expectedLastModified)) {
@@ -3108,13 +3288,34 @@ function pharmacyOrders(dateKey) {
     if (_onUnitStatus(pat[i][9])) active++;
   }
   var staff = getSheetStaff().getDataRange().getValues();
-  var staffName = {};
+  var staffName = {}, staffIsNurse = {};
   for (var s = 1; s < staff.length; s++) {
+    var email = String(staff[s][0] || "").trim().toLowerCase();
     var name = String(staff[s][2] || "").trim();
-    if (name && name.indexOf("@") === -1) staffName[String(staff[s][0] || "").trim().toLowerCase()] = name;
+    if (name && name.indexOf("@") === -1) staffName[email] = name;
+    if (_staffRole(staff[s][1]) === "nurse") staffIsNurse[email] = true;
   }
   var orders = [], submitted = 0, drafts = 0;
   var rows = _pharmacyLogRows(sheet, dateKey);
+  var byEntryId = {};
+  for (var b = 0; b < rows.length; b++) byEntryId[String(rows[b][25] || "")] = rows[b];
+  // AB (lastModifiedBy), else P (submittedBy) for a row from before AB.
+  var saverOf = function (row) { return String(row[27] || row[15] || "").trim().toLowerCase(); };
+  // Who submitted a submitted order (P1, stakeholder walk 2026-11-07): a revision a
+  // nurse saved with only its I/O changed (_ioOnlyRevision) names the account that
+  // submitted the order before it. Any other row names its own saver. `ids` are the
+  // entryIds walked, the current row's first: every one of them carries the same bag,
+  // so a print of any of them is not "changed after print" (tpn-room-core.js).
+  var submitterRow = function (row) {
+    var ids = [String(row[25] || "")];
+    for (var hops = 0; hops < 50 && staffIsNurse[saverOf(row)]; hops++) {
+      var prev = byEntryId[String(row[36] || "")];
+      if (!prev || !_ioOnlyRevision(prev, { constantsVersion: String(row[31] || ""), calcInput: _parseJson(row[24], null) })) break;
+      row = prev;
+      ids.push(String(row[25] || ""));
+    }
+    return { row: row, ids: ids };
+  };
   if (rows.length) {
     for (var r = 0; r < rows.length; r++) {
       var row = rows[r];
@@ -3123,8 +3324,10 @@ function pharmacyOrders(dateKey) {
       if (row[37]) continue;   // superseded by a later revision
       var isDraft = String(row[14] || "").trim().toLowerCase() === "draft";
       if (isDraft) drafts++; else submitted++;
-      // AB (lastModifiedBy), else P (submittedBy) for a row from before AB.
-      var saver = String(row[27] || row[15] || "").trim().toLowerCase();
+      var walked = isDraft ? { row: row, ids: [String(row[25] || "")] } : submitterRow(row);
+      var signer = walked.row;
+      // A draft names whose order it is (orderBy), not a nurse who added I/O to it.
+      var saver = isDraft ? _orderByOf(row) : saverOf(signer);
       var prescriber = Object.prototype.hasOwnProperty.call(staffName, saver) ? staffName[saver] : "";
       var rowSid = String(row[1] || "");
       orders.push({
@@ -3136,10 +3339,13 @@ function pharmacyOrders(dateKey) {
         multiplesCount: setOf[rowSid] || 0,
         dol: _numSafe(row[2], 0),
         status: isDraft ? "draft" : "submitted",
-        revision: _numSafe(row[35], 1),
+        // The revision that changed the order: a nurse's I/O-only revision keeps the
+        // number pharmacy already has (workflow check, 2026-11-07).
+        revision: _numSafe((_parseJson(row[24], {}) || {}).orderRev, 0) || _numSafe(signer[35], 1),
         prescriber: prescriber,
         savedAt: _pharmacyTime(row[26]),
-        submittedAt: _pharmacyTime(row[33]),
+        submittedAt: _pharmacyTime(signer[33]),
+        sameBagEntryIds: walked.ids.filter(function (id) { return PHARMACY_UUID.test(id); }),
         printJson: isDraft ? null : _parseJson(row[38], null),
       });
     }
@@ -3456,6 +3662,7 @@ function deletePatient(sessionId, actorEmail) {
       _assertRowStillHolds(patSheet, patRows[m], 1, sid);
       patSheet.deleteRow(patRows[m]);
     }
+    _qiClearExportTab();
     return { ok: true };
   } finally {
     _bumpDataVersion();
@@ -4387,6 +4594,7 @@ function pseudonymizePatient(sessionId, adminEmail) {
         ]]);
         Logger.log("PDPA erasure: " + sessionId + " by " + adminEmail);
         logAudit("pseudonymize", sessionId, adminEmail);
+        _qiClearExportTab();
         return { ok: true };
       }
     }
@@ -4439,6 +4647,509 @@ function logAudit(action, sessionId, actorEmail) {
   try {
     _logAuditStrict(action, sessionId, actorEmail);
   } catch (e) { Logger.log("logAudit failed: " + e.message); }
+}
+
+// ── QI export, pseudonymized at the source (Pp, 2026-11-07) ────────────────
+// Pp wants NeoFeed's orders for quality-improvement analysis. Downloading the
+// two tabs, names included, to a PC was the weakest step, so the export is
+// pseudonymized here and only the result leaves the Sheet:
+//   setupQiExportKey()      once per project: a random secret in Script Properties
+//   exportQi()              one row per Daily_Log order → the QI_Export tab,
+//                           which Pp downloads with File ▸ Download ▸ CSV
+//   lookupResearchId(id)    an admin re-identification request, audited
+// All three run from the Apps Script editor only. doPost has no action for
+// them and doGet serves no HtmlService page, so no ward session and no
+// google.script.run can reach them: editor access to the script is the gate.
+// The design, the column table and the reasons: openspec/changes/qi-export/.
+// Pinned by test/verify-qi-export-1107.cjs.
+//
+// Research IDs are HMAC-SHA256(key, kind + NUL + value), computed at export
+// time and stored nowhere (option A, Pp 2026-11-07). One key per project, so a
+// new project's IDs cannot be linked to an old one's. The result is
+// pseudonymized, not anonymous: the key re-identifies every row, and on a
+// census this small no banding reaches k = 5. It stays personal data under PDPA.
+//
+// The editor's Run button passes no argument, so `project` defaults to
+// QI_EXPORT_DEFAULT_PROJECT. For another project, or for a lookup, wrap the
+// call in a one-line function in the editor:
+//   function runQi2()  { exportQi("QI2"); }
+//   function whoIsIt() { lookupResearchId("R-0123456789ab"); }
+// Reading who ran it needs the userinfo.email scope, which the manifest does
+// not have, so the audit actor is "apps-script-editor:<project>".
+var QI_EXPORT_DEFAULT_PROJECT = "QI1";
+var QI_EXPORT_TAB = "QI_Export";
+var QI_PROJECT_RE = /^[A-Z0-9]{1,16}$/;
+var QI_RESEARCH_ID_RE = /^R-[0-9a-f]{12}$/;
+var QI_CODE_RE = /^[RES]-[0-9a-f]{10,12}$/;
+var QI_MIN_K = 5;
+var QI_REDACTED = "[REDACTED]";
+var QI_NUL = String.fromCharCode(0);
+// The column choices mirror neofeed_pseudonymize.py (praewpp-workspace#80,
+// 63f9949) so the two exports agree; its README holds the same table.
+var QI_HEADERS = [
+  "research_id", "sex", "ga_wk", "bw_band_g", "age_at_admit_d", "is_multiple", "pat_status", "status_day",
+  "unit_current", "diagnosis", "pn_indication", "liver_dysfunction", "renal_dysfunction",
+  "entry", "revision_of", "revisionNumber", "day", "dol", "weight", "fluid", "gir", "pro", "kcal", "na", "k", "ca", "p",
+  "enVolPerKg", "route", "status", "staff", "suppMTV", "suppVitD_IU", "suppCa_mg", "suppCaType", "suppPO4_mmol",
+  "suppPO4Type", "suppFe_mg", "suppFeType", "ioInput", "ioOutput", "drainContent", "constants_v",
+  "last_modified_day", "last_modified_time", "last_modified_by", "published_day", "published_time", "published_by",
+  "superseded_day", "superseded_time", "calc", "print"
+];
+// calcInputJson keys kept (the local script's CALC_KEYS). savedAt and
+// savedByLabel (a staff name and e-mail) never leave; any other key is dropped
+// and counted by name in the summary.
+var QI_CALC_KEYS = [
+  "wtG", "fluidTargetPerKg", "otherIV_mL", "drug_mL", "route", "totalTPN_mL", "dexPct", "aaPerKg",
+  "lipidPerKg", "naCl", "naAcet", "glycophosP", "kCl", "k2hpo4", "mgPerKg", "caPerKg", "extraP_mg_kg",
+  "enType", "enVol", "enFreq", "isMEN", "inclSoluvit", "inclPeditrace", "inclAddamel", "heparinUmL",
+  "suppVitD", "suppCa", "suppCaType", "suppPO4", "suppPO4Type", "suppMTV", "suppFerdek", "suppFeType",
+  "dol", "lipidDripHours", "ioInput", "ioOutput", "drainContent", "deadVol_mL", "mgStrength", "curWtG",
+  "tpnWtOverrideG", "aaProduct", "znPerKg", "tpnWtG", "constantsVersion", "critOverride", "blankFields",
+  "enType2", "enVol2", "enFreq2", "stops", "noTpn", "replacesTpn", "printJsonV"
+];
+var QI_CALC_DROP = ["savedAt", "savedByLabel"];
+var QI_PRINT_KEYS = ["v", "dol", "dosingWeightKg", "factor", "deliveredMl", "deadMl", "preparedMl", "stockMl", "delivered"];
+var QI_QUASI = ["sex", "ga_wk", "bw_band_g", "is_multiple"];
+// The identifier scan's patterns (the local script's PHI_PATTERNS). Thai is
+// built from char codes: an escape in this file can be turned into the
+// literal character by an editor.
+var QI_THAI_RE = new RegExp("[" + String.fromCharCode(0x0E00) + "-" + String.fromCharCode(0x0E7F) + "]");
+var QI_IDENTIFIER_RES = [
+  /[\w.+-]+@[\w-]+\.[\w.]+/,              // e-mail
+  QI_THAI_RE,                              // Thai script
+  /(?<![\d.])\d{13}(?![\d.])/,             // 13-digit national ID
+  /(?<![\d.])\d[- ]\d{4}[- ]\d{5}[- ]\d{2}[- ]\d(?![\d.])/,  // the same, as printed: 1-2345-67890-12-3
+  // A phone the way the ward writes one: 0812345678, 081-234-5678, 081 234 5678,
+  // 02-123-4567, +66812345678.
+  /(?<![\d.])(?:\+66[- ]?|0)\d{1,2}[- ]?\d{3}[- ]?\d{3,4}(?![\d.])/,
+  /(?<![\d.])\d{4,}\/\d{2}(?!\d)/,         // HN / AN
+  /\b(19|20)\d{2}-\d{2}-\d{2}/,            // calendar date, ISO
+  /(?<![\d\/])\d{1,2}[\/-]\d{1,2}[\/-](?:\d{4}|\d{2})(?![\d\/])/,  // 30/08/2026, 5/9/69 (Buddhist year)
+  /[0-9a-f]{8}-[0-9a-f]{4}-/i              // UUID (entryId)
+];
+
+function _qiProject(project) {
+  var p = project == null || project === "" ? QI_EXPORT_DEFAULT_PROJECT : String(project);
+  return QI_PROJECT_RE.test(p) ? p : null;
+}
+function _qiKeyName(project) { return "QI_EXPORT_KEY_" + project; }
+function _qiActor(project) { return "apps-script-editor:" + project; }
+var QI_PROJECT_MSG = "project must be 1-16 characters of A-Z and 0-9";
+
+// Three UUIDs: Utilities.getUuid is java.util.UUID.randomUUID(), which draws
+// from SecureRandom, so 3 × 122 = 366 random bits. An existing key is never
+// replaced: a new one would orphan every earlier export. Rotating the key
+// means a new project name. The secret is returned, logged and written nowhere
+// but its Script Property.
+function setupQiExportKey(project) {
+  var p = _qiProject(project);
+  if (!p) return { error: QI_PROJECT_MSG };
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(_qiKeyName(p))) {
+    Logger.log("QI export key for " + p + " already exists; unchanged.");
+    return { ok: true, created: false, project: p };
+  }
+  var secret = [Utilities.getUuid(), Utilities.getUuid(), Utilities.getUuid()].join("").replace(/-/g, "").toLowerCase();
+  _logAuditStrict("qiKeyCreated", "", _qiActor(p));
+  props.setProperty(_qiKeyName(p), secret);
+  Logger.log("QI export key for " + p + " created in Script Properties.");
+  return { ok: true, created: true, project: p };
+}
+
+function _qiSecret(project) {
+  return PropertiesService.getScriptProperties().getProperty(_qiKeyName(project)) || "";
+}
+function _qiHmacHex(secret, kind, value) {
+  var raw = Utilities.computeHmacSha256Signature(kind + QI_NUL + value, secret, Utilities.Charset.UTF_8);
+  return raw.map(function (b) { return ("0" + (b & 0xff).toString(16)).slice(-2); }).join("");
+}
+// One coder per kind. Two inputs that give one code stop the export: the
+// analysis would merge two infants (48 bits: about 1 in 5 million at 10 000).
+function _qiCoder(secret, kind, prefix, len, normalise) {
+  var byInput = {}, byCode = {};
+  return function (value) {
+    var v = normalise(value);
+    if (!v) return "";
+    if (Object.prototype.hasOwnProperty.call(byInput, v)) return byInput[v];
+    var code = prefix + _qiHmacHex(secret, kind, v).slice(0, len);
+    if (Object.prototype.hasOwnProperty.call(byCode, code)) throw _codedError("QI export: two " + kind + " values share one code; nothing written", "CodeCollision", false);
+    byCode[code] = true;
+    byInput[v] = code;
+    return code;
+  };
+}
+function _qiTrim(v) { return String(v == null ? "" : v).trim(); }
+function _qiEmail(v) { return _qiTrim(v).toLowerCase(); }
+
+// Dates. A day is the Bangkok calendar date minus the admission date; a time
+// is Bangkok HH:MM. Cells arrive as Dates, date strings or ISO strings.
+function _qiDayKey(value) {
+  var d = _sheetInstant_(value);
+  return d ? _wardDateKey(d) : "";
+}
+function _qiDays(key, fromKey) {
+  if (!key || !fromKey) return "";
+  return Math.round((Date.parse(key + "T00:00:00Z") - Date.parse(fromKey + "T00:00:00Z")) / 86400000);
+}
+function _qiDayTime(value, admitKey) {
+  var d = _sheetInstant_(value);
+  if (!d || !admitKey) return ["", ""];
+  var local = new Date(d.getTime() + WARD_UTC_OFFSET_MIN * 60000).toISOString();
+  return [_qiDays(local.slice(0, 10), admitKey), local.slice(11, 16)];
+}
+
+function _qiHasIdentifier(s, names) {
+  for (var i = 0; i < QI_IDENTIFIER_RES.length; i++) if (QI_IDENTIFIER_RES[i].test(s)) return true;
+  var low = s.toLowerCase();
+  for (var j = 0; j < (names || []).length; j++) if (low.indexOf(names[j]) >= 0) return true;
+  return false;
+}
+// Free text (diagnosis, strings inside calcInputJson): kept when it holds no
+// identifier and none of the infant's own name, else [REDACTED]. A Thai
+// diagnosis is redacted too: free Thai text can hold a name, and that call is
+// Pp's (openspec/changes/qi-export/design.md D6).
+function _qiCleanText(v, names) {
+  var s = _qiTrim(v);
+  if (!s) return "";
+  return _qiHasIdentifier(s, names) ? QI_REDACTED : s;
+}
+// A coded column (route, status, supp*, the PN ticks): a short ASCII code that
+// holds no identifier and none of the infant's name passes; anything else could
+// be typed text and is replaced. The server takes free text in these columns
+// (pnIndication up to 60 characters), whatever the app's dropdown offers.
+function _qiShortCode(v, names) {
+  var s = _qiTrim(v);
+  if (!s) return "";
+  if (/^[A-Za-z0-9 _.\/+-]{1,40}$/.test(s) && !_qiHasIdentifier(s, names)) return s;
+  return QI_REDACTED;
+}
+function _qiNum(v) {
+  var n = _numOrNull(v);
+  return n === null ? "" : n;
+}
+// The infant's name, as lower-case words of 3 characters or more, for the
+// free-text check. The scan after it looks for whole names and ids of 5 or more.
+function _qiNameWords(name) {
+  return _qiTrim(name).toLowerCase().split(/\s+/).filter(function (w) { return w.length >= 3; });
+}
+
+function _qiBand(v, width) {
+  var n = _numOrNull(v);
+  if (n === null || n <= 0) return "";
+  var lo = Math.floor(n / width) * width;
+  return lo + "-" + (lo + width - 1);
+}
+function _qiUnit(bed) {
+  var first = _qiTrim(bed).split(" ")[0].toUpperCase();
+  return /^[A-Z]{2,6}$/.test(first) ? first : (first ? "OTHER" : "");
+}
+
+// "YYYY-MM-DD.N" in release order: the date, then N as a number (.9 before .10).
+var QI_VERSION_RE = /^(\d{4}-\d{2}-\d{2})\.(\d+)$/;
+function _qiVersionOrdinals(versions) {
+  var list = Object.keys(versions).filter(function (v) { return QI_VERSION_RE.test(v); });
+  list.sort(function (a, b) {
+    var x = QI_VERSION_RE.exec(a), y = QI_VERSION_RE.exec(b);
+    return x[1] !== y[1] ? (x[1] < y[1] ? -1 : 1) : Number(x[2]) - Number(y[2]);
+  });
+  var out = {};
+  list.forEach(function (v, i) { out[v] = "C" + (i < 9 ? "0" : "") + (i + 1); });
+  return out;
+}
+
+function _qiCount(map, key) { map[key] = (map[key] || 0) + 1; }
+function _qiJsonValue(v, names, counts) {
+  if (typeof v === "string") {
+    var c = _qiCleanText(v, names);
+    if (c === QI_REDACTED) _qiCount(counts.redacted, "calc");
+    return c;
+  }
+  if (Array.isArray(v)) return v.map(function (x) { return _qiJsonValue(x, names, counts); });
+  if (v && typeof v === "object") {
+    var o = {};
+    Object.keys(v).forEach(function (k) { if (/^[A-Za-z0-9_]{1,40}$/.test(k)) o[k] = _qiJsonValue(v[k], names, counts); });
+    return o;
+  }
+  return v;
+}
+function _qiParseObject(text, col, counts) {
+  var s = _qiTrim(text);
+  if (!s) return null;
+  var d = _parseJson(s, null);
+  if (!d || typeof d !== "object" || Array.isArray(d)) { _qiCount(counts.unreadableJson, col); return null; }
+  return d;
+}
+function _qiCalc(text, cmap, names, counts) {
+  var d = _qiParseObject(text, "calcInputJson", counts);
+  if (!d) return "";
+  var out = {};
+  Object.keys(d).forEach(function (k) {
+    if (QI_CALC_DROP.indexOf(k) >= 0) return;
+    if (QI_CALC_KEYS.indexOf(k) < 0) {
+      // The key is whatever the client sent; only a plain name is echoed.
+      _qiCount(counts.droppedCalcKeys, /^[A-Za-z0-9_]{1,40}$/.test(k) ? k : "(other)");
+      return;
+    }
+    if (k === "critOverride") out[k] = !!d[k];
+    else if (k === "constantsVersion") out[k] = cmap[_qiTrim(d[k])] || "";
+    else out[k] = _qiJsonValue(d[k], names, counts);
+  });
+  return JSON.stringify(out);
+}
+function _qiPrint(text, cmap, admitKey, names, counts) {
+  var d = _qiParseObject(text, "printJson", counts);
+  if (!d) return "";
+  var out = {};
+  QI_PRINT_KEYS.forEach(function (k) { if (Object.prototype.hasOwnProperty.call(d, k)) out[k] = _qiJsonValue(d[k], names, counts); });
+  out.constantsVersion = cmap[_qiTrim(d.constantsVersion)] || "";
+  var od = _qiDays(_qiDayKey(d.orderDate), admitKey);
+  out.order_day = od === "" ? null : od;
+  var crit = d.critical;
+  out.critical = !crit || typeof crit !== "object" ? null
+    : { alerts: Array.isArray(crit.alerts) ? crit.alerts.length : 0, hasReason: !!_qiTrim(crit.reason) };
+  return JSON.stringify(out);
+}
+
+// Per column, how many cells look like an identifier or hold an original id or
+// name of 5 characters or more. Counts only: no value leaves here. The codes
+// this export made are skipped, since 10 hex digits can read as a phone number.
+function _qiScan(rows, originals) {
+  var longs = (originals || []).filter(function (o) { return o && String(o).length >= 5; });
+  var hits = {};
+  rows.forEach(function (r) {
+    Object.keys(r).forEach(function (col) {
+      var v = String(r[col] == null ? "" : r[col]);
+      if (!v || QI_CODE_RE.test(v)) return;
+      var hit = false;
+      for (var i = 0; i < QI_IDENTIFIER_RES.length && !hit; i++) hit = QI_IDENTIFIER_RES[i].test(v);
+      for (var j = 0; j < longs.length && !hit; j++) hit = v.indexOf(longs[j]) >= 0;
+      if (hit) _qiCount(hits, col);
+    });
+  });
+  return hits;
+}
+
+function _qiKReport(infants) {
+  var groups = {};
+  infants.forEach(function (r) { _qiCount(groups, JSON.stringify(QI_QUASI.map(function (q) { return r[q]; }))); });
+  var sizes = Object.keys(groups).map(function (k) { return groups[k]; });
+  return {
+    quasiIdentifiers: QI_QUASI.slice(), minK: QI_MIN_K, groups: sizes.length,
+    smallestGroup: sizes.length ? Math.min.apply(null, sizes) : 0,
+    infantsBelowK: sizes.filter(function (n) { return n < QI_MIN_K; }).reduce(function (a, n) { return a + n; }, 0),
+    infants: infants.length
+  };
+}
+
+// A tab's rows, A..(width), as values; [] when it holds only its header.
+function _qiTabRows(sheet, width) {
+  var last = sheet.getLastRow();
+  var w = Math.min(width, sheet.getMaxColumns());
+  return last >= 2 && w > 0 ? sheet.getRange(2, 1, last - 1, w).getValues() : [];
+}
+function _qiSourceTabs() {
+  var ss = _book();
+  var pat = ss.getSheetByName("Patient_Registry"), log = ss.getSheetByName("Daily_Log");
+  if (!pat || !log) throw _codedError("QI export: Patient_Registry or Daily_Log is missing", "NoSource", false);
+  // A shifted column could move a name into an exported one, so the headers are
+  // checked as a save checks them (blank labels pass).
+  [["Patient_Registry", pat], ["Daily_Log", log]].forEach(function (pair) {
+    var bad = _schemaMismatch(pair[1], pair[0]);
+    if (bad) throw _schemaError(pair[0], bad);
+  });
+  return { ss: ss, pat: pat, log: log };
+}
+
+function exportQi(project) {
+  try {
+    var summary = _exportQi(project);
+    Logger.log("exportQi: " + JSON.stringify(summary));
+    return summary;
+  } catch (e) {
+    Logger.log("exportQi stopped: " + e.message);
+    return { error: e.message, code: e.neofeedCode || "" };
+  }
+}
+function _exportQi(project) {
+  var p = _qiProject(project);
+  if (!p) return { error: QI_PROJECT_MSG, code: "BadProject" };
+  var secret = _qiSecret(p);
+  if (!secret) return { error: "No QI export key for " + p + ": run setupQiExportKey() first", code: "NoKey" };
+  var src = _qiSourceTabs();
+  var patRows = _qiTabRows(src.pat, PAT_HEADERS.length);
+  var logRows = _qiTabRows(src.log, LOG_WIDTH);
+
+  var patientCode = _qiCoder(secret, "patient", "R-", 12, _qiTrim);
+  var entryCode = _qiCoder(secret, "entry", "E-", 12, _qiTrim);
+  var staffCode = _qiCoder(secret, "staff", "S-", 10, _qiEmail);
+  var counts = { redacted: {}, droppedCalcKeys: {}, unreadableJson: {} };
+  var leftOut = { erasedInfantOrders: 0, ordersWithoutRegistryRow: 0 };
+  var originals = [];
+
+  var reg = {};
+  patRows.forEach(function (r) {
+    var sid = _qiTrim(r[0]);
+    if (!sid || reg[sid]) return;
+    reg[sid] = { row: r, erased: _isPdpaErased(r), admitKey: _qiDayKey(r[7]) };
+    originals.push(sid, _qiTrim(r[1]));
+  });
+
+  var versions = {};
+  logRows.forEach(function (r) {
+    versions[_qiTrim(r[31])] = true;
+    [24, 38].forEach(function (c) { var d = _parseJson(r[c], null); if (d && typeof d === "object") versions[_qiTrim(d.constantsVersion)] = true; });
+    originals.push(_qiTrim(r[25]), _qiTrim(r[36]));
+  });
+  var cmap = _qiVersionOrdinals(versions);
+
+  var infantFields = {};
+  function infantOf(sid) {
+    if (infantFields[sid]) return infantFields[sid];
+    var r = reg[sid].row, admitKey = reg[sid].admitKey, names = _qiNameWords(r[1]);
+    var dx = _qiCleanText(r[11], names);
+    if (dx === QI_REDACTED) _qiCount(counts.redacted, "diagnosis");
+    var mc = _numOrNull(r[17]);
+    var f = {
+      research_id: patientCode(sid),
+      sex: _qiShortCode(_qiTrim(r[5]).toLowerCase()),
+      ga_wk: _numOrNull(r[4]) > 0 ? Math.floor(Number(r[4])) : "",
+      bw_band_g: _qiBand(r[3], 100),
+      age_at_admit_d: _qiDays(admitKey, _qiDayKey(r[6])),
+      is_multiple: (mc !== null && mc >= 2) || _qiTrim(r[8]) ? 1 : 0,
+      pat_status: _qiShortCode(r[9], names),
+      status_day: _qiDays(_qiDayKey(r[16]), admitKey),
+      unit_current: _qiUnit(r[10]),
+      diagnosis: dx,
+      pn_indication: _qiShortCode(r[18], names),
+      liver_dysfunction: _qiShortCode(r[19], names),
+      renal_dysfunction: _qiShortCode(r[20], names)
+    };
+    ["pn_indication", "liver_dysfunction", "renal_dysfunction", "pat_status", "sex"].forEach(function (k) {
+      if (f[k] === QI_REDACTED) _qiCount(counts.redacted, k);
+    });
+    infantFields[sid] = { fields: f, names: names, admitKey: admitKey };
+    return infantFields[sid];
+  }
+
+  var rows = [], infantsSeen = {};
+  logRows.forEach(function (r) {
+    var sid = _qiTrim(r[1]);
+    if (!sid) return;
+    if (!reg[sid]) { leftOut.ordersWithoutRegistryRow++; return; }
+    if (reg[sid].erased) { leftOut.erasedInfantOrders++; return; }
+    var inf = infantOf(sid), admitKey = inf.admitKey;
+    infantsSeen[sid] = inf.fields;
+    var out = {};
+    Object.keys(inf.fields).forEach(function (k) { out[k] = inf.fields[k]; });
+    out.entry = entryCode(r[25]);
+    out.revision_of = entryCode(r[36]);
+    out.revisionNumber = _qiNum(r[35]);
+    out.day = _qiDays(_qiDayKey(r[0]), admitKey);
+    ["dol", "weight", "fluid", "gir", "pro", "kcal", "na", "k", "ca", "p", "enVolPerKg"].forEach(function (k, i) { out[k] = _qiNum(r[2 + i]); });
+    out.route = _qiShortCode(r[13], inf.names);
+    out.status = _qiShortCode(r[14], inf.names);
+    out.staff = staffCode(r[15]);
+    ["suppMTV", "suppVitD_IU", "suppCa_mg", "suppCaType", "suppPO4_mmol", "suppPO4Type", "suppFe_mg", "suppFeType"].forEach(function (k, i) {
+      out[k] = _qiShortCode(r[16 + i], inf.names);
+    });
+    ["route", "status", "suppMTV", "suppVitD_IU", "suppCa_mg", "suppCaType", "suppPO4_mmol", "suppPO4Type", "suppFe_mg", "suppFeType"].forEach(function (k) {
+      if (out[k] === QI_REDACTED) _qiCount(counts.redacted, k);
+    });
+    out.ioInput = _qiNum(r[28]);
+    out.ioOutput = _qiNum(r[29]);
+    out.drainContent = _qiNum(r[30]);
+    out.constants_v = cmap[_qiTrim(r[31])] || "";
+    var lm = _qiDayTime(r[26], admitKey), pub = _qiDayTime(r[33], admitKey), sup = _qiDayTime(r[37], admitKey);
+    out.last_modified_day = lm[0]; out.last_modified_time = lm[1];
+    out.last_modified_by = staffCode(r[27]);
+    out.published_day = pub[0]; out.published_time = pub[1];
+    out.published_by = staffCode(r[34]);
+    out.superseded_day = sup[0]; out.superseded_time = sup[1];
+    out.calc = _qiCalc(r[24], cmap, inf.names, counts);
+    out.print = _qiPrint(r[38], cmap, admitKey, inf.names, counts);
+    rows.push(out);
+  });
+
+  var hits = _qiScan(rows, originals);
+  if (Object.keys(hits).length) {
+    return { error: "QI export: the identifier scan found identifiers; nothing written", code: "IdentifierFound", hits: hits };
+  }
+
+  _logAuditStrict("qiExport", "", _qiActor(p));
+  var values = [QI_HEADERS.slice()].concat(rows.map(function (o) { return QI_HEADERS.map(function (h) { return o[h]; }); }));
+  // A leading ' keeps every string as text: "08:15" stays text, not a time,
+  // "1/2" not a date, and nothing becomes a formula. Sheets drops the ' itself.
+  values = values.map(function (row) { return row.map(function (v) { return typeof v === "string" && v !== "" ? "'" + v : v; }); });
+  _qiWriteTab(src.ss, values);
+
+  var infants = Object.keys(infantsSeen).map(function (k) { return infantsSeen[k]; });
+  return {
+    ok: true, project: p, tab: QI_EXPORT_TAB, rows: rows.length, infants: infants.length,
+    leftOut: leftOut, redacted: counts.redacted, droppedCalcKeys: counts.droppedCalcKeys,
+    unreadableJson: counts.unreadableJson, kReport: _qiKReport(infants),
+    note: "Pseudonymized, not anonymous: the project key re-identifies every row. Personal data under PDPA."
+  };
+}
+// Cleared and rewritten whole, then trimmed to exactly its rows and columns
+// (the 10 M-cell workbook cap, as for Audit_Log).
+function _qiWriteTab(ss, values) {
+  var sh = ss.getSheetByName(QI_EXPORT_TAB) || ss.insertSheet(QI_EXPORT_TAB);
+  sh.clearContents();
+  var nr = values.length, nc = values[0].length;
+  var mr = sh.getMaxRows(), mc = sh.getMaxColumns();
+  if (mc < nc) sh.insertColumnsAfter(mc, nc - mc);
+  else if (mc > nc) sh.deleteColumns(nc + 1, mc - nc);
+  if (mr < nr) sh.insertRowsAfter(mr, nr - mr);
+  sh.getRange(1, 1, nr, nc).setValues(values);
+  if (mr > nr) sh.deleteRows(nr + 1, mr - nr);
+}
+
+// An erasure or a session delete clears the tab, so the infant's rows do not
+// wait for the next export (Vera on c3db40f). Best effort, after the erasure:
+// the erasure must not fail over this tab. Copies already downloaded are
+// outside the Sheet; the erasure procedure has to reach them (BACKLOG).
+var QI_CLEARED_NOTE = "Cleared after a PDPA erasure or a session delete: run exportQi() again.";
+function _qiClearExportTab() {
+  try {
+    var sh = _book().getSheetByName(QI_EXPORT_TAB);
+    if (!sh) return;
+    sh.clearContents();
+    sh.getRange(1, 1, 1, 1).setValues([[QI_CLEARED_NOTE]]);
+  } catch (e) { Logger.log("QI_Export not cleared after an erasure: " + e.message); }
+}
+
+// An admin re-identification request: the sessionId behind a research ID of
+// one project. Audited before it answers; a miss is audited too. An erased
+// infant is never matched, since no export carries its orders. The editor's
+// Run shows the log, not the return value, so the log points to the answer in
+// Audit_Log rather than holding it: a sessionId issued before 2026-09-27 carries
+// the infant's initials, and the execution log is readable by every editor.
+function lookupResearchId(researchId, project) {
+  try {
+    var p = _qiProject(project);
+    if (!p) return { error: QI_PROJECT_MSG };
+    var id = _qiTrim(researchId);
+    if (!QI_RESEARCH_ID_RE.test(id)) return { error: "researchId must be R- and 12 lower-case hex characters" };
+    var secret = _qiSecret(p);
+    if (!secret) return { error: "No QI export key for " + p };
+    var pat = _qiSourceTabs().pat;
+    var rows = _qiTabRows(pat, 2);
+    for (var i = 0; i < rows.length; i++) {
+      var sid = _qiTrim(rows[i][0]);
+      if (!sid || _isPdpaErased(rows[i])) continue;
+      if ("R-" + _qiHmacHex(secret, "patient", sid).slice(0, 12) === id) {
+        _logAuditStrict("qiReidentify", sid, _qiActor(p));
+        Logger.log("lookupResearchId " + id + " (" + p + "): match found; the sessionId is in the newest qiReidentify row of Audit_Log.");
+        return { ok: true, sessionId: sid };
+      }
+    }
+    _logAuditStrict("qiReidentifyMiss", "", _qiActor(p));
+    Logger.log("lookupResearchId " + id + " (" + p + "): no match");
+    return { error: "No registered infant has this research ID in project " + p };
+  } catch (e) {
+    Logger.log("lookupResearchId stopped: " + e.message);
+    return { error: e.message, code: e.neofeedCode || "" };
+  }
 }
 
 // ── Help requests (Pp, 2026-10-05) ─────────────────────────────
@@ -4669,7 +5380,9 @@ function _sheetInstant_(value) {
 // records loginFail/lockout rows, whose actorEmail is whatever address was
 // TYPED — an unknown or attacker-chosen string. Counting those would let one
 // person with a wordlist inflate "weekly active users" without bound.
-var NON_USAGE_AUDIT_ACTIONS = { loginFail: true, lockout: true };
+// The QI export's rows (exportQi and the rest, run from the editor) are not use either.
+var NON_USAGE_AUDIT_ACTIONS = { loginFail: true, lockout: true,
+  qiKeyCreated: true, qiExport: true, qiReidentify: true, qiReidentifyMiss: true };
 function usageMetrics(rows) {
   var out = { weeks: [], totalDistinctUsers: 0, rowsScanned: 0, rowsSkipped: 0 };
   if (!rows || !rows.length) return out;

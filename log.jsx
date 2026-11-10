@@ -15,11 +15,11 @@ const n = (v, d = 1) => D_L.displayNum(v, d);
 // Score = entry[key]; x = DOL or DayAdmit (entry.dol - admitDol)
 // ============================================================
 // Target picker — switches between PN and EN regimes per entry.
-// Trigger: entry.enVolPerKg >= 100 mL/kg/d → ENTERAL_TARGETS, else TPN_TARGETS.
+// Trigger: Full EN (D_L.isFullEn, MEN never counts) → ENTERAL_TARGETS, else TPN_TARGETS.
 // Returns [lo, hi] or null when no target band applies in that mode.
 function pickTarget(metricKey, entry, patient) {
   if (!entry) return null;
-  const isEN = (entry.enVolPerKg || 0) >= 100;
+  const isEN = D_L.isFullEn(entry);
   // Re-derived from the row's date, not the stored snapshot — a stale `dol`
   // would pick the wrong day's TPN target band (see D_L.entryDol).
   const dol = D_L.entryDol(patient, entry);
@@ -207,7 +207,7 @@ function TrendGraph({ entries, patient }) {
   // which is the one question it answers correctly. The band drawn on the
   // chart is per-day (bandSteps below).
   const targetBand = latest ? latest.band : null;
-  const isENMode = latest && (latest.raw.enVolPerKg || 0) >= 100;
+  const isENMode = latest && D_L.isFullEn(latest.raw);
   let status = "empty";
   if (latest && targetBand) {
     const [lo, hi] = targetBand;
@@ -640,7 +640,7 @@ function DailyLog({ patient, log, dol, onAddToday, onEditEntry, onDeleteEntry, n
                           ? <span className="chip"><span className="d" />กำลังบันทึก…</span>
                           : <span className={`chip${D_L.isDraftEntry(e) ? " warn" : " ok"}`}>
                               <span className="d" />{D_L.isDraftEntry(e) ? "Draft · ยังไม่ submit"
-                                : Number(e.revisionNumber) > 1 ? "Submitted · ฉบับแก้ไข" : "Submitted"}
+                                : Number(e.calcInput?.orderRev || e.revisionNumber) > 1 ? "Submitted · ฉบับแก้ไข" : "Submitted"}
                             </span>}
                       </td>
                       {onDeleteEntry && (

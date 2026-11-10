@@ -196,7 +196,8 @@ function baseOrder({ tf = 120 } = {}) {
     eq('the 100 chip sets 100 mL', inputFor('ปริมาตรคาสาย')?.value, '100');
     ok('…and the bag is prepared at 180 + 100 = 280 mL', /Prepared \(เตรียมจริง\)\s*280 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
     setField('ปริมาตรคาสาย', 0);
-    ok('0 is still typed by hand: no overfill', /no overfill — doses use actual weight/.test(screenText()), screenText().match(/Factor.{0,60}/));
+    // The Factor box that said "no overfill" left the screen on 2026-11-06 (Pp).
+    ok('0 is still typed by hand: prepared = delivered 180 mL', /Prepared \(เตรียมจริง\)\s*180 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
     setField('ปริมาตรคาสาย', 45);
     ok('…and so is any other value (45 mL → 225 mL prepared)', /Prepared \(เตรียมจริง\)\s*225 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
   });
@@ -219,7 +220,9 @@ function baseOrder({ tf = 120 } = {}) {
     const row = text(container.querySelector('.s2-aa-row'));
     ok('no "In bag / delivered" column', !/In bag|delivered/.test(row), row);
     ok('…and no g/day figure', !/g\/day/.test(row), row);
-    ok('the volume stays: 4 g × 1.167 overfill = 46.7 mL/day', /Volume\s*46\.7 mL\/day/.test(row), row);
+    // The stock volume (46.7 mL/day) left the row on 2026-11-06 too (Pp: "Hide
+    // them all"); the printed order carries it.
+    ok('…and, since 2026-11-06, no stock volume either', !/Volume\s*[\d.]+ mL\/day/.test(row), row);
     setField('ปริมาตรคาสาย', 0);
     const flat = text(container.querySelector('.s2-aa-row'));
     ok('with no overfill, no "Total … g/day" either', !/Total|g\/day/.test(flat), flat);
@@ -255,25 +258,28 @@ function baseOrder({ tf = 120 } = {}) {
       [...container.querySelectorAll('.s2-lip-row .field label')].map(text));
     ok('the lipid card names no product', !/SMOF/.test(text(lipidCard())), text(lipidCard()).match(/.{0,30}SMOF.{0,30}/));
     const gkgh = () => text(container.querySelector('.lipid-gkgh'));
-    ok('2 g/kg/d over 24 h = 0.08 g/kg/h', /= 0\.08 g\/kg\/h/.test(gkgh()), gkgh());
+    // Since 2026-11-06 (Pp) the pump is set to 0.1 mL/hr (rounded up where the
+    // nearest would run past 24 h) and g/kg/h is over the hours it actually runs.
+    ok('2 g/kg/d over 24 h: 28 mL at 1.2 mL/hr runs 23.3 h = 0.09 g/kg/h', /= 0\.09 g\/kg\/h/.test(gkgh()), gkgh());
     lipidHours(16);
-    ok('…over 16 h = 0.13 g/kg/h (0.125, 2 decimals)', /= 0\.13 g\/kg\/h/.test(gkgh()), gkgh());
+    ok('…over 16 h: 1.8 mL/hr runs 15.6 h = 0.13 g/kg/h', /= 0\.13 g\/kg\/h/.test(gkgh()), gkgh());
     // 20 mL lipid + 8 mL Vitalipid = 28 mL
-    ok('the pump rate keeps its 2 decimals (Praew, 2026-09-28)', /PUMP RATE\s*1\.75\s*mL\/hr/.test(text(lipidCard())), text(lipidCard()).slice(0, 80));
+    ok('the pump rate is set to 0.1 mL/hr (Pp, 2026-11-06; 2 decimals from 2026-09-28): 1.75 is 1.8', /PUMP RATE\s*1\.8\s*mL\/hr/.test(text(lipidCard())), text(lipidCard()).slice(0, 80));
+    ok('…and says how long it runs: 15.6 h', /28 mL\/day · infusion 15\.6 h/.test(text(lipidCard())), text(lipidCard()).slice(0, 120));
     const hrs = inputFor('Infuse over');
     ok('the hours can be typed', !!hrs);
     setField('Infuse over', 18);
-    ok('18 h: 28 mL over 18 h = 1.56 mL/hr', /PUMP RATE\s*1\.56\s*mL\/hr/.test(text(lipidCard())), text(lipidCard()).slice(0, 80));
-    ok('…"over 18 h"', /28 mL\/day over 18 h/.test(text(lipidCard())), text(lipidCard()).slice(0, 120));
+    ok('18 h: 28 mL over 18 h = 1.56, set at 1.6 mL/hr', /PUMP RATE\s*1\.6\s*mL\/hr/.test(text(lipidCard())), text(lipidCard()).slice(0, 80));
+    ok('…"infusion 17.5 h"', /28 mL\/day · infusion 17\.5 h/.test(text(lipidCard())), text(lipidCard()).slice(0, 120));
     ok('…and 0.11 g/kg/h', /= 0\.11 g\/kg\/h/.test(gkgh()), gkgh());
     setField('Infuse over', '');
     blur(inputFor('Infuse over'));
     eq('an emptied box goes back to 18, not 0 or 1', inputFor('Infuse over')?.value, '18');
-    ok('…and the rate is still 18 h\'s', /PUMP RATE\s*1\.56\s*mL\/hr/.test(text(lipidCard())), text(lipidCard()).slice(0, 80));
+    ok('…and the rate is still 18 h\'s', /PUMP RATE\s*1\.6\s*mL\/hr/.test(text(lipidCard())), text(lipidCard()).slice(0, 80));
     setField('Infuse over', 30);
     blur(inputFor('Infuse over'));
     eq('30 h is held at 24 (lipid hangs 24 h at most)', inputFor('Infuse over')?.value, '24');
-    ok('…rate 28 ÷ 24 = 1.17 mL/hr', /PUMP RATE\s*1\.17\s*mL\/hr/.test(text(lipidCard())), text(lipidCard()).slice(0, 80));
+    ok('…rate 28 ÷ 24 = 1.17, set at 1.2 mL/hr', /PUMP RATE\s*1\.2\s*mL\/hr/.test(text(lipidCard())), text(lipidCard()).slice(0, 80));
     setField('Infuse over', 0.5);
     blur(inputFor('Infuse over'));
     eq('under 1 h is not taken: it stays at 24', inputFor('Infuse over')?.value, '24');
@@ -286,7 +292,7 @@ function baseOrder({ tf = 120 } = {}) {
     await save();
     eq('saved', log.calls, 1);
     eq('calcInput.lipidDripHours is the typed 18', log.entry && log.entry.calcInput.lipidDripHours, 18);
-    ok('the form: 18 h, 1.56 mL/hr and 0.11 g/kg/h', /Lipid pump rate.{0,40}over 18 h.{0,20}Rate 1\.56 mL\/hr.{0,10}\(= 0\.11 g\/kg\/h\)/.test(printText()),
+    ok('the form: 1.6 mL/hr, infusion 17.5 h and 0.11 g/kg/h', /Lipid pump rate.{0,40}Rate 1\.6 mL\/hr, infusion 17\.5 h.{0,10}\(= 0\.11 g\/kg\/h\)/.test(printText()),
       printText().match(/Lipid pump rate.{0,140}/));
     ok('the form\'s front still ticks the paper form\'s own lipid list (scope: screen only)',
       /☑ 20% SMOF/.test(text(frontSheet())), text(frontSheet()).match(/Lipid.{0,80}/));
@@ -305,7 +311,8 @@ function baseOrder({ tf = 120 } = {}) {
     // dead space of a new NICU order overfills the bag, which is when it showed.
     setField('20% NaCl', 2); setField('KCl', 1); setField('Glycophos', 2);
     const step4 = text([...container.querySelectorAll('.salt-row-grid')][0]?.closest('.card-b'));
-    ok('Step 4 still gives the prepared mL of each salt (เตรียม … mL/d)', /เตรียม [\d.]+ mL\/d/.test(step4), step4.slice(0, 200));
+    // The prepared mL left Step 4 on 2026-11-06 (Pp: not for doctors and nurses).
+    ok('Step 4 gives no prepared mL of any salt (เตรียม … mL/d)', !/เตรียม [\d.]+ mL\/d/.test(step4), step4.match(/เตรียม [\d.]+ mL\/d/));
     ok('…with no "= ถึงผู้ป่วย … + คาสาย …" split', !/ถึงผู้ป่วย [\d.]+ \+ คาสาย/.test(step4), step4.match(/.{20}ถึงผู้ป่วย.{30}/));
   });
 

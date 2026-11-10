@@ -205,6 +205,9 @@ function describeOrderValue(key, v) {
   if (key === "aaProduct") return window.NEOFEED_DATA.KCMH_STOCK[v]?.short || v;
   // Stored in mEq, read in mg (Pp, 2026-10-28).
   if (key === "mgPerKg" && typeof v === "number") return window.NEOFEED_DATA.displayNum(v * window.NEOFEED_DATA.MG_MG_PER_MEQ, 2);
+  // Glycophos typed by P has no end to its decimals (20 mg = 0.645161… mL/kg):
+  // 4 decimals at most, as on the printed order; 0.0625 stays 0.0625.
+  if (key === "glycophosP" && typeof v === "number" && isFinite(v)) return window.NEOFEED_DATA.displayNum(v, 4);
   // A volume derived from Rate × 24 used to reach this list — and the printed
   // pharmacy form — as "98.39999999999999" (review 2026-09-17, UP-C13).
   // toPrecision(12) strips float noise without rounding away a real decimal
@@ -230,6 +233,122 @@ function diffOrderInputs(prev, cur) {
   }
   return out;
 }
+
+// N1 (stakeholder walk, 2026-11-07; Pp: "บันทึกได้แค่ I/O"): while the nursing
+// log is off, a nurse account records Intake/Output through the order itself, so
+// on a doctor's order it may save those three boxes and nothing else. Any other
+// Submit, or a re-save of an order the app holds, goes back to a doctor. The
+// backend refuses the same writes in the same words (gas-backend.gs
+// NURSE_SUBMIT_REFUSAL), so the two must stay identical.
+const NURSE_SUBMIT_TEXT = "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O";
+// The fingerprint of an order without its Intake/Output: equal before and after
+// a nurse's save, or the nurse changed more than I/O.
+const orderKeyWithoutIo = (inputs) => calcInputKey({ ...inputs, ioInput: 0, ioOutput: 0, drainContent: 0 });
+
+// Top insight 3 (stakeholder walk, 2026-11-07): an order held because NeoFeed's
+// calculation or the dosing weight moved since it was saved lists each figure
+// that changed, old against new, before anyone saves it again (Pp: "เก็บทุกตัว
+// จากนี้ไป"). Every save keeps these figures, as printed (the same decimals as
+// the front sheet, as strings), in calcInput.printedFigures; the held order
+// compares them with the figures it would print now. A key added here later is
+// skipped for rows saved before it. Not an input: normalizeCalcInput ignores it.
+const PRINTED_FIGURES = [
+  ["wtKg", "Weight for calculation", "kg", 2, (x) => x.wtKg],
+  ["deliveredMl", "TPN delivered", "mL/day", 1, (x) => x.totalTPN_mL],
+  ["preparedMl", "TPN prepared", "mL/day", 1, (x) => x.calc.preparedVol],
+  ["dexG", "Dextrose in bag", "g", 1, (x) => x.calc.dexG_bag],
+  ["dexGkg", "Dextrose", "g/kg/d", 2, (x) => x.calc.dexGPerKg],
+  ["d50wMl", "D50W", "mL", 1, (x) => x.calc.d50wVol],
+  ["aaMl", "Amino acid", "mL", 1, (x) => x.calc.solVol?.aa],
+  ["lipidMl", "20% SMOF", "mL", 1, (x) => x.calc.solVol?.lipidSMOF],
+  ["vitalipidMl", "Vitalipid N infant", "mL", 1, (x) => x.calc.vitalipidVol],
+  ["lipidBagMl", "Lipid syringe total", "mL", 1, (x) => x.calc.lipidBagVol],
+  ["lipidRate", "Lipid pump rate", "mL/hr", 1, (x) => x.lipidPump?.rate],
+  ["lipidHours", "Lipid infusion", "h", 1, (x) => x.lipidPump?.hours],
+  ["lipidGkgh", "Lipid", "g/kg/h", 2, (x) => x.lipidPerKg > 0 ? window.NEOFEED_DATA.lipidGkghAt(x.lipidPerKg, x.calc.lipidBagVol, x.lipidDripHours || 24) : 0],
+  ["naClMeq", "20% NaCl", "mEq", 1, (x) => x.naCl * (x.calc.factor || 0)],
+  ["naClMl", "20% NaCl", "mL", 1, (x) => x.calc.solVol?.naCl],
+  ["naAcetMeq", "Na acetate", "mEq", 1, (x) => x.naAcet * (x.calc.factor || 0)],
+  ["naAcetMl", "Na acetate", "mL", 1, (x) => x.calc.solVol?.naAcet],
+  ["glycophosMl", "Glycophos", "mL", 1, (x) => x.calc.solVol?.glycophos],
+  ["naKg", "Na", "mEq/kg/d", 2, (x) => x.calc.naKg],
+  ["k2hpo4Meq", "K₂HPO₄", "mEq", 1, (x) => x.k2hpo4 * (x.calc.factor || 0)],
+  ["k2hpo4Ml", "K₂HPO₄", "mL", 1, (x) => x.calc.solVol?.k2hpo4],
+  ["kClMeq", "KCl", "mEq", 1, (x) => x.kCl * (x.calc.factor || 0)],
+  ["kClMl", "KCl", "mL", 1, (x) => x.calc.solVol?.kCl],
+  ["mgMg", "MgSO₄", "mg", 1, (x) => x.mgPerKg * window.NEOFEED_DATA.MG_MG_PER_MEQ * (x.calc.factor || 0)],
+  ["mgMl", "MgSO₄ 10%", "mL", 1, (x) => x.calc.solVol?.mg],
+  ["caMg", "Ca gluconate", "mg", 0, (x) => x.caPerKg * (x.calc.factor || 0)],
+  ["caMl", "10% Ca gluconate", "mL", 1, (x) => x.calc.solVol?.ca],
+  ["soluvitMl", "Soluvit N", "mL/day", 1, (x) => x.inclSoluvit ? x.calc.soluvitVol : 0],
+  ["peditraceMl", "Peditrace", "mL/day", 1, (x) => x.inclPeditrace ? x.calc.peditrace_vol : 0],
+  ["znMg", "ZnSO₄", "mg Zn", 2, (x) => x.znPerKg > 0 ? x.calc.znSO4_bag_mg : 0],
+  ["heparinMl", "Heparin", "mL", 1, (x) => x.calc.solVol?.heparin],
+  ["factor", "Factor", "", 3, (x) => x.calc.factor],
+  ["gir", "GIR", "mg/kg/min", 1, (x) => x.calc.gir],
+  ["protein", "Protein", "g/kg/d", 2, (x) => x.calc.proteinKg],
+  ["kcal", "Energy", "kcal/kg/d", 0, (x) => x.calc.kcalKg],
+  ["osm", "Osmolarity", "mOsm/L", 0, (x) => x.calc.osm],
+  ["kBag", "K⁺ in bag", "mEq/L", 0, (x) => x.calc.kMeqPerL],
+];
+// A figure as the sheet prints it: "—" when there is none (PrintOrderForm's f).
+const printedFigureText = (v, d) => (isFinite(v) && v > 0) ? window.NEOFEED_DATA.displayNum(v, d) : "—";
+function printedFiguresOf(x) {
+  const out = {};
+  for (const [key, , , d, get] of PRINTED_FIGURES) out[key] = printedFigureText(get(x), d);
+  return out;
+}
+// The Daily_Log columns every row has carried, for an order saved before
+// printedFigures existed: the only old figures there are to compare.
+const STORED_FIGURES = [
+  ["fluid", "Fluid", "mL/kg/d", 1, (c) => c.totalFluidPerKg],
+  ["gir", "GIR", "mg/kg/min", 1, (c) => c.gir],
+  ["pro", "Protein", "g/kg/d", 2, (c) => c.proteinKg],
+  ["kcal", "Energy", "kcal/kg/d", 0, (c) => c.kcalKg],
+  ["na", "Na", "mEq/kg/d", 2, (c) => c.naTotalDelivered],
+  ["k", "K", "mEq/kg/d", 2, (c) => c.kTotalDelivered],
+  ["ca", "Ca", "mg/kg/d", 0, (c) => c.caKg],
+  ["p", "P", "mg/kg/d", 0, (c) => c.pKg],
+  ["enVolPerKg", "EN", "mL/kg/d", 1, (c) => c.enVolPerKg],
+];
+// → { basis: "printed" | "stored", changes: [{ label, from, to, unit }] }
+function heldFigureChanges(entry, x) {
+  const saved = entry?.calcInput?.printedFigures;
+  const changes = [];
+  if (saved && typeof saved === "object") {
+    const now = printedFiguresOf(x);
+    for (const [key, label, unit] of PRINTED_FIGURES) {
+      if (typeof saved[key] !== "string" || saved[key] === now[key]) continue;
+      changes.push({ label, from: saved[key], to: now[key], unit });
+    }
+    return { basis: "printed", changes };
+  }
+  for (const [key, label, unit, d, get] of STORED_FIGURES) {
+    const from = printedFigureText(Number(entry?.[key]), d), to = printedFigureText(get(x.calc), d);
+    if (from !== to) changes.push({ label, from, to, unit });
+  }
+  return { basis: "stored", changes };
+}
+// A nurse's I/O save on another account's order (N1) sends the order as stored,
+// with only her Intake/Output and the save's time: the server writes the stored
+// row whatever else is sent (gas-backend.gs _ioOnlyEntryFrom), and the ward's own
+// copy then matches it until the next sync. An order the app holds for a doctor
+// (calculation or dosing weight moved) stays held: Pp, 2026-11-07, "IO ... ไม่
+// เกี่ยวกับใบสั่ง TPN", so I/O is recorded on it all the same.
+const STORED_ORDER_FIELDS = ["dol", "weight", "fluid", "gir", "pro", "kcal", "na", "k", "ca", "p", "enVolPerKg", "route",
+  "suppMTV", "suppVitD_IU", "suppCa_mg", "suppCaType", "suppPO4_mmol", "suppPO4Type", "suppFe_mg", "suppFeType"];
+function storedOrderWithIo(saved, e) {
+  const out = { ts: e.ts, status: e.status, ioInput: e.ioInput, ioOutput: e.ioOutput, drainContent: e.drainContent };
+  for (const k of STORED_ORDER_FIELDS) out[k] = saved?.[k] !== undefined ? saved[k] : e[k];
+  const ci = e.calcInput || {};
+  out.calcInput = { ...(saved?.calcInput || {}), ioInput: ci.ioInput, ioOutput: ci.ioOutput, drainContent: ci.drainContent,
+    savedAt: ci.savedAt, orderBy: ci.orderBy, orderRev: ci.orderRev, orderAt: ci.orderAt };
+  out.constantsVersion = saved?.calcInput?.constantsVersion || saved?.constantsVersion || "";
+  out.appVersion = saved?.appVersion || "";
+  out.printJson = null;
+  return out;
+}
+const heldChangeLine = (c) => `${c.label} ${c.from} → ${c.to}${c.unit ? " " + c.unit : ""}`;
 
 // Unsaved work survives a forced logout (session expiry mid-save) — 2026-09-11
 // review, F3. Keyed per patient AND per order date, so it can never be offered
@@ -260,8 +379,10 @@ function draftOwnerOf(userEmail, userLabel) {
 // calcInput.savedByLabel. That name is shown only while its email is the row's
 // — lastModifiedBy, else submittedBy — so it can never sit on someone else's
 // save. Otherwise, and on rows saved before names were kept, the email alone.
+// Since 2026-11-07 the row's order is calcInput.orderBy's (gas-backend.gs
+// _orderByOf), so a nurse's I/O save does not put her name on a doctor's order.
 function savedByOf(entry) {
-  const email = String(entry?.lastModifiedBy || entry?.submittedBy || "").trim();
+  const email = String(entry?.calcInput?.orderBy || entry?.lastModifiedBy || entry?.submittedBy || "").trim();
   const label = String(entry?.calcInput?.savedByLabel || "").trim();
   return label && email && draftOwnerOf("", label) === email.toLowerCase() ? label : email;
 }
@@ -669,7 +790,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d", mlPerK
 // that mode still saves, just somewhere else.
 function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onOrderDate, onDelete, centerPoint, scratch,
   autoPrint = null, requestPrint = null,
-  nursing = [], ordersReadOnly = false }) {
+  nursing = [], ordersReadOnly = false, nurseAccount = false }) {
   // ── The date this order is FOR (review 2026-09-17, UP-C11) ────────────────
   // A new, non-back-dated order used to read "today" on every render, so a
   // form left open across midnight silently became the next day's order: its
@@ -920,6 +1041,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Glycophos® dosed by P (mmol P/kg/day = mL/kg/day since 1 mL = 1 mmol P)
   // Auto-contributes 2 mmol Na per mmol P — shown as computed readout, not input
   const [glycophosP, setGlycophosP] = useState(0);
+  // How the Glycophos box is typed: "na" (mEq Na/kg/d, the KCMH worksheet's
+  // way and the default) or "p" (mg P/kg/d, chips 15/30/45/60; Pp, 2026-11-06).
+  // A view of the one stored dose, glycophosP: switching never changes the
+  // order, so it is not saved, and every Calculator opens on Na.
+  const [glycophosBy, setGlycophosBy] = useState("na");
+  // The dose in the unit the box is typed in. Shown to 3 decimals at most, so
+  // 15 mg P (15/31 mL/kg) reads 15 and its Na 0.968, never a float tail.
+  const glycophosPerMl = glycophosBy === "p" ? S.glycophos.pMgPerMl : S.glycophos.naMeqPerMl;
+  const glycophosTyped = Number(D.displayNum(glycophosP * glycophosPerMl, 3)) || 0;
+  const setGlycophosTyped = (v) => setGlycophosP(v / glycophosPerMl);
+  // Back to Na whenever the infant or the order changes: the header's "Switch
+  // patient" keeps this component mounted, and a P left on from the last infant
+  // would read the next infant's habitual "2" (mEq Na) as 2 mg P (Vera).
+  React.useEffect(() => { setGlycophosBy("na"); }, [patient?.sessionId, editEntry]);
   const [kCl, setKCl] = useState(0);
   const [k2hpo4, setK2HPO4] = useState(0);
   const [mgPerKg, setMgPerKg] = useState(0);
@@ -961,6 +1096,25 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // ── Accordion — which step cards are expanded ──────────────────
   // Only Step 1 open by default; others collapsed until user opens them
   const [openSteps, setOpenSteps] = useState(new Set([1]));
+
+  // Step 3's Lipid volume, tapped: the 20% lipid syringe to the nearest whole
+  // mL/day, and 20% lipid set to the dose that volume gives, so the pump rate
+  // and g/kg/h follow (Pp, 2026-11-06). D.lipidDoseAtWholeMl never makes a
+  // critical lipid line the typed dose did not have (4.0 g/kg/d, the g/kg/h
+  // ceiling over the pump's actual hours); the toast says what moved.
+  const roundLipidToWholeMl = () => {
+    const dose = D.lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours: lipidDripHours, vitalipidMl: calc.vitalipidVol });
+    if (dose == null) return;
+    const mlNow = Number(D.displayNum(lipidPerKg * wtKg / D.KCMH_STOCK.smof20.gPerMl, 1));
+    const mlNew = Number(D.displayNum(dose * wtKg / D.KCMH_STOCK.smof20.gPerMl, 1));
+    if (dose === lipidPerKg) {
+      showToast(Number.isInteger(mlNow) ? `Lipid ${D.displayNum(mlNow, 1)} mL/day เป็น mL เต็มแล้ว`
+        : `Lipid ${D.displayNum(mlNow, 1)} mL/day ต่ำกว่า 0.5 mL — ไม่ปัด`, "info");
+      return;
+    }
+    setLipidPerKg(dose);
+    showToast(`Lipid ${D.displayNum(mlNow, 1)} → ${D.displayNum(mlNew, 1)} mL/day · 20% lipid ${D.displayNum(lipidPerKg, 4)} → ${D.displayNum(dose, 4)} g/kg/d`, "info");
+  };
 
   // ── "No TPN" (Pp, 2026-11-01) ─────────────────────────────────────
   // Ticking it says the day has no TPN: no aqueous bag and no lipid. It clears
@@ -1006,6 +1160,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // "draft" | "submitted" | null (nothing saved yet). A draft cannot print or
   // copy until it is completed and Submitted (D.isDraftEntry — Praew, 2026-09-23).
   const [savedStatus, setSavedStatus] = useState(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
+  // Whose order the row is (lower-case email), for N1's rule on someone else's
+  // draft: calcInput.orderBy, which the server stamps on every save but a nurse's
+  // I/O-only one (gas-backend.gs _orderByOf), else the row's last saver.
+  // A row from before orderBy is its creator's only when the same account last
+  // saved it; otherwise no one's, so a nurse may change only I/O (fail closed).
+  const saverOf = (e) => {
+    const by = String(e?.calcInput?.orderBy || "").trim().toLowerCase();
+    if (by) return by;
+    const p = String(e?.submittedBy || "").trim().toLowerCase(), ab = String(e?.lastModifiedBy || "").trim().toLowerCase();
+    return !ab || ab === p ? p : (e ? "(unknown)" : "");
+  };
+  const [savedSaver, setSavedSaver] = useState(() => saverOf(editEntry));
   // The saved row's TPN, for a same-day TPN order cancelled by a No TPN revision
   // (D.orderCancelsTpn; Vera, fifth review; Pp, 2026-11-01): whether it had TPN,
   // and whether it already replaced a submitted order that did
@@ -1028,6 +1194,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // entry printed under that entry's id without ever being saved
   // (2026-09-11 review, F2).
   const [savedKey, setSavedKey] = useState(null);
+  // The same, without Intake/Output (orderKeyWithoutIo): what a nurse may not change (N1).
+  const [savedOrderKey, setSavedOrderKey] = useState(null);
   // Fingerprint right after prefill, with an untouched ioInput blanked — so
   // the auto-tracking Input figure never counts as the user having typed.
   const [prefillKey, setPrefillKey] = useState(null);
@@ -1206,8 +1374,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // read or written. It opens as an empty order carrying only the ward's
     // usual dead space, so the first number typed is the weight it exists for.
     if (scratch) {
-      applyCalcInput({ deadVol_mL: D.defaultDeadVolFor(null) }, 0, false, 0);
-      setSavedKey(null);
+      // No route, as on an infant's first order (D13, stakeholder walk 2026-11-07):
+      // a source with no route key reads as the old default, Central.
+      applyCalcInput({ deadVol_mL: D.defaultDeadVolFor(null), route: null }, 0, false, 0);
+      setSavedKey(null); setSavedOrderKey(null);
       setPrefilledFrom(null);
       setDraftOffer(null);
       return;
@@ -1231,15 +1401,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setSavedEntryId(editEntry?.entryId || null);
     setSavedLastModified(editEntry?.lastModified || null);
     setSavedStatus(editEntry ? (D.isDraftEntry(editEntry) ? "draft" : "submitted") : null);
+    setSavedSaver(saverOf(editEntry));
     setSavedHadTpn(!!editEntry && D.orderHadTpn(editEntry));
     setSavedReplacesTpn(editEntry?.calcInput?.replacesTpn === true);
     setPublished(!!editEntry?.published);   // it now decides Submit's lock (Vera, 2026-10-28)
     setConflict(null);
     setCritOverride(editEntry?.calcInput?.critOverride || null);
+    // The order's own save (orderAt, orderRev), not a nurse's I/O save after it.
     setSavedMeta(editEntry ? {
       by: savedByOf(editEntry),
-      at: editEntry.lastModified || "",
-      revision: editEntry.revisionNumber || 1,
+      at: editEntry.calcInput?.orderAt || editEntry.lastModified || "",
+      revision: Number(editEntry.calcInput?.orderRev) || editEntry.revisionNumber || 1,
     } : null);
     setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
     setSavedCalcVersion(editEntry ? savedCalcVersionOf(editEntry) : null);
@@ -1278,11 +1450,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       const saved = withEntryIO(editEntry);
       const src = { ...saved, route: bagRouteFrom(saved) };
       const n = applyCalcInput(src, editEntry.weight, true, fluidMidpoint(src.curWtG ?? src.wtG ?? editEntry.weight));
-      setSavedKey(calcInputKey(n));
+      setSavedKey(calcInputKey(n)); setSavedOrderKey(orderKeyWithoutIo(n));
       setPrefilledFrom(null);
       return;
     }
-    setSavedKey(null);
+    setSavedKey(null); setSavedOrderKey(null);
 
     // Intake / Output is measured bedside for ONE day. A new order borrows
     // yesterday's plan, never yesterday's urine output or drain: carried over,
@@ -1653,8 +1825,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // With no TPN volume there is no aqueous bag to add them to: 0, not the
     // mL (and the negative WFI) a feeds-only day used to print (review
     // 2026-09-18, finding 4).
-    const soluvitVol    = inclSoluvit   && totalTPN_mL > 0 ? roundMl(Math.min(S.soluvit.mlPerKg   * wtKg, S.soluvit.maxMl  ) * overfill) : 0;
-    const peditrace_vol = inclPeditrace && totalTPN_mL > 0 ? roundMl(Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl) * overfill) : 0;
+    const soluvitVol    = inclSoluvit   && totalTPN_mL > 0 ? roundMl(D.vitaminMlPerDay("soluvit",   wtKg) * overfill) : 0;
+    const peditrace_vol = inclPeditrace && totalTPN_mL > 0 ? roundMl(D.vitaminMlPerDay("peditrace", wtKg) * overfill) : 0;
 
     // ── Zinc reaching the infant, mg elemental Zn/day (TPN team, 2026-09-22) ─
     // Peditrace at the mL the infant receives (1 mL/kg, the 15 mL cap is on
@@ -1665,7 +1837,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Counted even with no bag volume, like the salts: that order cannot be
     // saved (zeroVolumeBag).
     const znPeditrace_mg = inclPeditrace && totalTPN_mL > 0
-      ? Math.min(S.peditrace.mlPerKg * wtKg, S.peditrace.maxMl) * S.peditrace.znMgPerMl : 0;
+      ? D.vitaminMlPerDay("peditrace", wtKg) * S.peditrace.znMgPerMl : 0;
     const znSO4_mg = znPerKg * wtKg;
     const znSO4_bag_mg = znPerKg * factor;
     const znTotal_mg = znPeditrace_mg + znSO4_mg;
@@ -1963,8 +2135,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sOsm = osmStatusAt(calc.osm);
   // Lipid g/kg/h against the ceiling (D.LIPID_GKGH; TPN team and Praew,
   // 2026-09-28), graded on the 2-decimal figure the pump card shows.
-  const lipidGkgh = lipidPerKg > 0 && lipidDripHours > 0 ? Math.round(lipidPerKg / lipidDripHours * 100) / 100 : 0;
-  const sLipidGkgh = lipidGkgh > D.LIPID_GKGH.max ? "crit" : lipidGkgh > D.LIPID_GKGH.warn ? "warn" : "ok";
+  // Both pumps at 0.1 mL/hr, never past 24 h, and the hours each actually runs
+  // (Pp, 2026-11-06; D.pumpRate). g/kg/h is the lipid dose over the lipid pump's
+  // actual hours, so it is graded on what the pump does (CR-LIPID-RATE).
+  const tpnPump = D.pumpRate(totalTPN_mL, 24);
+  const lipidPump = D.pumpRate(calc.lipidBagVol, lipidDripHours);
+  const lipidGrade = D.lipidRateGrade(lipidPerKg, calc.lipidBagVol, lipidDripHours);
+  const lipidGkgh = lipidGrade.gkgh;
+  const pumpHoursText = (pump) => pump ? `${fmt(pump.hours, 1)} h` : "—";
+  const sLipidGkgh = lipidGrade.status;
+  const tpnOver = D.tpnOverDelivery(totalTPN_mL);
   // EN volume: short of 100 mL/kg/d is a caution; nothing ordered is not.
   const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
 
@@ -2182,6 +2362,22 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     body: `${fmt(mgMgPerKg, 2)} mg/kg/d — ช่องนี้รับ mg/kg/d (1 mEq = ${fmt(D.MG_MG_PER_MEQ, 2)} mg); target ${tMg[0]}–${tMg[1]} mg/kg/d.`,
     ref: "Pp, 2026-10-29 · ESPGHAN 2018 (parenteral)" });
   else pushTile(sMg, "Magnesium", mgMgPerKg, 2, tMg, "mg/kg/d", null, "ESPGHAN 2018 (parenteral)");
+  // Glycophos typed in the wrong unit (CR-GLYCO-UNIT-HABIT; Pp, 2026-11-06,
+  // after Vera): mEq Na and mg P differ 15.5-fold, and Na and P have no hard
+  // limit, so nothing else would ask. The high line is graded on the dose
+  // itself, whichever unit the box shows, so reopening an order (on Na) never
+  // raises a line its saved reason did not name; the low line only on P.
+  const glycoNaKg = Number((glycophosP * S.glycophos.naMeqPerMl).toPrecision(12));
+  const glycoPMgKg = Number((glycophosP * S.glycophos.pMgPerMl).toPrecision(12));
+  if (glycoNaKg >= D.GLYCO_NA_HABIT_MEQ) alerts.push({ level: "crit", title: `Glycophos ${D.GLYCO_NA_HABIT_MEQ} mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า`,
+    body: `Glycophos ${fmt(glycoNaKg, 2)} mEq Na/kg/d = P ${fmt(glycoPMgKg, 0)} mg/kg/d = ${fmt(glycophosP, 2)} mL/kg/d — `
+      + (glycophosBy === "p"
+        ? "ช่อง P รับ mg P/kg/d (15–60); ตรวจว่าพิมพ์เกินหรือเปล่า"
+        : "ช่อง Na รับ mEq Na/kg/d (1–4); ถ้าตั้งใจสั่งเป็น P กดปุ่ม P แล้วใส่ mg P/kg/d"),
+    ref: "Pp, 2026-11-06" });
+  else if (glycophosBy === "p" && glycoPMgKg > 0 && glycoPMgKg < D.GLYCO_P_HABIT_MG) alerts.push({ level: "crit", title: `Glycophos below ${D.GLYCO_P_HABIT_MG} mg P/kg/d: พิมพ์เป็น mEq Na หรือเปล่า`,
+    body: `Glycophos P ${fmt(glycoPMgKg, 1)} mg/kg/d = Na ${fmt(glycoNaKg, 2)} mEq/kg/d — ช่อง P รับ mg P/kg/d (15–60); ถ้าตั้งใจสั่งเป็น Na กดปุ่ม Na แล้วใส่ mEq Na/kg/d`,
+    ref: "Pp, 2026-11-06" });
   // A bag with no amino acid in it (Pp, 2026-10-21). Its tile reads 0 as
   // "empty", not off target, and the form prints "—", so amino acid left out
   // by mistake reached pharmacy as "not ordered" with nothing on screen. A
@@ -2245,6 +2441,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // and still be far from the day's plan (Vera, 2026-11-01); there, a shortfall
   // already said in red or amber above is not said again.
   if ((calc.totalTPN_mL > 0 || (noTpnOn && !noTpnEnLow && !noTpnPlanLow)) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
+  // The TPN pump runs 24 h with no volume limit, so a rate rounded up gives more (Q21).
+  if (tpnOver) alerts.push({ level: "info", title: "TPN rate gives more than ordered", body: `${fmt(tpnPump.rate, 1)} mL/hr for 24 h gives ${fmt(tpnOver.givenMl, 1)} mL, ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct} %) more than the ${fmt(totalTPN_mL, 1)} mL ordered, from the bag's dead space. Glucose and every additive run ${tpnOver.pct} % above the figures shown.`, ref: "Pp, 2026-11-10" });
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   // The title is unchanged so a saved critOverride still names it; the limit
   // is ESPGHAN's 17.3 g/kg/d since 2026-10-27, no longer the sheet's 18.
@@ -2257,8 +2455,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (${kRedIsMax(kLim) ? `max ${kLim.hardMax}` : `critical above ${kLim.red}`}).`, ref: "TPN team, 2026-09-28" });
   // Lipid infusion rate, per the ceiling the TPN team set (2026-09-28).
-  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
-  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${lipidDripHours} h — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
+  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
+  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: lipidGrade.overByRounding
+    ? `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} because the pump rate rounds up; ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered. The ceiling is ${D.LIPID_GKGH.max} g/kg/h.`
+    : `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
@@ -2396,6 +2596,36 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : "";
   const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
 
+  // N1: a nurse account saves Intake/Output on a doctor's submitted order, and
+  // nothing else (NURSE_SUBMIT_TEXT). Its Submit is refused on a new order or a
+  // draft, when anything but I/O changed, and on an order the app holds for a
+  // doctor (the calculation or dosing weight moved, a critical value not
+  // confirmed, no sticker figures yet). Not with the nursing log on, where a
+  // nurse has no Submit at all (ordersReadOnly).
+  const nurseIoOnly = nurseAccount && !ordersReadOnly && !scratch && !centerPoint;
+  const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted"
+    || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
+  // An order held for a doctor (the calculation or dosing weight moved, a
+  // critical value not confirmed, no sticker figures): she may still record I/O
+  // on it (storedOrderWithIo), and the line says the order waits for a doctor.
+  const nurseHeldOrder = nurseIoOnly && savedStatus === "submitted" && !!savedEntryId
+    && (calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || figuresMissing);
+  // …and on a draft another account saved (a doctor's, Pp 2026-11-07: "ได้แค่ I/O
+  // เหมือนกัน"), her Save draft too may change only I/O, on the same calculation
+  // and dosing weight. Her own draft she may change freely.
+  const nurseDraftRefused = nurseIoOnly && !!savedEntryId && savedStatus === "draft"
+    && !!savedSaver && savedSaver !== draftOwner
+    && (savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
+  // Top insight 3: what changed on an order held for a new save because the
+  // calculation or the dosing weight moved (heldFigureChanges). Only the row as
+  // it was opened can be held this way: a save in this visit stamps both anew.
+  // The figures as the front sheet prints them, from the same values it reads.
+  const printedFigureInput = { calc, wtKg, totalTPN_mL, lipidPerKg, lipidDripHours,
+    lipidPump: D.pumpRate(calc.lipidBagVol, lipidDripHours || 24),
+    naCl, naAcet, kCl, k2hpo4, mgPerKg, caPerKg, znPerKg, inclSoluvit, inclPeditrace };
+  const heldChanges = (calcMoved || dosingWeightChanged) && !pendingSave && editEntry
+    ? heldFigureChanges(editEntry, printedFigureInput) : null;
+
   // ── Print handler — opens all steps, prints, then restores ─────
   React.useEffect(() => {
     const ALL = new Set([1, 2, 3, 4, 5, 6]);
@@ -2445,7 +2675,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // reason as it stands when the request goes, the same text the toast shows.
   const autoPrintDone = React.useRef(null);
   const printBlockRef = React.useRef("");
-  printBlockRef.current = printBlockToast;
+  printBlockRef.current = printBlockToast && heldChanges && heldChanges.changes.length > 0
+    ? `${printBlockToast} (${heldChanges.changes.map(heldChangeLine).join(" · ")})`
+    : printBlockToast;
   React.useEffect(() => {
     if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
     const go = () => { autoPrintDone.current = autoPrint; requestPrint(printBlockRef.current); };
@@ -2476,6 +2708,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // …and nor does a nurse's form once the backend refuses a nurse's order
     // write (D5): no Save button is rendered either — this is the belt.
     if (ordersReadOnly) return;
+    // N1: a nurse's Submit goes back to a doctor unless only I/O changed
+    // (nurseSubmitRefused), before any prompt can ask her for a reason.
+    if (!asDraft && nurseSubmitRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
+    if (asDraft && nurseDraftRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
     // An order submitted before the lock existed and reopened unchanged is only
     // locked: a revision of identical numbers would tell pharmacy nothing.
@@ -2485,7 +2721,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // (Vera, 2026-10-28). A No TPN order with no short sheet never prints, and is
     // locked all the same (Pp, 2026-11-02). An order with no sticker figures
     // (figuresMissing) takes the full save too: locking it would leave it without them.
-    const lockFirst = !asDraft && !centerPoint && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
+    // A nurse locks nothing (gas-backend.gs publishDailyLog refuses her, N1).
+    const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing) {
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
@@ -2591,8 +2828,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A critical value can still be ordered — the attending may have a
     // reason — but never silently: the reason is required, saved with the
     // order (calcInput.critOverride) and printed on the pharmacy form.
-    const critical = asDraft ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
-    let override = null;
+    // A nurse never answers the critical-value prompt: her I/O save keeps the
+    // doctor's confirmation as saved, and nurseSubmitRefused holds an order
+    // with a critical value nobody confirmed (N1).
+    const critical = asDraft || nurseIoOnly ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+    let override = nurseIoOnly && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
       // into an order packet that deliberately carries no identity), so both
@@ -2609,6 +2849,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map(a => a.title), at: new Date().toISOString() };
     }
     const keyAtSave = formKey;
+    // A nurse's save on an order another account owns: by now it is I/O only.
+    const ioOnlyOnOthers = nurseIoOnly && !!savedEntryId && !!savedSaver && savedSaver !== draftOwner;
+    // The order's next revision, as the server will count it (gas-backend.gs
+    // orderRevNext): a submitted order is revised, a draft keeps its number. The
+    // server's stamp is what is stored; this keeps the ward's copy right until the
+    // next sync.
+    const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + (savedStatus === "submitted" || published ? 1 : 0);
+    const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;   // what every dose on this save was computed from (UP-C2)
     // Center Point saves pass the same required-field gate and F1 stop above.
     // The F1 override goes with the order: CP's snapshot carries it to CP's
@@ -2622,7 +2870,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           critOverride:override});
         setSavedEntryId(result.sourceRecordId);setSavedLastModified(result.recordedAt);
         // What CP now holds is what was on the form when Save was pressed.
-        setSavedKey(keyAtSave);setCritOverride(override);setSavedDosingWt({ g: dosingWtAtSave, exact: true });setSavedCalcVersion(D.CONSTANTS_VERSION);
+        setSavedKey(keyAtSave);setSavedOrderKey(orderKeyAtSave);setCritOverride(override);setSavedDosingWt({ g: dosingWtAtSave, exact: true });setSavedCalcVersion(D.CONSTANTS_VERSION);
       } catch (error) { centerPoint.failed?.(error);showToast('บันทึกไป Center Point ไม่สำเร็จ กรุณาตรวจสถานะและลองใหม่','error'); }
       finally { setSaving(false); }
       return;
@@ -2686,6 +2934,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // Daily_Log AM). Absent for an order with no bag. Not an input either.
       calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
         stops: submitStops,
+        // printedFigures: every figure the front sheet prints, as printed, so a
+        // later release that moves one can say which (heldFigureChanges). Not an
+        // input either.
+        printedFigures: printedFiguresOf(printedFigureInput),
+        // Whose order this stays, on a nurse's I/O-only save: the server writes the
+        // stored values whatever is sent; these keep the ward's copy right until the
+        // next sync. Not inputs.
+        ...(ioOnlyOnOthers
+          ? { orderBy: savedSaver === "(unknown)" ? String(editEntry?.submittedBy || "").toLowerCase() : savedSaver,
+              orderRev: savedMeta?.revision || 1, orderAt: savedMeta?.at || "" }
+          : { orderRev: nextOrderRev }),
         ...(figures ? { printJsonV: figures.v } : {}),
         // replacesTpn: this row replaces a submitted order of its day that had
         // TPN (replacesTpn above). Not an input — normalizeCalcInput ignores it.
@@ -2710,6 +2969,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // midnight is still filed under the day it was written for (UP-C11).
       ts: editEntry ? editEntry.ts : (logDate || newOrderDate),
     });
+    const sent = ioOnlyOnOthers && editEntry ? storedOrderWithIo(editEntry, entry) : entry;
 
     setSaving(true);
     // An edit of a submitted order lands as a revision beside it, locked or
@@ -2718,8 +2978,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // 2026-10-28, failed for every order saved before calcInput.stops, since
     // publishDailyLog refuses a row with no stop list (Vera, second review).
     const res = savedEntryId
-      ? await onUpdate(savedEntryId, savedLastModified, entry)
-      : await onLog(entry);
+      ? await onUpdate(savedEntryId, savedLastModified, sent)
+      : await onLog(sent);
     setSaving(false);
 
     // Make sure the typed order is on disk as this user's draft before showing
@@ -2741,19 +3001,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     }
     setSavedLastModified(res.lastModified);
     setSavedStatus(asDraft ? "draft" : "submitted");
+    // A nurse's save on another account's draft was I/O only: it stays theirs.
+    setSavedSaver(prev => nurseIoOnly && prev && prev !== draftOwner ? prev : draftOwner);
     setSavedHadTpn(D.orderHadTpn(entry));
     setSavedReplacesTpn(replacesTpn);
     // What was just saved is what may now be printed — the inputs as they
     // were when Save was pressed, not whatever was typed while it ran.
-    setSavedKey(keyAtSave);
-    setCritOverride(override);
-    setSavedDosingWt({ g: dosingWtAtSave, exact: true });
-    setSavedCalcVersion(D.CONSTANTS_VERSION);
-    setSavedFiguresV(figures ? figures.v : null);
-    setSavedMeta({
+    setSavedKey(keyAtSave); setSavedOrderKey(orderKeyAtSave);
+    // Her I/O save wrote the stored order back: whatever held it still does.
+    if (!ioOnlyOnOthers) {
+      setCritOverride(override);
+      setSavedDosingWt({ g: dosingWtAtSave, exact: true });
+      setSavedCalcVersion(D.CONSTANTS_VERSION);
+      setSavedFiguresV(figures ? figures.v : null);
+    }
+    // A nurse's I/O save on another account's order leaves whose order it is,
+    // its time and its revision as they were (the server keeps them too).
+    if (!ioOnlyOnOthers) setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || new Date().toISOString(),
-      revision: res.revisionNumber || savedMeta?.revision || 1,
+      revision: nextOrderRev,
     });
     clearDraft();
     setDraftOffer(null);
@@ -2762,7 +3029,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // or the revision the server appended. If the lock fails the order is
     // still saved and submitted; Submit again locks it (lockFirst), and an
     // edit is a revision all the same.
-    if (!asDraft && onPublish) {
+    if (!asDraft && onPublish && !nurseIoOnly) {
       const lockId = res.revised ? res.entryId : (savedEntryId || res.entryId);
       const pub = await onPublish(lockId, res.lastModified, { quiet: true });
       if (pub.ok) setPublished(true);
@@ -3248,10 +3515,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <div className="step-summary">
               <span className="step-summary-chip">{fmt(totalTPN_mL,0)} mL/d</span>
               {calc.overfill > 1.001 && <span className="step-summary-chip">prep {fmt(calc.preparedVol,0)} mL · ×{fmt(calc.overfill,2)}</span>}
-              <span className="step-summary-chip">{fmt(totalTPN_mL/24,2)} mL/hr</span>
+              <span className="step-summary-chip">{tpnPump ? fmt(tpnPump.rate, 1) : "—"} mL/hr</span>
               {calc.gir > 0 && <span className="step-summary-chip">GIR {fmt(calc.gir,1)}</span>}
               {aaPerKg > 0 && <span className="step-summary-chip">AA {aaPerKg}</span>}
-              {lipidPerKg > 0 && <span className="step-summary-chip">Lip {fmt(calc.lipidBagVol/lipidDripHours, 2)} mL/hr</span>}
+              {lipidPerKg > 0 && <span className="step-summary-chip">Lip {lipidPump ? fmt(lipidPump.rate, 1) : "—"} mL/hr</span>}
             </div>
           )}
           {/* "No TPN" at the top right (Pp, 2026-11-01): skips Step 3. On a
@@ -3308,19 +3575,23 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 </div>
                 {/* r × 24 rounded to 2 dp: 4.1 × 24 is 98.39999999999999 in
                     floating point, and that string reached the Volume box, the
-                    changes list and the printed form (UP-C13). */}
+                    changes list and the printed form (UP-C13). The box shows
+                    the pump's rate at 0.1 mL/hr and the hours it runs (Pp,
+                    2026-11-06; D.pumpRate): 100 mL/day is 4.2 mL/hr for 23.8 h. */}
                 <NumField label="Rate" unit="mL/hr"
-                  value={parseFloat((totalTPN_mL/24).toFixed(2))}
-                  onChange={(r) => setTotalTPN_mL(parseFloat((r * 24).toFixed(2)))} step={0.05}
-                  hint={totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day` : "ใส่ rate pump"} />
+                  value={tpnPump ? tpnPump.rate : 0}
+                  onChange={(r) => setTotalTPN_mL(parseFloat((r * 24).toFixed(2)))} step={0.1}
+                  hint={totalTPN_mL > 0 ? `= ${tpnOver ? fmt(totalTPN_mL, 1) : totalTPN_mL.toFixed(0)} mL/day${tpnOver ? ` · 24 ชม. ได้ ${fmt(tpnOver.givenMl, 1)} mL เกิน ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct}%)` : ""}` : "ใส่ rate pump"} />
               </div>
 
-              {/* ── Overfill: dead space → prepared volume → Factor ──────────
-                  The worksheet's C7 / G8 / G7 / H9. Dead space is the state
+              {/* ── Overfill: dead space → prepared volume ──────────────────
+                  The worksheet's C7 / G8 / G7. Dead space is the state
                   (it is a property of the giving set, not of today's volume),
                   so prepared volume follows automatically and can never fall
-                  below delivered.                                            */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, alignItems:"start" }}>
+                  below delivered. The Factor (H9) is pharmacy's figure: it is
+                  on the printed back sheet, not on this screen, which doctors
+                  and nurses use (Pp, 2026-11-06).                            */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, alignItems:"start" }}>
                 <div>
                   <NumField label="ปริมาตรคาสาย (dead space)" unit="mL/day"
                     value={deadVol_mL} onChange={setDeadVol_mL} step={1}
@@ -3338,23 +3609,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     delivered {fmt(totalTPN_mL,1)} mL
                   </div>
                 </div>
-                <div style={{ padding:"8px 10px", borderRadius:6, fontSize:12,
-                  background: calc.overfill > 1.001 ? "var(--brand-bg)" : "var(--bg-2)" }}>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Factor</div>
-                  <div className="num" style={{ fontWeight:700, fontSize:15,
-                    color: calc.overfill > 1.001 ? "var(--brand-2)" : "var(--ink)" }}>
-                    {fmt(calc.factor,3)}
-                  </div>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, marginTop:1 }}>
-                    {calc.overfill > 1.001
-                      ? `= ${fmt(wtKg,2)} kg × ${fmt(calc.overfill,3)} overfill`
-                      : "no overfill — doses use actual weight"}
-                  </div>
-                </div>
               </div>
 
-              {/* Dextrose + GIR row */}
-              <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)", gap:10, alignItems:"start" }}>
+              {/* Dextrose + GIR row. On a phone it stacks (.dex-gir-row), so the
+                  five % chips get the full width and sit on one line (Pp, 2026-11-06). */}
+              <div className="dex-gir-row" style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)", gap:10, alignItems:"start" }}>
                 <div>
                   {/* g/kg/d only: grams delivered and in the bag are for the TPN
                       room, which works in mL and has them on the form (TPN team,
@@ -3362,10 +3621,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   <NumField label="Dextrose final" unit="%" value={dexPct} onChange={setDexPct} step={0.5}
                     hint={dexPct > 0 ? `${fmt(calc.dexGPerKg, 1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})` : ""} />
                   <PresetChips values={[5, 7.5, 10, 12.5, 15]} current={dexPct} onSelect={setDexPct} suffix="%" />
-                  {calc.d50wVol > 0 && (
+                  {/* The stock mL (D50W, amino acid, Soluvit, Peditrace, ZnSO₄,
+                      heparin) is the TPN room's: not on this screen, which doctors
+                      and nurses use (Pp, 2026-11-06: "Hide them all"). The printed
+                      order has every one. Lipid volume stays: a tap on it rounds
+                      the syringe to a whole mL (#227; Pp kept it, 2026-11-07). */}
+                  {calc.d50wVol > 0 && route!=="central" && dexPct > 12.5 && (
                     <div style={{ marginTop:4, padding:"4px 8px", background:"var(--brand-bg)", borderRadius:4, fontSize:11 }}>
-                      D50W: <span className="num" style={{ fontWeight:700, color:"var(--brand-2)" }}>{fmt(calc.d50wVol,1)} mL/d</span>
-                      {route!=="central" && dexPct > 12.5 && <span style={{ color:"var(--crit)", fontWeight:700, marginLeft:6, display:"inline-flex", alignItems:"center", gap:4, verticalAlign:"bottom" }}><Icon name="warn" size={13} stroke={2.2} />Central only!</span>}
+                      <span style={{ color:"var(--crit)", fontWeight:700, display:"inline-flex", alignItems:"center", gap:4, verticalAlign:"bottom" }}><Icon name="warn" size={13} stroke={2.2} />Central only!</span>
                     </div>
                   )}
                 </div>
@@ -3392,7 +3655,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
               {/* AA row: dose and volume. No grams column — the TPN room works
                   in mL and the form keeps "g in bag" (TPN team, 2026-09-28). */}
-              <div className="s2-aa-row" style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0, 1fr))", gap:8, alignItems:"center",
+              <div className="s2-aa-row" style={{ display:"grid", gridTemplateColumns:"minmax(0, 1fr)", gap:8, alignItems:"center",
                 padding:"8px 10px", background:"var(--bg-2)", borderRadius:6 }}>
                 <div>
                   <NumField label={`Amino acid (${S[aaStockKey].short})`} unit="g/kg/d" value={aaPerKg} onChange={setAaPerKg} step={0.1} />
@@ -3412,10 +3675,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   {S[aaStockKey].caution && (
                     <div style={{ fontSize:10.5, color:"var(--warn)", fontWeight:600, marginTop:2, display:"flex", alignItems:"flex-start", gap:4 }}><span style={{ display:"inline-flex", marginTop:1 }}><Icon name="warn" size={12} stroke={2.2} /></span>{S[aaStockKey].caution}</div>
                   )}
-                </div>
-                <div style={{ fontSize:12, color:"var(--brand-2)", fontWeight:600 }}>
-                  <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Volume</div>
-                  <div className="num" style={{ fontWeight:700, fontSize:15 }}>{fmt(calc.solVol.aa,1)} mL/day</div>
                 </div>
               </div>
 
@@ -3470,11 +3729,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <div>
                   <div style={{ fontSize:10, color:"var(--ink-3)", fontWeight:600, letterSpacing:"0.04em" }}>PUMP RATE</div>
                   <div className="num" style={{ fontSize:30, fontWeight:700, lineHeight:1.15, color:"var(--warn-ink)" }}>
-                    {calc.lipidBagVol > 0 ? fmt(calc.lipidBagVol/lipidDripHours, 2) : "—"}
+                    {lipidPump ? fmt(lipidPump.rate, 1) : "—"}
                     <span style={{ fontSize:13, color:"var(--ink-3)", marginLeft:5, fontWeight:400 }}>mL/hr</span>
                   </div>
                   <div style={{ fontSize:11, color:"var(--ink-3)", marginTop:1 }}>
-                    {fmt(calc.lipidBagVol,1)} mL/day over {lipidDripHours} h
+                    {fmt(calc.lipidBagVol,1)} mL/day · <span className="lipid-pump-hours">infusion {pumpHoursText(lipidPump)}</span>
                   </div>
                   {/* The same rate as lipid per kg per hour (TPN team,
                       2026-09-22), to 2 decimals and against the team's ceiling
@@ -3508,7 +3767,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   <NumField label="20% lipid" unit="g/kg/d" value={lipidPerKg} onChange={setLipidPerKg} step={0.1} />
                   <PresetChips values={[0.5, 1, 2, 3, 4]} current={lipidPerKg} onSelect={setLipidPerKg} />
                 </div>
-                <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
+                {/* Tap to round the syringe to a whole mL/day; the dose is set
+                    back from it, so the pump rate and g/kg/h above follow (Pp,
+                    2026-11-06; D.lipidDoseAtWholeMl, never across 4.0 g/kg/d). */}
+                <button type="button" className="lipid-vol-round" onClick={roundLipidToWholeMl}
+                  disabled={!(lipidPerKg > 0 && wtKg > 0)}
+                  title="แตะเพื่อปัดเป็น mL เต็ม แล้วคำนวณ g/kg/d ย้อนกลับ"
+                  style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12, border:"none",
+                    textAlign:"left", font:"inherit", color:"inherit", width:"100%",
+                    cursor: lipidPerKg > 0 && wtKg > 0 ? "pointer" : "default" }}>
                   <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>Lipid volume</div>
                   <div className="num" style={{ fontWeight:700, fontSize:15, color:"var(--ink)" }}>
                     {lipidPerKg > 0 ? fmt(calc.solVol.lipidSMOF,1) : "—"} mL/day
@@ -3517,7 +3784,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     {lipidPerKg > 0 ? `${fmt(calc.lipidG,1)} g/day` : ""}
                     {lipidPerKg > 0 && wtKg > 0 && <span style={{ marginLeft:6, color:"var(--brand-2)", fontWeight:600 }}>= {fmt(lipidPerKg*5,1)} mL/kg/d</span>}
                   </div>
-                </div>
+                  {lipidPerKg > 0 && wtKg > 0 && !Number.isInteger(calc.solVol.lipidSMOF) && (
+                    <div className="lipid-vol-round-hint" style={{ color:"var(--brand-2)", fontSize:10, marginTop:2 }}>แตะเพื่อปัดเป็น mL เต็ม</div>
+                  )}
+                </button>
                 <div style={{ padding:"8px 10px", background:"var(--bg-2)", borderRadius:6, fontSize:12 }}>
                   <div style={{ color:"var(--ink-3)", fontSize:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>+ Vitalipid N</div>
                   <div className="num" style={{ fontWeight:700, fontSize:15, color:"var(--ink)" }}>
@@ -3527,15 +3797,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 </div>
               </div>
 
-              {calc.lipidBagVol > 0 && (
-                <div style={{ padding:"7px 10px", background:"var(--bg-2)", borderRadius:6,
-                  display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:12 }}>
-                  <span style={{ color:"var(--ink-2)" }}>Lipid bag total (20% lipid + Vitalipid)</span>
-                  <span className="num" style={{ fontWeight:700, color:"var(--ink)" }}>
-                    {fmt(calc.lipidBagVol,1)} mL/day
-                  </span>
-                </div>
-              )}
             </div>
           </div>
           </>)}
@@ -3576,7 +3837,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {naCl > 0    && <span className="step-summary-chip">Na {fmt(calc.naKg,1)} mEq/kg</span>}
               {kCl > 0     && <span className="step-summary-chip">K {fmt(calc.kKg,1)} mEq/kg</span>}
               {caPerKg > 0 && <span className="step-summary-chip">Ca {caPerKg} mg/kg</span>}
-              {glycophosP > 0 && <span className="step-summary-chip">P {glycophosP} mL/kg Glycophos</span>}
+              {glycophosP > 0 && <span className="step-summary-chip">P {fmt(glycophosP, 4)} mL/kg Glycophos</span>}
             </div>
           )}
           <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:"auto" }}>
@@ -3588,18 +3849,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           <TwoCol>
             <div>
               {/* ── Na ── */}
-              {/* Each salt shows its conversion and the mL the pharmacy prepares
-                  (เตรียม). The split into what reaches the infant and what stays in
-                  the line is calculated but not shown (Praew, 2026-09-28). */}
+              {/* Each salt shows its conversion to mL/kg/d. The mL the pharmacy
+                  prepares (เตรียม) is not shown on this screen, which doctors and
+                  nurses use (Pp, 2026-11-06); it is on the printed order's
+                  "For Pharmacist Only" column. The split into what reaches the infant and what
+                  stays in the line is calculated but not shown (Praew, 2026-09-28). */}
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05, marginBottom: 4 }}>Na (mEq/kg)</div>
               <SaltRow label={S.naCl.label} note={`${S.naCl.naMeqPerMl} mEq Na/mL`} perKg={naCl} onChange={setNaCl} wtKg={wtKg} />
               <PresetChips values={[1, 2, 3, 4]} current={naCl} onSelect={setNaCl} />
               {calc.solVol.naCl > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {fmt(naCl, 1)} mEq Na/kg/d = {fmt(naCl / S.naCl.naMeqPerMl, 2)} mL/kg/d
-                  <div style={{ color:"var(--ink-3)" }}>
-                    เตรียม {fmt(calc.solVol.naCl, 1)} mL/d
-                  </div>
                 </div>
               )}
 
@@ -3612,9 +3872,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {fmt(naAcet, 1)} mEq Na/kg/d = {fmt(naAcet / S.naAcetate.naMeqPerMl, 2)} mL/kg/d
                   {S.naAcetate.acetateMeqPerMl ? ` · acetate ${fmt(naAcet / S.naAcetate.naMeqPerMl * S.naAcetate.acetateMeqPerMl, 1)} mEq/kg/d` : ""}
-                  <div style={{ color:"var(--ink-3)" }}>
-                    เตรียม {fmt(calc.solVol.naAcet, 1)} mL/d
-                  </div>
                 </div>
               )}
 
@@ -3624,19 +3881,33 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   shown, even at 0, so "Glycophos 1" can't silently mean half
                   the intended P (2026-09-11 review, F7). */}
               {/* P per mL, as the K₂HPO₄ note below (TPN team, 2026-09-28). */}
-              <SaltRow label="Glycophos® (ใส่เป็น Na)" note={`ใส่ mEq Na/kg · ${S.glycophos.naMeqPerMl} mEq Na/mL · P ${S.glycophos.pMgPerMl} mg/mL (1 mmol)`}
-                perKg={glycophosP * 2} onChange={(v) => setGlycophosP(v / 2)} wtKg={wtKg} unit="mEq Na/kg"
-                mlPerKg={glycophosP} />
-              <PresetChips values={[1, 2, 3, 4]} current={glycophosP * 2} onSelect={(v) => setGlycophosP(v / 2)} />
+              {/* Or typed as phosphorus, mg P/kg/d (Pp, 2026-11-06): the Na / P
+                  buttons switch what the box and its chips are in, never the
+                  dose. Whichever is typed, the other is shown on the line below. */}
+              {/* key: a switch remounts the row, so a box still focused shows the
+                  dose in the new unit, never the old number under the new label (Vera). */}
+              <SaltRow key={glycophosBy}
+                label={<>Glycophos® (ใส่เป็น {glycophosBy === "p" ? "P" : "Na"})
+                  <span className="seg glycophos-by" style={{ padding:1, marginLeft:8, display:"inline-flex", verticalAlign:"middle" }}>
+                    <button type="button" className={glycophosBy === "na" ? "on" : ""} onClick={() => setGlycophosBy("na")}>Na</button>
+                    <button type="button" className={glycophosBy === "p" ? "on" : ""} onClick={() => setGlycophosBy("p")}>P</button>
+                  </span></>}
+                note={glycophosBy === "p"
+                  ? `ใส่ mg P/kg · P ${S.glycophos.pMgPerMl} mg/mL (1 mmol) · ${S.glycophos.naMeqPerMl} mEq Na/mL`
+                  : `ใส่ mEq Na/kg · ${S.glycophos.naMeqPerMl} mEq Na/mL · P ${S.glycophos.pMgPerMl} mg/mL (1 mmol)`}
+                perKg={glycophosTyped} onChange={setGlycophosTyped} wtKg={wtKg}
+                unit={glycophosBy === "p" ? "mg P/kg" : "mEq Na/kg"} />
+              <PresetChips values={glycophosBy === "p" ? [15, 30, 45, 60] : [1, 2, 3, 4]} current={glycophosTyped} onSelect={setGlycophosTyped} />
               <div className="glycophos-p" style={{ fontSize:11.5, fontWeight:700, color: glycophosP > 0 ? "var(--brand-2)" : "var(--ink-3)", paddingLeft:2, marginTop:1 }}>
-                → P {fmt(glycophosP, 2)} mmol/kg/d = {fmt(glycophosP * 31, 0)} mg/kg/d
+                {glycophosBy === "p"
+                  ? <>→ Na {fmt(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq/kg/d · P {fmt(glycophosP, 2)} mmol/kg/d</>
+                  : <>→ P {fmt(glycophosP, 2)} mmol/kg/d = {fmt(glycophosP * 31, 0)} mg/kg/d</>}
               </div>
               {glycophosP > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
-                  {fmt(glycophosP * 2, 1)} mEq Na/kg/d = {fmt(glycophosP, 2)} mL/kg/d · P {fmt(glycophosP * 31, 0)} mg/kg/d
-                  <div style={{ color:"var(--ink-3)" }}>
-                    เตรียม {fmt(calc.solVol.glycophos, 1)} mL/d
-                  </div>
+                  {glycophosBy === "p"
+                    ? <>P {fmt(glycophosP * 31, 1)} mg/kg/d = {fmt(glycophosP, 2)} mL/kg/d · Na {fmt(glycophosP * 2, 2)} mEq/kg/d</>
+                    : <>{fmt(glycophosP * 2, 1)} mEq Na/kg/d = {fmt(glycophosP, 2)} mL/kg/d · P {fmt(glycophosP * 31, 0)} mg/kg/d</>}
                 </div>
               )}
 
@@ -3647,9 +3918,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {calc.solVol.kCl > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {fmt(kCl, 1)} mEq K/kg/d = {fmt(kCl / S.kCl.kMeqPerMl, 2)} mL/kg/d
-                  <div style={{ color:"var(--ink-3)" }}>
-                    เตรียม {fmt(calc.solVol.kCl, 1)} mL/d
-                  </div>
                 </div>
               )}
 
@@ -3658,9 +3926,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {calc.solVol.k2hpo4 > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {fmt(k2hpo4, 1)} mEq K/kg/d = {fmt(k2hpo4 / S.k2hpo4.kMeqPerMl, 2)} mL/kg/d · P {fmt(k2hpo4 * S.k2hpo4.pMgPerKMeq, 0)} mg/kg/d
-                  <div style={{ color:"var(--ink-3)" }}>
-                    เตรียม {fmt(calc.solVol.k2hpo4, 1)} mL/d
-                  </div>
                 </div>
               )}
 
@@ -3681,14 +3946,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {/* KCMH compounds from 10% MgSO₄ only (Pp, 2026-10-27). */}
               <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3, flexWrap:"wrap" }}>
                 <span style={{ fontSize:10.5, color:"var(--ink-3)" }}>Vial 10%</span>
-                {calc.solVol.mg > 0 && (
-                  <span style={{ fontSize:10.5, color:"var(--brand-2)", fontWeight:600 }}>→ {calc.solVol.mg} mL/d</span>
-                )}
               </div>
 
               <SaltRow label={S.caGluconate.label} note={`Elemental Ca ${fmt(S.caGluconate.caMgPerMl, 1)} mg/mL · Ca:P ~1.7:1`} perKg={caPerKg} onChange={setCaPerKg} wtKg={wtKg} unit="mg/kg/d" />
               <PresetChips values={[32, 60, 80, 100]} current={caPerKg} onSelect={setCaPerKg} />
-              {calc.solVol.ca > 0 && <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>→ {calc.solVol.ca} mL/d</div>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <Tile label="Sodium" value={calc.naTotalDelivered} unit=" mEq/kg/d" target={tNa} status={sNa} decimals={1} max={7} />
@@ -3724,8 +3985,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           Step 5 · Vitamins · Trace Elements · Heparin
           {!openSteps.has(4) && (
             <div className="step-summary">
-              {inclSoluvit   && <span className="step-summary-chip">Soluvit {fmt(calc.soluvitVol,1)} mL</span>}
-              {inclPeditrace && <span className="step-summary-chip">Peditrace {fmt(calc.peditrace_vol,1)} mL</span>}
+              {/* The dose, only when there is a bag to give it in (Vera): a No
+                  TPN day leaves both ticked and gives neither. */}
+              {calc.soluvitVol    > 0 && <span className="step-summary-chip">Soluvit {S.soluvit.mlPerKg} mL/kg</span>}
+              {calc.peditrace_vol > 0 && <span className="step-summary-chip">Peditrace {S.peditrace.mlPerKg} mL/kg</span>}
               {znPerKg > 0 && <span className="step-summary-chip">ZnSO₄ {znPerKg} mg Zn/kg</span>}
               <span className="step-summary-chip">Heparin {heparinUmL} U/mL</span>
             </div>
@@ -3740,12 +4003,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             <div>
               <div className="sub-h">5. Multivitamin</div>
               <Chk label="Soluvit N® (water-soluble vitamins)" value={inclSoluvit} onChange={setInclSoluvit}
-                hint={inclSoluvit ? `${fmt(calc.soluvitVol, 1)} mL/day in bag${calc.overfill > 1.001 ? ` (× Factor → delivers ${fmt(calc.soluvitVol * calc.deliveredFrac, 1)})` : ""}  ·  ${S.soluvit.mlPerKg} mL/kg/day (max ${S.soluvit.maxMl} mL/day) · add to aqueous PN` : "Not included"} />
+                hint={!inclSoluvit ? "Not included" : !(calc.soluvitVol > 0) ? "ไม่มีถุง TPN วันนี้ — ไม่ได้ให้" : `${S.soluvit.mlPerKg} mL/kg/day (max ${S.soluvit.maxMl} mL/day) · add to aqueous PN`} />
 
               <div className="sub-h" style={{ marginTop: 14 }}>6. Trace Elements</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <Chk label={`Peditrace (Zn ${S.peditrace.znMgPerMl * 1000} µg/mL)`} value={inclPeditrace} onChange={setInclPeditrace}
-                  hint={inclPeditrace ? `${fmt(calc.peditrace_vol, 1)} mL/day in bag${calc.overfill > 1.001 ? ` (× Factor → delivers ${fmt(calc.peditrace_vol * calc.deliveredFrac, 1)})` : ""}  ·  ${S.peditrace.mlPerKg} mL/kg/day (max ${S.peditrace.maxMl} mL) · add to aqueous PN` : "Not included"} />
+                  hint={!inclPeditrace ? "Not included" : !(calc.peditrace_vol > 0) ? "ไม่มีถุง TPN วันนี้ — ไม่ได้ให้" : `${S.peditrace.mlPerKg} mL/kg/day (max ${S.peditrace.maxMl} mL) · add to aqueous PN`} />
                 {/* ZnSO₄ on top of Peditrace — the KCMH paper form's "ZnSO₄
                     (Additional to the above)" line, dosed in mg of ELEMENTAL
                     zinc per kg like every additive (TPN team + Praew,
@@ -3753,7 +4016,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {!centerPoint && (
                   <NumField label="ZnSO₄ (เพิ่มจาก Peditrace)" unit="mg Zn/kg/d" value={znPerKg} onChange={setZnPerKg} step={0.05}
                     hint={znPerKg > 0
-                      ? `elemental Zn · = ${fmt(calc.znSO4_mg, 2)} mg/day ถึงผู้ป่วย${calc.overfill > 1.001 ? ` · ${fmt(calc.znSO4_bag_mg, 2)} mg ในถุง (× Factor)` : ""} = ${fmt(calc.solVol.znso4, 1)} mL ของ ${S.znso4.znMgPerMl} mg/mL`
+                      ? `elemental Zn · = ${fmt(calc.znSO4_mg, 2)} mg/day ถึงผู้ป่วย`
                       : "elemental Zn · ไม่ให้เพิ่ม = เว้นว่าง"} />
                 )}
                 {calc.znTotal_mg > 0 && (
@@ -3773,20 +4036,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   (solVol.heparin, sheet G51) — with dead space the two halves
                   of this hint used to disagree (UP-C13). */}
               <NumField label="Heparin" unit="U/mL" value={heparinUmL} onChange={setHeparinUmL} step={0.5}
-                hint={`Normal 0.5–1 U/mL · total ${fmt(heparinUmL * calc.preparedVol, 0)} U/day → ${fmt(calc.solVol.heparin, 1)} mL of ${S.heparin.unitsPerMl} U/mL`} />
+                hint={`Normal 0.5–1 U/mL · total ${fmt(heparinUmL * calc.preparedVol, 0)} U/day`} />
             </div>
 
             <div style={{ background: "var(--bg-2)", borderRadius: 8, padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
               <div className="sub-h" style={{ marginTop: 0 }}>Additives Summary</div>
               <MiniReadout label="Vitalipid N Infant (fat-sol.)" value={fmt(calc.vitalipidVol, 1)} unit="mL/day"
                 color="var(--brand-2)" />
-              <MiniReadout label="Soluvit N (water-sol.)" value={inclSoluvit ? fmt(calc.soluvitVol, 1) : "—"} unit={inclSoluvit ? "mL/day" : ""}
-                color={inclSoluvit ? "var(--brand-2)" : "var(--ink-3)"} />
-              <MiniReadout label="Peditrace" value={inclPeditrace ? fmt(calc.peditrace_vol, 1) : "—"} unit={inclPeditrace ? "mL/day" : ""}
-                color={inclPeditrace ? "var(--brand-2)" : "var(--ink-3)"} />
+              <MiniReadout label="Soluvit N (water-sol.)" value={calc.soluvitVol > 0 ? S.soluvit.mlPerKg : "—"} unit={calc.soluvitVol > 0 ? "mL/kg/day" : ""}
+                color={calc.soluvitVol > 0 ? "var(--brand-2)" : "var(--ink-3)"} />
+              <MiniReadout label="Peditrace" value={calc.peditrace_vol > 0 ? S.peditrace.mlPerKg : "—"} unit={calc.peditrace_vol > 0 ? "mL/kg/day" : ""}
+                color={calc.peditrace_vol > 0 ? "var(--brand-2)" : "var(--ink-3)"} />
               <MiniReadout label="Heparin" value={heparinUmL} unit="U/mL" />
-              <MiniReadout label={`Heparin ${S.heparin.unitsPerMl} U/mL — volume`} value={fmt(calc.solVol.heparin, 1)} unit="mL/day"
-                color="var(--brand-2)" />
               <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: "var(--surface)", fontSize: 11, color: "var(--ink-3)", borderTop: "1px solid var(--line-2)" }}>
                 Vitalipid → <strong>lipid bag</strong><br/>
                 Soluvit + Peditrace → <strong>aqueous PN bag</strong><br/>
@@ -4124,6 +4385,22 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {!pendingSave && !dosingWeightChanged && uncoveredCritical.length > 0 && (
                   <div style={{ fontWeight: 400 }}>{uncoveredCritical.join(" · ")}</div>
                 )}
+                {heldChanges && (
+                  <div className="held-changes" style={{ fontWeight: 400, color: "var(--ink)", marginTop: 4 }}>
+                    {heldChanges.changes.length > 0 ? (
+                      <>
+                        <div style={{ fontWeight: 600 }}>ตัวเลขที่เปลี่ยน (เดิม → ใหม่) ตรวจก่อนบันทึกใหม่</div>
+                        <ul style={{ margin: "2px 0 0", paddingLeft: 18 }}>
+                          {heldChanges.changes.map(c => (
+                            <li key={c.label + c.unit}>{c.label} <span className="num">{c.from}</span> → <span className="num" style={{ fontWeight: 700 }}>{c.to}</span>{c.unit ? ` ${c.unit}` : ""}</li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <div>{heldChanges.basis === "printed" ? "ตัวเลข TPN บนใบสั่งนี้ไม่เปลี่ยน" : "ตัวเลขที่เทียบได้ไม่เปลี่ยน"}</div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -4207,11 +4484,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `Osm: ${fmt(calc.osm, 0)} mOsm/L`,
                 `──────────────────────────────`,
                 `FLUID: Target ${fluidTargetPerKg} mL/kg/d = ${fmt(fluidTargetPerKg*calc.wtKg, 0)} mL/day`,
-                `  TPN aqueous: ${fmt(totalTPN_mL, 1)} mL/day delivered → Rate ${fmt(totalTPN_mL/24, 2)} mL/hr`,
+                `  TPN aqueous: ${fmt(totalTPN_mL, 1)} mL/day delivered → Rate ${tpnPump ? fmt(tpnPump.rate, 1) : "—"} mL/hr over 24 h`,
                 calc.overfill > 1.001
                   ? `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (+${fmt(deadVol_mL, 1)} mL ปริมาตรคาสาย) · Factor ${fmt(calc.factor, 3)} = ${fmt(calc.wtKg, 2)} kg × ${fmt(calc.overfill, 3)}`
                   : `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (no overfill)`,
-                `  Lipid bag:   ${fmt(calc.lipidBagVol, 1)} mL/day over ${lipidDripHours}h → Rate ${fmt(calc.lipidBagVol/lipidDripHours, 2)} mL/hr${lipidPerKg > 0 ? ` (${fmt(lipidPerKg/lipidDripHours, 2)} g/kg/h)` : ""}`,
+                `  Lipid bag:   ${fmt(calc.lipidBagVol, 1)} mL/day → Rate ${lipidPump ? fmt(lipidPump.rate, 1) : "—"} mL/hr, infusion ${pumpHoursText(lipidPump)}${lipidPerKg > 0 ? ` (${fmt(lipidGkgh, 2)} g/kg/h)` : ""}`,
                 `  Prescribed:  ${fmt(calc.prescribedFluid, 0)} mL/day | Remaining: ${fmt(calc.remaining, 1)} mL`,
                 `──────────────────────────────`,
                 `DEXTROSE: ${dexPct}% → D50W ${calc.d50wVol} mL/day | ${fmt(calc.dexG_bag, 1)} g in bag, ${fmt(calc.dexG, 1)} g delivered = ${fmt(calc.dexGPerKg, 1)} g/kg/d (max ${D.MAX_DEXTROSE_G_KG})`,
@@ -4223,7 +4500,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `ELECTROLYTES (ordered per kg → amount IN BAG → mL of stock):`,
                 naCl>0 ? `  ${S.naCl.label}:    ${naCl} mEq/kg → ${fmt(naCl*calc.factor, 1)} mEq → ${calc.solVol.naCl} mL` : "",
                 naAcet>0 ? `  Na Acetate:   ${naAcet} mEq/kg → ${fmt(naAcet*calc.factor, 1)} mEq → ${calc.solVol.naAcet} mL${S.naAcetate.acetateMeqPerMl ? ` (acetate ${fmt(naAcet*calc.factor / S.naAcetate.naMeqPerMl * S.naAcetate.acetateMeqPerMl, 1)} mEq)` : ""}` : "",
-                glycophosP>0 ? `  Glycophos®:   ${glycophosP} mL/kg → ${calc.solVol.glycophos} mL (Na ${fmt(glycophosP*2*calc.factor, 1)} mEq | P ${fmt(glycophosP*31*calc.factor, 0)} mg)` : "",
+                glycophosP>0 ? `  Glycophos®:   ${fmt(glycophosP, 4)} mL/kg → ${calc.solVol.glycophos} mL (Na ${fmt(glycophosP*2*calc.factor, 1)} mEq | P ${fmt(glycophosP*31*calc.factor, 0)} mg)` : "",
                 `  Total Na:     ${fmt(calc.bag.na_mEq, 1)} mEq in bag = ${fmt(calc.naKg, 1)} mEq/kg/d delivered`,
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
                 k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*15.5*calc.factor, 0)} mg)` : "",
@@ -4357,12 +4634,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* A locked order saved before the sticker figures existed: say why
                 Submit is offered again (figuresMissing). */}
-            {figuresMissing && !scratch && !ordersReadOnly && (
+            {figuresMissing && !scratch && !ordersReadOnly && !nurseIoOnly && (
               <div className="sticker-figures-missing" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
                 ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง
               </div>
             )}
-            {revisingForRoom && (
+            {(nurseSubmitRefused || nurseHeldOrder) && (
+              <div className="nurse-doctor-submits" role="note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                {NURSE_SUBMIT_TEXT}
+              </div>
+            )}
+            {revisingForRoom && !nurseIoOnly && (
               <div className="revise-phone-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย
               </div>
@@ -4372,7 +4654,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 order that never prints is still settled. An order with no sticker figures
                 yet (figuresMissing) is offered Submit too. */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled && !figuresMissing)}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled && !figuresMissing) || (nurseIoOnly && !dirty)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
@@ -4784,6 +5066,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
 
   // Never a trailing zero on the pharmacy form (D.displayNum, 2026-09-22).
   const f  = (n, d=1) => (isFinite(n) && n > 0) ? D.displayNum(n, d) : "—";
+  const printLipidPump = D.pumpRate(calc.lipidBagVol, lipidDripHours || 24);
   const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";
   // WFI q.s. can legitimately be 0 or negative (over-filled bag) — must not print "—"
   const fSigned = (n, d=1) => D.displayNum(n, d);
@@ -4979,7 +5262,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         <tr>
           <td>Lipid</td>
           <td><span style={lipidPerKg > 0 ? { fontWeight:700 } : undefined}>{chk(lipidPerKg > 0)} 20% SMOF</span> &nbsp;<span style={{ color:"#555" }}>☐ 20% Intralipid &nbsp;☐ 20% Clinoleic &nbsp;☐ Other (Specify) ....</span>
-            &nbsp;= <strong>{f(lipidPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL</td>
+            &nbsp;= <strong>{f(lipidPerKg,3)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL</td>
         </tr>
         <tr>
           <td>Fat soluble vitamin</td>
@@ -5019,7 +5302,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td style={tdRx(glycophosP > 0)}>{chk(glycophosP > 0)} Disodium glycerophosphate<br/><span style={plain}>(Na = {S.glycophos.naMeqPerMl} mEq/mL, P = {S.glycophos.pMgPerMl} mg/mL)</span></td>
             {/* The paper form's "{ mL · Na mEq · P mg }": the mL is the dose;
                 Na and P are what it brings, so plain text (not figures). */}
-            <td style={tdr}>{glycophosP > 0 ? <><strong>{glycophosP}</strong> mL<br/><span style={note}>Na {f(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq · P {f(glycophosP * S.glycophos.pMgPerMl, 1)} mg</span></> : "—"}</td>
+            <td style={tdr}>{glycophosP > 0 ? <><strong>{f(glycophosP, 4)}</strong> mL<br/><span style={note}>Na {f(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq · P {f(glycophosP * S.glycophos.pMgPerMl, 3)} mg</span></> : "—"}</td>
             <td style={tdr}>{glycophosP > 0 ? <><strong>{f(calc.solVol?.glycophos,1)}</strong> mL</> : "—"}</td>
           </tr>
           <tr>
@@ -5117,11 +5400,13 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           is unchanged: Center Point's sheet prints it too, and the parity
           check reads the alerts after it. */}
       <div className="print-lipid-rate" style={{ marginTop:6, fontSize:10.5 }}>
-        Lipid pump rate: bag total <strong>{f(calc.lipidBagVol,1)}</strong> mL infused over <strong>{lipidDripHours || 24}</strong> h
-        = Rate <strong>{calc.lipidBagVol > 0 ? f(calc.lipidBagVol/(lipidDripHours||24),2) : "—"}</strong> mL/hr
+        {/* The rate at 0.1 mL/hr and the hours the pump actually runs at it
+            (Pp, 2026-11-06; D.pumpRate), as Step 3 shows them. */}
+        Lipid pump rate: bag total <strong>{f(calc.lipidBagVol,1)}</strong> mL
+        = Rate <strong>{printLipidPump ? f(printLipidPump.rate,1) : "—"}</strong> mL/hr, infusion <strong>{printLipidPump ? f(printLipidPump.hours,1) : "—"}</strong> h
         {/* A conversion of two figures printed on this line, so plain
             text like the Mg mEq beside its mg — not a dose of its own. */}
-        {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(lipidPerKg/(lipidDripHours||24), 2)} g/kg/h)</span>}
+        {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(D.lipidGkghAt(lipidPerKg, calc.lipidBagVol, lipidDripHours || 24), 2)} g/kg/h)</span>}
       </div>
       </>)}
       {critOverride ? (
@@ -5176,7 +5461,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           </tr>
           <tr>
             <td>Lipid</td>
-            <td><strong>☑ 20% SMOF</strong> = <strong>{f(lipidPerKg,2)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL &nbsp;&nbsp;
+            <td><strong>☑ 20% SMOF</strong> = <strong>{f(lipidPerKg,3)}</strong> g/kg/d = <strong>{f(calc.solVol?.lipidSMOF,1)}</strong> mL &nbsp;&nbsp;
               Vitalipid N infant = <strong>{f(calc.vitalipidVol,1)}</strong> mL</td>
           </tr>
         </tbody></table>

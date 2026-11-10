@@ -67,7 +67,14 @@ function sized(n) {
   return c;
 }
 // The characters of the first Daily_Log row's calcInput, or null with no row.
-const storedCalcInput = (g) => { const r = g.rows('Daily_Log')[0]; return r ? JSON.stringify(JSON.parse(r[24])).length : null; };
+// What the client sent, as stored: the server's own orderBy/orderRev/orderAt stamp (2026-11-07) is left out, as
+// the cap leaves it out.
+const storedCalcInput = (g) => {
+  const r = g.rows('Daily_Log')[0];
+  if (!r) return null;
+  const { orderBy, orderRev, orderAt, ...sent } = JSON.parse(r[24]);
+  return JSON.stringify(sent).length;
+};
 const stranger = (g, i) => g.post({ action: 'login', email: 'ghost' + i + '@evil.test', password: 'guess-' + i });
 const fillCeiling = (g) => { for (let i = 0; i < AUDIT_MAX + 3; i++) stranger(g, 'fill' + i); };
 // What Google says about the token this call sends. A life of 3000 s is a token 10 minutes old.
@@ -630,7 +637,12 @@ async function realCalculator() {
       const g = ward();
       g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P(patient.sessionId) });
       const r = g.as(g.dt, { action: 'logDailyNutrition', sessionId: patient.sessionId, entry });
-      T.ok('…the real backend takes it whole', !!r.entryId && JSON.stringify(JSON.parse(g.rows('Daily_Log')[0][24])) === JSON.stringify(entry.calcInput), r);
+      // Whole, plus the server's own stamp of whose order it is (orderBy, orderRev, orderAt; 2026-11-07 N1).
+      // The calculator sends its own guess of orderRev for the ward's copy; the server's stamp is what is stored.
+      const { orderBy, orderRev, orderAt, ...stored } = JSON.parse(g.rows('Daily_Log')[0][24]);
+      const { orderBy: _b, orderRev: _r, orderAt: _a, ...sent } = entry.calcInput;
+      T.ok('…the real backend takes it whole', !!r.entryId && JSON.stringify(stored) === JSON.stringify(sent)
+        && orderBy === 'doc@kcmh.test' && orderRev === 1 && !!orderAt, r);
     });
   });
 }
