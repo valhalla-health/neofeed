@@ -12,8 +12,8 @@
 // way a future change to data.js would, and reads the screen, the printed form
 // and the Copy text. A copy left in calculator.jsx keeps the old number and fails.
 //
-//   §1  GIR: the meter's optimal zone and the line under it follow
-//       TARGETS.girTarget and GIR_HARD_HI
+//   §1  GIR: the meter's optimal zone, the line under it and the dextrose-ceiling
+//       alert's GIR figure follow TARGETS.girTarget and GIR_HARD_HI
 //   §2  osmolarity: the printed form's route line and the quick calc's Copy
 //       follow OSM_PERIPHERAL_MAX
 //   §3  NPE:AA IV caution follows NPE_IV_WARN_LO (alert, its text, the zone)
@@ -155,6 +155,11 @@ const printText = () => text(container.querySelector('#print-form'));
     ok('optimal zone title reads the planted 7–9', zone?.getAttribute('title') === 'Optimal: 7–9', zone?.getAttribute('title'));
     const row = text(container.querySelector('.dex-gir-row'));
     ok('line under the meter: "target 7–9 · max 13"', row.includes('target 7–9 · max 13'), row.slice(-80));
+    // D18 at 100 mL/kg/d is 18 g/kg/d, over MAX_DEXTROSE_G_KG: the alert names the GIR limit (Vera).
+    mountPatient('Central');
+    order({ dex: 18, aa: 2 });
+    const dexAlert = alertTexts().find(t => t.includes('Dextrose over KCMH max'));
+    ok('dextrose-ceiling alert: "(glucose 13 mg/kg/min)"', !!dexAlert && dexAlert.includes('(glucose 13 mg/kg/min)'), dexAlert);
   });
 
   await section('§2 osmolarity: printed route line and quick calc Copy follow OSM_PERIPHERAL_MAX', async () => {

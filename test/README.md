@@ -2230,4 +2230,4 @@ and `REFERENCE.md` name the tool and its limits. Needs the jsdom set above; abou
 `verify-one-source-thresholds-1110.cjs`: plants other values for `TARGETS.girTarget`, `GIR_HARD_HI`,
 `OSM_PERIPHERAL_MAX`, `NPE_IV_WARN_LO` and `DEX_PERIPHERAL_MAX_PCT` in `window.NEOFEED_DATA` and reads the GIR meter
 and its line, the printed route line, the quick calc's Copy, the NPE:AA alerts and the "Central only!" flag; then the
-real values print the same words as before. 8 of its 17 checks fail on `e555695`. Needs the jsdom set above.
+real values print the same words as before. 9 of its 18 checks fail on `e555695`. Needs the jsdom set above.

@@ -25,10 +25,17 @@ would have left it behind:
   "soft-alert zone 20–<24"
 - the "Central only!" dextrose flag at 12.5 % is `DEX_PERIPHERAL_MAX_PCT` (new), which the Reference page
   and `ESPGHAN_TARGETS.pn.gir.peripheralMaxDex` read too
-- the Reference page's GIR card reads `ESPGHAN_TARGETS.pn.gir`
+- the dextrose-ceiling alert's "(glucose 12 mg/kg/min)" reads `GIR_HARD_HI` (Vera)
+- the Reference page's GIR card reads `ESPGHAN_TARGETS.pn.gir`. That object keeps ESPGHAN's own figures on
+  purpose: when the app's GIR limit was 13 (2026-09-22 to 2026-10-27), the guideline still said 12, and the
+  card showed the guideline. `tools/reference-tabs.json` holds them at or below `GIR_HARD_HI`.
+
+The printed form's "<900" was the KCMH paper form's wording; it now follows the app's limit, so a new limit
+would print beside the paper's layout. Which of the two the form follows is a question for Pp in the PR.
+`DEX_PERIPHERAL_MAX_PCT` joins CR-OSM-PERIPH with cases at 12.5 and 12.6 (Vera).
 
 No value changed and no figure moved, so `CONSTANTS_VERSION` stays. The new harness plants other values in
-`data.js`'s exports and reads the screen, the printed form and the Copy: 8 of its 17 checks fail on `e555695`.
+`data.js`'s exports and reads the screen, the printed form and the Copy: 9 of its 18 checks fail on `e555695`.
 
 Left out: Full EN at 100 mL/kg/d, which open PR #239 moves into `isFullEn`; `calculator.jsx` still tests
 `> 100` in two places (the P:E alert and its panel) where everything else tests `>= 100`, and that boundary
