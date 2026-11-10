@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-10 — Full EN never counts a MEN feed
+## Session 2026-11-10 (3) — Full EN never counts a MEN feed
 
 Pp, 2026-11-10: a feed ticked MEN does not count toward Full EN. The calculator already switched targets on counted EN
 only, but the Daily log's target bands and the patient page's targets read the saved `enVolPerKg`, which includes MEN, so a
@@ -16,6 +16,40 @@ one rule for a saved row, and `log.jsx` (two places) and `app.jsx` call it. A ro
 a row without `enVolPerKg` stays parenteral. `test/verify-full-en-men-1110.cjs` pins it; `verify-targets-and-dates.cjs` calls
 the same rule instead of its own copy. Left as is: Step 5 still shows done for a MEN feed of 100 or more, which is progress,
 not target choice.
+
+## Session 2026-11-10 (2) — A second lipid ceiling at the pump; the TPN pump runs 24 h
+
+Vera on (1) and Pp's answers the same morning. **Above 0.20 g/kg/h at the pump is critical** whatever the hours ordered
+(`LIPID_GKGH.pumpMax`): 200 g on 4 g/kg/d over 24 h runs 0.3 mL/hr for 16.7 h, 0.24, which (1) left amber. The lipid
+syringe stops at the volume ordered, so its hours stand. **The TPN pump has no volume limit** (Pp): it runs the rate
+for 24 h, so (1)'s "หยุด N h ก่อนถุงใหม่" was wrong. Step 3 now drops the TPN hours and, from 5 % up, says what 24 h
+gives: 12.5 mL at 0.6 mL/hr gives 14.4 mL, 1.9 mL (15 %) more, from the dead space; the alert is "TPN rate gives more
+than ordered". The copied order says "over 24 h" for TPN. The 5 % is the agent's default. `CONSTANTS_VERSION` stays
+2026-11-06.1: it has not reached the ward and ships with this. No second clinician has reviewed this; Pp only.
+The TPN hint gives the volume to 1 decimal when it shows the note (Vera).
+
+## Session 2026-11-10 (1) — Lipid rate: critical only when over the ceiling as ordered too; a TPN bag that ends early says so
+
+`data.js` (`lipidRateGrade`, `pumpEarlyStopHours`, `PUMP_EARLY_STOP_NOTE_H`), `calculator.jsx`, the
+`neofeed-clinical-rules` skill (`CR-LIPID-RATE`, `CR-R-PUMP-RATE`, `CR-R-LIPID-WHOLE-ML`, Q21), `docs/CLINICAL_CONSTANTS.md`,
+`tools/reference-tabs.json`, `test/verify-calc-oracle.cjs`, `test/verify-calc-sum.cjs`, `test/verify-lipid-whole-ml-1106.cjs`,
+`compiled/` and both shells' `?v=` tokens.
+
+Reading the 53 fields of the comparison for release #236 turned up two consequences of the pump rule (2026-11-06 (5)) that
+`CHANGELOG.md` had not shown. Pp chose on 2026-11-09:
+
+1. **Critical needs the hours ordered above the ceiling as well** (`CR-LIPID-RATE`). 4 g/kg/d over 24 h was 0.17 and amber on
+   `release`. With the rate rounded up it became 0.18 and critical at 52 of 351 weights from 500 to 4,000 g, 30 of the 50 under
+   1 kg, each asking a reason, where the alert's advice to give it over more hours cannot be followed. Pp: amber where only
+   the rounding puts it over. The tile still shows 0.18; the line says "because the pump rate rounds up" and gives the figure
+   over the hours ordered. A tap on Lipid volume guards the same grade. Above the ceiling on both counts is critical as before.
+2. **A TPN bag that ends early says so** (Q21, `CR-R-PUMP-RATE`). 1 h or more before the next bag, the Rate hint adds
+   "หยุด N h ก่อนถุงใหม่" and the alert list an info line with the percentage above the GIR shown (12.5 mL: 0.6 mL/hr, 20.8 h,
+   3.2 h early, 15 %). GIR and every figure stay as they were. The 1 h is the agent's default, for Pp to change.
+
+A typed dose prints as before. A tap on Lipid volume can now keep a higher whole mL (580 g, 3.7 g/kg/d: 11 mL, 3.79, where it
+stepped down to 10 mL, 3.45; Vera). `CONSTANTS_VERSION` stays 2026-11-06.1 for now: whether this needs a bump is Pp's call. No second
+clinician has reviewed this. Backend unchanged.
 
 ## Session 2026-11-08 (9) — NF-42, one wording in (8)
 
