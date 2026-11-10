@@ -85,7 +85,8 @@ would have left it behind:
   card showed the guideline. `tools/reference-tabs.json` holds them at or below `GIR_HARD_HI`.
 
 The printed form's "<900" was the KCMH paper form's wording; it now follows the app's limit, so a new limit
-would print beside the paper's layout. Which of the two the form follows is a question for Pp in the PR.
+would print beside the paper's layout. Pp chose that direction in the PR (2026-11-10: "ตามค่าในแอป"), and
+`REFERENCE.md` § The printed order and CR-OSM-PERIPH say so.
 `DEX_PERIPHERAL_MAX_PCT` joins CR-OSM-PERIPH with cases at 12.5 and 12.6 (Vera).
 
 No value changed and no figure moved, so `CONSTANTS_VERSION` stays. The new harness plants other values in
