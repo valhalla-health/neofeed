@@ -339,8 +339,9 @@ const fieldInput = (label, scope) => [...(scope || document.getElementById('prob
     eq('below the band is a caution', D.girStatus(3.5), 'warn');
     eq('in band is ok', D.girStatus(10), 'ok');
     eq('the hard limit is the calculator\'s', D.GIR_HARD_HI, 12);
+    // Since 2026-11-10 it calls girStatus itself, as app.jsx does (verify-one-source-thresholds-1110).
     ok('calculator.jsx grades GIR through it, not its own literal',
-       /GIR_HARD = \{ hardHi: D\.GIR_HARD_HI \}/.test(fs.readFileSync(DIR + 'calculator.jsx', 'utf8')));
+       /const girStatusAt = \(v\) => D\.girStatus\(v\);/.test(fs.readFileSync(DIR + 'calculator.jsx', 'utf8')));
     ok('app.jsx grades GIR through it too', /D_A\.girStatus\(last\.gir\)/.test(appSrc));
 
     const patient = { sessionId: 'GR-BW900', ga: 28, bw: 900, dob: ago(10), admissionDate: ago(10),
@@ -459,8 +460,8 @@ const fieldInput = (label, scope) => [...(scope || document.getElementById('prob
        /critLowNPE = ivNpeN !== null && ivNpeN < D\.NPE_IV_CRIT_LO/.test(calcSrc) && D.NPE_IV_CRIT_LO === 12);
     ok('…no > 32 ceiling is left',
        !/hardHi: 32/.test(calcSrc) && !Number.isFinite(D.TARGETS.npePerGAA()[1]));
-    ok('…and 12–20 has its own warning',
-       /lowNPE {2}= ivNpeN !== null && !critLowNPE && ivNpeN < 20/.test(calcSrc));
+    ok('…and 12–20 has its own warning (D.NPE_IV_WARN_LO, 20, since 2026-11-10)',
+       /lowNPE {2}= ivNpeN !== null && !critLowNPE && ivNpeN < D\.NPE_IV_WARN_LO;/.test(calcSrc) && D.NPE_IV_WARN_LO === 20);
     ok('the low-side alert is pushed at level "warn"',
        /if \(lowNPE\) alerts\.push\(\{ level: "warn"/.test(calcSrc));
     ok('…and the critical body no longer claims a < 20 hard limit',
