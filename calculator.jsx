@@ -2445,7 +2445,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   // The title is unchanged so a saved critOverride still names it; the limit
   // is ESPGHAN's 17.3 g/kg/d since 2026-10-27, no longer the sheet's 18.
-  if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose ${fmt(D.MAX_DEXTROSE_G_KG / D.girToGPerKg(1), 0)} mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
+  if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose ${fmt(D.MAX_DEXTROSE_G_KG / D.girToGPerKg(1), 1)} mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
   // By route since 2026-09-28 (D.K_BAG_MEQ_PER_L — TPN team and Praew): above
   // `hardMax` the order cannot be saved (kOverMax); above `red` it is critical,
   // so it is ordered only with a confirmed reason; above `warn` is a caution.

@@ -167,6 +167,12 @@ const printText = () => text(container.querySelector('#print-form'));
     order({ dex: 20, aa: 2 });
     const dexAlert = alertTexts().find(t => t.includes('Dextrose over KCMH max'));
     ok('dextrose-ceiling alert: "(glucose 13 mg/kg/min)"', !!dexAlert && dexAlert.includes('(glucose 13 mg/kg/min)'), dexAlert);
+    // 18 g/kg/d, the ceiling until 2026-10-27, is 12.5 mg/kg/min: one decimal, not a rounded 13 (third reader).
+    plant({ MAX_DEXTROSE_G_KG: 18 });
+    mountPatient('Central');
+    order({ dex: 20, aa: 2 });
+    const dex18 = alertTexts().find(t => t.includes('Dextrose over KCMH max'));
+    ok('a planted 18 g/kg/d reads "(glucose 12.5 mg/kg/min)"', !!dex18 && dex18.includes('(glucose 12.5 mg/kg/min)'), dex18);
   });
 
   await section('§2 osmolarity: printed route line and quick calc Copy follow OSM_PERIPHERAL_MAX', async () => {

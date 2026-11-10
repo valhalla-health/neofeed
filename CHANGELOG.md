@@ -25,9 +25,10 @@ would have left it behind:
   "soft-alert zone 20–<24"
 - the "Central only!" dextrose flag at 12.5 % is `DEX_PERIPHERAL_MAX_PCT` (new), which the Reference page
   and `ESPGHAN_TARGETS.pn.gir.peripheralMaxDex` read too
-- the dextrose-ceiling alert's "(glucose 12 mg/kg/min)" is `MAX_DEXTROSE_G_KG` converted to mg/kg/min. A first
-  fix tied it to `GIR_HARD_HI` (Vera's suggestion); a second reader caught that the two are different limits,
-  18 g/kg/d and GIR 13 until 2026-10-27, so that version would have printed a false figure
+- the dextrose-ceiling alert's "(glucose 12 mg/kg/min)" is `MAX_DEXTROSE_G_KG` converted to mg/kg/min, to one
+  decimal (17.3 g/kg/d prints 12; 18 would print 12.5). A first fix tied it to `GIR_HARD_HI` (Vera's
+  suggestion); a second reader caught that the two are different limits, 18 g/kg/d and GIR 13 until
+  2026-10-27. A third caught that a whole-number conversion would also have printed 13 for 18, hiding the half
 - the Reference page's GIR card reads `ESPGHAN_TARGETS.pn.gir`. That object keeps ESPGHAN's own figures on
   purpose: when the app's GIR limit was 13 (2026-09-22 to 2026-10-27), the guideline still said 12, and the
   card showed the guideline. `tools/reference-tabs.json` holds them at or below `GIR_HARD_HI`.
@@ -37,7 +38,7 @@ would print beside the paper's layout. Which of the two the form follows is a qu
 `DEX_PERIPHERAL_MAX_PCT` joins CR-OSM-PERIPH with cases at 12.5 and 12.6 (Vera).
 
 No value changed and no figure moved, so `CONSTANTS_VERSION` stays. The new harness plants other values in
-`data.js`'s exports and reads the screen, the printed form and the Copy: 11 of its 20 checks fail on `e555695`.
+`data.js`'s exports and reads the screen, the printed form and the Copy: 12 of its 21 checks fail on `e555695`.
 
 Left out: Full EN at 100 mL/kg/d, which open PR #239 moves into `isFullEn`; `calculator.jsx` still tests
 `> 100` in two places (the P:E alert and its panel) where everything else tests `>= 100`, and that boundary
@@ -45,16 +46,20 @@ is Pp's call. The nursing form's 200–8,000 g and the backend's `_checkRange` b
 mirror input validation in another runtime. `gas-backend.gs:2394`'s comment still says 300–8,000 g; the
 code says 200.
 
-**After the second reader** (a sweep of calculator.jsx, log.jsx and app.jsx at the merge of #237), more copies
+**After the second reader** (a sweep of calculator.jsx and log.jsx, and app.jsx outside the Reference page, at the merge of #237), more copies
 of exported constants: the No TPN title's 80 (`NO_TPN_EN_MIN_ML_KG`), the vitamin D title's 1,000
 (`VIT_D_MAX_IU_DAY`), heparin's "0.5–1" on the hint, the note and the printed form (`HEPARIN_USUAL_MAX_U_ML`),
 the Mg tooltip (`TPN_TARGETS.mg`), the oral Fe, Ca, P and vitamin D hints (`ESPGHAN_TARGETS.en`,
 `ENTERAL_TARGETS.ca`), the Reference page's GIR step, and the Glycophos and K₂HPO₄ strengths beside `KCMH_STOCK`
 (2, 31 and 15.5, which feed the Na and P totals). All now read data.js. Two texts change: the oral P hint read
 "~68–115 mg/kg/day", the exact conversion of 2.2–3.7 mmol, and now shows the graded band, "~70–115"
-(data.js rounds it to [70, 115] on purpose); the Mg tooltip loses a trailing zero ("5.0" → "5"). Still literal,
-with no constant to read: Vitalipid's 4 mL/kg and 10 mL cap, heparin's 0.5 floor, the energy-split targets, and
-the fluid-mismatch margin of 20, which `NO_TPN_PLAN_GAP_ML_KG` shares by choice.
+(data.js rounds it to [70, 115] on purpose); the Mg tooltip loses two trailing zeros ("5.0" → "5" in each band). Still literal, with no constant to read:
+Vitalipid's 4 mL/kg and 10 mL cap, heparin's 0.5 floor, the energy-split targets, and the fluid-mismatch margin of
+20, which `NO_TPN_PLAN_GAP_ML_KG` shares by choice. Still literal although a constant exists, left for a later PR:
+the Reference page's rows other than the GIR card (amino acid, lipid, PN and EN electrolytes, EN targets, which
+`ESPGHAN_TARGETS` holds), the lipid "1–24 h" hint (`PUMP_MAX_HOURS`) and "MEF 12–"
+(`ESPGHAN_TARGETS.en.advancement.mef`). The harness plants the dextrose ceiling and heparin; the other
+replacements are held only by today's text (calc-compare, the oracle and the rule cases).
 
 ## Session 2026-11-10 (2) — A second lipid ceiling at the pump; the TPN pump runs 24 h
 
