@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "neofeed-dev-local",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/dev-local.mjs", "--port", "8155"],
+      "port": 8155,
+      "url": "http://127.0.0.1:8155"
+    }
+  ]
+}

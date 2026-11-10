@@ -51,6 +51,12 @@ A typed dose prints as before. A tap on Lipid volume can now keep a higher whole
 stepped down to 10 mL, 3.45; Vera). `CONSTANTS_VERSION` stays 2026-11-06.1 for now: whether this needs a bump is Pp's call. No second
 clinician has reviewed this. Backend unchanged.
 
+## Session 2026-11-09 — an agent can open dev local unattended
+
+`tools/dev-local.mjs` no longer serves the Google Sign-In script: the sandbox refuses every Google token, and a
+Google window seen on the PR #163 run blocked the Browser pane until a person closed it. The cause was not traced. `.claude/launch.json` starts the tool as `neofeed-dev-local`,
+and `AGENTS.md` now says it exists. `verify-dev-local` gained 1.6 and 5.0.
+
 ## Session 2026-11-08 (9) — NF-42, one wording in (8)
 
 jsdom drops a gradient built on `var()`, which all three in `calculator.jsx` are; a plain gradient is kept.

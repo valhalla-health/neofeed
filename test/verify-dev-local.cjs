@@ -13,6 +13,7 @@
 //   #3 refuses a tree whose boot.js has no NEOFEED_GAS_URL line it can
 //              rewrite, rather than serve it
 //   #4 stop    removes the copy
+//   #5 launch  .claude/launch.json starts it by name from a checkout
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -52,6 +53,7 @@ const post = async (url, body) => (await fetch(url, { method: 'POST', headers: {
       const out = await get(dev.url + '/..%2f' + path.basename(sentinel));
       ok('1.5 a path out of the copy (..%2f) is not served', out.status === 404, out.status);
     } finally { fs.rmSync(sentinel, { force: true }); }
+    ok('1.6 the shell does not load Google Sign-In', !/accounts\.google\.com\/gsi/.test(shell.text));
 
     console.log('\n── #2 the backend behind it ──');
     const doctor = dev.accounts.find(a => a.role === 'doctor');
@@ -102,6 +104,14 @@ const post = async (url, body) => (await fetch(url, { method: 'POST', headers: {
   await d2.stop();
   const after = fs.readdirSync(os.tmpdir()).filter(n => n.startsWith('neofeed-dev-')).length;
   ok('4.0 the served copy exists while it runs and is gone after stop', during === before + 1 && after === before, { before, during, after });
+
+  console.log('\n── #5 an agent can start it by name ──');
+  let launch = null;
+  try { launch = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude', 'launch.json'), 'utf8')); } catch {}
+  const entry = launch && (launch.configurations || []).find(c => c.name === 'neofeed-dev-local');
+  ok('5.0 .claude/launch.json runs tools/dev-local.mjs on 127.0.0.1', !!entry && entry.runtimeExecutable === 'node'
+    && entry.runtimeArgs[0] === 'tools/dev-local.mjs' && entry.url === `http://127.0.0.1:${entry.port}`
+    && entry.runtimeArgs[entry.runtimeArgs.indexOf('--port') + 1] === String(entry.port), entry);
 
   console.log(`\n${fail === 0 ? 'DEV-LOCAL: ALL PASS' : `DEV-LOCAL: ${fail} FAILED`} (${pass} passed, ${fail} failed)`);
   process.exit(fail === 0 ? 0 : 1);

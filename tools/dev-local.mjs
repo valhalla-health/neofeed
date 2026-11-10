@@ -40,6 +40,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SERVED = ["index.html", "boot.js", "data.js", "manifest.json", "moved.html", "compiled", "vendor", "icons",
   "tpn-room.html", "tpn-room-check.html", "tpn-room-check.js", "tpn-room-core.js", "tpn-room-store.js", "tpn-room.css", "fonts"];
 const GAS_URL_LINE = /window\.NEOFEED_GAS_URL\s*=\s*"https:\/\/script\.google\.com\/macros\/s\/[^"]+";/;
+const GSI_SCRIPT = /[ \t]*<script src="https:\/\/accounts\.google\.com\/gsi\/client"[^>]*><\/script>\r?\n?/;
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json",
   ".css": "text/css; charset=utf-8", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon",
@@ -63,6 +64,13 @@ function servedCopy(tree, gasUrl) {
   const out = src.replace(GAS_URL_LINE, `window.NEOFEED_GAS_URL = "${gasUrl}";`);
   if (/script\.google\.com\/macros/.test(out)) throw new Error("boot.js still names the production backend");
   fs.writeFileSync(boot, out);
+  // Google Sign-In cannot work here (the sandbox refuses every Google token), and
+  // a Google window seen on a dev-local run (PR #163) blocked the Browser pane
+  // until a person closed it. The login page's red "could not load" alert is expected.
+  const shell = path.join(dir, "index.html");
+  const html = fs.readFileSync(shell, "utf8");
+  if (!GSI_SCRIPT.test(html)) throw new Error("index.html: the Google Sign-In script tag was not found");
+  fs.writeFileSync(shell, html.replace(GSI_SCRIPT, ""));
   return dir;
 }
 
