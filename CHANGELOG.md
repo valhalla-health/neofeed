@@ -38,7 +38,7 @@ would print beside the paper's layout. Which of the two the form follows is a qu
 `DEX_PERIPHERAL_MAX_PCT` joins CR-OSM-PERIPH with cases at 12.5 and 12.6 (Vera).
 
 No value changed and no figure moved, so `CONSTANTS_VERSION` stays. The new harness plants other values in
-`data.js`'s exports and reads the screen, the printed form and the Copy: 12 of its 21 checks fail on `e555695`.
+`data.js`'s exports and reads the screen, the printed form and the Copy: 12 of its 23 checks fail on `e555695`.
 
 Left out: Full EN at 100 mL/kg/d, which open PR #239 moves into `isFullEn`; `calculator.jsx` still tests
 `> 100` in two places (the P:E alert and its panel) where everything else tests `>= 100`, and that boundary
@@ -46,8 +46,8 @@ is Pp's call. The nursing form's 200–8,000 g and the backend's `_checkRange` b
 mirror input validation in another runtime. `gas-backend.gs:2394`'s comment still says 300–8,000 g; the
 code says 200.
 
-**After the second reader** (a sweep of calculator.jsx and log.jsx, and app.jsx outside the Reference page, at the merge of #237), more copies
-of exported constants: the No TPN title's 80 (`NO_TPN_EN_MIN_ML_KG`), the vitamin D title's 1,000
+**After the second reader** (a sweep of calculator.jsx, log.jsx and app.jsx at the merge of #237, which on the
+Reference page reached only the GIR card), more copies of exported constants: the No TPN title's 80 (`NO_TPN_EN_MIN_ML_KG`), the vitamin D title's 1,000
 (`VIT_D_MAX_IU_DAY`), heparin's "0.5–1" on the hint, the note and the printed form (`HEPARIN_USUAL_MAX_U_ML`),
 the Mg tooltip (`TPN_TARGETS.mg`), the oral Fe, Ca, P and vitamin D hints (`ESPGHAN_TARGETS.en`,
 `ENTERAL_TARGETS.ca`), the Reference page's GIR step, and the Glycophos and K₂HPO₄ strengths beside `KCMH_STOCK`

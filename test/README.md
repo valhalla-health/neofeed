@@ -2228,6 +2228,8 @@ and `REFERENCE.md` name the tool and its limits. Needs the jsdom set above; abou
 ## Limits written out read data.js, 2026-11-10 — one harness added
 
 `verify-one-source-thresholds-1110.cjs`: plants other values for `TARGETS.girTarget`, `GIR_HARD_HI`,
-`OSM_PERIPHERAL_MAX`, `NPE_IV_WARN_LO`, `DEX_PERIPHERAL_MAX_PCT`, `MAX_DEXTROSE_G_KG` and `HEPARIN_USUAL_MAX_U_ML` in `window.NEOFEED_DATA` and reads the GIR meter
-and its line, the dextrose-ceiling alert, the heparin hint, the printed route line, the quick calc's Copy, the NPE:AA alerts and the "Central only!" flag; then the
-real values print the same words as before. 12 of its 21 checks fail on `e555695`. Needs the jsdom set above.
+`OSM_PERIPHERAL_MAX`, `NPE_IV_WARN_LO`, `DEX_PERIPHERAL_MAX_PCT`, `MAX_DEXTROSE_G_KG` and
+`HEPARIN_USUAL_MAX_U_ML` in `window.NEOFEED_DATA` and reads the GIR meter and its line, the dextrose-ceiling alert,
+the heparin hint and printed line, the printed route line, the quick calc's Copy, the NPE:AA alerts and the
+"Central only!" flag; then the real values print the same words as before (GIR, route line, NPE:AA, heparin hint,
+dextrose alert). 12 of its 23 checks fail on `e555695`. Needs the jsdom set above.

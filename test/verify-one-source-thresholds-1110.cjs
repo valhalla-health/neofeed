@@ -254,6 +254,10 @@ const printText = () => text(container.querySelector('#print-form'));
     mountPatient('Central');
     order({ dex: 10, aa: 1.71 });
     ok('IV 19.9 still reads "kcal/g AA < 20"', alertTexts().join(' | ').includes('NPE:AA IV 19.9 kcal/g AA < 20'), alertTexts());
+    ok('heparin hint still reads "Normal 0.5–1 U/mL"', text(container).includes('Normal 0.5–1 U/mL'), (text(container).match(/Normal 0\.5–[^·]*/) || [])[0]);
+    order({ dex: 20, aa: 2 });
+    const dex = alertTexts().find(t => t.includes('Dextrose over KCMH max'));
+    ok('17.3 g/kg/d still reads "(glucose 12 mg/kg/min)"', !!dex && dex.includes('(glucose 12 mg/kg/min)'), dex);
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);
