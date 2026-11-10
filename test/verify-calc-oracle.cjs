@@ -382,11 +382,12 @@ function expectedAlerts(sc, e) {
   // Critical only when it is above the ceiling over the hours ordered as well: a rate
   // rounded up cannot make it critical by itself (Pp, 2026-11-09).
   if (sc.lip > 0) { const g = Math.round(e.lipGkgh * 100) / 100, ordered = Math.round(sc.lip / sc.lipH * 100) / 100;
-    if (g > 0.17 && ordered > 0.17) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
-  // A TPN pump that empties the bag 1 h or more before the next one is said (Pp, 2026-11-09, Q21).
+    if ((g > 0.17 && ordered > 0.17) || g > 0.2) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
+  // The TPN pump runs 24 h with no volume limit; 5 % or more above the volume is said (Pp, 2026-11-10, Q21).
   if (e.Vd > 0) { let r = Math.round(e.Vd / 24 * 10 + 1e-9) / 10;
     if (!(r > 0) || e.Vd / r > 24 + 1e-9) r = Math.ceil(e.Vd / 24 * 10 - 1e-9) / 10;
-    if (24 - Math.round(e.Vd / r * 10 + 1e-9) / 10 >= 1 - 1e-9) add('info', 'TPN bag ends early'); }
+    const extra = Math.round((r * 24 - e.Vd) * 10) / 10;
+    if (Math.round(extra / e.Vd * 100) >= 5) add('info', 'TPN rate gives more than ordered'); }
   if (e.znTot > 5) add('crit', 'Zinc total above 5 mg/day');
   // A bag with volume and no amino acid is a caution (Pp, 2026-10-21); one
   // without MgSO₄ is not, since 2026-10-27 (TPN team; Pp: "เอาออก").

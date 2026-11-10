@@ -1473,7 +1473,7 @@ function Calculator({
   const lipidGkgh = lipidGrade.gkgh;
   const pumpHoursText = (pump) => pump ? `${fmt(pump.hours, 1)} h` : "—";
   const sLipidGkgh = lipidGrade.status;
-  const tpnEarlyStopH = D.pumpEarlyStopHours(totalTPN_mL, 24);
+  const tpnOver = D.tpnOverDelivery(totalTPN_mL);
   const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
   const ivLipidKg = wtKg > 0 ? calc.lipidG / wtKg : 0;
   const ivKKg = calc.kKg;
@@ -1664,7 +1664,7 @@ function Calculator({
     ref: "Pp, 2026-11-01"
   });
   if ((calc.totalTPN_mL > 0 || noTpnOn && !noTpnEnLow && !noTpnPlanLow) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
-  if (tpnEarlyStopH > 0) alerts.push({ level: "info", title: "TPN bag ends early", body: `${fmt(tpnPump.rate, 1)} mL/hr empties the bag in ${pumpHoursText(tpnPump)}, ${fmt(tpnEarlyStopH, 1)} h before the next one. While it runs, glucose is ${Math.round((24 / tpnPump.hours - 1) * 100)} % above the GIR shown.`, ref: "Pp, 2026-11-09" });
+  if (tpnOver) alerts.push({ level: "info", title: "TPN rate gives more than ordered", body: `${fmt(tpnPump.rate, 1)} mL/hr for 24 h gives ${fmt(tpnOver.givenMl, 1)} mL, ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct} %) more than the ${fmt(totalTPN_mL, 1)} mL ordered, from the bag's dead space. Glucose and every additive run ${tpnOver.pct} % above the figures shown.`, ref: "Pp, 2026-11-10" });
   if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose 12 mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
   if (kOverMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
@@ -2566,7 +2566,7 @@ function Calculator({
       value: tpnPump ? tpnPump.rate : 0,
       onChange: (r) => setTotalTPN_mL(parseFloat((r * 24).toFixed(2))),
       step: 0.1,
-      hint: totalTPN_mL > 0 ? `= ${totalTPN_mL.toFixed(0)} mL/day · infusion ${pumpHoursText(tpnPump)}${tpnEarlyStopH > 0 ? ` · หยุด ${fmt(tpnEarlyStopH, 1)} h ก่อนถุงใหม่` : ""}` : "ใส่ rate pump"
+      hint: totalTPN_mL > 0 ? `= ${tpnOver ? fmt(totalTPN_mL, 1) : totalTPN_mL.toFixed(0)} mL/day${tpnOver ? ` · 24 ชม. ได้ ${fmt(tpnOver.givenMl, 1)} mL เกิน ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct}%)` : ""}` : "ใส่ rate pump"
     }
   )), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(
     NumField,
@@ -2963,7 +2963,7 @@ function Calculator({
       `Osm: ${fmt(calc.osm, 0)} mOsm/L`,
       `──────────────────────────────`,
       `FLUID: Target ${fluidTargetPerKg} mL/kg/d = ${fmt(fluidTargetPerKg * calc.wtKg, 0)} mL/day`,
-      `  TPN aqueous: ${fmt(totalTPN_mL, 1)} mL/day delivered → Rate ${tpnPump ? fmt(tpnPump.rate, 1) : "—"} mL/hr, infusion ${pumpHoursText(tpnPump)}`,
+      `  TPN aqueous: ${fmt(totalTPN_mL, 1)} mL/day delivered → Rate ${tpnPump ? fmt(tpnPump.rate, 1) : "—"} mL/hr over 24 h`,
       calc.overfill > 1.001 ? `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (+${fmt(deadVol_mL, 1)} mL ปริมาตรคาสาย) · Factor ${fmt(calc.factor, 3)} = ${fmt(calc.wtKg, 2)} kg × ${fmt(calc.overfill, 3)}` : `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (no overfill)`,
       `  Lipid bag:   ${fmt(calc.lipidBagVol, 1)} mL/day → Rate ${lipidPump ? fmt(lipidPump.rate, 1) : "—"} mL/hr, infusion ${pumpHoursText(lipidPump)}${lipidPerKg > 0 ? ` (${fmt(lipidGkgh, 2)} g/kg/h)` : ""}`,
       `  Prescribed:  ${fmt(calc.prescribedFluid, 0)} mL/day | Remaining: ${fmt(calc.remaining, 1)} mL`,

@@ -7,7 +7,18 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-10 — Lipid rate: critical only when over the ceiling as ordered too; a TPN bag that ends early says so
+## Session 2026-11-10 (2) — A second lipid ceiling at the pump; the TPN pump runs 24 h
+
+Vera on (1) and Pp's answers the same morning. **Above 0.20 g/kg/h at the pump is critical** whatever the hours ordered
+(`LIPID_GKGH.pumpMax`): 200 g on 4 g/kg/d over 24 h runs 0.3 mL/hr for 16.7 h, 0.24, which (1) left amber. The lipid
+syringe stops at the volume ordered, so its hours stand. **The TPN pump has no volume limit** (Pp): it runs the rate
+for 24 h, so (1)'s "หยุด N h ก่อนถุงใหม่" was wrong. Step 3 now drops the TPN hours and, from 5 % up, says what 24 h
+gives: 12.5 mL at 0.6 mL/hr gives 14.4 mL, 1.9 mL (15 %) more, from the dead space; the alert is "TPN rate gives more
+than ordered". The copied order says "over 24 h" for TPN. The 5 % is the agent's default. `CONSTANTS_VERSION` stays
+2026-11-06.1: it has not reached the ward and ships with this. No second clinician has reviewed this; Pp only.
+The TPN hint gives the volume to 1 decimal when it shows the note (Vera).
+
+## Session 2026-11-10 (1) — Lipid rate: critical only when over the ceiling as ordered too; a TPN bag that ends early says so
 
 `data.js` (`lipidRateGrade`, `pumpEarlyStopHours`, `PUMP_EARLY_STOP_NOTE_H`), `calculator.jsx`, the
 `neofeed-clinical-rules` skill (`CR-LIPID-RATE`, `CR-R-PUMP-RATE`, `CR-R-LIPID-WHOLE-ML`, Q21), `docs/CLINICAL_CONSTANTS.md`,

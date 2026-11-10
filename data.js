@@ -826,7 +826,7 @@ const kBagLimitsFor = (route) => K_BAG_MEQ_PER_L[route === "central" ? "central"
 // Lipid infusion rate ceiling, g/kg/h (TPN team meeting and Praew, 2026-09-28):
 // amber above `warn`, critical above `max`. Graded on the figure the pump card
 // shows (2 decimals), so its colour never disagrees with its number.
-const LIPID_GKGH = { warn: 0.13, max: 0.17 };
+const LIPID_GKGH = { warn: 0.13, max: 0.17, pumpMax: 0.2 };
 // Total elemental zinc reaching the infant per day — Peditrace plus ZnSO₄ —
 // above which an order is a critical alert (KCMH TPN team, 2026-09-22).
 const MAX_ZN_MG_DAY = 5;
@@ -1095,23 +1095,28 @@ function lipidGkghAt(lipidPerKg, bagMl, hours) {
 // hours. Critical needs the dose above the ceiling over the hours ordered as well,
 // so a rate rounded up to the next 0.1 cannot make a line critical by itself: at
 // 4 g/kg/d over 24 h it did at 30 of the 50 weights under 1 kg, each asking a
-// reason (Pp, 2026-11-09). `overByRounding` marks an amber line above the ceiling.
+// reason (Pp, 2026-11-09). Above LIPID_GKGH.pumpMax at the pump it is critical
+// whatever the hours ordered: 200 g on 4 g/kg/d runs 0.24 (Vera; Pp, 2026-11-10).
+// `overByRounding` marks an amber line above the ceiling.
 function lipidRateGrade(lipidPerKg, bagMl, hours) {
   const gkgh = lipidGkghAt(lipidPerKg, bagMl, hours);
   const gkghOrdered = lipidPerKg > 0 && hours > 0 ? Math.round(lipidPerKg / hours * 100) / 100 : 0;
   const over = gkgh > LIPID_GKGH.max;
-  const status = over && gkghOrdered > LIPID_GKGH.max ? "crit" : gkgh > LIPID_GKGH.warn ? "warn" : "ok";
+  const status = (over && gkghOrdered > LIPID_GKGH.max) || gkgh > LIPID_GKGH.pumpMax ? "crit" : gkgh > LIPID_GKGH.warn ? "warn" : "ok";
   return { status, gkgh, gkghOrdered, overByRounding: over && status !== "crit" };
 }
-// Hours before the next bag that a pump empties its volume, as the screen shows
-// them, or 0 under PUMP_EARLY_STOP_NOTE_H. Rounding a small TPN bag's rate up stops
-// the pump early while GIR is still over 24 h, so it is said (Pp, 2026-11-09, Q21).
-const PUMP_EARLY_STOP_NOTE_H = 1;
-function pumpEarlyStopHours(volMl, hours = 24) {
-  const pump = pumpRate(volMl, hours);
-  if (!pump) return 0;
-  const gap = Number((PUMP_MAX_HOURS - Number(displayNum(pump.hours, 1))).toFixed(1));
-  return gap >= PUMP_EARLY_STOP_NOTE_H ? gap : 0;
+// The ward sets no volume limit on the TPN pump (Pp, 2026-11-10), so it runs its
+// rate for 24 h and draws the extra from the bag's dead space. A rate rounded up
+// then gives more than ordered: 12.5 mL at 0.6 mL/hr is 14.4 mL, 15 % more. From
+// TPN_OVER_NOTE_PCT up it is said (Q21; Pp chose to say it, 2026-11-10). null below.
+const TPN_OVER_NOTE_PCT = 5;
+function tpnOverDelivery(volMl) {
+  const pump = pumpRate(volMl, 24);
+  if (!pump) return null;
+  const givenMl = Number((pump.rate * 24).toFixed(1));
+  const extraMl = Number((givenMl - volMl).toFixed(1));
+  const pct = Math.round(extraMl / volMl * 100);
+  return pct >= TPN_OVER_NOTE_PCT ? { givenMl, extraMl, pct } : null;
 }
 // The 20% lipid syringe to a whole mL/day (Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ
 // rounding ให้ หน่วยเป็น ml/day และย้อนกลับไปคำนวณ"). Tapping Step 3's "Lipid
@@ -3050,7 +3055,7 @@ window.NEOFEED_DATA = {
   PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
   // Step 3's Lipid volume tap: the syringe to a whole mL, the dose from it;
   // both pumps' rates to 0.1 mL/hr and the hours they run; lipid g/kg/h on those
-  lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt, lipidRateGrade, pumpEarlyStopHours, PUMP_EARLY_STOP_NOTE_H,
+  lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt, lipidRateGrade, tpnOverDelivery, TPN_OVER_NOTE_PCT,
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings

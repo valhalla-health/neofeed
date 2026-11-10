@@ -367,6 +367,8 @@ Critical needs the dose above 0.17 over the hours ordered as well (dose ÷ the h
 only the pump's hours are above it, because the rate rounded up, the line stays amber and says so (940 g, 4 g/kg/d
 over 24 h: 21.8 mL at 1 mL/hr runs 21.8 h, 0.18; 0.17 as ordered). Pp, 2026-11-09, after the release comparison:
 4 g/kg/d over 24 h had become critical at 52 of 351 weights from 500 to 4,000 g, 30 of the 50 under 1 kg.
+Above 0.20 at the pump it is critical whatever the hours ordered (Vera: 200 g on 4 g/kg/d over 24 h runs 0.3
+mL/hr for 16.7 h, 0.24; Pp, 2026-11-10, 0.20). The lipid syringe stops at the volume ordered (Pp, 2026-11-10).
 Source: TPN team 2026-09-28, Pp: "lipid เพดาน 0.13-0.17 g/kg/h". Koletzko 2005 (p. S20): infants at most
 3–4 g/kg/d "(0.13–0.17 g/kg per hour)". ESPGHAN 2018 gives no hourly limit and advises lipid over 24 h in
 newborns (Lapillonne R 4.10). Thai CPG Table 3.2: 0.17 for preterm, term and infants, 0.13 only over
@@ -374,7 +376,7 @@ newborns (Lapillonne R 4.10). Thai CPG Table 3.2: 0.17 for preterm, term and inf
 The actual hours: Pp, 2026-11-06, asked with the rate rounding ("Actual hours"); until then the hours typed.
 
 ```rule
-{"rule": "CR-LIPID-RATE", "kind": "critical", "coded": {"LIPID_GKGH": {"warn": 0.13, "max": 0.17}}, "where": [{"file": "data.js", "line": 829, "has": "const LIPID_GKGH = { warn: 0.13, max: 0.17 };"}, {"file": "data.js", "line": 1090, "has": "function lipidGkghAt(lipidPerKg, bagMl, hours) {"}, {"file": "data.js", "line": 1099, "has": "function lipidRateGrade(lipidPerKg, bagMl, hours) {"}, {"file": "calculator.jsx", "line": 2143, "has": "const lipidGrade = D.lipidRateGrade(lipidPerKg, calc.lipidBagVol, lipidDripHours);"}]}
+{"rule": "CR-LIPID-RATE", "kind": "critical", "coded": {"LIPID_GKGH": {"warn": 0.13, "max": 0.17, "pumpMax": 0.2}}, "where": [{"file": "data.js", "line": 829, "has": "const LIPID_GKGH = { warn: 0.13, max: 0.17, pumpMax: 0.2 };"}, {"file": "data.js", "line": 1090, "has": "function lipidGkghAt(lipidPerKg, bagMl, hours) {"}, {"file": "data.js", "line": 1101, "has": "function lipidRateGrade(lipidPerKg, bagMl, hours) {"}, {"file": "calculator.jsx", "line": 2143, "has": "const lipidGrade = D.lipidRateGrade(lipidPerKg, calc.lipidBagVol, lipidDripHours);"}]}
 {"case": "3.0 g over 24 h: 19 mL at 0.8 mL/hr runs 23.75 h = 0.13: no caution", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3}, "expect": {"no_alert": "Lipid rate near the ceiling"}}
 {"case": "3.05 g over 24 h: 19.25 mL at 0.9 mL/hr runs 21.4 h = 0.14: caution", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.05}, "expect": {"alert": "Lipid rate near the ceiling", "level": "warn", "shows": "0.14 g/kg/h over 21.4 h"}}
 {"case": "3.35 g over 20 h: 20.75 mL at 1 mL/hr runs 20.75 h = 0.16: not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "hours": 20, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3.35}, "expect": {"no_alert": "Lipid rate above the ceiling"}}
@@ -383,6 +385,8 @@ The actual hours: Pp, 2026-11-06, asked with the rate rounding ("Actual hours");
 {"case": "940 g, 4 g over 24 h: 21.8 mL at 1 mL/hr runs 21.8 h = 0.18, 0.17 over the 24 h ordered: amber", "side": "inside", "infant": {"g": 940}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 4}, "expect": {"alert": "Lipid rate near the ceiling", "level": "warn", "shows": "0.17 over the 24 h ordered"}}
 {"case": "over the ceiling only because the rate rounded up: amber", "side": "inside", "fn": "lipidRateGrade", "args": [4, 21.8, 24], "want": {"status": "warn", "gkgh": 0.18, "gkghOrdered": 0.17, "overByRounding": true}}
 {"case": "over the ceiling on both counts: critical", "side": "outside", "fn": "lipidRateGrade", "args": [3.5, 21.5, 20], "want": {"status": "crit", "gkgh": 0.18, "gkghOrdered": 0.18, "overByRounding": false}}
+{"case": "200 g, 4 g over 24 h: 5 mL at 0.3 mL/hr runs 16.7 h = 0.24, above 0.20 at the pump: critical", "side": "outside", "fn": "lipidRateGrade", "args": [4, 5, 24], "want": {"status": "crit", "gkgh": 0.24, "gkghOrdered": 0.17, "overByRounding": false}}
+{"case": "0.20 at the pump is not above 0.20: amber", "side": "inside", "fn": "lipidRateGrade", "args": [4, 6, 24], "want": {"status": "warn", "gkgh": 0.2, "gkghOrdered": 0.17, "overByRounding": true}}
 {"case": "over 0.17 as ordered, 0.17 as the pump runs: amber", "side": "inside", "fn": "lipidRateGrade", "args": [2.85, 18.25, 16], "want": {"status": "warn", "gkgh": 0.17, "gkghOrdered": 0.18, "overByRounding": false}}
 {"case": "0.17 is not above the ceiling", "side": "inside", "fn": "lipidGkghAt", "args": [4, 24, 24], "want": 0.17}
 {"case": "2.85 g over 16 h: 18.25 mL at 1.1 mL/hr runs 16.6 h = 0.17: amber, not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "hours": 16, "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2.85}, "expect": {"alert": "Lipid rate near the ceiling", "level": "warn", "no_alert": "Lipid rate above the ceiling"}}
@@ -685,7 +689,7 @@ Source: the KCMH worksheet, row 43 (1 mL/kg, max 10); Soluvit N datasheet (Medsa
 uses actual weight).
 
 ```rule
-{"rule": "CR-SOLUVIT-CAP", "kind": "cap", "coded": {"KCMH_STOCK.soluvit.mlPerKg": 1, "KCMH_STOCK.soluvit.maxMl": 10}, "where": [{"file": "data.js", "line": 782, "has": "mlPerKg: 1.0, maxMl: 10 },"}, {"file": "data.js", "line": 2463, "has": "return Math.min(s.mlPerKg * wtKg, s.maxMl);"}, {"file": "calculator.jsx", "line": 1828, "has": "roundMl(D.vitaminMlPerDay(\"soluvit\",   wtKg) * overfill)"}]}
+{"rule": "CR-SOLUVIT-CAP", "kind": "cap", "coded": {"KCMH_STOCK.soluvit.mlPerKg": 1, "KCMH_STOCK.soluvit.maxMl": 10}, "where": [{"file": "data.js", "line": 782, "has": "mlPerKg: 1.0, maxMl: 10 },"}, {"file": "data.js", "line": 2468, "has": "return Math.min(s.mlPerKg * wtKg, s.maxMl);"}, {"file": "calculator.jsx", "line": 1828, "has": "roundMl(D.vitaminMlPerDay(\"soluvit\",   wtKg) * overfill)"}]}
 {"case": "1 kg, 100 + 30 mL: 1.3 mL in the bag", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Soluvit N1.3 mL/day", "hides": "Soluvit N (water-sol.)1.3"}}
 {"case": "8 kg, no dead space: 8 mL", "side": "inside", "infant": {"g": 8000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Soluvit N8 mL/day"}}
 {"case": "10 kg (refused by CR-WT-RANGE): 10 mL, the cap itself", "side": "inside", "fn": "vitaminMlPerDay", "args": ["soluvit", 10], "want": 10}
@@ -701,7 +705,7 @@ Source: the KCMH worksheet, row 45 (1 mL/kg, max 15); Peditrace SmPC (HPRA, 2019
 maximum daily dose of 15 ml"; Thai CPG PDF p. 116. Zn 250 µg/mL, pharmacy, 2026-10-25.
 
 ```rule
-{"rule": "CR-PEDITRACE-CAP", "kind": "cap", "coded": {"KCMH_STOCK.peditrace.mlPerKg": 1, "KCMH_STOCK.peditrace.maxMl": 15}, "where": [{"file": "data.js", "line": 784, "has": "mlPerKg: 1.0, maxMl: 15, znMgPerMl: 0.25 },"}, {"file": "data.js", "line": 2461, "has": "function vitaminMlPerDay(stockKey, wtKg) {"}, {"file": "calculator.jsx", "line": 1829, "has": "roundMl(D.vitaminMlPerDay(\"peditrace\", wtKg) * overfill)"}]}
+{"rule": "CR-PEDITRACE-CAP", "kind": "cap", "coded": {"KCMH_STOCK.peditrace.mlPerKg": 1, "KCMH_STOCK.peditrace.maxMl": 15}, "where": [{"file": "data.js", "line": 784, "has": "mlPerKg: 1.0, maxMl: 15, znMgPerMl: 0.25 },"}, {"file": "data.js", "line": 2466, "has": "function vitaminMlPerDay(stockKey, wtKg) {"}, {"file": "calculator.jsx", "line": 1829, "has": "roundMl(D.vitaminMlPerDay(\"peditrace\", wtKg) * overfill)"}]}
 {"case": "8 kg, no dead space: 8 mL", "side": "inside", "infant": {"g": 8000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Peditrace (Zn 250 µg/mL)8 mL/day"}}
 {"case": "15 kg (refused by CR-WT-RANGE): 15 mL, the cap itself", "side": "inside", "fn": "vitaminMlPerDay", "args": ["peditrace", 15], "want": 15}
 {"case": "16 kg (refused by CR-WT-RANGE): capped at 15 mL", "side": "outside", "fn": "vitaminMlPerDay", "args": ["peditrace", 16], "want": 15}
@@ -965,7 +969,7 @@ newborn ward today (`OLDER_CHILD_WARDS` is empty).
 Source: Pp, 2026-09-18: "ใน SCN+NICU แก้เป็น +30 ml อัตโนมัติไปเลย".
 
 ```rule
-{"rule": "CR-U-DEAD-SPACE", "kind": "unit", "coded": {"NEWBORN_DEAD_VOL_ML": 30, "OLDER_CHILD_WARDS": []}, "where": [{"file": "data.js", "line": 2456, "has": "const NEWBORN_DEAD_VOL_ML = 30;"}, {"file": "calculator.jsx", "line": 135, "has": "return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);"}]}
+{"rule": "CR-U-DEAD-SPACE", "kind": "unit", "coded": {"NEWBORN_DEAD_VOL_ML": 30, "OLDER_CHILD_WARDS": []}, "where": [{"file": "data.js", "line": 2461, "has": "const NEWBORN_DEAD_VOL_ML = 30;"}, {"file": "calculator.jsx", "line": 135, "has": "return v > 0 ? v : window.NEOFEED_DATA.defaultDeadVolFor(patient);"}]}
 {"case": "a NICU bed starts at 30 mL", "fn": "defaultDeadVolFor", "args": [{"currentBed": "NICU 5"}], "want": 30}
 ```
 
@@ -977,7 +981,7 @@ dextrose g in the prepared bag ÷ 0.5. g/kg/d = GIR × 1.44.
 Source: standard; matches the KCMH worksheet (D10, F10).
 
 ```rule
-{"rule": "CR-U-GIR", "kind": "unit", "coded": {"KCMH_STOCK.d50w.gPerMl": 0.5}, "where": [{"file": "calculator.jsx", "line": 1715, "has": "const gir = dexG * 1000 / (1440 * wtKg);"}, {"file": "data.js", "line": 1179, "has": "return gir * 1.44;  // mg/kg/min × 1.44 = g/kg/day"}]}
+{"rule": "CR-U-GIR", "kind": "unit", "coded": {"KCMH_STOCK.d50w.gPerMl": 0.5}, "where": [{"file": "calculator.jsx", "line": 1715, "has": "const gir = dexG * 1000 / (1440 * wtKg);"}, {"file": "data.js", "line": 1184, "has": "return gir * 1.44;  // mg/kg/min × 1.44 = g/kg/day"}]}
 {"case": "1 kg, 100 mL of D10: GIR 6.9", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "GIR6.9mg/kg/min"}}
 {"case": "12 mg/kg/min = 17.28 g/kg/d", "fn": "girToGPerKg", "args": [12], "want": 17.28, "within": 1e-9}
 {"case": "17.28 g/kg/d at 1 kg = 12 mg/kg/min", "fn": "calcGIR", "args": [17.28, 1], "want": 12, "within": 1e-9}
@@ -1008,7 +1012,7 @@ Thai CPG, and the published neonatal equations use other terms (Pereira-da-Silva
 The 1.4 (Ca) and 1 (Mg) factors appear in no primary source: Q16.
 
 ```rule
-{"rule": "CR-U-OSM", "kind": "unit", "where": [{"file": "data.js", "line": 1160, "has": "function estimateOsmolarity({ dexPct, aaPct, naMeqPerL, kMeqPerL, caMgPerL = 0, mgMeqPerL = 0 }) {"}, {"file": "calculator.jsx", "line": 1910, "has": "}, osm = D.estimateOsmolarity(osmIn);"}]}
+{"rule": "CR-U-OSM", "kind": "unit", "where": [{"file": "data.js", "line": 1165, "has": "function estimateOsmolarity({ dexPct, aaPct, naMeqPerL, kMeqPerL, caMgPerL = 0, mgMeqPerL = 0 }) {"}, {"file": "calculator.jsx", "line": 1910, "has": "}, osm = D.estimateOsmolarity(osmIn);"}]}
 {"case": "D10, AA 2 %, Na 30, K 20, Ca 400 mg/L, Mg 3: 831", "fn": "estimateOsmolarity", "args": [{"dexPct": 10, "aaPct": 2, "naMeqPerL": 30, "kMeqPerL": 20, "caMgPerL": 400, "mgMeqPerL": 3}], "want": 831, "within": 1e-9}
 {"case": "1 kg, 100 mL of D10 with AA 3: 800", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Osm 800 mOsm/L"}}
 ```
@@ -1099,7 +1103,7 @@ Source: Pp, 2026-11-01: "มุมติ๊กขวาบน ช่อง tpn �
 no TPN". Not a clinical threshold.
 
 ```rule
-{"rule": "CR-U-NO-TPN", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 156, "has": "function withLegacyNoTpn(entry, src) {"}, {"file": "data.js", "line": 1749, "has": "function orderIsNoTpn(entry) {"}, {"file": "registry.jsx", "line": 288, "has": "&& D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;"}, {"file": "data.js", "line": 1783, "has": "function orderPrints(entry, previousEntry) {"}, {"file": "calculator.jsx", "line": 78, "has": "noTpn: src.noTpn === true,"}, {"file": "calculator.jsx", "line": 1127, "has": "const tickNoTpn = (on) => {"}]}
+{"rule": "CR-U-NO-TPN", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 156, "has": "function withLegacyNoTpn(entry, src) {"}, {"file": "data.js", "line": 1754, "has": "function orderIsNoTpn(entry) {"}, {"file": "registry.jsx", "line": 288, "has": "&& D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;"}, {"file": "data.js", "line": 1788, "has": "function orderPrints(entry, previousEntry) {"}, {"file": "calculator.jsx", "line": 78, "has": "noTpn: src.noTpn === true,"}, {"file": "calculator.jsx", "line": 1127, "has": "const tickNoTpn = (on) => {"}]}
 {"case": "1 kg: a bag of 100 mL, lipid and KCl, then the tick: cleared, feeds 10 mL × 8 alone, saves", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2, "KCl": 2, "Volume(mL/feed)": 10, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"submit": "no_reason", "no_alert": "Amino acid not ordered", "shows": "Plan 150 · Prescribed 80 mL/d", "hides": ["TPN Aqueous Pump", "Lipid Pump", "ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง"]}}
 {"case": "the tick on, then KCl typed into Step 4: refused, and the line points at the tick", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 10, "Frequency": 8}, "tick": {"No TPN": true}, "then": {"KCl": 2}, "expect": {"submit": "blocked", "shows": "ปริมาตร TPN = 0 แต่ยังมีส่วนประกอบในถุง: KCl — ลบส่วนประกอบ หรือเอาติ๊ก \"No TPN\" ออกแล้วใส่ปริมาตร"}}
 ```
@@ -1261,7 +1265,7 @@ critical alert"). The g/kg/h ceiling, the 0.5 mL floor and the 3-decimal print: 
 confirm. Not a clinical threshold.
 
 ```rule
-{"rule": "CR-R-LIPID-WHOLE-ML", "kind": "round", "where": [{"file": "data.js", "line": 1129, "has": "function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = {}) {"}, {"file": "calculator.jsx", "line": 1105, "has": "const roundLipidToWholeMl = () => {"}]}
+{"rule": "CR-R-LIPID-WHOLE-ML", "kind": "round", "where": [{"file": "data.js", "line": 1134, "has": "function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = {}) {"}, {"file": "calculator.jsx", "line": 1105, "has": "const roundLipidToWholeMl = () => {"}]}
 {"case": "1.68 kg, 2 g/kg/d = 16.8 mL: 17 mL, 2.02 g/kg/d", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [2, 1.68, {"vitalipidMl": 6}], "want": 2.02}
 {"case": "580 g, 3.7 g/kg/d = 10.7 mL: 11 mL is 0.18 at the pump but 0.16 over the 24 h ordered, so amber, and the tap keeps the nearest mL", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [3.7, 0.58, {"hours": 24, "vitalipidMl": 2}], "want": 3.79}
 {"case": "1.68 kg, 2.02 g/kg/d is 17 mL already: unchanged", "side": "inside", "fn": "lipidDoseAtWholeMl", "args": [2.02, 1.68, {"vitalipidMl": 6}], "want": 2.02}
@@ -1288,15 +1292,17 @@ show the rate and the hours it actually runs (volume ÷ rate, 1 decimal): 100 mL
 pump stops when the bag is empty. Lipid g/kg/h is graded on those hours (`CR-LIPID-RATE`); GIR is still
 over 24 h (1,440 min). On a small TPN bag the round-up stops the pump hours early: 12.1 mL is 0.6 mL/hr for
 20.2 h, and while it runs the glucose rate is 24 ÷ 20.2 = 19 % above the GIR on screen (Vera on this change).
-Where the pump empties the bag 1 h or more before the next one, Step 3 says "หยุด N h ก่อนถุงใหม่" under Rate and
-the alert list carries the info line "TPN bag ends early" with the percentage. No figure changes (Pp, 2026-11-09,
-Q21); the 1 h is the agent's default, for her to change.
+The ward sets no volume limit on the TPN pump (Pp, 2026-11-10): it runs the rate for 24 h and draws the extra from
+the dead space, so the hours above do not apply to it and Step 3 no longer shows them. Where 24 h at the rate gives
+5 % or more above the volume ordered, Step 3 says "24 ชม. ได้ X mL เกิน Y mL (Z%)" under Rate and the alert list
+carries the info line "TPN rate gives more than ordered". No figure changes (Pp, 2026-11-10, Q21); the 5 % is the
+agent's default, for her to change.
 Source: Pp, 2026-11-06: "Pump rate ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง infusion in กี่ hr ให้ ถ้าเกิน 24 ชม.
 ให้ปัดเพิ่ม rate แทน ให้ไม่เกิน"; asked, she chose 24 h as the limit (not the hours typed) and both pumps.
 Not a clinical threshold.
 
 ```rule
-{"rule": "CR-R-PUMP-RATE", "kind": "round", "coded": {"PUMP_MAX_HOURS": 24, "PUMP_EARLY_STOP_NOTE_H": 1}, "where": [{"file": "data.js", "line": 1078, "has": "const PUMP_MAX_HOURS = 24;"}, {"file": "data.js", "line": 1079, "has": "function pumpRate(volMl, hours = 24) {"}, {"file": "calculator.jsx", "line": 2141, "has": "const tpnPump = D.pumpRate(totalTPN_mL, 24);"}]}
+{"rule": "CR-R-PUMP-RATE", "kind": "round", "coded": {"PUMP_MAX_HOURS": 24, "TPN_OVER_NOTE_PCT": 5}, "where": [{"file": "data.js", "line": 1078, "has": "const PUMP_MAX_HOURS = 24;"}, {"file": "data.js", "line": 1079, "has": "function pumpRate(volMl, hours = 24) {"}, {"file": "calculator.jsx", "line": 2141, "has": "const tpnPump = D.pumpRate(totalTPN_mL, 24);"}]}
 {"case": "100 mL over 24 h: 4.2 mL/hr", "side": "inside", "fn": "pumpRate", "args": [100, 24], "want": {"rate": 4.2, "hours": 23.80952380952381}}
 {"case": "130 mL: 5.4 would run 24.07 h, so 5.5", "side": "outside", "fn": "pumpRate", "args": [130, 24], "want": {"rate": 5.5, "hours": 23.636363636363637}}
 {"case": "lipid bag 22.8 mL over 24 h: 0.95 rounds half up to 1, 22.8 h", "side": "inside", "fn": "pumpRate", "args": [22.8, 24], "want": {"rate": 1, "hours": 22.8}}
@@ -1304,14 +1310,14 @@ Not a clinical threshold.
 {"case": "1 mL over 24 h: 0.04 is 0.0, so 0.1 mL/hr, 10 h", "side": "outside", "fn": "pumpRate", "args": [1, 24], "want": {"rate": 0.1, "hours": 10}}
 {"case": "no volume: no pump", "side": "inside", "fn": "pumpRate", "args": [0, 24], "want": null}
 {"case": "a small bag: 12.1 mL is 0.5 for 24.2 h, so 0.6 mL/hr, 20.2 h (Q21)", "side": "outside", "fn": "pumpRate", "args": [12.1, 24], "want": {"rate": 0.6, "hours": 20.166666666666668}}
-{"case": "12.5 mL at 0.6 mL/hr runs 20.8 h: stops 3.2 h before the next bag", "side": "outside", "fn": "pumpEarlyStopHours", "args": [12.5, 24], "want": 3.2}
-{"case": "13.8 mL at 0.6 mL/hr runs 23 h: 1 h early is said", "side": "outside", "fn": "pumpEarlyStopHours", "args": [13.8, 24], "want": 1}
-{"case": "13.9 mL at 0.6 mL/hr runs 23.2 h: 0.8 h is not", "side": "inside", "fn": "pumpEarlyStopHours", "args": [13.9, 24], "want": 0}
-{"case": "100 mL runs 23.8 h: nothing to say", "side": "inside", "fn": "pumpEarlyStopHours", "args": [100, 24], "want": 0}
-{"case": "no volume: nothing to say", "side": "inside", "fn": "pumpEarlyStopHours", "args": [0, 24], "want": 0}
-{"case": "1 kg, TPN 12.5 mL: Step 3 says the pump stops 3.2 h early", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 12.5, "Dextrose final": 10, "Amino acid": 3}, "expect": {"alert": "TPN bag ends early", "level": "info", "shows": ["· หยุด 3.2 h ก่อนถุงใหม่", "15 % above the GIR"]}}
-{"case": "1 kg, TPN 100 mL: no early-stop line", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"no_alert": "TPN bag ends early"}}
-{"case": "1 kg, TPN 100 mL: Step 3 shows 4.2 mL/hr, infusion 23.8 h", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "= 100 mL/day · infusion 23.8 h"}}
+{"case": "12.5 mL at 0.6 mL/hr for 24 h gives 14.4 mL: 1.9 mL, 15 % more", "side": "outside", "fn": "tpnOverDelivery", "args": [12.5], "want": {"givenMl": 14.4, "extraMl": 1.9, "pct": 15}}
+{"case": "13.7 mL at 0.6 mL/hr gives 14.4 mL: 5 % is said", "side": "outside", "fn": "tpnOverDelivery", "args": [13.7], "want": {"givenMl": 14.4, "extraMl": 0.7, "pct": 5}}
+{"case": "13.8 mL at 0.6 mL/hr gives 14.4 mL: 4 % is not", "side": "inside", "fn": "tpnOverDelivery", "args": [13.8], "want": null}
+{"case": "100 mL at 4.2 mL/hr gives 100.8 mL: nothing to say", "side": "inside", "fn": "tpnOverDelivery", "args": [100], "want": null}
+{"case": "no volume: nothing to say", "side": "inside", "fn": "tpnOverDelivery", "args": [0], "want": null}
+{"case": "1 kg, TPN 12.5 mL: Step 3 says 24 h gives 14.4 mL, 1.9 mL more", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 12.5, "Dextrose final": 10, "Amino acid": 3}, "expect": {"alert": "TPN rate gives more than ordered", "level": "info", "shows": ["· 24 ชม. ได้ 14.4 mL เกิน 1.9 mL (15%)", "run 15 % above the figures shown"]}}
+{"case": "1 kg, TPN 100 mL: no over-delivery line", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"no_alert": "TPN rate gives more than ordered"}}
+{"case": "1 kg, TPN 100 mL: Step 3 shows 4.2 mL/hr; the TPN pump runs 24 h", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "= 100 mL/day"}}
 {"case": "1.68 kg, lipid 2 g/kg/d: 16.8 + 6 = 22.8 mL, 1 mL/hr, infusion 22.8 h, printed", "infant": {"g": 1680}, "route": "Central", "order": {"Volume(mL/day)": 200, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": "22.8 mL/day · infusion 22.8 h", "prints": "Rate 1 mL/hr, infusion 22.8 h"}}
 ```
 
@@ -1386,7 +1392,7 @@ An answered question keeps its evidence, so it can be reopened.
   the two, as coded (a preterm on DOL 6 on clears the red line at 80, and `CR-NO-TPN-PLAN` names the gap to
   the plan), and 80 itself passes. Earlier the same day: below the bar Submit asks a reason, not a stop.
 
-- **Q21 · `CR-R-PUMP-RATE`:** answered, Pp 2026-11-09: show the gap. Rounding the TPN pump rate up stops a small bag hours early (12.1 mL: 0.6 mL/hr,
+- **Q21 · `CR-R-PUMP-RATE`:** answered, Pp 2026-11-10: the TPN pump has no volume limit, so it runs on; say how much more it gives. Rounding the TPN pump rate up stops a small bag hours early (12.1 mL: 0.6 mL/hr,
   20.2 h), while GIR is still graded over 24 h, so the glucose rate while the pump runs is up to about a fifth
   above the GIR shown. Show the gap ("หยุด N h ก่อนถุงใหม่"), grade GIR over the pump's hours, or accept it?
 - **Q22 · `CR-R-LIPID-WHOLE-ML`:** the tap guards only the two lipid lines (4.0 g/kg/d, 0.17 g/kg/h). Should it also

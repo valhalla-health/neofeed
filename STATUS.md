@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-10 — Lipid rate critical only when over the ceiling as ordered too; a TPN bag that ends early says so: branch `claude/lipid-grade-early-stop`, not live.** Part of release #236 once merged into `main` (`CHANGELOG.md` 2026-11-10).
+> ⏳ **2026-11-10 — Lipid rate critical only when over the ceiling as ordered too; above 0.20 at the pump critical always; the TPN line says how much more a rounded-up rate gives: branch `claude/lipid-grade-early-stop`, not live.** Part of release #236 once merged into `main` (`CHANGELOG.md` 2026-11-10).
 >
 > **Backend is `@69` since 2026-11-08**, with #231 and #232 (`clasp list-deployments`; mirror commit `d4a90a1`). The lines below that say that deploy is to come are older. Pp ran `setupQiExportKey()` from the editor on 2026-11-09.
 >
