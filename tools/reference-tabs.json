@@ -145,6 +145,7 @@
     "KCAL_HARD_HI": { "unit": "kcal/kg/d", "sign": "positive" },
     "MAX_ZN_MG_DAY": { "unit": "mg elemental Zn/d", "sign": "positive" },
     "NPE_IV_CRIT_LO": { "unit": "kcal non-protein/g amino acid", "sign": "positive" },
+    "NPE_IV_WARN_LO": { "unit": "kcal non-protein/g amino acid", "sign": "positive" },
     "HEPARIN_USUAL_MAX_U_ML": { "unit": "U/mL of the prepared bag", "sign": "positive" },
     "VIT_D_MAX_IU_DAY": { "unit": "IU/d", "sign": "positive" },
     "MEN_MAX_ML_KG": { "unit": "mL/kg/d", "sign": "positive" },

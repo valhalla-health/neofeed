@@ -1067,7 +1067,16 @@ const PROTEIN_HARD_HI = 4.5;
 const LIPID_IV_HARD_HI = 4.0;
 const K_IV_HARD_HI = 5.0;
 const NPE_IV_CRIT_LO = 12;
+// The IV NPE:AA caution: amber below 20, red below NPE_IV_CRIT_LO. No source;
+// normal in week 1 while dextrose and lipid climb (CR-NPE-AA). The total
+// figure's soft-alert zone runs from here up to TARGETS.npePerGAA's 24.
+const NPE_IV_WARN_LO = 20;
 const OSM_PERIPHERAL_MAX = 900;
+// Dextrose above 12.5 % needs a central line: the Calculator's "Central only!"
+// chip on a peripheral or unset route, and the Reference page. Avery ch 60 p. 8,
+// Fanaroff ch 42 p. 10 (see CR-OSM-PERIPH). The chip only flags; the
+// osmolarity limit is what grades the bag.
+const DEX_PERIPHERAL_MAX_PCT = 12.5;
 // Pump rates to 0.1 mL/hr (Pp, 2026-11-06: "Pump rate ให้ปรับเป็นทศนิยม 1 ตำแหน่ง และแจ้ง
 // infusion in กี่ hr ให้ ถ้าเกิน 24 ชม. ให้ปัดเพิ่ม rate แทน"). Both pumps: the TPN aqueous
 // pump (its volume over 24 h) and the lipid syringe (its bag over the hours typed).
@@ -1181,7 +1190,7 @@ const ESPGHAN_TARGETS = {
         threshold2: 180,  // BG mg/dL → insulin if GIR already minimal
         insulin: "0.01–0.05 U/kg/hr (after GIR reduced to minimum)",
       },
-      peripheralMaxDex: 12.5, // % max for peripheral IV (osmolarity limit)
+      peripheralMaxDex: DEX_PERIPHERAL_MAX_PCT, // % max for peripheral IV
     },
     lipid: {
       start:   0.5,   // g/kg/day, Day 1 or no later than Day 2
@@ -3025,7 +3034,7 @@ window.NEOFEED_DATA = {
   // The ONE GIR grading — the Calculator and the Alerts page both call it, so
   // the same saved GIR can never be amber on one screen and red on the other.
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
-  PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, OSM_PERIPHERAL_MAX,
+  PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, NPE_IV_WARN_LO, OSM_PERIPHERAL_MAX, DEX_PERIPHERAL_MAX_PCT,
   // Step 3's Lipid volume tap: the syringe to a whole mL, the dose from it;
   // both pumps' rates to 0.1 mL/hr and the hours they run; lipid g/kg/h on those
   lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt,

@@ -7,6 +7,35 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-10 — Limits written out on the Calculator read data.js
+
+`data.js`, `calculator.jsx`, `log.jsx`, `app.jsx`, the neofeed-clinical-rules skill (CR-NPE-AA),
+`docs/CLINICAL_CONSTANTS.md`, `tools/reference-tabs.json` (a unit for the new constant); `test/verify-one-source-thresholds-1110.cjs` (new).
+
+Pp asked whether any other clinical rule was copied the way GIR's limit was until 2026-09-23. The grading
+moved into `data.js` then, but text beside the grade still typed the numbers, so a change to the constant
+would have left it behind:
+
+- the line under the GIR meter, "target 8–10 · max 12", and its optimal zone (also the Daily log's GIR band)
+  now read `TARGETS.girTarget` and `GIR_HARD_HI`; the Calculator grades GIR with `girStatus`, as the Alerts
+  page does, instead of building the same grade itself
+- the printed form's route line (three places) and the quick calc's Copy, "Peripheral (<900 mOsm/L)",
+  and the osmolarity tile's range read `OSM_PERIPHERAL_MAX`
+- the IV NPE:AA caution at 20 is `NPE_IV_WARN_LO` (new), and so is the 20 in the total figure's
+  "soft-alert zone 20–<24"
+- the "Central only!" dextrose flag at 12.5 % is `DEX_PERIPHERAL_MAX_PCT` (new), which the Reference page
+  and `ESPGHAN_TARGETS.pn.gir.peripheralMaxDex` read too
+- the Reference page's GIR card reads `ESPGHAN_TARGETS.pn.gir`
+
+No value changed and no figure moved, so `CONSTANTS_VERSION` stays. The new harness plants other values in
+`data.js`'s exports and reads the screen, the printed form and the Copy: 8 of its 17 checks fail on `e555695`.
+
+Left out: Full EN at 100 mL/kg/d, which open PR #239 moves into `isFullEn`; `calculator.jsx` still tests
+`> 100` in two places (the P:E alert and its panel) where everything else tests `>= 100`, and that boundary
+is Pp's call. The nursing form's 200–8,000 g and the backend's `_checkRange` bounds stay literal: they
+mirror input validation in another runtime. `gas-backend.gs:2394`'s comment still says 300–8,000 g; the
+code says 200.
+
 ## Session 2026-11-08 (9) — NF-42, one wording in (8)
 
 jsdom drops a gradient built on `var()`, which all three in `calculator.jsx` are; a plain gradient is kept.

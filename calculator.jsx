@@ -1897,8 +1897,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // The sheet tests bag amounts against factor-scaled limits (F10 vs F9 = 18×H9,
     // G30 vs G25 = G7×40/1000). Dividing both sides by the overfill gives the
     // delivered-basis forms below — identical results, easier to read.
-    const dexGPerKg = dexG / wtKg;                                             // vs 18 g/kg/d
-    const kMeqPerL  = preparedVol > 0 ? bag.k_mEq / (preparedVol / 1000) : 0;  // vs 40 mEq/L
+    const dexGPerKg = dexG / wtKg;                                             // vs D.MAX_DEXTROSE_G_KG
+    const kMeqPerL  = preparedVol > 0 ? bag.k_mEq / (preparedVol / 1000) : 0;  // vs D.kBagLimitsFor(route)
 
     const osmIn = {   // returned too: Step 3's osmolarity working shows these inputs (NF-12)
       dexPct,
@@ -2069,9 +2069,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // The one GIR grading in the app (D.girStatus). The Alerts page graded the
   // same saved number itself and called anything over 12 critical, so a logged
   // 12.5 was amber here and red there (2026-09-23).
-  const GIR_HARD = { hardHi: D.GIR_HARD_HI };
   const PRO_HARD = { hardHi: D.PROTEIN_HARD_HI };
-  const girStatusAt = (v) => D.rangeStatus(v, tGir, GIR_HARD);
+  const girStatusAt = (v) => D.girStatus(v);
   const proStatusAt = (v) => D.rangeStatus(v, tPro, PRO_HARD);
   const sGir = girStatusAt(calc.gir);
   const sPro = proStatusAt(calc.proteinKg);
@@ -2176,7 +2175,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // non-protein energy → fat deposition) is gone: ESPGHAN's 30–40 kcal/g is a
   // minimum, so the old ceiling stopped orders the guideline asks for.
   const critLowNPE = ivNpeN !== null && ivNpeN < D.NPE_IV_CRIT_LO;
-  const lowNPE  = ivNpeN !== null && !critLowNPE && ivNpeN < 20;
+  const lowNPE  = ivNpeN !== null && !critLowNPE && ivNpeN < D.NPE_IV_WARN_LO;
   // "· total incl. EN …" only when EN actually moves the figure.
   const withTotal = (iv, total, d, unit) => Math.abs(total - iv) >= 0.5 * Math.pow(10, -d)
     ? ` · total incl. EN ${fmt(total, d)} ${unit}` : "";
@@ -2326,8 +2325,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Titles are unchanged from the total-based alerts they replace: a saved
   // critOverride lists titles, and print checks the current ones against it.
   if (critLowNPE) alerts.push({ level: "crit", noReason: true, title: "NPE:AA critically low", body: `NPE:AA IV ${vsLimit(ivNpeN, D.NPE_IV_CRIT_LO, 0)} kcal/g AA < ${D.NPE_IV_CRIT_LO} (TPN only) — พลังงานที่ไม่ใช่โปรตีนน้อยเกินไปเมื่อเทียบกับ amino acid ที่ให้ (สีแดง ไม่ต้องใส่เหตุผล)${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: `TPN team, 2026-10-25 · ${ivRef}` });else
-  if (lowNPE) alerts.push({ level: "warn", title: "NPE:AA off target", body: `NPE:AA IV ${vsLimit(ivNpeN, 20, 0)} kcal/g AA < 20 — พลังงานที่ไม่ใช่โปรตีนยังน้อยเมื่อเทียบกับ amino acid ที่ให้ ปกติพบระหว่างค่อย ๆ เพิ่ม dextrose/lipid ในสัปดาห์แรก ตรวจว่าเป็นไปตามแผน${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: "NPC:N 150:1" });else
-  if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${D.displayNum(calc.npeN, 0)} kcal/g protein — aim at least ${tNPE[0]} kcal/g AA (soft-alert zone 20–<24).`, ref: "NPC:N 150:1" });
+  if (lowNPE) alerts.push({ level: "warn", title: "NPE:AA off target", body: `NPE:AA IV ${vsLimit(ivNpeN, D.NPE_IV_WARN_LO, 0)} kcal/g AA < ${D.NPE_IV_WARN_LO} — พลังงานที่ไม่ใช่โปรตีนยังน้อยเมื่อเทียบกับ amino acid ที่ให้ ปกติพบระหว่างค่อย ๆ เพิ่ม dextrose/lipid ในสัปดาห์แรก ตรวจว่าเป็นไปตามแผน${withTotal(ivNpeN, calc.npeN, 0, "kcal/g")}.`, ref: "NPC:N 150:1" });else
+  if (calc.totalKcal > 0 && sNPE === "warn") alerts.push({ level: "warn", title: "NPE:AA off target", body: `${D.displayNum(calc.npeN, 0)} kcal/g protein — aim at least ${tNPE[0]} kcal/g AA (soft-alert zone ${D.NPE_IV_WARN_LO}–<${tNPE[0]}).`, ref: "NPC:N 150:1" });
   // ── Every nutrient tile that is off target or critical is ALSO a line here ──
   // Until 2026-09-11 only GIR, NPE, Ca:P-warn and the worksheet ceilings were
   // pushed, so K 5 mEq/kg/d or Ca with zero P turned a tile red while this
@@ -3620,7 +3619,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                       and nurses use (Pp, 2026-11-06: "Hide them all"). The printed
                       order has every one. Lipid volume stays: a tap on it rounds
                       the syringe to a whole mL (#227; Pp kept it, 2026-11-07). */}
-                  {calc.d50wVol > 0 && route!=="central" && dexPct > 12.5 && (
+                  {calc.d50wVol > 0 && route!=="central" && dexPct > D.DEX_PERIPHERAL_MAX_PCT && (
                     <div style={{ marginTop:4, padding:"4px 8px", background:"var(--brand-bg)", borderRadius:4, fontSize:11 }}>
                       <span style={{ color:"var(--crit)", fontWeight:700, display:"inline-flex", alignItems:"center", gap:4, verticalAlign:"bottom" }}><Icon name="warn" size={13} stroke={2.2} />Central only!</span>
                     </div>
@@ -3642,8 +3641,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                         readout's edge, 2026-09-25 phone sweep). */}
                     {fmt(calc.gir,1)}<wbr /><span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:4, fontWeight:400 }}>mg/kg/min</span>
                   </div>
-                  <Meter value={calc.gir||0} target={tGir} max={16} optimal={[8,10]} statusAt={girStatusAt} />
-                  <div style={{ fontSize:10, color:"var(--ink-3)", marginTop:2 }}>target 8–10 · max 12</div>
+                  <Meter value={calc.gir||0} target={tGir} max={16} optimal={D.TARGETS.girTarget()} statusAt={girStatusAt} />
+                  <div style={{ fontSize:10, color:"var(--ink-3)", marginTop:2 }}>target {D.TARGETS.girTarget().join("–")} · max {D.GIR_HARD_HI}</div>
                 </div>
               </div>
 
@@ -3805,7 +3804,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 (UP-C12, Praew 2026-09-17). A central line has no upper limit
                 (Praew, 2026-09-28), so its tile shows the figure with no range.
                 No route chosen yet grades as peripheral (see osmStatusAt). */}
-            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route!=="central" ? [0,900] : null} status={sOsm} statusAt={osmStatusAt} decimals={0} max={1100} />
+            <Tile label="Osmolarity" value={calc.osm} unit=" mOsm/L" target={route!=="central" ? [0, D.OSM_PERIPHERAL_MAX] : null} status={sOsm} statusAt={osmStatusAt} decimals={0} max={1100} />
           </div>
           {/* A MEN feed is in none of these totals (since 2026-09-18), and Step
               2 says so — but the TPN team read the totals here as still
@@ -4470,7 +4469,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 // LINE arrives without the screen it came from.
                 `⚠ คำนวณจากน้ำหนักที่พิมพ์เอง · ไม่ผูกกับผู้ป่วย · ไม่ได้บันทึกในระบบ — ตรวจกับผู้ป่วยจริงก่อนใช้`,
                 `DOL: ${dol} | Wt: ${curWtG} g${tpnWtManual ? ` (calc. weight ${wtG}g)` : ""}`,
-                `Route: ${route === "central" ? "Central" : route === "peripheral" ? "Peripheral (<900 mOsm/L)" : "—"}`,
+                `Route: ${route === "central" ? "Central" : route === "peripheral" ? `Peripheral (<${D.OSM_PERIPHERAL_MAX} mOsm/L)` : "—"}`,
                 // Every figure below goes through fmt: at most the decimals
                 // shown, never a trailing zero (Praew, 2026-09-22). The stock
                 // mL in solVol/soluvitVol/peditrace_vol are already rounded
@@ -5191,9 +5190,9 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
                 print): neither box is ticked. A No TPN sheet has no route at
                 all, whatever route the order last held. */}
             <td>Route of Delivery: {noTpnSheet ? <>— (No TPN)</>
-              : route === "central" ? <>☐ Peripheral (&lt;900 mOsm/L) &nbsp;<strong>☑ Central</strong></>
-              : route === "peripheral" ? <><strong>☑ Peripheral</strong> (&lt;900 mOsm/L) &nbsp;☐ Central</>
-              : <>☐ Peripheral (&lt;900 mOsm/L) &nbsp;☐ Central</>}</td>
+              : route === "central" ? <>☐ Peripheral (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;<strong>☑ Central</strong></>
+              : route === "peripheral" ? <><strong>☑ Peripheral</strong> (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;☐ Central</>
+              : <>☐ Peripheral (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;☐ Central</>}</td>
             <td colSpan={2}>Weight for calculation: <strong>{f(wtKg, 2)}</strong> Kg
               {usingBirthWeight && <span style={{ fontSize:9, color:"#555" }}> (birth weight — current {curWtG}g not yet regained)</span>}
               {/* A dosing weight that is neither the scale reading nor the
