@@ -4386,18 +4386,18 @@ function GuidelinesPanel() {
               Glucose Infusion Rate (GIR)
             </div>
             <div className="card-b">
-              <RangeRow label="Start (preterm)" min="4" max="8" unit="mg/kg/min" highlight />
-              <RangeRow label="Target (preterm)" min="8" max="10" unit="mg/kg/min"
+              <RangeRow label="Start (preterm)" min={G.pn.gir.preterm.start[0]} max={G.pn.gir.preterm.start[1]} unit="mg/kg/min" highlight />
+              <RangeRow label="Target (preterm)" min={G.pn.gir.preterm.target[0]} max={G.pn.gir.preterm.target[1]} unit="mg/kg/min"
                 note="Optimal anabolism without excess lipogenesis" highlight />
-              <RangeRow label="Max (all)" min="—" max="12" unit="mg/kg/min"
-                note=">12 → ↑lipogenesis, ↑TG, ↑CO₂, ventilator weaning difficulty" />
-              <RangeRow label="Advance" min="+1" max="+2" unit="mg/kg/min per day" />
-              <RangeRow label="Term start" min="2.5" max="5" unit="mg/kg/min" />
+              <RangeRow label="Max (all)" min="—" max={G.pn.gir.preterm.max} unit="mg/kg/min"
+                note={`>${G.pn.gir.preterm.max} → ↑lipogenesis, ↑TG, ↑CO₂, ventilator weaning difficulty`} />
+              <RangeRow label="Advance" min="+1" max={`+${G.pn.gir.preterm.step}`} unit="mg/kg/min per day" />
+              <RangeRow label="Term start" min={G.pn.gir.term.start[0]} max={G.pn.gir.term.start[1]} unit="mg/kg/min" />
               <SectionHead>Hyperglycemia management</SectionHead>
-              <Rule level="warn" title="BG >145 mg/dL" body="Reduce GIR first (step down 1–2 mg/kg/min)" />
-              <Rule level="crit" title="BG >180 mg/dL persistent" body="Insulin 0.01–0.05 U/kg/hr — only after GIR minimised" />
+              <Rule level="warn" title={`BG >${G.pn.gir.hyperglycemia.threshold1} mg/dL`} body="Reduce GIR first (step down 1–2 mg/kg/min)" />
+              <Rule level="crit" title={`BG >${G.pn.gir.hyperglycemia.threshold2} mg/dL persistent`} body={`Insulin ${G.pn.gir.hyperglycemia.insulin.split(" (")[0]} — only after GIR minimised`} />
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>
-                Peripheral IV: max dextrose <strong>12.5%</strong>
+                Peripheral IV: max dextrose <strong>{G.pn.gir.peripheralMaxDex}%</strong>
               </div>
             </div>
           </div>
