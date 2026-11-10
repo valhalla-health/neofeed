@@ -4390,7 +4390,7 @@ function GuidelinesPanel() {
                 note="Optimal anabolism without excess lipogenesis" highlight />
               <RangeRow label="Max (all)" min="—" max={G.pn.gir.preterm.max} unit="mg/kg/min"
                 note={`>${G.pn.gir.preterm.max} → ↑lipogenesis, ↑TG, ↑CO₂, ventilator weaning difficulty`} />
-              <RangeRow label="Advance" min="+1" max="+2" unit="mg/kg/min per day" />
+              <RangeRow label="Advance" min="+1" max={`+${G.pn.gir.preterm.step}`} unit="mg/kg/min per day" />
               <RangeRow label="Term start" min={G.pn.gir.term.start[0]} max={G.pn.gir.term.start[1]} unit="mg/kg/min" />
               <SectionHead>Hyperglycemia management</SectionHead>
               <Rule level="warn" title={`BG >${G.pn.gir.hyperglycemia.threshold1} mg/dL`} body="Reduce GIR first (step down 1–2 mg/kg/min)" />

@@ -1719,10 +1719,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     //   Input glycophosP in mmol P/kg/day (= mL/kg/day)
     //   P contribution: glycophosP × 31 mg/kg/day (31 mg/mL per order form)
     //   Na contribution: glycophosP × 2 mmol/kg/day (auto, not entered by doctor)
-    const na_glycophos = glycophosP * 2;          // mEq Na/kg/day from Glycophos (Na=2 mEq/mL)
-    const p_glycophos  = glycophosP * wtKg * 31;  // mg P total (P=31 mg/mL per order form)
+    const na_glycophos = glycophosP * S.glycophos.naMeqPerMl;          // mEq Na/kg/day from Glycophos
+    const p_glycophos  = glycophosP * wtKg * S.glycophos.pMgPerMl;  // mg P total
     // K₂HPO₄: 1 mEq K → 15.5 mg P (K entered, P auto-derived)
-    const p_k2hpo4 = k2hpo4 * wtKg * 15.5;
+    const p_k2hpo4 = k2hpo4 * wtKg * S.k2hpo4.pMgPerKMeq;
     const pTotal_mg = p_glycophos + p_k2hpo4 + extraP_mg_kg * wtKg;
 
     const naKg = naCl + naAcet + na_glycophos;
@@ -2419,7 +2419,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
   const noTpnEnBasis = noTpnEnMin < D.NO_TPN_EN_MIN_ML_KG
     ? `fluid requirement DOL ${dol} ${tFluid[0]}–${tFluid[1]} mL/kg/d` : `เกณฑ์ ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d`;
-  if (noTpnEnLow) alerts.push({ level: "crit", title: "No TPN: feeds below 80 mL/kg/d or the day's minimum",
+  if (noTpnEnLow) alerts.push({ level: "crit", title: `No TPN: feeds below ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d or the day's minimum`,
     body: `No TPN แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})`
       + `${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""}`
       + ` — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
@@ -2445,7 +2445,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
   // The title is unchanged so a saved critOverride still names it; the limit
   // is ESPGHAN's 17.3 g/kg/d since 2026-10-27, no longer the sheet's 18.
-  if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose ${D.GIR_HARD_HI} mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
+  if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose ${fmt(D.MAX_DEXTROSE_G_KG / D.girToGPerKg(1), 0)} mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
   // By route since 2026-09-28 (D.K_BAG_MEQ_PER_L — TPN team and Praew): above
   // `hardMax` the order cannot be saved (kOverMax); above `red` it is critical,
   // so it is ordered only with a confirmed reason; above `warn` is a caution.
@@ -2483,7 +2483,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     body: `Heparin ${fmt(heparinUmL, 2)} U/mL — ปกติ 0.5–${D.HEPARIN_USUAL_MAX_U_ML} U/mL ตรวจว่าพิมพ์ถูกหลัก`, ref: "TPN team, 2026-10-25" });
   // Oral vitamin D per day, Munti-vim's 400 IU included (Step 6), above the
   // nutrition unit's 1,000 IU/day border.
-  if (vitDIuDay > D.VIT_D_MAX_IU_DAY) alerts.push({ level: "warn", title: "Vitamin D above 1,000 IU/day",
+  if (vitDIuDay > D.VIT_D_MAX_IU_DAY) alerts.push({ level: "warn", title: `Vitamin D above ${D.VIT_D_MAX_IU_DAY.toLocaleString("en-US")} IU/day`,
     body: `Vitamin D ${fmt(vitDIuDay, 0)} IU/day${suppMTV ? ` (รวม Munti-vim ${D.SUPP_DB.MTV_MUNTIVIM.vitD_iu_per_ml} IU)` : ""} — เกินขอบบน ${D.VIT_D_MAX_IU_DAY} IU/day ของหน่วยโภชนาการ`, ref: "Nutrition unit, 2026-10-25" });
   if (calc.totalTPN_mL > 0 && caPerKg > 0 && k2hpo4 > 0) alerts.push({ level: "warn", title: "Calcium–phosphate compatibility not calculated", body: "This order combines calcium with inorganic phosphate. NeoFeed does not calculate formulation-specific precipitation risk; pharmacy must verify compatibility before compounding or administration.", ref: "ESPGHAN/ESPEN/ESPR/CSPEN 2018" });
 
@@ -3900,13 +3900,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="glycophos-p" style={{ fontSize:11.5, fontWeight:700, color: glycophosP > 0 ? "var(--brand-2)" : "var(--ink-3)", paddingLeft:2, marginTop:1 }}>
                 {glycophosBy === "p"
                   ? <>→ Na {fmt(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq/kg/d · P {fmt(glycophosP, 2)} mmol/kg/d</>
-                  : <>→ P {fmt(glycophosP, 2)} mmol/kg/d = {fmt(glycophosP * 31, 0)} mg/kg/d</>}
+                  : <>→ P {fmt(glycophosP, 2)} mmol/kg/d = {fmt(glycophosP * S.glycophos.pMgPerMl, 0)} mg/kg/d</>}
               </div>
               {glycophosP > 0 && (
                 <div style={{ fontSize:10.5, color:"var(--brand-2)", paddingLeft:2, marginTop:1, marginBottom:3 }}>
                   {glycophosBy === "p"
-                    ? <>P {fmt(glycophosP * 31, 1)} mg/kg/d = {fmt(glycophosP, 2)} mL/kg/d · Na {fmt(glycophosP * 2, 2)} mEq/kg/d</>
-                    : <>{fmt(glycophosP * 2, 1)} mEq Na/kg/d = {fmt(glycophosP, 2)} mL/kg/d · P {fmt(glycophosP * 31, 0)} mg/kg/d</>}
+                    ? <>P {fmt(glycophosP * S.glycophos.pMgPerMl, 1)} mg/kg/d = {fmt(glycophosP, 2)} mL/kg/d · Na {fmt(glycophosP * S.glycophos.naMeqPerMl, 2)} mEq/kg/d</>
+                    : <>{fmt(glycophosP * S.glycophos.naMeqPerMl, 1)} mEq Na/kg/d = {fmt(glycophosP, 2)} mL/kg/d · P {fmt(glycophosP * S.glycophos.pMgPerMl, 0)} mg/kg/d</>}
                 </div>
               )}
 
@@ -3965,7 +3965,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <Tile label="Magnesium" value={mgMgPerKg} unit=" mg/kg/d" target={tMg} status={sMg} statusAt={mgStatusAt} decimals={2} max={12} />
               {mgPerKg > 0 && (
                 <div className="mg-mgkg" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}
-                  title="ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch): preterm, first days 0.1–0.2 mmol (2.5–5.0 mg)/kg/d; growing 0.2–0.3 mmol (5.0–7.5 mg)/kg/d · 1 mmol Mg = 2 mEq">
+                  title={`ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch): preterm, first days ${D.ESPGHAN_TARGETS.pn.electrolytes.mg.dol1.join("–")} mmol (${D.TPN_TARGETS.mg(1).map(v => fmt(v, 1)).join("–")} mg)/kg/d; growing ${D.ESPGHAN_TARGETS.pn.electrolytes.mg.growing.join("–")} mmol (${D.TPN_TARGETS.mg(D.FIRST_DAYS_LAST_DOL + 1).map(v => fmt(v, 1)).join("–")} mg)/kg/d · 1 mmol Mg = 2 mEq`}>
                   = {fmt(mgPerKg, 2)} mEq/kg/d · TPN only
                 </div>
               )}
@@ -4035,7 +4035,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   (solVol.heparin, sheet G51) — with dead space the two halves
                   of this hint used to disagree (UP-C13). */}
               <NumField label="Heparin" unit="U/mL" value={heparinUmL} onChange={setHeparinUmL} step={0.5}
-                hint={`Normal 0.5–1 U/mL · total ${fmt(heparinUmL * calc.preparedVol, 0)} U/day`} />
+                hint={`Normal 0.5–${D.HEPARIN_USUAL_MAX_U_ML} U/mL · total ${fmt(heparinUmL * calc.preparedVol, 0)} U/day`} />
             </div>
 
             <div style={{ background: "var(--bg-2)", borderRadius: 8, padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -4050,7 +4050,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: "var(--surface)", fontSize: 11, color: "var(--ink-3)", borderTop: "1px solid var(--line-2)" }}>
                 Vitalipid → <strong>lipid bag</strong><br/>
                 Soluvit + Peditrace → <strong>aqueous PN bag</strong><br/>
-                Heparin 0.5–1 U/mL → <strong>aqueous PN bag</strong>
+                Heparin 0.5–{D.HEPARIN_USUAL_MAX_U_ML} U/mL → <strong>aqueous PN bag</strong>
               </div>
             </div>
           </TwoCol>
@@ -4103,7 +4103,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   const vol = prod && totalMg > 0 ? totalMg / prod.fe_mg_per_ml : 0;
                   return suppFerdek > 0 && wtKg > 0
                     ? `= ${fmt(totalMg, 1)} mg elem Fe/day · ${fmt(vol, 2)} mL/day (${prod?.label})`
-                    : `ESPGHAN 2022: 2–3 mg/kg/day · เริ่มอายุ 2–4 สัปดาห์`;
+                    : `ESPGHAN 2022: ${D.ESPGHAN_TARGETS.en.fe.range.join("–")} mg/kg/day · เริ่มอายุ 2–4 สัปดาห์`;
                 })()} />
               <PresetChips values={[2, 3, 4]} current={suppFerdek} onSelect={setSuppFerdek} />
 
@@ -4129,7 +4129,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   const tabs = prod && totalMg > 0 ? totalMg / prod.ca_mg_per_unit : 0;
                   return suppCa > 0 && wtKg > 0
                     ? `= ${Math.round(totalMg)} mg/day · ${fmt(tabs, 2)} tab/day (${prod?.label})`
-                    : `ESPGHAN 2022 target: 120–200 mg/kg/day · ${D.SUPP_DB[suppCaType]?.note || ""}`;
+                    : `ESPGHAN 2022 target: ${D.ENTERAL_TARGETS.ca().join("–")} mg/kg/day · ${D.SUPP_DB[suppCaType]?.note || ""}`;
                 })()} />
               <PresetChips values={[50, 80, 100, 120]} current={suppCa} onSelect={setSuppCa} />
 
@@ -4150,7 +4150,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   const vol = prod && totalMg > 0 ? totalMg / prod.po4_mg_per_ml : 0;
                   return suppPO4 > 0 && wtKg > 0
                     ? `= ${fmt(totalMg, 1)} mg/day (${fmt(totalMg / 31, 2)} mmol) · ${fmt(vol, 1)} mL/day (${prod?.label})`
-                    : `ESPGHAN 2022 target: 2.2–3.7 mmol/kg/day (~68–115 mg/kg/day) · ${D.SUPP_DB[suppPO4Type]?.note || ""}`;
+                    : `ESPGHAN 2022 target: ${D.ESPGHAN_TARGETS.en.p.range.join("–")} mmol/kg/day (~${D.ESPGHAN_TARGETS.en.p.mgPerKg.join("–")} mg/kg/day) · ${D.SUPP_DB[suppPO4Type]?.note || ""}`;
                 })()} />
               <PresetChips values={[30, 40, 60]} current={suppPO4} onSelect={setSuppPO4} />
               {/* Nutrition Unit AUG2026 slide 8 — oral Ca and P bind each other in the
@@ -4166,8 +4166,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="sub-h" style={{ marginTop: 14 }}>Vitamin D drops</div>
               <NumField label="Vitamin D" unit="IU/kg/day" value={suppVitD} onChange={setSuppVitD} step={100}
                 hint={suppVitD > 0 && wtKg > 0
-                  ? `= ${Math.round(suppVitD * wtKg)} IU/day · ESPGHAN 2022: 400–700 IU/kg`
-                  : "ESPGHAN 2022: 400–700 IU/kg/day"} />
+                  ? `= ${Math.round(suppVitD * wtKg)} IU/day · ESPGHAN 2022: ${D.ESPGHAN_TARGETS.en.vitD.range.join("–")} IU/kg`
+                  : `ESPGHAN 2022: ${D.ESPGHAN_TARGETS.en.vitD.range.join("–")} IU/kg/day`} />
               <PresetChips values={[400, 500, 600, 700]} current={suppVitD} onSelect={setSuppVitD} suffix=" IU/kg" />
               {/* Munti-vim is a fixed 1 mL/day, so its D3 is 400 IU/DAY — not
                   400 IU/kg/day. It used to be added per kg ((suppVitD + 400) ×
@@ -4499,10 +4499,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `ELECTROLYTES (ordered per kg → amount IN BAG → mL of stock):`,
                 naCl>0 ? `  ${S.naCl.label}:    ${naCl} mEq/kg → ${fmt(naCl*calc.factor, 1)} mEq → ${calc.solVol.naCl} mL` : "",
                 naAcet>0 ? `  Na Acetate:   ${naAcet} mEq/kg → ${fmt(naAcet*calc.factor, 1)} mEq → ${calc.solVol.naAcet} mL${S.naAcetate.acetateMeqPerMl ? ` (acetate ${fmt(naAcet*calc.factor / S.naAcetate.naMeqPerMl * S.naAcetate.acetateMeqPerMl, 1)} mEq)` : ""}` : "",
-                glycophosP>0 ? `  Glycophos®:   ${fmt(glycophosP, 4)} mL/kg → ${calc.solVol.glycophos} mL (Na ${fmt(glycophosP*2*calc.factor, 1)} mEq | P ${fmt(glycophosP*31*calc.factor, 0)} mg)` : "",
+                glycophosP>0 ? `  Glycophos®:   ${fmt(glycophosP, 4)} mL/kg → ${calc.solVol.glycophos} mL (Na ${fmt(glycophosP*S.glycophos.naMeqPerMl*calc.factor, 1)} mEq | P ${fmt(glycophosP*S.glycophos.pMgPerMl*calc.factor, 0)} mg)` : "",
                 `  Total Na:     ${fmt(calc.bag.na_mEq, 1)} mEq in bag = ${fmt(calc.naKg, 1)} mEq/kg/d delivered`,
                 kCl>0 ? `  KCl (${S.kCl.kMeqPerMl} mEq/mL): ${kCl} mEq/kg → ${fmt(kCl*calc.factor, 1)} mEq → ${calc.solVol.kCl} mL` : "",
-                k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*15.5*calc.factor, 0)} mg)` : "",
+                k2hpo4>0 ? `  K2HPO4:       ${k2hpo4} mEq/kg → ${fmt(k2hpo4*calc.factor, 1)} mEq → ${calc.solVol.k2hpo4} mL (P ${fmt(k2hpo4*S.k2hpo4.pMgPerKMeq*calc.factor, 0)} mg)` : "",
                 `  Total K:      ${fmt(calc.bag.k_mEq, 1)} mEq in bag = ${fmt(calc.kKg, 1)} mEq/kg/d delivered (${fmt(calc.kMeqPerL, 0)} mEq/L; ${kBagLimitParts(kLim, "confirm above").join(", ")} ${route ? `on a ${kRouteLabel} line` : "peripheral limits, no route chosen"})`,
                 // The quick calc copies whatever is on screen, so its text says
                 // when K⁺ is over the maximum, as an over-full bag's does.
@@ -5316,7 +5316,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           </tr>
           <tr>
             <td style={tdRx(k2hpo4 > 0)}>{chk(k2hpo4 > 0)} K₂HPO₄<br/><span style={plain}>(K {S.k2hpo4.kMeqPerMl} mEq/mL, P {S.k2hpo4.pMgPerKMeq} mg/mL)</span></td>
-            <td style={tdr}>{k2hpo4 > 0 ? <>K <strong>{k2hpo4}</strong> mEq<br/>P <strong>{f(k2hpo4*15.5,1)}</strong> mg</> : "—"}</td>
+            <td style={tdr}>{k2hpo4 > 0 ? <>K <strong>{k2hpo4}</strong> mEq<br/>P <strong>{f(k2hpo4*S.k2hpo4.pMgPerKMeq,1)}</strong> mg</> : "—"}</td>
             <td style={tdr}>{k2hpo4 > 0 ? <><strong>{f(k2hpo4*(calc.factor||0),1)}</strong> mEq = <strong>{f(calc.solVol?.k2hpo4,1)}</strong> mL</> : "—"}</td>
           </tr>
           <tr>
@@ -5379,7 +5379,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           <tr>
             <td style={tdRx(heparinUmL > 0)}>7. Heparin ({S.heparin.unitsPerMl} unit/mL)</td>
             <td style={tdr} colSpan={2}><strong>{heparinUmL}</strong> unit/mL</td>
-            <td style={td}>0.5–1 unit/mL</td>
+            <td style={td}>0.5–{D.HEPARIN_USUAL_MAX_U_ML} unit/mL</td>
           </tr>
           {/* 8. Other — the oral orders, which the paper form has no line for */}
           <tr>

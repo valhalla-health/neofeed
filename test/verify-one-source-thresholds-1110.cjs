@@ -12,13 +12,14 @@
 // way a future change to data.js would, and reads the screen, the printed form
 // and the Copy text. A copy left in calculator.jsx keeps the old number and fails.
 //
-//   §1  GIR: the meter's optimal zone, the line under it and the dextrose-ceiling
-//       alert's GIR figure follow TARGETS.girTarget and GIR_HARD_HI
+//   §1  GIR: the meter's optimal zone and the line under it follow TARGETS.girTarget
+//       and GIR_HARD_HI; the dextrose-ceiling alert's mg/kg/min follows MAX_DEXTROSE_G_KG
 //   §2  osmolarity: the printed form's route line and the quick calc's Copy
 //       follow OSM_PERIPHERAL_MAX
 //   §3  NPE:AA IV caution follows NPE_IV_WARN_LO (alert, its text, the zone)
 //   §4  "Central only!" follows DEX_PERIPHERAL_MAX_PCT
 //   §5  with the real constants nothing moved: the same words as before
+//   §6  heparin: the hint and the printed form follow HEPARIN_USUAL_MAX_U_ML
 //
 // Fails against e555695, where every one of these is a literal. Mounts the real
 // <Calculator> in jsdom (the dev-only deps every calculator harness uses — see
@@ -80,8 +81,10 @@ for (const f of ['icons.jsx', 'calculator.jsx']) {
 }
 
 // ── planting values in data.js's exports ───────────────────────────────────
-const REAL = { GIR_HARD_HI: D.GIR_HARD_HI, girTarget: D.TARGETS.girTarget, OSM_PERIPHERAL_MAX: D.OSM_PERIPHERAL_MAX,
-  NPE_IV_WARN_LO: D.NPE_IV_WARN_LO, DEX_PERIPHERAL_MAX_PCT: D.DEX_PERIPHERAL_MAX_PCT };
+const SCALARS = ['GIR_HARD_HI', 'OSM_PERIPHERAL_MAX', 'NPE_IV_WARN_LO', 'DEX_PERIPHERAL_MAX_PCT', 'MAX_DEXTROSE_G_KG',
+  'HEPARIN_USUAL_MAX_U_ML'];
+const REAL = { girTarget: D.TARGETS.girTarget };
+for (const k of SCALARS) REAL[k] = D[k];
 function plant(vals) {
   for (const [k, v] of Object.entries(vals)) {
     if (k === 'girTarget') D.TARGETS.girTarget = () => v; else D[k] = v;
@@ -89,7 +92,7 @@ function plant(vals) {
 }
 function restore() {
   D.TARGETS.girTarget = REAL.girTarget;
-  for (const k of ['GIR_HARD_HI', 'OSM_PERIPHERAL_MAX', 'NPE_IV_WARN_LO', 'DEX_PERIPHERAL_MAX_PCT']) D[k] = REAL[k];
+  for (const k of SCALARS) D[k] = REAL[k];
 }
 
 // ── mounting and typing ────────────────────────────────────────────────────
@@ -155,9 +158,13 @@ const printText = () => text(container.querySelector('#print-form'));
     ok('optimal zone title reads the planted 7–9', zone?.getAttribute('title') === 'Optimal: 7–9', zone?.getAttribute('title'));
     const row = text(container.querySelector('.dex-gir-row'));
     ok('line under the meter: "target 7–9 · max 13"', row.includes('target 7–9 · max 13'), row.slice(-80));
-    // D18 at 100 mL/kg/d is 18 g/kg/d, over MAX_DEXTROSE_G_KG: the alert names the GIR limit (Vera).
+    // The dextrose-ceiling alert converts MAX_DEXTROSE_G_KG to mg/kg/min; it is not GIR_HARD_HI,
+    // which a planted 13 above leaves alone (second reader: until 2026-10-27 they were 18 and 13).
+    // A planted 18.72 g/kg/d is 13 mg/kg/min; D20 at 100 mL/kg/d is 20 g/kg/d, over it.
+    restore();
+    plant({ MAX_DEXTROSE_G_KG: 18.72 });
     mountPatient('Central');
-    order({ dex: 18, aa: 2 });
+    order({ dex: 20, aa: 2 });
     const dexAlert = alertTexts().find(t => t.includes('Dextrose over KCMH max'));
     ok('dextrose-ceiling alert: "(glucose 13 mg/kg/min)"', !!dexAlert && dexAlert.includes('(glucose 13 mg/kg/min)'), dexAlert);
   });
@@ -219,6 +226,15 @@ const printText = () => text(container.querySelector('#print-form'));
     mountPatient('Peripheral');
     order({ dex: 12, aa: 2 });
     ok('with the real 12.5, D12 is not flagged', !/Central only!/.test(text(container)), '');
+  });
+
+  await section('§6 heparin: the hint and the printed form follow HEPARIN_USUAL_MAX_U_ML', async () => {
+    plant({ HEPARIN_USUAL_MAX_U_ML: 2 });
+    mountPatient('Central');
+    order({ dex: 10, aa: 2 });
+    ok('hint reads "Normal 0.5–2 U/mL"', text(container).includes('Normal 0.5–2 U/mL'), (text(container).match(/Normal 0\.5–[^·]*/) || [])[0]);
+    await clickAsync(submitBtn());
+    ok('the form prints "0.5–2 unit/mL"', printText().includes('0.5–2 unit/mL'), (printText().match(/0\.5–\S+ unit\/mL/) || [])[0]);
   });
 
   await section('§5 the real constants: the same words as before', async () => {

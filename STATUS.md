@@ -1,8 +1,8 @@
 # NeoFeed — Status
 
 > ⏳ **2026-11-10 — Limits written out on the Calculator read `data.js` (GIR line, "<900 mOsm/L" on the printed form
-> and Copy, NPE:AA 20, "Central only!" at 12.5 %): open PR, not merged, not live.** Frontend only. No value or figure
-> moved; `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-10 (3)).
+> and Copy, NPE:AA 20, "Central only!" at 12.5 %, heparin, vitamin D, No TPN, salt strengths): open PR, not merged, not live.**
+> Frontend only. No value or printed figure moved (the oral P hint now reads its graded ~70); `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-10 (3)).
 >
 > ⏳ **2026-11-10 — Lipid rate critical only when over the ceiling as ordered too; above 0.20 at the pump critical always; the TPN line says how much more a rounded-up rate gives: PR #237, merged into `main` on Praew's instruction; not live.** Part of release #236 once merged into `main` (`CHANGELOG.md` 2026-11-10).
 >
