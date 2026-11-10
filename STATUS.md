@@ -1,7 +1,7 @@
 # NeoFeed — Status
 
 > ⏳ **2026-11-10 — Limits written out on the Calculator read `data.js` (GIR line, "<900 mOsm/L" on the printed form
-> and Copy, NPE:AA 20, "Central only!" at 12.5 %, heparin, vitamin D, No TPN, salt strengths): open PR, not merged, not live.**
+> and Copy, NPE:AA 20, "Central only!" at 12.5 %, heparin, vitamin D, No TPN, salt strengths): PR #240, open, not merged, not live.**
 > Frontend only. No value or printed figure moved (the oral P hint now reads its graded ~70); `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-10 (4)).
 >
 > ⏳ **2026-11-10 — Full EN never counts a MEN feed on a saved order (the Daily log's target bands and the patient page's targets): PR #239, merged into `main` on Praew's instruction; frontend only, not live.** Release waits for Pp (`CHANGELOG.md` 2026-11-10 (3)).
