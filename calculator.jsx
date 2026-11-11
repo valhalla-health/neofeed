@@ -542,7 +542,8 @@ function Chk({ label, value, onChange, hint }) {
 // Infatrini 30 → Pre Nan became 22 with nothing to point it out). A key the
 // list does not offer is shown, never swapped.
 function EnFeedPicker({ value, onChange }) {
-  const at = D.enProductOf(value);
+  const atAny = D.enProductOf(value);   // found even when hidden: its kcal/oz carries over
+  const at = atAny && !atAny.product.hidden ? atAny : null;   // shown as offered
   const offered = D.EN_PRODUCTS.filter(p => !p.hidden);   // FBM with HMF hidden (Pp, 2026-11-11)
   const groups = [...new Set(offered.map(p => p.group))];
   // The kcal/oz the last change of milk could not keep. Shown only while the
@@ -551,9 +552,9 @@ function EnFeedPicker({ value, onChange }) {
   const pickProduct = (id) => {
     const p = offered.find(x => x.id === id);
     if (!p) return;
-    const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
+    const same = atAny && p.strengths.find(([oz]) => oz === atAny.kcalOz);
     const next = same || p.strengths[0];
-    setDropped(at && !same ? { from: at.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
+    setDropped(atAny && !same ? { from: atAny.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
     onChange(next[1]);
   };
   return (<>

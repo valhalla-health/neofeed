@@ -30,11 +30,14 @@ Pp, 2026-11-11, from two phone screenshots:
   2 mL in 10 mL for 22, 24 or 27 kcal/oz (`BM_PFP_*`, `EN_FBM_PF_CONC_SHARE`). The milk (`BM_20`) is at (1 − share);
   the concentrate brings the rest of the kcal with the Chula Table 5 column. At 24: protein 1.67 g, Ca 47.1 mg, P 26.4 mg
   per 100 mL (FBM with HMF 24: 2.3, 116, 59.9: HMF is a protein and mineral fortifier, PF a whole formula). 26 is not on
-  the chart and is not offered. An earlier draft of this PR modelled powder stirred into milk (lower figures); Pp chose
+  the chart and is not offered. The figures are **fitted**: each strength is held at its labelled kcal, so the
+  concentrate's implied energy differs by strength (187, 197, 182 kcal/100 mL at 22, 24, 27); a single density from
+  the scoop weight would need its g and kcal/g sourced (Vera, third review; Pp chose the chart's ratios). An earlier draft of this PR modelled powder stirred into milk (lower figures); Pp chose
   the chart. Step 2's breast-milk line names the milk it assumes; it does not yet explain the concentrate.
   **FBM with HMF hidden** (Pp, same day: "ตอนนี้ไม่มี HMF ในไทย ให้ซ่อนอันนี้ไว้ก่อน ให้ใช้เป็น FBM with PF แทน"):
   Step 2 no longer offers it (`hidden: true` on its `EN_PRODUCTS` entry); an order saved on `BM_HMF_24` still
-  computes and shows it as saved. She wants it back at 24 and 27 when HMF returns; a 27 needs its HMF dose
+  computes and shows it as saved, and changing its milk to FBM with PF keeps 24 kcal/oz (`enProductOf` still finds a
+  hidden product; only the list hides it; Vera, third review, test 4.11b–d). She wants it back at 24 and 27 when HMF returns; a 27 needs its HMF dose
   decided first, so only 24 exists.
   **Center Point** (Pp: "CP sync it before release"): `center-point/tpn-document.mjs` gains the 17 new feed labels,
   the same lines go into CP's `web/tpn-document.mjs` in a NICU-Center-Point PR that re-pins its `test/neofeed-commit`,

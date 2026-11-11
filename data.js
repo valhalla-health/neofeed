@@ -523,10 +523,11 @@ const EN_PRODUCTS = [
 const EN_FEEDS_PER_DAY_MAX = 8;
 
 // The product and strength an EN_DB key is offered as, or null for a key the
-// Calculator does not offer (the Formula page's HIQLF_* copies, a hidden product).
+// Calculator does not offer (the Formula page's HIQLF_* copies). A hidden product
+// (FBM with HMF) is still found, flagged by product.hidden, so a saved order's
+// kcal/oz carries over when its milk is changed (Vera, 2026-11-11).
 function enProductOf(key) {
   for (const product of EN_PRODUCTS) {
-    if (product.hidden) continue;
     const s = product.strengths.find(([, k]) => k === key);
     if (s) return { product, kcalOz: s[0] };
   }

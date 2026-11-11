@@ -379,16 +379,17 @@ function Chk({ label, value, onChange, hint }) {
   return /* @__PURE__ */ React.createElement("label", { className: "chk-label", style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 6, background: value ? "var(--brand-bg)" : "var(--bg-2)", border: `1px solid ${value ? "var(--brand-line)" : "var(--line-2)"}`, cursor: "pointer", fontSize: 13 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: value, onChange: (e) => onChange(e.target.checked), style: { marginTop: 2, width: 18, height: 18, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 500, color: value ? "var(--brand-2)" : "var(--ink)" } }, label), hint && /* @__PURE__ */ React.createElement("span", { className: "chk-hint", style: { display: "block", color: "var(--ink-3)", marginTop: 2, fontSize: 11 } }, hint)));
 }
 function EnFeedPicker({ value, onChange }) {
-  const at = D.enProductOf(value);
+  const atAny = D.enProductOf(value);
+  const at = atAny && !atAny.product.hidden ? atAny : null;
   const offered = D.EN_PRODUCTS.filter((p) => !p.hidden);
   const groups = [...new Set(offered.map((p) => p.group))];
   const [dropped, setDropped] = React.useState(null);
   const pickProduct = (id) => {
     const p = offered.find((x) => x.id === id);
     if (!p) return;
-    const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
+    const same = atAny && p.strengths.find(([oz]) => oz === atAny.kcalOz);
     const next = same || p.strengths[0];
-    setDropped(at && !same ? { from: at.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
+    setDropped(atAny && !same ? { from: atAny.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
     onChange(next[1]);
   };
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "en-picker", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { className: "field", style: { gridColumn: "span 2" } }, /* @__PURE__ */ React.createElement("label", null, "Feed type"), /* @__PURE__ */ React.createElement("select", { className: "sel en-product", value: at ? at.product.id : "", onChange: (e) => pickProduct(e.target.value) }, !at && /* @__PURE__ */ React.createElement("option", { value: "" }, D.EN_DB[value]?.label || value), groups.map((g) => /* @__PURE__ */ React.createElement("optgroup", { key: g, label: g }, offered.filter((p) => p.group === g).map((p) => /* @__PURE__ */ React.createElement("option", { key: p.id, value: p.id }, p.label)))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "kcal/oz"), /* @__PURE__ */ React.createElement(

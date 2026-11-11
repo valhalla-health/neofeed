@@ -371,6 +371,16 @@ const scenarios = {
     mount(old);
     A.eq('4.11 …and raises no source alert', noSourceAlerts().length, 0);
 
+    // An order saved on FBM with HMF 24, reopened with HMF hidden as it ships (Vera, 2026-11-11).
+    const hmf = { entryId: 'e-hmf', ts: '2026-11-10', weight: 1500, lastModified: '2026-11-10T02:00:00.000Z',
+      calcInput: { curWtG: 1500, fluidTargetPerKg: 150, enType: 'BM_HMF_24', enVol: 28, enFreq: 8 } };
+    mount(hmf);
+    A.eq('4.11b a reopened FBM with HMF 24 order keeps its feed', feedKey(), 'BM_HMF_24');
+    A.ok('4.11c …shown by its saved label, not offered', productSelect()?.selectedOptions[0]?.textContent === DB.BM_HMF_24.label
+      && ![...productSelect().options].some(o => o.value === 'bmHmf'), productSelect()?.selectedOptions[0]?.textContent);
+    set(productSelect(), 'fbmPf');
+    A.eq('4.11d switched to FBM with PF it keeps 24 kcal/oz', feedKey(), 'BM_PFP_24');
+
     // A saved order whose feed is not an EN_DB row (removed since, or written by
     // a newer NeoFeed) is refused, never costed as the other feed (Vera, 2026-10-28).
     const critTitles = () => [...container.querySelectorAll('.calc-bottom .alert-row.crit .title')].map(t => t.textContent);
