@@ -147,7 +147,7 @@ function syncFreshness(s) {
 
 // ── Enteral feed composition per 100 mL ─────────────────────
 // Units: kcal, pro/fat/cho in g, na/k in mmol, ca/p in mg, osm in mOsm/kg H₂O.
-// 1 oz = 30 mL: 20 kcal/oz = 67, 22 = 73, 24 = 80, 27 = 90, 30 = 100 kcal/100 mL.
+// 1 oz = 30 mL: 20 kcal/oz = 67, 22 = 73, 24 = 80, 26 = 87, 27 = 90, 30 = 100 kcal/100 mL.
 //
 // Rebuilt 2026-10-17 from the sources themselves (provenance audit, Pp). Until
 // then most formula rows came from docs/Chula_Handbook_Ed3_Reference.md, an AI
@@ -164,7 +164,7 @@ function syncFreshness(s) {
 // test/verify-en-db-sources.cjs, which holds its own copy of these tables. `osm` is shown on the Formula reference page only, and no
 // calculation reads it; null means the source gives none at that strength.
 const EN_MG_PER_MMOL = { na: 22.99, k: 39.10, ca: 40.08, p: 30.97 };
-const EN_KCAL_PER_100ML = { 20: 67, 22: 73, 24: 80, 27: 90, 30: 100 };
+const EN_KCAL_PER_100ML = { 20: 67, 22: 73, 24: 80, 26: 87, 27: 90, 30: 100 };
 
 // Chula Pediatric Nutrition Handbook, 3rd ed. (2565), docs/Nutrition PedCu Ed3.pdf.
 // The formula tables are per 100 kcal, Na and K in mg. `kcalOz` is the strength
@@ -229,15 +229,6 @@ const _EN_FBM_INF_MIX = (() => {
   return { ...mean, osm: null };
 })();
 
-// Preterm Formula 20 kcal/oz as it has always been (no source, Pp 2026-10-20).
-const _EN_PF_20 = { kcal: 67, pro: 1.5, fat: 3.5, cho: 7.4, na: 1.0, k: 1.7, ca: 50, p: 28, osm: 290 };
-// A 20 kcal/oz row concentrated to another ward strength: every nutrient
-// scales with the energy, so the mixture is the same powder in less water.
-function _enConcentrate(row, kcalOz) {
-  const kcal = EN_KCAL_PER_100ML[kcalOz], s = kcal / row.kcal;
-  return { kcal, pro: row.pro * s, fat: row.fat * s, cho: row.cho * s,
-    na: row.na * s, k: row.k * s, ca: row.ca * s, p: row.p * s, osm: null };
-}
 const _EN_CHULA = EN_SRC_CHULA_PER_100_KCAL;
 const EN_DB = {
   // ── Breast Milk ────────────────────────────────────────────
@@ -250,22 +241,35 @@ const EN_DB = {
   },
 
   // ── Preterm formula ────────────────────────────────────────
-  // No source: no product has this profile (per 100 kcal it is a term
-  // formula: 2.2 g protein, 75 mg Ca). Pp, 2026-10-20: keep it as it was,
-  // offered in the Calculator with its old numbers, until the feed formulas
-  // are revised. `unsourced` only makes the Formula page say "No source".
+  // Pp, 2026-11-11: "PF ใช้ข้อมูลจาก brand Enfalac Premature formula". Until
+  // then BM_PF_20 had no source (a term-formula profile kept from the first
+  // commit, Pp 2026-10-20). Every strength is the book's Enfalac Premature
+  // column; the milk room makes 20, 22, 24, 26 and 27 (Pp, 2026-11-11).
   BM_PF_20: {
     label: "Preterm Formula (20 kcal/oz)",
-    ..._EN_PF_20, lf: false,
-    unsourced: true,
+    ..._enFromChula(_EN_CHULA.enfalacPremature, 20), lf: false,
+    source: "Enfalac Premature, Chula Handbook Table 5, p. 16 (per 100 kcal)",
   },
-  // Pp, 2026-11-11: "พรีเทอมฟอร์มูล่า 20,22,24,27 kcal/oz ให้เลือก". No source,
-  // like the 20 row: each strength is the 20 row concentrated to that kcal
-  // (every nutrient × kcal ÷ 67), so the per-100-kcal profile never changes.
-  // Osmolality is not scaled (null): no source gives it at those strengths.
-  BM_PF_22: { label: "Preterm Formula (22 kcal/oz)", ..._enConcentrate(_EN_PF_20, 22), lf: false, unsourced: true },
-  BM_PF_24: { label: "Preterm Formula (24 kcal/oz)", ..._enConcentrate(_EN_PF_20, 24), lf: false, unsourced: true },
-  BM_PF_27: { label: "Preterm Formula (27 kcal/oz)", ..._enConcentrate(_EN_PF_20, 27), lf: false, unsourced: true },
+  BM_PF_22: {
+    label: "Preterm Formula (22 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.enfalacPremature, 22), lf: false,
+    source: "Enfalac Premature, Chula Handbook Table 5, p. 16 (per 100 kcal)",
+  },
+  BM_PF_24: {
+    label: "Preterm Formula (24 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.enfalacPremature, 24), lf: false,
+    source: "Enfalac Premature, Chula Handbook Table 5, p. 16 (per 100 kcal)",
+  },
+  BM_PF_26: {
+    label: "Preterm Formula (26 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.enfalacPremature, 26), lf: false,
+    source: "Enfalac Premature, Chula Handbook Table 5, p. 16 (per 100 kcal)",
+  },
+  BM_PF_27: {
+    label: "Preterm Formula (27 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.enfalacPremature, 27), lf: false,
+    source: "Enfalac Premature, Chula Handbook Table 5, p. 16 (per 100 kcal)",
+  },
   // 22 kcal/oz is the ward's strength: "Preterm Formula (22 kcal/oz)" at 73
   // kcal/100 mL from the first commit until 357d095 named it Enfalac Premature
   // and set 74. The book prints the product at 24, so its osmolality (310)
@@ -337,6 +341,21 @@ const EN_DB = {
     label: "Hi-Q LBW (27 kcal/oz)",
     ..._enFromChula(_EN_CHULA.hiQLbw, 27), lf: false,
     source: "Chula Handbook Table 5, p. 16 (per 100 kcal), concentrated to 27 kcal/oz",
+  },
+  ENFALAC_PREM_26: {
+    label: "Enfalac Premature (26 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.enfalacPremature, 26), lf: false,
+    source: "Chula Handbook Table 5, p. 16 (per 100 kcal), concentrated to 26 kcal/oz",
+  },
+  PRENAN_26: {
+    label: "Pre Nan (26 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.preNan, 26), lf: false,
+    source: "Chula Handbook Table 5, p. 16 (per 100 kcal), concentrated to 26 kcal/oz",
+  },
+  HIQLBW_26: {
+    label: "Hi-Q LBW (26 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.hiQLbw, 26), lf: false,
+    source: "Chula Handbook Table 5, p. 16 (per 100 kcal), concentrated to 26 kcal/oz",
   },
   FBM_PF_24: {
     label: "Hi-Q LBW (24 kcal/oz)",
@@ -443,15 +462,15 @@ const EN_DB = {
 // stays, so an order saved on it still computes and its picker shows it as
 // saved (EnFeedPicker never swaps a key it does not offer). The HiQ LF product
 // reads "HiQ LF", not "LF — HiQ LF": the group already says Lactose-free.
-// Pp, 2026-11-11: every preterm formula at 20, 22, 24 and 27 kcal/oz; breast
+// Pp, 2026-11-11: every preterm formula at 20, 22, 24, 26 and 27 kcal/oz; breast
 // milk stays 20 and Infatrini 30, each with one strength the picker locks.
 const EN_PRODUCTS = [
   { id: "bm",          group: "Breast Milk",         label: "Breast Milk (mature)",          strengths: [[20, "BM_20"]] },
   { id: "bmHmf",       group: "Breast Milk",         label: "FBM with HMF",                  strengths: [[24, "BM_HMF_24"]] },
-  { id: "pf",          group: "Preterm formula",     label: "Preterm Formula",               strengths: [[20, "BM_PF_20"], [22, "BM_PF_22"], [24, "BM_PF_24"], [27, "BM_PF_27"]] },
-  { id: "enfalacPrem", group: "Preterm formula",     label: "Enfalac Premature",             strengths: [[20, "ENFALAC_PREM_20"], [22, "FBM_PF_22"], [24, "ENFALAC_PREM_24"], [27, "ENFALAC_PREM_27"]] },
-  { id: "preNan",      group: "Preterm formula",     label: "Pre Nan",                       strengths: [[20, "PRENAN_20"], [22, "PRENAN_22"], [24, "PRENAN_24"], [27, "PRENAN_27"]] },
-  { id: "hiQLbw",      group: "Preterm formula",     label: "Hi-Q LBW",                      strengths: [[20, "HIQLBW_20"], [22, "HIQLBW_22"], [24, "FBM_PF_24"], [27, "HIQLBW_27"]] },
+  { id: "pf",          group: "Preterm formula",     label: "Preterm Formula",               strengths: [[20, "BM_PF_20"], [22, "BM_PF_22"], [24, "BM_PF_24"], [26, "BM_PF_26"], [27, "BM_PF_27"]] },
+  { id: "enfalacPrem", group: "Preterm formula",     label: "Enfalac Premature",             strengths: [[20, "ENFALAC_PREM_20"], [22, "FBM_PF_22"], [24, "ENFALAC_PREM_24"], [26, "ENFALAC_PREM_26"], [27, "ENFALAC_PREM_27"]] },
+  { id: "preNan",      group: "Preterm formula",     label: "Pre Nan",                       strengths: [[20, "PRENAN_20"], [22, "PRENAN_22"], [24, "PRENAN_24"], [26, "PRENAN_26"], [27, "PRENAN_27"]] },
+  { id: "hiQLbw",      group: "Preterm formula",     label: "Hi-Q LBW",                      strengths: [[20, "HIQLBW_20"], [22, "HIQLBW_22"], [24, "FBM_PF_24"], [26, "HIQLBW_26"], [27, "HIQLBW_27"]] },
   { id: "infatrini",   group: "High-energy formula", label: "Infatrini",                     strengths: [[30, "INFATRINI_30"]] },
   { id: "hiQLf",       group: "Lactose-free",        label: "HiQ LF",                        strengths: [[20, "LF_20"], [24, "LF_24"], [27, "LF_27"]] },
   { id: "enfalacLf",   group: "Lactose-free",        label: "Enfalac LF",                    strengths: [[20, "ENFALAC_20"], [24, "ENFALAC_24"], [27, "ENFALAC_27"]] },

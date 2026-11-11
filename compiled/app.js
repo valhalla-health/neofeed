@@ -2892,7 +2892,7 @@ function FormulasPanel() {
     // Grouped as the calculator's feed list. Pre Nan is a preterm formula
     // (nutrition unit, 2026-10-25); it had a post-discharge group of its own
     // from 2026-09-28 until then.
-    { label: "Preterm formula", keys: ["BM_PF_20", "BM_PF_22", "BM_PF_24", "BM_PF_27", "ENFALAC_PREM_20", "FBM_PF_22", "ENFALAC_PREM_24", "ENFALAC_PREM_27", "PRENAN_20", "PRENAN_22", "PRENAN_24", "PRENAN_27", "HIQLBW_20", "HIQLBW_22", "FBM_PF_24", "HIQLBW_27"] },
+    { label: "Preterm formula", keys: ["BM_PF_20", "BM_PF_22", "BM_PF_24", "BM_PF_26", "BM_PF_27", "ENFALAC_PREM_20", "FBM_PF_22", "ENFALAC_PREM_24", "ENFALAC_PREM_26", "ENFALAC_PREM_27", "PRENAN_20", "PRENAN_22", "PRENAN_24", "PRENAN_26", "PRENAN_27", "HIQLBW_20", "HIQLBW_22", "FBM_PF_24", "HIQLBW_26", "HIQLBW_27"] },
     { label: "High-energy / Mixed", keys: ["FBM_INF_MIX", "INFATRINI_30"] }
   ];
   const cols = ["Formula", "kcal", "Protein", "Fat", "Na", "K", "Ca", "P", "Osm", "LF?", "Note"];
