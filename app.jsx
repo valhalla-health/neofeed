@@ -4747,7 +4747,7 @@ function GuidelinesPanel() {
 function FormulasPanel() {
   const DB = D_A.EN_DB;
   const groups = [
-    { label: "Breast Milk", keys: ["BM_20","BM_HMF_24","FBMPF_22","FBMPF_24","FBMPF_26","FBMPF_27"] },
+    { label: "Breast Milk", keys: ["BM_20","BM_HMF_24","BM_PFP_22","BM_PFP_24","BM_PFP_26","BM_PFP_27"] },
     { label: "HiQ LF (Dumex)", keys: ["HIQLF_20","HIQLF_24","HIQLF_27"] },
     { label: "Enfalac LF (MJN)", keys: ["ENFALAC_20","ENFALAC_24","ENFALAC_27"] },
     // Grouped as the calculator's feed list. Pre Nan is a preterm formula

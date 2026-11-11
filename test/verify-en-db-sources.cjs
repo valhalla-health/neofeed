@@ -165,10 +165,10 @@ const EXPECTED = {
   PRENAN_26:    { want: atStrength(column(T5, 'preNan'), 26), cites: ['Table 5', 'p. 16'] },
   HIQLBW_26:    { want: atStrength(column(T5, 'hiQLbw'), 26), cites: ['Table 5', 'p. 16'] },
   // FBM with PF (Pp, 2026-11-11): BM + Enfalac Premature powder to the strength.
-  FBMPF_22:     { want: bmPlusPf(22), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
-  FBMPF_24:     { want: bmPlusPf(24), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
-  FBMPF_26:     { want: bmPlusPf(26), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
-  FBMPF_27:     { want: bmPlusPf(27), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
+  BM_PFP_22:     { want: bmPlusPf(22), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
+  BM_PFP_24:     { want: bmPlusPf(24), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
+  BM_PFP_26:     { want: bmPlusPf(26), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
+  BM_PFP_27:     { want: bmPlusPf(27), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
   // Pp, 2026-11-11: "PF ใช้ข้อมูลจาก brand Enfalac Premature formula".
   BM_PF_20:     { want: atStrength(column(T5, 'enfalacPremature'), 20), cites: ['Enfalac Premature', 'Table 5', 'p. 16'] },
   BM_PF_22:     { want: atStrength(column(T5, 'enfalacPremature'), 22), cites: ['Enfalac Premature', 'Table 5', 'p. 16'] },
@@ -196,7 +196,7 @@ const KEPT = {};
 // 24 kcal/oz rows and Enfalac LF joined on 2026-10-27 (nutrition unit).
 // FBM 24 ↔ Infatrini 30 left it on 2026-11-06 (Pp: two feeds do it).
 // FBM with HMF hidden since 2026-11-11 (Pp: no HMF in Thailand).
-const CALC_OFFERS = ['BM_20', 'FBMPF_22', 'FBMPF_24', 'FBMPF_26', 'FBMPF_27', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_PREM_20', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'PRENAN_20', 'PRENAN_26', 'PRENAN_27', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
+const CALC_OFFERS = ['BM_20', 'BM_PFP_22', 'BM_PFP_24', 'BM_PFP_26', 'BM_PFP_27', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_PREM_20', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'PRENAN_20', 'PRENAN_26', 'PRENAN_27', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
   'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27'];
 const FIELDS = ['kcal', 'pro', 'fat', 'cho', 'na', 'k', 'ca', 'p'];
 const close = (a, b) => typeof a === 'number' && Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));

@@ -26,7 +26,7 @@ Pp, 2026-11-11, from two phone screenshots:
   one that lacks the current strength lands on 20 (Infatrini 30 → Pre Nan reads "30 → 20").
   `CONSTANTS_VERSION` 2026-11-06.1 → 2026-11-11.1. No second clinician has reviewed the rows; Pp only.
   **FBM with PF** (Pp, same day: "FBM with PF ให้เลือก 22,24,26,27 kcal"): breast milk fortified with Enfalac
-  Premature powder, 22, 24, 26 or 27 kcal/oz (`FBMPF_*`). Mature milk (`BM_20`, 67 kcal) plus powder bringing
+  Premature powder, 22, 24, 26 or 27 kcal/oz (`BM_PFP_*`). Mature milk (`BM_20`, 67 kcal) plus powder bringing
   the rest of the energy with the Chula Table 5 column; the powder's volume is not counted, as for HMF. At 24:
   protein 1.59 g, Ca 41.7 mg, P 23.4 mg per 100 mL (FBM with HMF 24: 2.3 g, 116, 59.9). Step 2's breast-milk
   line names the milk it assumes; it does not yet explain the powder.

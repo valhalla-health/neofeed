@@ -384,22 +384,22 @@ const EN_DB = {
   },
 
   // ── FBM with PF: breast milk + Enfalac Premature powder (Pp, 2026-11-11) ─
-  FBMPF_22: {
+  BM_PFP_22: {
     label: "FBM with PF (22 kcal/oz)",
     ..._enBmPlusPf(22), lf: false,
     source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 22 kcal/oz",
   },
-  FBMPF_24: {
+  BM_PFP_24: {
     label: "FBM with PF (24 kcal/oz)",
     ..._enBmPlusPf(24), lf: false,
     source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 24 kcal/oz",
   },
-  FBMPF_26: {
+  BM_PFP_26: {
     label: "FBM with PF (26 kcal/oz)",
     ..._enBmPlusPf(26), lf: false,
     source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 26 kcal/oz",
   },
-  FBMPF_27: {
+  BM_PFP_27: {
     label: "FBM with PF (27 kcal/oz)",
     ..._enBmPlusPf(27), lf: false,
     source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 27 kcal/oz",
@@ -504,7 +504,7 @@ const EN_PRODUCTS = [
   // shows it as saved. Pp also wants 24 and 27 when HMF returns: 27 needs a dose
   // of HMF decided first, so only 24 is here.
   { id: "bmHmf",       group: "Breast Milk",         label: "FBM with HMF",                  strengths: [[24, "BM_HMF_24"]], hidden: true },
-  { id: "fbmPf",       group: "Breast Milk",         label: "FBM with PF",                   strengths: [[22, "FBMPF_22"], [24, "FBMPF_24"], [26, "FBMPF_26"], [27, "FBMPF_27"]] },
+  { id: "fbmPf",       group: "Breast Milk",         label: "FBM with PF",                   strengths: [[22, "BM_PFP_22"], [24, "BM_PFP_24"], [26, "BM_PFP_26"], [27, "BM_PFP_27"]] },
   { id: "pf",          group: "Preterm formula",     label: "Preterm Formula",               strengths: [[20, "BM_PF_20"], [22, "BM_PF_22"], [24, "BM_PF_24"], [26, "BM_PF_26"], [27, "BM_PF_27"]] },
   { id: "enfalacPrem", group: "Preterm formula",     label: "Enfalac Premature",             strengths: [[20, "ENFALAC_PREM_20"], [22, "FBM_PF_22"], [24, "ENFALAC_PREM_24"], [26, "ENFALAC_PREM_26"], [27, "ENFALAC_PREM_27"]] },
   { id: "preNan",      group: "Preterm formula",     label: "Pre Nan",                       strengths: [[20, "PRENAN_20"], [22, "PRENAN_22"], [24, "PRENAN_24"], [26, "PRENAN_26"], [27, "PRENAN_27"]] },
