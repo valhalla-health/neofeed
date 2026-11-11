@@ -631,7 +631,7 @@ function Calculator({
   const [lipidDripHours, setLipidDripHours] = useState(24);
   const setLipidHoursTyped = (h) => {
     const r = Math.round(h * 10) / 10;
-    if (r >= 1) setLipidDripHours(Math.min(r, 24));
+    if (r >= 1) setLipidDripHours(Math.min(r, D.PUMP_MAX_HOURS));
   };
   const [naCl, setNaCl] = useState(0);
   const [naAcet, setNaAcet] = useState(0);
@@ -1172,7 +1172,7 @@ function Calculator({
     const enKcal = enCounted / 100 * en.kcal;
     const enProteinG = enCounted / 100 * en.pro;
     const enLipidG = enCounted / 100 * en.fat;
-    const useEnteralTargets = enCounted / wtKg >= 100;
+    const useEnteralTargets = enCounted / wtKg >= D.FULL_EN_ML_KG;
     const enFeedKg = {
       kcal: enVolTotal / 100 * en.kcal / wtKg,
       pro: enVolTotal / 100 * en.pro / wtKg,
@@ -1416,7 +1416,7 @@ function Calculator({
     3: naCl + naAcet + glycophosP + kCl + caPerKg + mgPerKg > 0 || noTpnOn ? "done" : "empty",
     4: "done",
     // vitamins/TE always defaulted
-    5: calc.enVolPerKg >= 100 ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty"
+    5: calc.enVolPerKg >= D.FULL_EN_ML_KG ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty"
   };
   const useEN = calc.useEnteralTargets;
   const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
@@ -1473,7 +1473,7 @@ function Calculator({
   const pumpHoursText = (pump) => pump ? `${fmt(pump.hours, 1)} h` : "—";
   const sLipidGkgh = lipidGrade.status;
   const tpnOver = D.tpnOverDelivery(totalTPN_mL);
-  const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
+  const enVolStatusAt = (v) => v >= D.FULL_EN_ML_KG ? "ok" : v > 0 ? "warn" : "ok";
   const ivLipidKg = wtKg > 0 ? calc.lipidG / wtKg : 0;
   const ivKKg = calc.kKg;
   const ivNpeN = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;
@@ -1636,12 +1636,12 @@ function Calculator({
   const caPScope = mineral.hasOral ? " (รวม oral supp)" : "";
   if (caPStatus === "crit") alerts.push({ level: "crit", title: `Ca:P ratio${caPScope} — ไม่มี P`, body: `Ca ${fmt(mineral.hasOral ? mineral.totCa : calc.caKg, 0)} mg/kg/d แต่ P = 0 — เสี่ยง metabolic bone disease / สั่ง phosphate ร่วมด้วย.`, ref: "ESPGHAN 2018" });
   else if (caPStatus === "warn") alerts.push({ level: "warn", title: `Ca:P ratio${caPScope} off target`, body: `Mass ratio ${fmt(caPValue, 2)}:1 — aim ${tCaP[0]}–${tCaP[1]}:1 (molar 0.8–1.3:1 ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
-  if (!isMEN && calc.enVolPerKg > 100 && sPE === "warn") alerts.push({ level: "warn", title: "Protein : Energy off target", body: `${fmt(calc.peRatio, 1)} g/100 kcal — aim ${tPE[0]}–${tPE[1]}.`, ref: "ESPGHAN 2022" });
+  if (calc.useEnteralTargets && sPE === "warn") alerts.push({ level: "warn", title: "Protein : Energy off target", body: `${fmt(calc.peRatio, 1)} g/100 kcal — aim ${tPE[0]}–${tPE[1]}.`, ref: "ESPGHAN 2022" });
   if (isMEN && calc.enVolPerKg > D.MEN_MAX_ML_KG) alerts.push({
     level: "warn",
     title: "MEN ticked above trophic volume",
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
-    ref: `Feeding Advancement · MEF 12–${D.MEN_MAX_ML_KG} mL/kg/d`
+    ref: `Feeding Advancement · MEF ${D.ESPGHAN_TARGETS.en.advancement.mef[0]}–${D.MEN_MAX_ML_KG} mL/kg/d`
   });
   const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw);
   const enCountedPerKg = calc.wtKg > 0 ? calc.enCounted / calc.wtKg : 0;
@@ -2443,14 +2443,14 @@ function Calculator({
     display: "flex",
     alignItems: "center",
     gap: 6
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, stroke: 2.4 }), "Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active"), /* @__PURE__ */ React.createElement("div", { className: "en-delivered", style: { marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 } }, "Delivered per kg from EN"), twoFeeds && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" } }, "feeds 1 + 2"), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" } }, "MEN — not counted in totals")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" } }, [
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, stroke: 2.4 }), "Full EN ≥", D.FULL_EN_ML_KG, " mL/kg/d — wean PN · ESPGHAN 2022 EN targets active"), /* @__PURE__ */ React.createElement("div", { className: "en-delivered", style: { marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 } }, "Delivered per kg from EN"), twoFeeds && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" } }, "feeds 1 + 2"), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" } }, "MEN — not counted in totals")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" } }, [
     ["kcal", calc.enFeedKg.kcal, 0],
     ["pro", calc.enFeedKg.pro, 1],
     ["Na", calc.enFeedKg.na, 1],
     ["K", calc.enFeedKg.k, 1],
     ["Ca", calc.enFeedKg.ca, 0],
     ["P", calc.enFeedKg.p, 0]
-  ].map(([lab, v, d]) => /* @__PURE__ */ React.createElement("span", { key: lab, style: { whiteSpace: "nowrap" } }, lab, " ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, color: isMEN ? "var(--ink-3)" : "var(--ink)" } }, fmt(v, d))))), calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement(MilkAssumption, { keys: enFeeds.filter((f) => f.mlPerDay > 0).map((f) => f.key) }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "EN volume", value: calc.enVolPerKg, unit: " mL/kg/d", target: [100, 200], status: enVolStatusAt(calc.enVolPerKg), statusAt: enVolStatusAt, decimals: 0, max: 210 }), (() => {
+  ].map(([lab, v, d]) => /* @__PURE__ */ React.createElement("span", { key: lab, style: { whiteSpace: "nowrap" } }, lab, " ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, color: isMEN ? "var(--ink-3)" : "var(--ink)" } }, fmt(v, d))))), calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement(MilkAssumption, { keys: enFeeds.filter((f) => f.mlPerDay > 0).map((f) => f.key) }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "EN volume", value: calc.enVolPerKg, unit: " mL/kg/d", target: [D.FULL_EN_ML_KG, D.ESPGHAN_TARGETS.en.advancement.maxVol], status: enVolStatusAt(calc.enVolPerKg), statusAt: enVolStatusAt, decimals: 0, max: 210 }), (() => {
     const avail = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
     const availKg = wtKg > 0 ? avail / wtKg : 0;
     const over = avail < 0;
@@ -2481,7 +2481,7 @@ function Calculator({
       lineHeight: 1.1,
       color: over ? "var(--crit)" : "var(--brand-2)"
     } }, over ? "0" : fmt(avail, 0), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", marginLeft: 4, fontWeight: 400 } }, "mL/day")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", marginTop: 2 } }, over ? /* @__PURE__ */ React.createElement("span", { style: { color: "var(--crit)", fontWeight: 600 } }, "IV เกินแผนสารน้ำ ", fmt(Math.abs(avail), 0), " mL") : /* @__PURE__ */ React.createElement("span", null, "= ", fmt(availKg, 0), " mL/kg/d")));
-  })(), !isMEN && calc.enVolPerKg > 100 && /* @__PURE__ */ React.createElement(Tile, { label: "Protein : Energy", value: calc.peRatio, unit: " g/100kcal", target: tPE, status: sPE, decimals: 1, max: 5 })))))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable step2-card-h", onClick: () => toggleStep(2) }, /* @__PURE__ */ React.createElement(Icon, { name: "drop", size: 14, color: "var(--brand)" }), "Step 3 · TPN macronutrients", !noTpnOn && /* @__PURE__ */ React.createElement("span", { className: "step2-ctrl", style: { display: "flex", alignItems: "center", gap: 8, marginLeft: 10 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "seg", style: { padding: 1 } }, /* @__PURE__ */ React.createElement("button", { className: route === "peripheral" ? "on" : "", onClick: () => setRoute("peripheral") }, "Peripheral"), /* @__PURE__ */ React.createElement("button", { className: route === "central" ? "on" : "", onClick: () => setRoute("central") }, "Central")), route == null && /* @__PURE__ */ React.createElement("span", { className: "route-missing", style: { fontSize: 11, fontWeight: 700, color: "var(--crit)" } }, "ยังไม่ได้เลือก route"), /* @__PURE__ */ React.createElement("span", { style: {
+  })(), calc.useEnteralTargets && /* @__PURE__ */ React.createElement(Tile, { label: "Protein : Energy", value: calc.peRatio, unit: " g/100kcal", target: tPE, status: sPE, decimals: 1, max: 5 })))))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h clickable step2-card-h", onClick: () => toggleStep(2) }, /* @__PURE__ */ React.createElement(Icon, { name: "drop", size: 14, color: "var(--brand)" }), "Step 3 · TPN macronutrients", !noTpnOn && /* @__PURE__ */ React.createElement("span", { className: "step2-ctrl", style: { display: "flex", alignItems: "center", gap: 8, marginLeft: 10 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "seg", style: { padding: 1 } }, /* @__PURE__ */ React.createElement("button", { className: route === "peripheral" ? "on" : "", onClick: () => setRoute("peripheral") }, "Peripheral"), /* @__PURE__ */ React.createElement("button", { className: route === "central" ? "on" : "", onClick: () => setRoute("central") }, "Central")), route == null && /* @__PURE__ */ React.createElement("span", { className: "route-missing", style: { fontSize: 11, fontWeight: 700, color: "var(--crit)" } }, "ยังไม่ได้เลือก route"), /* @__PURE__ */ React.createElement("span", { style: {
     padding: "2px 10px",
     borderRadius: 999,
     fontFamily: "IBM Plex Mono,monospace",
@@ -2652,7 +2652,7 @@ function Calculator({
     fontWeight: 600,
     marginTop: 2,
     color: sLipidGkgh === "crit" ? "var(--crit)" : sLipidGkgh === "warn" ? "var(--warn-ink)" : "var(--ink-2)"
-  } }, "= ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(lipidGkgh, 2)), " g/kg/h", /* @__PURE__ */ React.createElement("span", { className: "lipid-ceiling", style: { fontWeight: 400, color: "var(--ink-3)", marginLeft: 6 } }, "เพดาน ", D.LIPID_GKGH.warn, "–", D.LIPID_GKGH.max))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "Infuse over", unit: "h", value: lipidDripHours, onChange: setLipidHoursTyped, step: 1, hint: "1–24 h" }), /* @__PURE__ */ React.createElement("div", { className: "seg", style: { padding: 1 } }, [16, 20, 24].map((h) => /* @__PURE__ */ React.createElement("button", { key: h, className: lipidDripHours === h ? "on" : "", onClick: () => setLipidDripHours(h) }, h, "h"))))), /* @__PURE__ */ React.createElement("div", { className: "s2-lip-row", style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "20% lipid", unit: "g/kg/d", value: lipidPerKg, onChange: setLipidPerKg, step: 0.1 }), /* @__PURE__ */ React.createElement(PresetChips, { values: [0.5, 1, 2, 3, 4], current: lipidPerKg, onSelect: setLipidPerKg })), /* @__PURE__ */ React.createElement(
+  } }, "= ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(lipidGkgh, 2)), " g/kg/h", /* @__PURE__ */ React.createElement("span", { className: "lipid-ceiling", style: { fontWeight: 400, color: "var(--ink-3)", marginLeft: 6 } }, "เพดาน ", D.LIPID_GKGH.warn, "–", D.LIPID_GKGH.max))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "Infuse over", unit: "h", value: lipidDripHours, onChange: setLipidHoursTyped, step: 1, hint: `1–${D.PUMP_MAX_HOURS} h` }), /* @__PURE__ */ React.createElement("div", { className: "seg", style: { padding: 1 } }, [16, 20, 24].map((h) => /* @__PURE__ */ React.createElement("button", { key: h, className: lipidDripHours === h ? "on" : "", onClick: () => setLipidDripHours(h) }, h, "h"))))), /* @__PURE__ */ React.createElement("div", { className: "s2-lip-row", style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "20% lipid", unit: "g/kg/d", value: lipidPerKg, onChange: setLipidPerKg, step: 0.1 }), /* @__PURE__ */ React.createElement(PresetChips, { values: [0.5, 1, 2, 3, 4], current: lipidPerKg, onSelect: setLipidPerKg })), /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -3243,7 +3243,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
     if (!row) return `${key}: not in the feed list`;
     return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
   };
-  const band = useEN ? "เป้าหมาย enteral เพราะนมที่นับได้ถึง 100 mL/kg/d (CR-U-SWITCH)" : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
+  const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = /* @__PURE__ */ React.createElement(React.Fragment, null, "kg = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "wtG", v: wtG, d: 0 }), " g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)");
   const feedRow = (n, unit, total, k) => {
     if (given.length === 0) return /* @__PURE__ */ React.createElement(React.Fragment, null, "ไม่มีนม: ", /* @__PURE__ */ React.createElement(WorkVal, { k, v: total }), " ", unit);

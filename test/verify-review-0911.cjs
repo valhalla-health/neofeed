@@ -436,7 +436,9 @@ const patient = { sessionId: 'CR-900', name: 'CR', bw: 900, currentBed: 'NICU 2'
   ok('no hard-coded "just now" sync labels', !/Sync · just now|Synced just now/.test(app));
   // The growing row starts the day after the first days (DOL 8 since 2026-10-27).
   const GROW = D.FIRST_DAYS_LAST_DOL + 1;
-  ok('Guidelines P row reads TPN_TARGETS, not "46–62"', !/46–62/.test(app) && /TPN_TARGETS\.p\(D_A\.FIRST_DAYS_LAST_DOL \+ 1\)/.test(app));
+  // FD is D_A.FIRST_DAYS_LAST_DOL in GuidelinesPanel since 2026-11-10 (5).
+  ok('Guidelines P row reads TPN_TARGETS, not "46–62"', !/46–62/.test(app)
+    && /const FD = D_A\.FIRST_DAYS_LAST_DOL;/.test(app) && /TPN_TARGETS\.p\(FD \+ 1\)/.test(app));
   ok('WHO tab no longer says HMF starts at EN ≥100', !/Start when EN ≥100/.test(app));
   const g = D.ESPGHAN_TARGETS.pn.electrolytes.p.growing;
   ok('ESPGHAN reference P matches TPN_TARGETS.p (mmol ×31)',

@@ -600,14 +600,14 @@ const TPN_TARGETS = {
 };
 
 // ── Full EN on a saved row (Pp, 2026-11-10) ──────────────────
-// Counted EN of at least 100 mL/kg/d. A MEN feed never counts, the same rule
-// the calculator's useEnteralTargets applies before saving. enVolPerKg stays
-// the feed actually given, so the MEN tick in calcInput decides. A row
-// without enVolPerKg (legacy) is parenteral, the safer of the two.
+// Counted EN of at least FULL_EN_ML_KG (100) mL/kg/d. A MEN feed never counts,
+// the same rule the calculator's useEnteralTargets applies before saving.
+// enVolPerKg stays the feed actually given, so the MEN tick in calcInput
+// decides. A row without enVolPerKg (legacy) is parenteral, the safer of the two.
 function isFullEn(entry) {
   if (!entry) return false;
   if (entry.calcInput && entry.calcInput.isMEN) return false;
-  return (Number(entry.enVolPerKg) || 0) >= 100;
+  return (Number(entry.enVolPerKg) || 0) >= FULL_EN_ML_KG;
 }
 
 // ── ENTERAL_TARGETS — used when Full EN (isFullEn) ──────────
@@ -875,6 +875,12 @@ const GLYCO_P_HABIT_MG = 10;
 // from yesterday, so MEN still ticked above this is a warning (never a stop):
 // the feed was probably advanced and the tick left on (Praew, 2026-09-18).
 const MEN_MAX_ML_KG = 24;
+// Full enteral feeding, mL/kg/day: from this counted feed (at or above) the
+// tiles switch to ENTERAL_TARGETS (CR-U-SWITCH), a saved row is Full EN
+// (isFullEn), and the Protein : Energy tile and its alert show (CR-TGT-PE; above
+// it only until 2026-11-10, when Pp made P:E start at the switch: "≥ 100
+// เหมือนกันหมด"). NeoFeed's own convention, no source gives it (Q17).
+const FULL_EN_ML_KG = 100;
 // A day ticked "No TPN" in Step 3: the counted feed must reach this many
 // mL/kg/day, or the day's fluid requirement where that is lower (TARGETS.fluid's
 // lower bound: DOL 1 at 1,000–1,499 g 70 and 1,500–2,499 g 60; term DOL 1–4 40,
@@ -1266,7 +1272,7 @@ const ESPGHAN_TARGETS = {
       p:  { dol1:[1.0,2.0], growing:[1.6,3.5], unit:"mmol/kg/day" },  // × 30.97 = mg/kg
       mg: { dol1:[0.1,0.2], growing:[0.2,0.3], unit:"mmol/kg/day" },
       caP_molar:  [0.8, 1.3],   // molar Ca:P ratio — aim 1.3:1 (ESPGHAN 2018)
-      caP_mass:   [1.0, 1.7],   // mass ratio — ESPGHAN 0.8–1.3 molar × 1.29 = 1.0–1.7; KCMH aim 1.7:1
+      caP_mass:   TARGETS.caP(),   // the tile's band (TARGETS.caP, CR-TGT-CAP) — mass ratio — ESPGHAN 0.8–1.3 molar × 1.29 = 1.0–1.7; KCMH aim 1.7:1
     },
     micronutrients: {
       zn: { preterm:[400,500], term:[250,250], unit:"µg/kg/day" },
@@ -1301,17 +1307,17 @@ const ESPGHAN_TARGETS = {
     k:       { range:[2.3,4.6],             unit:"mmol/kg/day", note:"↑ from 2010 range" },
     ca:      { range:[3.0,5.0], mgPerKg:[120,200], unit:"mmol/kg/day", note:"↑ upper limit" },
     p:       { range:[2.2,3.7], mgPerKg:[70,115],  unit:"mmol/kg/day", note:"↑ from 2010" },
-    vitD:    { range:[400,700], maxIuDay:1000, unit:"IU/kg/day", note:"Per kg (not per day) — changed in 2022! At most 1,000 IU/day (nutrition unit)" },
+    vitD:    { range:[400,700], maxIuDay:VIT_D_MAX_IU_DAY, unit:"IU/kg/day", note:"Per kg (not per day) — changed in 2022! At most 1,000 IU/day (nutrition unit)" },
     fe:      { range:[2,3], max:6,          unit:"mg/kg/day",  note:"Start at 2 weeks" },
     zn:      { range:[2.0,3.0],             unit:"mg/kg/day",  note:"↑↑ from 2010: 1.1–2.0" },
     fluid:   { range:[150,200], target:165, unit:"mL/kg/day", note:"ESPGHAN 150–180; attending may use up to 200 mL/kg/day" },
     growth:  { weight:[17,20], length:0.8, hc:0.5, unit:"g/kg/day | cm/week | cm/week" },
     peRatio: { range:[2.8,3.6],             unit:"g/100 kcal", note:"For lean mass accretion" },
     advancement: {
-      mef:      [12,24],   // mL/kg/day minimal enteral feeding
+      mef:      [12, MEN_MAX_ML_KG],   // mL/kg/day minimal enteral feeding; the top is the MEN ceiling
       step:     [18,30],   // advance per day (WHO 2023: up to 30 mL/kg/day safe)
       hmfStart: 40,         // start HMF at ≥40 mL/kg/day
-      fullFeeds: 100,        // KCMH threshold: ≥100 mL/kg/day = full EN → wean PN + switch to EN targets
+      fullFeeds: FULL_EN_ML_KG, // KCMH threshold: ≥100 mL/kg/day = full EN → wean PN + switch to EN targets
       maxVol: 200,           // max enteral volume — attending discretion, some go to 200 mL/kg/day
       hmfIndication: "<32 wk gestation or <1.5 kg birth weight on MOM or DHM",
       grNote: "No routine gastric residual monitoring in stable infants (ESPGHAN 2022 GOR B)",
@@ -3061,6 +3067,8 @@ window.NEOFEED_DATA = {
   SALT_SOURCES_REFERENCE_ONLY: SALT_SOURCES,
   // Target systems (backward-compatible function API)
   TARGETS, TPN_TARGETS, ENTERAL_TARGETS, isFullEn,
+  // mg per mmol (Na, K, Ca, P), for a page that converts between them
+  EN_MG_PER_MMOL,
   // Comprehensive ESPGHAN reference object (for display panels)
   ESPGHAN_TARGETS,
   // Growth charts
@@ -3079,7 +3087,7 @@ window.NEOFEED_DATA = {
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
-  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, GLYCO_NA_HABIT_MEQ, GLYCO_P_HABIT_MG, MEN_MAX_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
+  KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, GLYCO_NA_HABIT_MEQ, GLYCO_P_HABIT_MG, MEN_MAX_ML_KG, FULL_EN_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
   OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, vitaminMlPerDay,

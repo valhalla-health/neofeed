@@ -1027,12 +1027,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [lipidDripHours, setLipidDripHours] = useState(24); // lipid bag infused over this many hours
   // Hours typed into the lipid pump card (TPN team, 2026-09-28), 1–24 h, to one
   // decimal — Center Point's sheet prints the hours to one decimal too. Over 24
-  // is held at 24: lipid hangs 24 h at most. Under 1 h is not taken — an emptied
+  // is held at 24: lipid hangs 24 h at most, the same 24 h a pump may run
+  // (D.PUMP_MAX_HOURS, CR-R-PUMP-RATE). Under 1 h is not taken — an emptied
   // box reads as 0 — so the box keeps the last good value and the bag is never
   // divided by 0 or by a fraction of an hour.
   const setLipidHoursTyped = (h) => {
     const r = Math.round(h * 10) / 10;
-    if (r >= 1) setLipidDripHours(Math.min(r, 24));
+    if (r >= 1) setLipidDripHours(Math.min(r, D.PUMP_MAX_HOURS));
   };
 
   // Card key 3 — Electrolytes (displayed as Step 4; all zero baseline)
@@ -1753,7 +1754,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     const enProteinG = enCounted / 100 * en.pro;
     const enLipidG = enCounted / 100 * en.fat;
     // A MEN feed is not nutrition, so it never switches on the enteral targets.
-    const useEnteralTargets = enCounted / wtKg >= 100;
+    const useEnteralTargets = enCounted / wtKg >= D.FULL_EN_ML_KG;
     // What the feed itself provides per kg/day, counted or not — Step 2 shows
     // it, marked "not counted" when MEN is ticked.
     const enFeedKg = {
@@ -2012,7 +2013,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
        : (totalTPN_mL > 0 || dexPct > 0 || aaPerKg > 0) ? "partial" : "empty",
     3: (naCl + naAcet + glycophosP + kCl + caPerKg + mgPerKg) > 0 || noTpnOn ? "done" : "empty",
     4: "done", // vitamins/TE always defaulted
-    5: calc.enVolPerKg >= 100 ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty",
+    5: calc.enVolPerKg >= D.FULL_EN_ML_KG ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty",
   };
 
   // StepHead is inlined in each card below (not a component — avoids unmount/remount issue)
@@ -2145,7 +2146,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sLipidGkgh = lipidGrade.status;
   const tpnOver = D.tpnOverDelivery(totalTPN_mL);
   // EN volume: short of 100 mL/kg/d is a caution; nothing ordered is not.
-  const enVolStatusAt = (v) => v >= 100 ? "ok" : v > 0 ? "warn" : "ok";
+  const enVolStatusAt = (v) => v >= D.FULL_EN_ML_KG ? "ok" : v > 0 ? "warn" : "ok";
 
   // ── Hard limits on the IV (TPN) portion only — Praew, 2026-09-17 (UP-C4) ──
   // Lipid, K and NPE:AA are limits on what is infused; their figures are
@@ -2399,15 +2400,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const caPScope  = mineral.hasOral ? " (รวม oral supp)" : "";
   if (caPStatus === "crit") alerts.push({ level: "crit", title: `Ca:P ratio${caPScope} — ไม่มี P`, body: `Ca ${fmt(mineral.hasOral ? mineral.totCa : calc.caKg, 0)} mg/kg/d แต่ P = 0 — เสี่ยง metabolic bone disease / สั่ง phosphate ร่วมด้วย.`, ref: "ESPGHAN 2018" });
   else if (caPStatus === "warn") alerts.push({ level: "warn", title: `Ca:P ratio${caPScope} off target`, body: `Mass ratio ${fmt(caPValue, 2)}:1 — aim ${tCaP[0]}–${tCaP[1]}:1 (molar 0.8–1.3:1 ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
-  // Not for a MEN feed: its P:E would be the TPN's alone, judged on an enteral target.
-  if (!isMEN && calc.enVolPerKg > 100 && sPE === "warn") alerts.push({ level: "warn", title: "Protein : Energy off target", body: `${fmt(calc.peRatio, 1)} g/100 kcal — aim ${tPE[0]}–${tPE[1]}.`, ref: "ESPGHAN 2022" });
+  // Only on the enteral targets, so never for a MEN feed (its P:E would be the
+  // TPN's alone, judged on an enteral target). From the switch itself, at or
+  // above D.FULL_EN_ML_KG: it was above 100 until Pp, 2026-11-10.
+  if (calc.useEnteralTargets && sPE === "warn") alerts.push({ level: "warn", title: "Protein : Energy off target", body: `${fmt(calc.peRatio, 1)} g/100 kcal — aim ${tPE[0]}–${tPE[1]}.`, ref: "ESPGHAN 2022" });
   // A MEN feed is left out of fluid and every nutrient total, and orders
   // prefill from yesterday — so a MEN tick left on after the feed is advanced
   // hides real feeds. Above the trophic ceiling it is flagged; a warning, never
   // a stop (Praew, 2026-09-18).
   if (isMEN && calc.enVolPerKg > D.MEN_MAX_ML_KG) alerts.push({ level: "warn", title: "MEN ticked above trophic volume",
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
-    ref: `Feeding Advancement · MEF 12–${D.MEN_MAX_ML_KG} mL/kg/d` });
+    ref: `Feeding Advancement · MEF ${D.ESPGHAN_TARGETS.en.advancement.mef[0]}–${D.MEN_MAX_ML_KG} mL/kg/d` });
   // CR-NO-TPN-EN (Pp, 2026-11-01): a day ticked "No TPN" lives on its feeds,
   // so the counted feed (a MEN feed counts for nothing) must reach 80 mL/kg/d,
   // or the day's fluid requirement where that is lower (D.noTpnEnMinPerKg, on
@@ -3413,7 +3416,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   borderRadius: 6, fontSize: 11.5, color: "var(--ok)", marginTop: 8, fontWeight: 600,
                   display: "flex", alignItems: "center", gap: 6 }}>
                   <Icon name="check" size={14} stroke={2.4} />
-                  Full EN ≥100 mL/kg/d — wean PN · ESPGHAN 2022 EN targets active
+                  Full EN ≥{D.FULL_EN_ML_KG} mL/kg/d — wean PN · ESPGHAN 2022 EN targets active
                 </div>
               )}
 
@@ -3439,7 +3442,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <Tile label="EN volume" value={calc.enVolPerKg} unit=" mL/kg/d" target={[100, 200]} status={enVolStatusAt(calc.enVolPerKg)} statusAt={enVolStatusAt} decimals={0} max={210} />
+              <Tile label="EN volume" value={calc.enVolPerKg} unit=" mL/kg/d" target={[D.FULL_EN_ML_KG, D.ESPGHAN_TARGETS.en.advancement.maxVol]} status={enVolStatusAt(calc.enVolPerKg)} statusAt={enVolStatusAt} decimals={0} max={210} />
               {(() => {
                 const avail   = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
                 const availKg = wtKg > 0 ? avail / wtKg : 0;
@@ -3469,7 +3472,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   </div>
                 );
               })()}
-              {!isMEN && calc.enVolPerKg > 100 &&
+              {calc.useEnteralTargets &&
               <Tile label="Protein : Energy" value={calc.peRatio} unit=" g/100kcal" target={tPE} status={sPE} decimals={1} max={5} />
               }
             </div>
@@ -3749,7 +3752,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <div>
                   {/* Any number of hours can be typed, besides the three chips
                       (TPN team, 2026-09-28) — see setLipidHoursTyped. */}
-                  <NumField label="Infuse over" unit="h" value={lipidDripHours} onChange={setLipidHoursTyped} step={1} hint="1–24 h" />
+                  <NumField label="Infuse over" unit="h" value={lipidDripHours} onChange={setLipidHoursTyped} step={1} hint={`1–${D.PUMP_MAX_HOURS} h`} />
                   <div className="seg" style={{ padding:1 }}>
                     {[16, 20, 24].map(h => (
                       <button key={h} className={lipidDripHours === h ? "on" : ""} onClick={() => setLipidDripHours(h)}>{h}h</button>
@@ -4924,7 +4927,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
     if (!row) return `${key}: not in the feed list`;
     return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
   };
-  const band = useEN ? "เป้าหมาย enteral เพราะนมที่นับได้ถึง 100 mL/kg/d (CR-U-SWITCH)" : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
+  const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = <>kg = <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)</>;
   // `n` is the EN_DB nutrient; with two feeds calc.en is their mix, so each
   // feed's line reads its own row and the lines add up to calc's total.
