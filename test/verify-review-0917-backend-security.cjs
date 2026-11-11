@@ -159,7 +159,7 @@ T.section('SEC-B8 · no account enumeration on the password path', () => {
     ![...g.cacheStore.keys()].some(k => k.includes('ghost')), [...g.cacheStore.keys()]);
 });
 
-T.section('A5 / SEC-B7 · Google hd restriction prepared, default off, with telemetry', () => {
+T.section('A5 / SEC-B7 · Google hd restriction ships on (since 2026-11-11); off-mode telemetry', () => {
   const now = Math.floor(Date.now() / 1000);
   // Each case is a different token from Google: a token verified once is kept since 2026-11-02 (A3).
   const token = (email, hd) => {
@@ -171,7 +171,8 @@ T.section('A5 / SEC-B7 · Google hd restriction prepared, default off, with tele
   g.addStaff('staff@chula.ac.th', 'doctor', '');
   g.addStaff('g@gmail.com', 'nurse', '');
   g.addStaff('pw@redcross.or.th', 'admin', 'Correct-Password-1');
-  T.eq('GOOGLE_HD_ENFORCE ships false', g.sb.GOOGLE_HD_ENFORCE, false);
+  T.eq('GOOGLE_HD_ENFORCE ships true (on since 2026-11-11)', g.sb.GOOGLE_HD_ENFORCE, true);
+  g.sb.GOOGLE_HD_ENFORCE = false; // the off-path telemetry below is still tested
   g.env.urlFetch = token('staff@chula.ac.th', 'chula.ac.th');
   T.eq('verifyGoogleIdToken returns hd', g.sb.verifyGoogleIdToken('t').hd, 'chula.ac.th');
   T.eq('off: a Workspace login with hd works', g.post({ action: 'login', googleToken: 't' }).status, 'ok');
