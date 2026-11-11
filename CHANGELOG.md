@@ -25,6 +25,9 @@ Pp, 2026-11-11, from two phone screenshots:
   one strength (Breast Milk 20, FBM with HMF 24, Infatrini 30) shows its kcal/oz select disabled. Changing milk to
   one that lacks the current strength lands on 20 (Infatrini 30 → Pre Nan reads "30 → 20").
   `CONSTANTS_VERSION` 2026-11-06.1 → 2026-11-11.1. No second clinician has reviewed the rows; Pp only.
+  **Center Point** validates feeds against its own copy of `center-point/tpn-document.mjs`, which this PR leaves
+  unchanged (its digest is pinned by `verify-center-point-entry` §6): until CP's copy gains the new keys, a CP
+  packet on one of the new strengths (or on PF 22–27) is refused, not printed wrongly. Sync CP next.
 - **Bed history.** "อยากให้มีปุ่มสามารถลบสำหรับดาต้าที่ลงผิดได้". Each "Previous beds" line in Transfer bed has a
   "ลบ" button (with a confirm). The backend merge of `bedHistory` was append-only; it now also removes an entry
   that is in the client's base and not in what it sends, once, so another device's new entry is still kept.
