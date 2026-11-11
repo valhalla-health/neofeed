@@ -378,7 +378,7 @@ function baseOrder({ tf = 120 } = {}) {
     const offered = groups.flatMap(g => g.keys).sort();
     eq('every feed offered before is still offered, once, with the new ones, less FBM ↔ Infatrini',
       offered, ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27',
-        'ENFALAC_PREM_20', 'ENFALAC_PREM_24', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'FBM_PF_22', 'FBM_PF_24', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27',
+        'ENFALAC_PREM_20', 'ENFALAC_PREM_24', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'FBMPF_22', 'FBMPF_24', 'FBMPF_26', 'FBMPF_27', 'FBM_PF_22', 'FBM_PF_24', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27',
         'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'PRENAN_20', 'PRENAN_22', 'PRENAN_24', 'PRENAN_26', 'PRENAN_27']);
     // The Formula reference page (app.jsx, not mounted here): the same split, and Pre Nan at last.
     const src = R('app.jsx');

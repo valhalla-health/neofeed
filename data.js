@@ -220,6 +220,17 @@ const _EN_BM_HMF = (() => {
     na: b.na + h.naMg * g / EN_MG_PER_MMOL.na, k: b.k + h.kMg * g / EN_MG_PER_MMOL.k,
     ca: b.ca + h.ca * g, p: b.p + h.p * g, osm: null };
 })();
+// Pp, 2026-11-11: "FBM with PF ให้เลือก 22,24,26,27 kcal". Mature milk (67 kcal)
+// fortified with Enfalac Premature powder (the ward's PF, Pp 2026-11-11) up to
+// the strength: the powder brings (strength − 67) kcal with the Chula Table 5
+// per-100-kcal column. Its volume is not counted, as for HMF; no osmolality.
+function _enBmPlusPf(kcalOz) {
+  const b = _EN_BM, c = EN_SRC_CHULA_PER_100_KCAL.enfalacPremature;
+  const kcal = EN_KCAL_PER_100ML[kcalOz], s = (kcal - b.kcal) / 100;
+  return { kcal, pro: b.pro + c.pro * s, fat: b.fat + c.fat * s, cho: b.cho + c.cho * s,
+    na: b.na + c.naMg * s / EN_MG_PER_MMOL.na, k: b.k + c.kMg * s / EN_MG_PER_MMOL.k,
+    ca: b.ca + c.ca * s, p: b.p + c.p * s, osm: null };
+}
 const _EN_INFATRINI = _enFromChula(EN_SRC_CHULA_PER_100_KCAL.infatriniPowder, 30);
 // Alternating feeds: the mean of the two rows, per nutrient. The feeds are
 // never mixed in one bottle, so there is no osmolality to average.
@@ -372,6 +383,28 @@ const EN_DB = {
     note: "Start HMF at ≥40 mL/kg/day · <32 wk or <1.5 kg (WHO 2023) · osmolarity 377 (estimated) to 401 mOsm/L (Chula p. 10)",
   },
 
+  // ── FBM with PF: breast milk + Enfalac Premature powder (Pp, 2026-11-11) ─
+  FBMPF_22: {
+    label: "FBM with PF (22 kcal/oz)",
+    ..._enBmPlusPf(22), lf: false,
+    source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 22 kcal/oz",
+  },
+  FBMPF_24: {
+    label: "FBM with PF (24 kcal/oz)",
+    ..._enBmPlusPf(24), lf: false,
+    source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 24 kcal/oz",
+  },
+  FBMPF_26: {
+    label: "FBM with PF (26 kcal/oz)",
+    ..._enBmPlusPf(26), lf: false,
+    source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 26 kcal/oz",
+  },
+  FBMPF_27: {
+    label: "FBM with PF (27 kcal/oz)",
+    ..._enBmPlusPf(27), lf: false,
+    source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 27 kcal/oz",
+  },
+
   // ── Lactose-free — HiQ LF (the Calculator's LF rows) ──────
   LF_20: {
     label: "LF — HiQ LF (20 kcal/oz)",
@@ -467,6 +500,7 @@ const EN_DB = {
 const EN_PRODUCTS = [
   { id: "bm",          group: "Breast Milk",         label: "Breast Milk (mature)",          strengths: [[20, "BM_20"]] },
   { id: "bmHmf",       group: "Breast Milk",         label: "FBM with HMF",                  strengths: [[24, "BM_HMF_24"]] },
+  { id: "fbmPf",       group: "Breast Milk",         label: "FBM with PF",                   strengths: [[22, "FBMPF_22"], [24, "FBMPF_24"], [26, "FBMPF_26"], [27, "FBMPF_27"]] },
   { id: "pf",          group: "Preterm formula",     label: "Preterm Formula",               strengths: [[20, "BM_PF_20"], [22, "BM_PF_22"], [24, "BM_PF_24"], [26, "BM_PF_26"], [27, "BM_PF_27"]] },
   { id: "enfalacPrem", group: "Preterm formula",     label: "Enfalac Premature",             strengths: [[20, "ENFALAC_PREM_20"], [22, "FBM_PF_22"], [24, "ENFALAC_PREM_24"], [26, "ENFALAC_PREM_26"], [27, "ENFALAC_PREM_27"]] },
   { id: "preNan",      group: "Preterm formula",     label: "Pre Nan",                       strengths: [[20, "PRENAN_20"], [22, "PRENAN_22"], [24, "PRENAN_24"], [26, "PRENAN_26"], [27, "PRENAN_27"]] },

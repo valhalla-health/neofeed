@@ -135,6 +135,13 @@ const MIX = {};
 for (const f of ['kcal', 'pro', 'fat', 'cho', 'na', 'k', 'ca', 'p']) MIX[f] = (BM_HMF[f] + INFATRINI[f]) / 2;
 MIX.osm = null;
 
+// BM + Enfalac Premature powder bringing (strength − 67) kcal, its own copy.
+function bmPlusPf(oz) {
+  const c = atStrength(column(T5, 'enfalacPremature'), 20), kcal = PER_100ML_AT_OZ[oz], f = (kcal - BM.kcal) / c.kcal;
+  const out = { kcal, osm: null };
+  for (const k of ['pro', 'fat', 'cho', 'na', 'k', 'ca', 'p']) out[k] = BM[k] + c[k] * f;
+  return out;
+}
 // What every EN_DB key must equal, and the words its `source` must contain.
 const EXPECTED = {
   BM_20:        { want: BM, cites: ['Box 1.3.1'] },
@@ -157,6 +164,11 @@ const EXPECTED = {
   ENFALAC_PREM_26: { want: atStrength(column(T5, 'enfalacPremature'), 26), cites: ['Table 5', 'p. 16'] },
   PRENAN_26:    { want: atStrength(column(T5, 'preNan'), 26), cites: ['Table 5', 'p. 16'] },
   HIQLBW_26:    { want: atStrength(column(T5, 'hiQLbw'), 26), cites: ['Table 5', 'p. 16'] },
+  // FBM with PF (Pp, 2026-11-11): BM + Enfalac Premature powder to the strength.
+  FBMPF_22:     { want: bmPlusPf(22), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
+  FBMPF_24:     { want: bmPlusPf(24), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
+  FBMPF_26:     { want: bmPlusPf(26), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
+  FBMPF_27:     { want: bmPlusPf(27), cites: ['BM_20', 'Enfalac Premature', 'Table 5', 'p. 16'] },
   // Pp, 2026-11-11: "PF ใช้ข้อมูลจาก brand Enfalac Premature formula".
   BM_PF_20:     { want: atStrength(column(T5, 'enfalacPremature'), 20), cites: ['Enfalac Premature', 'Table 5', 'p. 16'] },
   BM_PF_22:     { want: atStrength(column(T5, 'enfalacPremature'), 22), cites: ['Enfalac Premature', 'Table 5', 'p. 16'] },
@@ -183,7 +195,7 @@ const KEPT = {};
 // The Calculator's feed list for a new order (calculator.jsx, Step 2). The two
 // 24 kcal/oz rows and Enfalac LF joined on 2026-10-27 (nutrition unit).
 // FBM 24 ↔ Infatrini 30 left it on 2026-11-06 (Pp: two feeds do it).
-const CALC_OFFERS = ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_PREM_20', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'PRENAN_20', 'PRENAN_26', 'PRENAN_27', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
+const CALC_OFFERS = ['BM_20', 'BM_HMF_24', 'FBMPF_22', 'FBMPF_24', 'FBMPF_26', 'FBMPF_27', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_PREM_20', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'PRENAN_20', 'PRENAN_26', 'PRENAN_27', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
   'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27'];
 const FIELDS = ['kcal', 'pro', 'fat', 'cho', 'na', 'k', 'ca', 'p'];
 const close = (a, b) => typeof a === 'number' && Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
@@ -440,7 +452,7 @@ const scenarios = {
     const rows = [...document.querySelectorAll('table tbody tr')];
     const DB = t.D().EN_DB;
     // 16 since 2026-10-27: Enfalac Premature and Pre Nan at 24 kcal/oz.
-    A.eq('5.1 the page lists its 30 formula rows (fourteen preterm strengths added 2026-11-11)', rows.length, 30);
+    A.eq('5.1 the page lists its 34 formula rows (fourteen preterm strengths and four FBM with PF added 2026-11-11)', rows.length, 34);
     const byLabel = (key) => rows.find(r => {
       const first = r.querySelector('td');
       return first && first.textContent.replace(/\s+/g, ' ').trim() === DB[key].label.replace(/\s+/g, ' ').trim()

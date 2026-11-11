@@ -3198,7 +3198,7 @@ function KcalBar({ cho, pro, fat }) {
 function KcalLegend({ color, label, pct, target }) {
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 10, height: 10, background: color, borderRadius: 2 } }), label), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, fontSize: 16, marginTop: 2 } }, pct.toFixed(0), "%"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, target));
 }
-const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true };
+const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true, FBMPF_22: false, FBMPF_24: false, FBMPF_26: false, FBMPF_27: false };
 function WorkVal({ k, v, d = 2, t }) {
   return /* @__PURE__ */ React.createElement("span", { className: "num", "data-v": k }, t ?? fmt(v, d));
 }

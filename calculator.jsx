@@ -4853,7 +4853,7 @@ function KcalLegend({ color, label, pct, target }) {
 // the print form and the copied order read none of it. A day can have two
 // feeds (main's #182): both read the feeds given, never feed 1's picker alone,
 // which can sit at 0 mL beside feed 2.
-const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true };   // feed → carries HMF
+const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true, FBMPF_22: false, FBMPF_24: false, FBMPF_26: false, FBMPF_27: false };   // feed → carries HMF
 
 // One figure in the working, keyed for the harness; `t` is one already formatted.
 function WorkVal({ k, v, d = 2, t }) {
