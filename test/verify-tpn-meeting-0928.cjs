@@ -378,7 +378,7 @@ function baseOrder({ tf = 120 } = {}) {
     const offered = groups.flatMap(g => g.keys).sort();
     // FBM with HMF hidden since 2026-11-11 (Pp: no HMF in Thailand).
     eq('every feed offered before is still offered, once, with the new ones, less FBM ↔ Infatrini and FBM with HMF',
-      offered, ['BM_20', 'BM_PFP_22', 'BM_PFP_24', 'BM_PFP_26', 'BM_PFP_27', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27',
+      offered, ['BM_20', 'BM_PFP_22', 'BM_PFP_24', 'BM_PFP_27', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27',
         'ENFALAC_PREM_20', 'ENFALAC_PREM_24', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'FBM_PF_22', 'FBM_PF_24', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27',
         'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'PRENAN_20', 'PRENAN_22', 'PRENAN_24', 'PRENAN_26', 'PRENAN_27']);
     // The Formula reference page (app.jsx, not mounted here): the same split, and Pre Nan at last.

@@ -52,6 +52,9 @@ global.React = React; window.React = React;
 { const w = console.error; console.error = (...a) => { if (!/act\(|not wrapped|Not implemented/.test(String(a[0]))) w(...a); }; }
 vm.runInThisContext(R('data.js'));
 const D = window.NEOFEED_DATA;
+// FBM with HMF is hidden from Step 2 (Pp, 2026-11-11, no HMF in Thailand); saved orders
+// still compute on BM_HMF_24, so this harness unhides it to reach that row.
+for (const p of D.EN_PRODUCTS || []) if (p.id === 'bmHmf') p.hidden = false;
 for (const f of ['icons.jsx', 'calculator.jsx']) {
   vm.runInThisContext(babel.transformSync(R(f), { presets: [[require('@babel/preset-react'), { runtime: 'classic' }]], filename: f, configFile: false, babelrc: false }).code);
 }
@@ -61,8 +64,7 @@ for (const f of ['icons.jsx', 'calculator.jsx']) {
 // 100 kcal [pro g, fat g, cho g, Na mg, K mg, Ca mg, P mg], scaled to the
 // strength's kcal/100 mL; milk from WHO 2006 Box 1.3.1; Enfamil HMF from Chula
 // p. 10 (per 1 g protein) × 1.1 g protein per dose (Box 1.3.3).
-// BM_PF_20 has no source; Pp kept it as it was (2026-10-20), so it is fuzzed
-// with its numbers from before 2026-10-17.
+// BM_PF_20 is Enfalac Premature at 20 kcal/oz since 2026-11-11 (Pp).
 const at = (kcal, [pro, fat, cho, na, k, ca, p]) => [kcal, pro * kcal / 100, fat * kcal / 100, cho * kcal / 100,
   na * kcal / 100 / 22.99, k * kcal / 100 / 39.10, ca * kcal / 100, p * kcal / 100];
 const T5_ENFALAC = [3, 5.1, 11, 58, 100, 120, 66], T5_PRENAN = [2.9, 5.2, 10.7, 43, 103, 130, 76];
@@ -73,7 +75,7 @@ const MILK_HMF = MILK.map((v, i) => v + 1.1 * [13, 1, 0.9, 0.4, 14.5 / 22.99, 26
 // FBM_INF_MIX left Step 2 on 2026-11-06 (Pp: feed 1 + feed 2 give it), so a new
 // order cannot pick it; verify-en-db-sources.cjs still pins its EN_DB row.
 const FEED = { // per 100 mL: kcal, pro, fat, cho, Na mmol, K mmol, Ca mg, P mg
-  BM_20: MILK, BM_HMF_24: MILK_HMF, BM_PF_20: [67, 1.5, 3.5, 7.4, 1, 1.7, 50, 28],
+  BM_20: MILK, BM_HMF_24: MILK_HMF, BM_PF_20: at(67, T5_ENFALAC),
   FBM_PF_22: at(73, T5_ENFALAC), PRENAN_22: at(73, T5_PRENAN), FBM_PF_24: at(80, T5_HIQ_LBW),
   INFATRINI_30: at(100, T16_INFATRINI),
   LF_20: at(67, T7_HIQ_LF), LF_24: at(80, T7_HIQ_LF), LF_27: at(90, T7_HIQ_LF) };

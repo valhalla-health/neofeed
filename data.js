@@ -220,16 +220,23 @@ const _EN_BM_HMF = (() => {
     na: b.na + h.naMg * g / EN_MG_PER_MMOL.na, k: b.k + h.kMg * g / EN_MG_PER_MMOL.k,
     ca: b.ca + h.ca * g, p: b.p + h.p * g, osm: null };
 })();
-// Pp, 2026-11-11: "FBM with PF ให้เลือก 22,24,26,27 kcal". Mature milk (67 kcal)
-// fortified with Enfalac Premature powder (the ward's PF, Pp 2026-11-11) up to
-// the strength: the powder brings (strength − 67) kcal with the Chula Table 5
-// per-100-kcal column. Its volume is not counted, as for HMF; no osmolality.
+// FBM with PF: breast milk mixed with concentrated Enfalac A+ Preterm (the ward's
+// PF), as the milk room's chart does it (Pp, 2026-11-11, photographed: "1 measuring
+// scoop + 10 mL water = 13.6 mL concentrated milk"; updated 2026-03-21 for 22 and 24).
+// The chart gives the concentrate's share of the volume per strength:
+// 22 → 0.5 in 10 mL, 24 → 1 in 10, 27 → 2 in 10 (30 → 3 in 10, not offered).
+// The milk is BM_20 (67 kcal) at (1 − share); the concentrate brings the rest of
+// the strength's energy with the Chula Table 5 Enfalac Premature column. That keeps
+// each strength at its labelled kcal: the chart's shares imply a concentrate of
+// about 180–200 kcal/100 mL, not one fixed figure. No osmolality.
+const EN_FBM_PF_CONC_SHARE = { 22: 0.05, 24: 0.1, 27: 0.2 };
 function _enBmPlusPf(kcalOz) {
   const b = _EN_BM, c = EN_SRC_CHULA_PER_100_KCAL.enfalacPremature;
-  const kcal = EN_KCAL_PER_100ML[kcalOz], s = (kcal - b.kcal) / 100;
-  return { kcal, pro: b.pro + c.pro * s, fat: b.fat + c.fat * s, cho: b.cho + c.cho * s,
-    na: b.na + c.naMg * s / EN_MG_PER_MMOL.na, k: b.k + c.kMg * s / EN_MG_PER_MMOL.k,
-    ca: b.ca + c.ca * s, p: b.p + c.p * s, osm: null };
+  const f = EN_FBM_PF_CONC_SHARE[kcalOz], kcal = EN_KCAL_PER_100ML[kcalOz];
+  const m = 1 - f, s = (kcal - m * b.kcal) / 100;   // PF kcal ÷ 100
+  return { kcal, pro: m * b.pro + c.pro * s, fat: m * b.fat + c.fat * s, cho: m * b.cho + c.cho * s,
+    na: m * b.na + c.naMg * s / EN_MG_PER_MMOL.na, k: m * b.k + c.kMg * s / EN_MG_PER_MMOL.k,
+    ca: m * b.ca + c.ca * s, p: m * b.p + c.p * s, osm: null };
 }
 const _EN_INFATRINI = _enFromChula(EN_SRC_CHULA_PER_100_KCAL.infatriniPowder, 30);
 // Alternating feeds: the mean of the two rows, per nutrient. The feeds are
@@ -383,26 +390,22 @@ const EN_DB = {
     note: "Start HMF at ≥40 mL/kg/day · <32 wk or <1.5 kg (WHO 2023) · osmolarity 377 (estimated) to 401 mOsm/L (Chula p. 10)",
   },
 
-  // ── FBM with PF: breast milk + Enfalac Premature powder (Pp, 2026-11-11) ─
+  // ── FBM with PF: breast milk + concentrated Enfalac Premature (Pp, 2026-11-11) ─
+  // 26 is not on the milk room's chart, so it is not offered.
   BM_PFP_22: {
     label: "FBM with PF (22 kcal/oz)",
     ..._enBmPlusPf(22), lf: false,
-    source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 22 kcal/oz",
+    source: "BM_20 mixed with concentrated Enfalac Premature (milk room chart), Chula Handbook Table 5, p. 16 (per 100 kcal), to 22 kcal/oz",
   },
   BM_PFP_24: {
     label: "FBM with PF (24 kcal/oz)",
     ..._enBmPlusPf(24), lf: false,
-    source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 24 kcal/oz",
-  },
-  BM_PFP_26: {
-    label: "FBM with PF (26 kcal/oz)",
-    ..._enBmPlusPf(26), lf: false,
-    source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 26 kcal/oz",
+    source: "BM_20 mixed with concentrated Enfalac Premature (milk room chart), Chula Handbook Table 5, p. 16 (per 100 kcal), to 24 kcal/oz",
   },
   BM_PFP_27: {
     label: "FBM with PF (27 kcal/oz)",
     ..._enBmPlusPf(27), lf: false,
-    source: "BM_20 + Enfalac Premature powder, Chula Handbook Table 5, p. 16 (per 100 kcal), to 27 kcal/oz",
+    source: "BM_20 mixed with concentrated Enfalac Premature (milk room chart), Chula Handbook Table 5, p. 16 (per 100 kcal), to 27 kcal/oz",
   },
 
   // ── Lactose-free — HiQ LF (the Calculator's LF rows) ──────
@@ -504,7 +507,7 @@ const EN_PRODUCTS = [
   // shows it as saved. Pp also wants 24 and 27 when HMF returns: 27 needs a dose
   // of HMF decided first, so only 24 is here.
   { id: "bmHmf",       group: "Breast Milk",         label: "FBM with HMF",                  strengths: [[24, "BM_HMF_24"]], hidden: true },
-  { id: "fbmPf",       group: "Breast Milk",         label: "FBM with PF",                   strengths: [[22, "BM_PFP_22"], [24, "BM_PFP_24"], [26, "BM_PFP_26"], [27, "BM_PFP_27"]] },
+  { id: "fbmPf",       group: "Breast Milk",         label: "FBM with PF",                   strengths: [[22, "BM_PFP_22"], [24, "BM_PFP_24"], [27, "BM_PFP_27"]] },
   { id: "pf",          group: "Preterm formula",     label: "Preterm Formula",               strengths: [[20, "BM_PF_20"], [22, "BM_PF_22"], [24, "BM_PF_24"], [26, "BM_PF_26"], [27, "BM_PF_27"]] },
   { id: "enfalacPrem", group: "Preterm formula",     label: "Enfalac Premature",             strengths: [[20, "ENFALAC_PREM_20"], [22, "FBM_PF_22"], [24, "ENFALAC_PREM_24"], [26, "ENFALAC_PREM_26"], [27, "ENFALAC_PREM_27"]] },
   { id: "preNan",      group: "Preterm formula",     label: "Pre Nan",                       strengths: [[20, "PRENAN_20"], [22, "PRENAN_22"], [24, "PRENAN_24"], [26, "PRENAN_26"], [27, "PRENAN_27"]] },

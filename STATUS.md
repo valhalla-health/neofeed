@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-11 — Preterm formulas at 20/22/24/26/27 kcal/oz, PF = Enfalac Premature, FBM with PF 22–27 (BM 20, Infatrini 30 locked); "ลบ" a wrong bed in Previous beds: PR #247, not merged.** `CONSTANTS_VERSION` 2026-11-11.1; a saved PF 20 order prints new figures. **Release waits on:** Pp's answer on the FBM with PF recipe, and Center Point's feed list (a CP save on a new strength is refused until synced; `BACKLOG.md`). The bed delete needs a backend `clasp` deploy as well as the frontend release (`CHANGELOG.md` 2026-11-11).
+> ⏳ **2026-11-11 — Preterm formulas at 20/22/24/26/27 kcal/oz, PF = Enfalac Premature, FBM with PF 22/24/27 (milk room chart), FBM with HMF hidden (BM 20, Infatrini 30 locked); "ลบ" a wrong bed in Previous beds: PR #247, not merged.** `CONSTANTS_VERSION` 2026-11-11.1; a saved PF 20 order prints new figures. **Release waits on:** Center Point's feed list (a CP save on a new strength is refused until synced; `BACKLOG.md`). The bed delete needs a backend `clasp` deploy as well as the frontend release (`CHANGELOG.md` 2026-11-11).
 >
 > ⏳ **2026-11-11 — `clasp` pushes the backend from this repo; the `~/nicu-tools/neofeed` mirror is retired (Pp's decision): PR #245, merged into `main` on Praew's instruction.** No code change; the next backend deploy is the first from the repo (`REFERENCE.md` § Backend (GAS)).
 >

@@ -25,11 +25,13 @@ Pp, 2026-11-11, from two phone screenshots:
   one strength (Breast Milk 20, FBM with HMF 24, Infatrini 30) shows its kcal/oz select disabled. Changing milk to
   one that lacks the current strength lands on 20 (Infatrini 30 → Pre Nan reads "30 → 20").
   `CONSTANTS_VERSION` 2026-11-06.1 → 2026-11-11.1. No second clinician has reviewed the rows; Pp only.
-  **FBM with PF** (Pp, same day: "FBM with PF ให้เลือก 22,24,26,27 kcal"): breast milk fortified with Enfalac
-  Premature powder, 22, 24, 26 or 27 kcal/oz (`BM_PFP_*`). Mature milk (`BM_20`, 67 kcal) plus powder bringing
-  the rest of the energy with the Chula Table 5 column; the powder's volume is not counted, as for HMF. At 24:
-  protein 1.59 g, Ca 41.7 mg, P 23.4 mg per 100 mL (FBM with HMF 24: 2.3 g, 116, 59.9). Step 2's breast-milk
-  line names the milk it assumes; it does not yet explain the powder.
+  **FBM with PF** (Pp, same day: "FBM with PF ให้เลือก 22,24,26,27 kcal", then the milk room's chart, photographed):
+  breast milk mixed with concentrated Enfalac A+ Preterm (1 scoop + 10 mL water = 13.6 mL), the concentrate 0.5, 1 or
+  2 mL in 10 mL for 22, 24 or 27 kcal/oz (`BM_PFP_*`, `EN_FBM_PF_CONC_SHARE`). The milk (`BM_20`) is at (1 − share);
+  the concentrate brings the rest of the kcal with the Chula Table 5 column. At 24: protein 1.67 g, Ca 47.1 mg, P 26.4 mg
+  per 100 mL (FBM with HMF 24: 2.3, 116, 59.9: HMF is a protein and mineral fortifier, PF a whole formula). 26 is not on
+  the chart and is not offered. An earlier draft of this PR modelled powder stirred into milk (lower figures); Pp chose
+  the chart. Step 2's breast-milk line names the milk it assumes; it does not yet explain the concentrate.
   **FBM with HMF hidden** (Pp, same day: "ตอนนี้ไม่มี HMF ในไทย ให้ซ่อนอันนี้ไว้ก่อน ให้ใช้เป็น FBM with PF แทน"):
   Step 2 no longer offers it (`hidden: true` on its `EN_PRODUCTS` entry); an order saved on `BM_HMF_24` still
   computes and shows it as saved. She wants it back at 24 and 27 when HMF returns; a 27 needs its HMF dose
