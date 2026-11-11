@@ -784,7 +784,8 @@ function _usesGoogleSignIn(email) {
   return domain === "gmail.com" || GOOGLE_WORKSPACE_DOMAINS.indexOf(domain) !== -1;
 }
 
-// ── Google Sign-In `hd` restriction — prepared, OFF (Praew, 2026-09-17) ──
+// ── Google Sign-In `hd` restriction — ON since 2026-11-11 (Praew; prepared OFF 2026-09-17) ──
+// Turned on after Praew checked every hd_seen_<domain> Script Property read "yes".
 // The gap (review SEC-B7): Path A trusts any Google account whose verified
 // email equals a Staff row. A Google account can be CREATED on any address —
 // including a password account's @redcross.or.th address — so Google Sign-In
@@ -795,21 +796,24 @@ function _usesGoogleSignIn(email) {
 //     that domain (proves the Workspace tenant issued the account).
 // Everything else is refused with a message pointing at the password path.
 //
-// Why it ships OFF: if some sign-ins on a listed domain arrive WITHOUT hd (a
+// Why it shipped OFF first: if some sign-ins on a listed domain arrive WITHOUT hd (a
 // consumer Google account on a Workspace address), enforcing would lock those
 // people out. So while it is off, every Workspace-domain Google sign-in records, with
 // no personal data, whether its token carried the matching hd:
 //   Script Property  hd_seen_<domain> = "yes" | "no"
 // "no" is sticky — one sign-in without hd is enough to make enforcing unsafe.
 //
-// How to flip it: (1) Apps Script editor → Project Settings → Script
+// With the flag ON, hd_seen_<domain> is no longer written (_recordHdSeen runs
+// only on the off branch), so those properties stay frozen at their last value.
+// To turn it back off, set false and redeploy; telemetry resumes.
+// How it was flipped (kept for reference): (1) Apps Script editor → Project Settings → Script
 // Properties, and check hd_seen_<domain> for every GOOGLE_WORKSPACE_DOMAINS
 // entry after a normal working week — a domain nobody signed in from has none.
 // (2) Only if none reads "no", set GOOGLE_HD_ENFORCE = true, run the
 // harnesses, and deploy the usual clasp way. If one reads "no", find out who
 // signs in without a Workspace account before flipping — they would need a
 // password account (setInitialPassword) first.
-var GOOGLE_HD_ENFORCE = false;
+var GOOGLE_HD_ENFORCE = true;
 var GOOGLE_HD_REFUSED_MSG = "บัญชีนี้ต้องเข้าสู่ระบบด้วย email และรหัสผ่าน";
 function _googleAccountAllowed(email, hd) {
   var domain = String(email || "").toLowerCase().split("@")[1] || "";
