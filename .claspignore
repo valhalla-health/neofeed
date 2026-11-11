@@ -1,0 +1,6 @@
+# clasp pushes from this repo (Pp, 2026-11-11). Only the backend and its manifest
+# go to Apps Script; everything else here is the frontend, tests and docs.
+# test/verify-clasp-push-set.cjs pins this list.
+**/**
+!gas-backend.gs
+!appsscript.json

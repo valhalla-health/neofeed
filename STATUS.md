@@ -1,6 +1,8 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-11 — `GOOGLE_HD_ENFORCE` on: a Google sign-in on a Workspace domain needs the matching `hd`: PR #243, merged into `main` on Praew's instruction; backend only, deployed with `clasp` on her go-ahead (the version is on #243).**
+> ⏳ **2026-11-11 — `clasp` pushes the backend from this repo; the `~/nicu-tools/neofeed` mirror is retired (Pp's decision): PR #245, merged into `main` on Praew's instruction.** No code change; the next backend deploy is the first from the repo (`REFERENCE.md` § Backend (GAS)).
+>
+> ✅ **2026-11-11 — Backend `@70` live: `GOOGLE_HD_ENFORCE` on, a Google sign-in on a Workspace domain needs the matching `hd`: PR #243, merged into `main` on Praew's instruction, deployed with `clasp` on her go-ahead (verification on #243).**
 > Pp checked every `hd_seen_<domain>` read "yes" first. `hd_seen_*` stops updating while the flag is on. Rollback: `clasp update-deployment AKfycbz8Nt… -V 69`.
 >
 > ⏳ **2026-11-10 — The Reference page, the lipid hours, "MEF 12–24" and Full EN read `data.js`; P:E shows from 100 mL/kg/d itself: PR #241, merged into `main` on Praew's instruction; not live.**

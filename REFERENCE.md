@@ -262,7 +262,7 @@ deployment's version.
 - **The build step:** for a release that crosses the 2026-09-17 build step, revert the whole
   `main → release` merge rather than single files: `_headers`, both shells, `boot.js`, `compiled/` and
   `vendor/` only work as a set.
-- **Backend:** in `~/nicu-tools/neofeed`, as `peeraporn.po@chula.ac.th`,
+- **Backend:** from this repo's root (its `.clasp.json`), as `peeraporn.po@chula.ac.th`,
   `clasp update-deployment <ward deployment id> -V <previous version>` (`clasp list-deployments` shows
   the version live now: `AKfycbz8…` at `@64` on 2026-10-28). It is a live redeploy, so it still waits
   for Pp's go-ahead. Rows the newer version wrote stay in the Sheet, since every deployment of one Apps
@@ -453,7 +453,7 @@ identity. None of it was true any more.
 
 **The gate (Pp, 2026-11-03): exactly two deployments, or stop.** From this repo, run
 `node tools/check-deployments.mjs` before step 1 and again after step 2. It reads
-`clasp list-deployments` in `~/nicu-tools/neofeed` and passes only on `@HEAD` plus the ward's
+`clasp list-deployments` in this repo and passes only on `@HEAD` plus the ward's
 deployment, whose ID it takes from `boot.js`. A third deployment, or a list it cannot read, exits
 non-zero: do not push or deploy. The list lags a delete in both directions (on 2026-11-03 a removed
 deployment showed again for one read), so run it once more first. If it still stops, tell Pp. Removing
@@ -465,9 +465,13 @@ against the live Sheet, Script Properties and cache until someone removes it, an
 
 The current procedure:
 
-1. **Diff before you push.** `~/nicu-tools/neofeed/รหัส.js` **is** `gas-backend.gs`, but
-   the two drift independently. Diff and **reconcile — never overwrite**. On 2026-08-17
-   the mirror was found holding three security fixes that existed in no other copy.
+1. **Push from this repo, from a clean checkout of the commit you deploy** (Pp, 2026-11-11).
+   `.clasp.json` and `.claspignore` at the root make `clasp push` send exactly `gas-backend.gs`
+   and `appsscript.json`; `clasp status` must list those two as tracked and nothing else
+   (`test/verify-clasp-push-set.cjs` pins the list). Deploy only a commit on `main` whose
+   `harnesses` check is green, with `git status` clean. The old hand-copied mirror,
+   `~/nicu-tools/neofeed` (`รหัส.js`), was retired after `@70`: never push from it again. `clasp push`
+   replaces the project's whole file set, so a push from the stale mirror rolls the backend back.
 2. `clasp push`, then `clasp update-deployment -V <n> <deploymentId>` against the
    **existing** deployment so `NEOFEED_GAS_URL` is unchanged. A plain `clasp deploy`
    creates a new, unused deployment instead.
@@ -480,12 +484,9 @@ The current procedure:
    `gas-backend.gs`; check `clasp list-deployments` shows the same deployment ID at the
    new version; `curl` the served HTML on **both** frontend hosts to confirm the `?v=`
    cache-bust shipped.
-5. **Commit the mirror and push it.** Commit `รหัส.js` in `~/nicu-tools/neofeed`, naming the
-   version and the source commit (e.g. `Backend @58: … (from main 2731387, PR #111)`), then
-   `git push origin main` to its private GitHub remote and check that
-   `git ls-remote origin refs/heads/main` matches the mirror's `HEAD`. Step 1 is why: the
-   mirror has held code no other copy had, and an unpushed commit lives on one PC only. No step
-   said to push until 2026-09-24, when the remote was found three deploys behind (`@56`–`@58`).
+5. **Name the source commit in the version.** `clasp create-version "Backend @<n>: … (main <sha>, PR #<n>)"`,
+   and the same text as the deployment description (`clasp update-deployment -V <n> -d "<same text>" <deploymentId>`). The repo is the only copy, so the commit is
+   the record; there is no mirror to commit any more.
 6. **Update `STATUS.md` as part of the deploy.** This is part of the definition of done, not
    a follow-up task — but not a docs-only PR either: put the verification in a comment on the
    PR whose code you deployed, and bring `STATUS.md` up to date in the next PR on this repo.
@@ -532,10 +533,10 @@ stale payload bridges a deploy or a flip. `Nursing_Log` is created by the first 
 is no migration to run.
 
 **Help requests (2026-10-05) need one more OAuth scope.** `sendHelpRequest` mails through `MailApp`,
-which no deployment before it used, and the mirror's manifest lists its scopes explicitly:
+which no deployment before it used, and the manifest lists its scopes explicitly:
 
-1. **Before `clasp push`, add `"https://www.googleapis.com/auth/script.send_mail"`** to `oauthScopes` in
-   `~/nicu-tools/neofeed/appsscript.json`. Without it every harness passes and production still fails.
+1. **Before `clasp push`, confirm `"https://www.googleapis.com/auth/script.send_mail"`** is in `oauthScopes` in
+   `appsscript.json` at this repo's root (`test/verify-clasp-push-set.cjs` checks it). Without it every harness passes and production still fails.
 2. **After the push, approve the scope once.** In the Apps Script editor, signed in as
    `peeraporn.po@chula.ac.th`, run `authorizeHelpMail` and accept the consent screen. That is Praew's to
    approve. It sends no mail; the execution log shows the day's remaining quota.
@@ -579,7 +580,7 @@ last 12 weeks as counts: `weeks` (each with `week`, `weekStart`, `total` and `by
 `wards` and `types`. Nothing about an infant or a staff member, so the read is not audited. The order
 after merge:
 
-1. **Backend:** the `clasp` steps above (diff the mirror, `sheetHealthReport()`, `clasp push`,
+1. **Backend:** the `clasp` steps above (push from the repo, `sheetHealthReport()`, `clasp push`,
    `clasp update-deployment`).
 2. **Frontend:** the `main → release` PR, as in § Frontend.
 
@@ -590,7 +591,7 @@ same.
 **Apps Script project timezone must be `Asia/Bangkok`.** Several date paths read Sheets' own date
 values through `Session.getScriptTimeZone()` (`_fmtDate`) or assume a Sheets date sits at Bangkok
 midnight (`_wardDateKey` in the one-entry-per-date guard, the 2026-09-11 edit-keeps-its-date rule,
-and the sync window). `appsscript.json` lives only in the clasp mirror, not in this repo — check its
+and the sync window). `appsscript.json` is at this repo's root (since 2026-11-11) — check its
 `"timeZone"` when touching it, and never change it without re-running `test/`.
 
 **Password floor is 10 characters** for any new password (`MIN_PASSWORD_LENGTH`, server and
@@ -661,11 +662,11 @@ go-ahead:
 
 1. `sheetHealthReport` from the editor. `Daily_Log`'s `gridColumns` should be 38. If it is wider, read AM1 first: the
    new schema check refuses every save when AM1 holds any other label.
-2. Diff the mirror, copy `gas-backend.gs` into `รหัส.js`, `clasp push`.
+2. `clasp push` from this repo's root, at the commit being deployed (`clasp status`: two files).
 3. From the editor, on the pushed code: `ensureLogHeaderColumns()` as a dry run. It reports `38 -> 39`, or "already
    39" if a save got there first. `OCCUPIED` means stop.
 4. `clasp update-deployment` as above, then `clasp list-deployments` and the `clasp pull` diff, then
-   `applyLogHeaderColumns()` from the editor. Commit and push the mirror.
+   `applyLogHeaderColumns()` from the editor.
 5. The `main → release` PR, as § Frontend says. **Release it close to PR B:** until the room's page is live, the re-save
    notice asks doctors to press Submit for a page nobody has yet. Say what the line means in the ward's release notice.
 6. On the first new bag order after the release, AM starts `{"v":1` and `calcInput.printJsonV` is 1. A marker with a
