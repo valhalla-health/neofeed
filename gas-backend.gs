@@ -4246,8 +4246,11 @@ function _bedConflict(data, p) {
 //       in base, not incoming             → deleted here: remove only if the
 //                                           stored entry still equals base
 //       in stored, not base, not incoming → added elsewhere: keep
-//   • bedHistory — append-only: stored entries are kept, and entries the
-//     client added (in incoming, not in base) are appended.
+//   • bedHistory — stored entries are kept, entries the client added (in
+//     incoming, not in base) are appended, and an entry the client deleted
+//     (in base, not in incoming) is removed from stored, once (Pp,
+//     2026-11-11: delete a bed entered by mistake). Another device's added
+//     entries are never touched by it.
 // No base (older clients, new registrations) → the old whole-record write.
 var PATIENT_SCALAR_FIELDS = ["name", "initials", "bw", "ga", "sex", "dob", "admissionDate",
   "twinSuffix", "status", "currentBed", "diagnosis", "statusDate", "multiplesCount",
@@ -4326,6 +4329,16 @@ function _mergeByDol(stored, base, incoming) {
 }
 function _mergeAppendOnly(stored, base, incoming) {
   var out = _asArray(stored).slice();
+  // Deleted here: in base, not in incoming (counted, so one copy of two goes).
+  var inCount = {};
+  _asArray(incoming).forEach(function (e) { var c = _canonJson(e); inCount[c] = (inCount[c] || 0) + 1; });
+  _asArray(base).forEach(function (e) {
+    var c = _canonJson(e);
+    if (inCount[c] > 0) { inCount[c]--; return; }
+    for (var i = out.length - 1; i >= 0; i--) {
+      if (_canonJson(out[i]) === c) { out.splice(i, 1); break; }
+    }
+  });
   var present = {};
   out.forEach(function (e) { present[_canonJson(e)] = true; });
   var baseCount = {};

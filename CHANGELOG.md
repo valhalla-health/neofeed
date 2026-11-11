@@ -7,6 +7,28 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-11 — Preterm formulas at 20/22/24/27 kcal/oz; delete a bed entered by mistake
+
+`data.js`, `calculator.jsx` (EnFeedPicker), `center-point/tpn-document.mjs`, `registry.jsx` (TransferBedModal),
+`gas-backend.gs` (`_mergeAppendOnly`), the neofeed-clinical-rules skill (CR-U-EN-KCAL), `docs/CLINICAL_CONSTANTS.md`;
+tests `verify-en-db-sources`, `verify-tpn-meeting-0928`, `verify-review-0917-backend-writes`, `verify-stock-ml-1027`.
+
+Pp, 2026-11-11, from two phone screenshots:
+
+- **kcal/oz.** "อยากให้มีพรีเทอมฟอร์มูล่า 20,22,24,27 kcal/oz ให้เลือก … นมแม่ให้เป็น 20 เสมอ อินฟาทรินีเป็น 30 เสมอ ส่วน
+  อันอื่นอาจจะมีตัวเลือกได้ … คำนวณส่วนประกอบให้ถูกต้องตามการผสมนั้น ๆ". Preterm Formula, Enfalac Premature, Pre Nan
+  and Hi-Q LBW each offer 20, 22, 24 and 27. The branded rows are the Chula Table 5 per-100-kcal column at that
+  strength, as the 22 and 24 rows were. The unsourced Preterm Formula's new rows are its 20 row concentrated (every
+  nutrient × kcal ÷ 67); osmolality is null at the new strengths. A milk with one strength (Breast Milk 20, FBM with
+  HMF 24, Infatrini 30) shows its kcal/oz select disabled, so it no longer reads as a dropdown that will not open.
+  Changing milk to one that lacks the current strength now lands on 20 (Infatrini 30 → Pre Nan reads "30 → 20").
+  `CONSTANTS_VERSION` 2026-11-06.1 → 2026-11-11.1. No second clinician has reviewed the new rows; Pp only.
+- **Bed history.** "อยากให้มีปุ่มสามารถลบสำหรับดาต้าที่ลงผิดได้". Each "Previous beds" line in Transfer bed has a
+  "ลบ" button (with a confirm). The backend merge of `bedHistory` was append-only; it now also removes an entry
+  that is in the client's base and not in what it sends, once, so another device's new entry is still kept.
+  **Needs a backend deploy** (`clasp`, on Praew's go-ahead) before the button works on the ward; until then the
+  server keeps the line.
+
 ## Session 2026-11-10 (5) — The Reference page, the lipid hours, MEF and Full EN read data.js
 
 `data.js`, `app.jsx` (GuidelinesPanel), `calculator.jsx`, the neofeed-clinical-rules skill (CR-U-SWITCH, CR-TGT-PE,

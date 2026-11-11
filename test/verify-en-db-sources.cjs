@@ -145,6 +145,14 @@ const EXPECTED = {
   ENFALAC_PREM_24: { want: atStrength(column(T5, 'enfalacPremature'), 24), cites: ['Table 5', 'p. 16'] },
   PRENAN_24:    { want: atStrength(column(T5, 'preNan'), 24), cites: ['Table 5', 'p. 16'] },
   FBM_PF_24:    { want: atStrength(column(T5, 'hiQLbw'), 24), cites: ['Table 5', 'p. 16'] },
+  // Every preterm formula at 20, 22, 24 and 27 kcal/oz (Pp, 2026-11-11).
+  ENFALAC_PREM_20: { want: atStrength(column(T5, 'enfalacPremature'), 20), cites: ['Table 5', 'p. 16'] },
+  ENFALAC_PREM_27: { want: atStrength(column(T5, 'enfalacPremature'), 27), cites: ['Table 5', 'p. 16'] },
+  PRENAN_20:    { want: atStrength(column(T5, 'preNan'), 20), cites: ['Table 5', 'p. 16'] },
+  PRENAN_27:    { want: atStrength(column(T5, 'preNan'), 27), cites: ['Table 5', 'p. 16'] },
+  HIQLBW_20:    { want: atStrength(column(T5, 'hiQLbw'), 20), cites: ['Table 5', 'p. 16'] },
+  HIQLBW_22:    { want: atStrength(column(T5, 'hiQLbw'), 22), cites: ['Table 5', 'p. 16'] },
+  HIQLBW_27:    { want: atStrength(column(T5, 'hiQLbw'), 27), cites: ['Table 5', 'p. 16'] },
   LF_20:        { want: atStrength(column(T7, 'hiQLf'), 20), cites: ['Table 7', 'p. 18'] },
   LF_24:        { want: atStrength(column(T7, 'hiQLf'), 24), cites: ['Table 7', 'p. 18'] },
   LF_27:        { want: atStrength(column(T7, 'hiQLf'), 27), cites: ['Table 7', 'p. 18'] },
@@ -158,14 +166,19 @@ const EXPECTED = {
   FBM_INF_MIX:  { want: MIX, cites: ['BM_HMF_24', 'INFATRINI_30'] },
 };
 // Rows with no source. Adding one here is a decision for Pp, not a fix.
-const UNSOURCED = ['BM_PF_20'];
+const UNSOURCED = ['BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_27'];
 // Pp, 2026-10-20: "PF 20 kcal/oz คงไว้อย่างเดิมก่อน". Its numbers as they were
 // on main before this PR (55d893d data.js), until the formulas are revised.
 const KEPT = { BM_PF_20: { kcal: 67, pro: 1.5, fat: 3.5, cho: 7.4, na: 1.0, k: 1.7, ca: 50, p: 28, osm: 290 } };
+// Pp, 2026-11-11: PF at 22, 24, 27 is the 20 row concentrated (× kcal ÷ 67).
+for (const [oz, kcal] of [[22, 73], [24, 80], [27, 90]]) {
+  const b = KEPT.BM_PF_20, f = kcal / 67;
+  KEPT['BM_PF_' + oz] = { kcal, pro: b.pro * f, fat: b.fat * f, cho: b.cho * f, na: b.na * f, k: b.k * f, ca: b.ca * f, p: b.p * f, osm: null };
+}
 // The Calculator's feed list for a new order (calculator.jsx, Step 2). The two
 // 24 kcal/oz rows and Enfalac LF joined on 2026-10-27 (nutrition unit).
 // FBM 24 ↔ Infatrini 30 left it on 2026-11-06 (Pp: two feeds do it).
-const CALC_OFFERS = ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
+const CALC_OFFERS = ['BM_20', 'BM_HMF_24', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_27', 'ENFALAC_PREM_20', 'ENFALAC_PREM_27', 'PRENAN_20', 'PRENAN_27', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_27', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
   'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27'];
 const FIELDS = ['kcal', 'pro', 'fat', 'cho', 'na', 'k', 'ca', 'p'];
 const close = (a, b) => typeof a === 'number' && Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
@@ -377,10 +390,16 @@ const scenarios = {
     pick('INFATRINI_30');
     set(productSelect(), 'preNan');
     const notice = () => (container.querySelector('.en-feed-1 .en-strength-changed')?.textContent || '').replace(/\s+/g, ' ');
-    A.eq('4.20 Infatrini 30 → Pre Nan takes Pre Nan 22', feedKey(), 'PRENAN_22');
-    A.ok('4.21 …and says "kcal/oz 30 → 22"', notice().includes('kcal/oz 30 → 22: Pre Nan ไม่มี 30 kcal/oz'), notice());
+    // Pre Nan comes in 20 first since 2026-11-11 (Pp: preterm formulas 20/22/24/27).
+    A.eq('4.20 Infatrini 30 → Pre Nan takes Pre Nan 20', feedKey(), 'PRENAN_20');
+    A.ok('4.21 …and says "kcal/oz 30 → 20"', notice().includes('kcal/oz 30 → 20: Pre Nan ไม่มี 30 kcal/oz'), notice());
     set(productSelect(), 'enfalacPrem');
-    A.ok('4.22 a milk that keeps the 22 clears it', feedKey() === 'FBM_PF_22' && notice() === '', { key: feedKey(), notice: notice() });
+    A.ok('4.22 a milk that keeps the 20 clears it', feedKey() === 'ENFALAC_PREM_20' && notice() === '', { key: feedKey(), notice: notice() });
+    pick('INFATRINI_30');
+    A.ok('4.22b Infatrini\'s one strength is locked at 30', container.querySelector('.en-feed-1 .en-strength').disabled === true);
+    set(productSelect(), 'pf');
+    A.ok('4.22c Preterm Formula offers 20, 22, 24 and 27', [...container.querySelectorAll('.en-feed-1 .en-strength option')].map(o => o.textContent).join() === '20,22,24,27'
+      && container.querySelector('.en-feed-1 .en-strength').disabled === false);
 
     // A `//` comment inside JSX children is text, not a comment: #182 put one
     // in the feed picker's fragment and every ward device showed it under

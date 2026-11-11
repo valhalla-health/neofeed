@@ -573,7 +573,11 @@ function EnFeedPicker({ value, onChange }) {
       </div>
       <div className="field">
         <label>kcal/oz</label>
-        <select className="sel en-strength" value={value} onChange={(e) => onChange(e.target.value)}>
+        {/* One strength (Breast Milk 20, FBM with HMF 24, Infatrini 30): fixed,
+            shown locked so it never reads as a broken dropdown (Pp, 2026-11-11). */}
+        <select className="sel en-strength" value={value} onChange={(e) => onChange(e.target.value)}
+          disabled={!!at && at.product.strengths.length === 1}
+          title={at && at.product.strengths.length === 1 ? `${at.product.label}: ${at.kcalOz} kcal/oz เสมอ` : undefined}>
           {(at ? at.product.strengths : [["—", value]]).map(([oz, k]) => <option key={k} value={k}>{oz}</option>)}
         </select>
         <div className="field-hint" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>{fmt(D.EN_DB[value]?.kcal, 0)} kcal/100 mL</div>
