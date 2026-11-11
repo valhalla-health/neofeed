@@ -18,7 +18,7 @@ function pickTarget(metricKey, entry, patient) {
   } else {
     if (metricKey === "kcal") return D_L.TPN_TARGETS.kcal(dol);
     if (metricKey === "pro") return D_L.TPN_TARGETS.protein(dol);
-    if (metricKey === "gir") return [8, 10];
+    if (metricKey === "gir") return D_L.TARGETS.girTarget();
     if (metricKey === "fluid") return D_L.TARGETS.fluid(dol, wt, patient?.bw);
     if (metricKey === "na") return D_L.TPN_TARGETS.na(dol, wt, patient?.bw);
     if (metricKey === "k") return D_L.TPN_TARGETS.k(dol, wt, patient?.bw);

@@ -4263,6 +4263,16 @@ function BottomNav({ view, setView, alertCount, alertLevel, logCount, role }) {
 function GuidelinesPanel() {
   const G = D_A.ESPGHAN_TARGETS;
   const [tab, setTab] = React.useState("pn");
+  // Every figure below that data.js holds is read from it: ESPGHAN_TARGETS, or
+  // the band the Calculator grades with (TPN_TARGETS, KCMH_STOCK) where this page
+  // shows that band. Through displayNum, so no trailing zero (Pp, 2026-11-10:
+  // "ตัดศูนย์ท้าย"). A figure still typed here is one data.js does not hold as a
+  // number (a 2010 value, a source's own figure, a note); each says so.
+  const n = (v) => D_A.displayNum(v);
+  const rng = (r) => `${n(r[0])}–${n(r[1])}`;
+  const span = (r) => ({ min: n(r[0]), max: n(r[1]) });
+  const PN = G.pn, AA = PN.aa.preterm, LIP = PN.lipid, EL = PN.electrolytes, EN = G.en, ADV = G.en.advancement;
+  const FD = D_A.FIRST_DAYS_LAST_DOL;
 
   const Seg = ({ tabs, active, onChange }) => (
     <div className="seg" style={{ marginBottom: 18 }}>
@@ -4366,13 +4376,15 @@ function GuidelinesPanel() {
               <Badge>R3.1 LOE 1++ · R3.2 LOE 1+</Badge>
             </div>
             <div className="card-b">
-              <RangeRow label="Day 1 (preterm)" min="1.5" max="2.5" unit="g/kg/day"
+              <RangeRow label="Day 1 (preterm)" {...span(AA.day1.range)} unit="g/kg/day"
                 note="Start from birth or ASAP — avoid 'metabolic shock'" highlight />
-              <RangeRow label="Day 2+ (preterm)" min="2.5" max="3.5" unit="g/kg/day"
+              {/* The 65 kcal/kg is held only inside AA.day2plus.note's text. */}
+              <RangeRow label="Day 2+ (preterm)" {...span(AA.day2plus.range)} unit="g/kg/day"
                 note="Needs non-protein energy ≥65 kcal/kg to utilise AA" highlight />
-              <RangeRow label="Above 3.5 g/kg" min="—" max="—" unit="" note="Research only (LOE 2+, RG 0)" />
-              <RangeRow label="Term stable" min="1.5" max="3.0" unit="g/kg/day" />
+              <RangeRow label={`Above ${n(AA.day2plus.range[1])} g/kg`} min="—" max="—" unit="" note={AA.above35} />
+              <RangeRow label="Term stable" {...span(PN.aa.term.range)} unit="g/kg/day" />
               <SectionHead>Specific AAs</SectionHead>
+              {/* Cysteine's 50–75 is held only as AA.cysteine's text. */}
               <RangeRow label="Cysteine" min="50" max="75" unit="mg/kg/day" note="Conditionally essential — add to preterm PN" />
               <RangeRow label="Glutamine" min="—" max="—" unit="" note="Do NOT supplement ≤2 yr (LOE 1++, RG A)" />
               <RangeRow label="Arginine" min="—" max="—" unit="" note="May use for NEC prevention (LOE 1-, RG B)" />
@@ -4386,18 +4398,20 @@ function GuidelinesPanel() {
               Glucose Infusion Rate (GIR)
             </div>
             <div className="card-b">
-              <RangeRow label="Start (preterm)" min="4" max="8" unit="mg/kg/min" highlight />
-              <RangeRow label="Target (preterm)" min="8" max="10" unit="mg/kg/min"
+              <RangeRow label="Start (preterm)" min={G.pn.gir.preterm.start[0]} max={G.pn.gir.preterm.start[1]} unit="mg/kg/min" highlight />
+              <RangeRow label="Target (preterm)" min={G.pn.gir.preterm.target[0]} max={G.pn.gir.preterm.target[1]} unit="mg/kg/min"
                 note="Optimal anabolism without excess lipogenesis" highlight />
-              <RangeRow label="Max (all)" min="—" max="12" unit="mg/kg/min"
-                note=">12 → ↑lipogenesis, ↑TG, ↑CO₂, ventilator weaning difficulty" />
-              <RangeRow label="Advance" min="+1" max="+2" unit="mg/kg/min per day" />
-              <RangeRow label="Term start" min="2.5" max="5" unit="mg/kg/min" />
+              <RangeRow label="Max (all)" min="—" max={G.pn.gir.preterm.max} unit="mg/kg/min"
+                note={`>${G.pn.gir.preterm.max} → ↑lipogenesis, ↑TG, ↑CO₂, ventilator weaning difficulty`} />
+              {/* The step's lower +1 and "step down 1–2" are ESPGHAN's words that
+                  data.js does not hold as numbers, so they are typed. */}
+              <RangeRow label="Advance" min="+1" max={`+${G.pn.gir.preterm.step}`} unit="mg/kg/min per day" />
+              <RangeRow label="Term start" min={G.pn.gir.term.start[0]} max={G.pn.gir.term.start[1]} unit="mg/kg/min" />
               <SectionHead>Hyperglycemia management</SectionHead>
-              <Rule level="warn" title="BG >145 mg/dL" body="Reduce GIR first (step down 1–2 mg/kg/min)" />
-              <Rule level="crit" title="BG >180 mg/dL persistent" body="Insulin 0.01–0.05 U/kg/hr — only after GIR minimised" />
+              <Rule level="warn" title={`BG >${G.pn.gir.hyperglycemia.threshold1} mg/dL`} body="Reduce GIR first (step down 1–2 mg/kg/min)" />
+              <Rule level="crit" title={`BG >${G.pn.gir.hyperglycemia.threshold2} mg/dL persistent`} body={`Insulin ${G.pn.gir.hyperglycemia.insulin.split(" (")[0]} — only after GIR minimised`} />
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>
-                Peripheral IV: max dextrose <strong>12.5%</strong>
+                Peripheral IV: max dextrose <strong>{G.pn.gir.peripheralMaxDex}%</strong>
               </div>
             </div>
           </div>
@@ -4409,10 +4423,13 @@ function GuidelinesPanel() {
               Lipid Emulsion
             </div>
             <div className="card-b">
-              <RangeRow label="Start (Day 1–2)" min="0.5" max="1.0" unit="g/kg/day" highlight />
-              <RangeRow label="Advance" min="+0.5" max="+1.0" unit="g/kg/day per day" />
-              <RangeRow label="Max" min="—" max="4.0" unit="g/kg/day" />
-              <RangeRow label="TG threshold" min="—" max="265" unit="mg/dL → reduce ILE" />
+              {/* The start's top is the DOL 1 band the lipid tile grades with,
+                  TPN_TARGETS.lipid(1). The smallest step, 0.5, is held only in the
+                  comment beside ESPGHAN_TARGETS.pn.lipid.step, so it is typed. */}
+              <RangeRow label="Start (Day 1–2)" min={n(LIP.start)} max={n(D_A.TPN_TARGETS.lipid(1)[1])} unit="g/kg/day" highlight />
+              <RangeRow label="Advance" min="+0.5" max={`+${n(LIP.step)}`} unit="g/kg/day per day" />
+              <RangeRow label="Max" min="—" max={n(LIP.max)} unit="g/kg/day" />
+              <RangeRow label="TG threshold" min="—" max={n(LIP.tgCutoff)} unit="mg/dL → reduce ILE" />
               <div style={{ marginTop: 10, padding: "8px 10px", background: "var(--brand-bg)",
                 borderRadius: 6, fontSize: 11.5, color: "var(--ink-2)" }}>
                 <strong>SMOF lipid preferred</strong> — composite ILE (soy+MCT+olive+fish oil)
@@ -4420,7 +4437,8 @@ function GuidelinesPanel() {
               </div>
               <div style={{ marginTop: 8, padding: "8px 10px", background: "var(--bg-2)",
                 borderRadius: 6, fontSize: 11.5 }}>
-                20% ILE = <strong className="mono">2.0 kcal/mL</strong> · 1 g fat = 5 mL SMOF 20%
+                {/* mL per g from the strength the Calculator doses with, KCMH_STOCK.smof20. */}
+                20% ILE = <strong className="mono">{n(LIP.kcalPerMl_20pct)} kcal/mL</strong> · 1 g fat = {n(1 / D_A.KCMH_STOCK.smof20.gPerMl)} mL SMOF 20%
               </div>
             </div>
           </div>
@@ -4436,23 +4454,26 @@ function GuidelinesPanel() {
               {/* "First days" ends at DOL 7 (TPN team, 2026-10-25); it was DOL 1
                   for Ca and P and DOL 2 for Mg. The heads read the same constant
                   as the tiles. */}
-              <SectionHead>First days (DOL 1–{D_A.FIRST_DAYS_LAST_DOL})</SectionHead>
-              <RangeRow label="Ca" min="0.8" max="2.0" unit="mmol/kg/day = 32–80 mg/kg" highlight />
-              <RangeRow label="P" min="1.0" max="2.0" unit="mmol/kg/day = 31–62 mg/kg" highlight />
-              <RangeRow label="Mg" min="0.1" max="0.2" unit="mmol/kg/day = 2.5–5 mg elemental Mg/kg" />
-              <SectionHead>Growing preterm (DOL {D_A.FIRST_DAYS_LAST_DOL + 1}+)</SectionHead>
-              <RangeRow label="Ca" min="1.6" max="3.5" unit="mmol/kg/day = 64–140 mg/kg" highlight />
-              {/* Read from TPN_TARGETS so this page can't drift from the tiles
-                  again — it kept the pre-correction 1.5–2.0 mmol range for two
+              <SectionHead>First days (DOL 1–{FD})</SectionHead>
+              {/* mmol from ESPGHAN_TARGETS; the mg beside them are the tiles' own
+                  bands, TPN_TARGETS, so this page can't drift from the tiles
+                  again — it kept the pre-correction 1.5–2.0 mmol P range for two
                   weeks after the calculator moved to 50–108 (2026-09-11 review, F4). */}
-              <RangeRow label="P" min="1.6" max="3.5" unit={`mmol/kg/day = ${D_A.TPN_TARGETS.p(D_A.FIRST_DAYS_LAST_DOL + 1)[0]}–${D_A.TPN_TARGETS.p(D_A.FIRST_DAYS_LAST_DOL + 1)[1]} mg/kg`} highlight />
-              <RangeRow label="Mg" min="0.2" max="0.3" unit="mmol/kg/day = 5–7.5 mg elemental Mg/kg" />
+              <RangeRow label="Ca" {...span(EL.ca.dol1)} unit={`mmol/kg/day = ${rng(D_A.TPN_TARGETS.ca(1))} mg/kg`} highlight />
+              <RangeRow label="P" {...span(EL.p.dol1)} unit={`mmol/kg/day = ${rng(D_A.TPN_TARGETS.p(1))} mg/kg`} highlight />
+              <RangeRow label="Mg" {...span(EL.mg.dol1)} unit={`mmol/kg/day = ${rng(D_A.TPN_TARGETS.mg(1))} mg elemental Mg/kg`} />
+              <SectionHead>Growing preterm (DOL {FD + 1}+)</SectionHead>
+              <RangeRow label="Ca" {...span(EL.ca.growing)} unit={`mmol/kg/day = ${rng(D_A.TPN_TARGETS.ca(FD + 1))} mg/kg`} highlight />
+              <RangeRow label="P" {...span(EL.p.growing)} unit={`mmol/kg/day = ${rng(D_A.TPN_TARGETS.p(FD + 1))} mg/kg`} highlight />
+              <RangeRow label="Mg" {...span(EL.mg.growing)} unit={`mmol/kg/day = ${rng(D_A.TPN_TARGETS.mg(FD + 1))} mg elemental Mg/kg`} />
               <SectionHead>Ca:P ratio</SectionHead>
-              <RangeRow label="Molar (PN)" min="0.8" max="1.3" unit=":1 — target 1.3:1 for stable growth" highlight />
-              <RangeRow label="Mass ratio" min="1.0" max="1.7" unit=":1 (Ca g / P g)" />
+              <RangeRow label="Molar (PN)" {...span(EL.caP_molar)} unit={`:1 — target ${n(EL.caP_molar[1])}:1 for stable growth`} highlight />
+              <RangeRow label="Mass ratio" {...span(EL.caP_mass)} unit=":1 (Ca g / P g)" />
+              {/* The strength the Calculator doses with, KCMH_STOCK.glycophos:
+                  31 mg P a mL is 1 mmol (÷ EN_MG_PER_MMOL.p, 30.97). */}
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-3)" }}>
                 Use <strong>Glycophos®</strong> (organic P) — avoids CaPO₄ precipitation.
-                1 mL = 1 mmol P + 2 mmol Na.
+                1 mL = {n(D_A.KCMH_STOCK.glycophos.pMgPerMl / D_A.EN_MG_PER_MMOL.p)} mmol P + {n(D_A.KCMH_STOCK.glycophos.naMeqPerMl)} mmol Na.
               </div>
             </div>
           </div>
@@ -4471,12 +4492,12 @@ function GuidelinesPanel() {
               <PhaseTable
                 cols={["BW category", "DOL 1", "DOL 2", "DOL 3", "DOL 4", "DOL 5", "DOL 6+"]}
                 rows={[
-                  ["ELBW <1000g",   "80–100","100–120","120–140","140–160","160–180","140–160"],
-                  ["VLBW 1000–1500g","70–90", "90–110","110–130","130–150","160–180","140–160"],
-                  ["Preterm >1500g", "60–80", "80–100","100–120","120–140","140–160","140–160"],
-                  ["Term ≥2500g",    "40–60", "50–70", "60–80", "60–100","100–140","140–160"],
-                ]}
+                  ["ELBW <1000g", PN.fluid.elbw], ["VLBW 1000–1500g", PN.fluid.vlbw],
+                  ["Preterm >1500g", PN.fluid.preterm], ["Term ≥2500g", PN.fluid.term],
+                ].map(([label, t]) => [label, ...["d1", "d2", "d3", "d4", "d5", "d6plus"].map((d) => rng(t[d]))])}
               />
+              {/* Typed: IWL 30 and 120 are held only in PN.fluid.note's text, the
+                  incubator's 80–90 % humidity and the UO target nowhere. */}
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-3)" }}>
                 ELBW in humidified incubator (80–90%): IWL ≈30 mL/kg/day.
                 Open warmer: IWL up to 120 mL/kg/day. Target UO 1–3 mL/kg/hr.
@@ -4500,18 +4521,22 @@ function GuidelinesPanel() {
               <PhaseTable
                 cols={["Electrolyte","D1–2","D3","D4–5","D6–7","D8+","Notes"]}
                 rows={[
-                  ["Na — preterm <1500g", "0–2","0–5","2–5","2–5","2–5", "Up to 7 with high urinary Na loss"],
-                  ["Na — ≥1500g",         "0–2","0–3","2–5","2–5","2–5", "Jochum stable: preterm 3–5, term 2–3"],
-                  ["K — preterm <1500g",  "0–3","0–3","2–3","1–3","2–5", "Watch for non-oliguric hyperkalaemia in VLBW"],
-                  ["K — ≥1500g",          "0–3","0–3","2–3","1–3","2–3", ""],
+                  // Na and K from ESPGHAN_TARGETS (D1–2, D3, D4–5, D6–7, D8+).
+                  // Cl and the notes' figures are typed: data.js holds no Cl band.
+                  ...[["Na — preterm <1500g", EL.na.under1500, "Up to 7 with high urinary Na loss"],
+                      ["Na — ≥1500g",         EL.na.over1500,  "Jochum stable: preterm 3–5, term 2–3"]]
+                    .map(([label, t, note]) => [label, rng(t.d1to2), rng(t.d3), rng(t.d4to7), rng(t.d4to7), rng(t.stable), note]),
+                  ...[["K — preterm <1500g", EL.k.under1500, "Watch for non-oliguric hyperkalaemia in VLBW"],
+                      ["K — ≥1500g",         EL.k.over1500,  ""]]
+                    .map(([label, t, note]) => [label, rng(t.d1to3), rng(t.d1to3), rng(t.d4to5), rng(t.d6to7), rng(t.stable), note]),
                   ["Cl — preterm",        "0–3","0–3","2–5","2–5","3–5", "Keep Na+K > Cl by 1–2 mmol/kg to avoid acidosis"],
                 ]}
               />
               <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 {[
-                  ["Zn (preterm)", "400–500 µg/kg/day"],
-                  ["Fe (preterm)", "200–250 µg/kg/day"],
-                  ["Cu", `${D_A.ESPGHAN_TARGETS.pn.micronutrients.cu.preterm} preterm · ${D_A.ESPGHAN_TARGETS.pn.micronutrients.cu.term} term µg/kg/day`],
+                  ["Zn (preterm)", `${rng(PN.micronutrients.zn.preterm)} µg/kg/day`],
+                  ["Fe (preterm)", `${rng(PN.micronutrients.fe.preterm)} µg/kg/day`],
+                  ["Cu", `${n(PN.micronutrients.cu.preterm)} preterm · ${n(PN.micronutrients.cu.term)} term µg/kg/day`],
                 ].map(([l,v]) => (
                   <div key={l} style={{ background: "var(--bg-2)", borderRadius: 6, padding: "8px 10px" }}>
                     <div style={{ fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</div>
@@ -4520,9 +4545,12 @@ function GuidelinesPanel() {
                 ))}
               </div>
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-3)" }}>
-                Peditrace® 1 mL/kg/day (maximum 15 mL/day) covers Zn, Cu, Se, Mn, I.
+                {/* Peditrace and Soluvit as KCMH_STOCK doses them (CR-PEDITRACE-CAP,
+                    CR-SOLUVIT-CAP). Vitalipid's 4 and 10 are literals in
+                    calculator.jsx (CR-VITALIPID-CAP), so they are typed here too. */}
+                Peditrace® {n(D_A.KCMH_STOCK.peditrace.mlPerKg)} mL/kg/day (maximum {n(D_A.KCMH_STOCK.peditrace.maxMl)} mL/day) covers Zn, Cu, Se, Mn, I.
                 Vitalipid N Infant: BW {'<'}2.5 kg → 4 mL/kg · BW ≥2.5 kg → 10 mL/day (lipid bag).
-                Soluvit N: 1 mL/kg/day (aqueous bag).
+                Soluvit N: {n(D_A.KCMH_STOCK.soluvit.mlPerKg)} mL/kg/day (aqueous bag).
               </div>
             </div>
           </div>
@@ -4542,14 +4570,18 @@ function GuidelinesPanel() {
               <Badge>ESPGHAN CoN 2022</Badge>
             </div>
             <div className="card-b">
-              <RangeRow label="Energy" min="115" max="140" unit="kcal/kg/day (max 160 for catch-up)" highlight />
-              <RangeRow label="Protein" min="3.5" max="4.0" unit="g/kg/day (max 4.5)" highlight />
-              <RangeRow label="P:E ratio" min="2.8" max="3.6" unit="g/100 kcal — ensures lean mass" />
-              <RangeRow label="Fat" min="4.8" max="8.1" unit="g/kg/day (↑ from 2010)" />
+              <RangeRow label="Energy" {...span(EN.energy.range)} unit={`kcal/kg/day (max ${n(EN.energy.max)} for catch-up)`} highlight />
+              <RangeRow label="Protein" {...span(EN.protein.range)} unit={`g/kg/day (max ${n(EN.protein.max)})`} highlight />
+              <RangeRow label="P:E ratio" {...span(EN.peRatio.range)} unit="g/100 kcal — ensures lean mass" />
+              <RangeRow label="Fat" {...span(EN.fat.range)} unit="g/kg/day (↑ from 2010)" />
+              {/* DHA and ARA are held only inside EN.fat.note's text, the 2010
+                  figures nowhere. */}
               <RangeRow label="DHA" min="30" max="65" unit="mg/kg/day (↑↑ from 12–30)" highlight />
               <RangeRow label="ARA" min="30" max="100" unit="mg/kg/day (↑ from 18–42)" />
-              <RangeRow label="CHO" min="11" max="17" unit="g/kg/day" />
-              <RangeRow label="Fluid" min="150" max="180" unit="mL/kg/day (target 165)" />
+              <RangeRow label="CHO" {...span(EN.cho.range)} unit="g/kg/day" />
+              {/* ESPGHAN's top of 180 is held only in EN.fluid.note's text: the
+                  range there is 150–200, the attending's. */}
+              <RangeRow label="Fluid" min={n(EN.fluid.range[0])} max="180" unit={`mL/kg/day (target ${n(EN.fluid.target)})`} />
             </div>
           </div>
 
@@ -4561,14 +4593,17 @@ function GuidelinesPanel() {
               <Badge>ESPGHAN CoN 2022</Badge>
             </div>
             <div className="card-b">
-              <RangeRow label="Na" min="3.0" max="5.0" unit="mmol/kg/day (up to 8.0 ELBW)" highlight />
-              <RangeRow label="K" min="2.3" max="4.6" unit="mmol/kg/day (↑↑ from 1.7–3.4)" highlight />
-              <RangeRow label="Ca" min="120" max="200" unit="mg/kg/day = 3.0–5.0 mmol/kg (↑)" highlight />
-              <RangeRow label="P" min="70" max="115" unit="mg/kg/day = 2.2–3.7 mmol/kg (↑)" highlight />
+              <RangeRow label="Na" {...span(EN.na.range)} unit={`mmol/kg/day (up to ${n(EN.na.high)} ELBW)`} highlight />
+              {/* Typed, as data.js holds them only as text: the 2010 figures (K 1.7–3.4
+                  in a comment, Zn 1.1–2 in EN.zn.note) and iron's "start at 2 wks"
+                  (EN.fe.note). */}
+              <RangeRow label="K" {...span(EN.k.range)} unit="mmol/kg/day (↑↑ from 1.7–3.4)" highlight />
+              <RangeRow label="Ca" {...span(EN.ca.mgPerKg)} unit={`mg/kg/day = ${rng(EN.ca.range)} mmol/kg (↑)`} highlight />
+              <RangeRow label="P" {...span(EN.p.mgPerKg)} unit={`mg/kg/day = ${rng(EN.p.range)} mmol/kg (↑)`} highlight />
               <SectionHead>Vitamins + trace (enteral)</SectionHead>
-              <RangeRow label="Vitamin D" min="400" max="700" unit={`IU/kg/day (per kg, not per day!) · at most ${D_A.displayNum(D_A.VIT_D_MAX_IU_DAY, 0)} IU/day`} highlight />
-              <RangeRow label="Iron" min="2" max="3" unit="mg/kg/day, start at 2 wks (up to 6)" />
-              <RangeRow label="Zinc" min="2.0" max="3.0" unit="mg/kg/day (↑↑ from 1.1–2.0)" highlight />
+              <RangeRow label="Vitamin D" {...span(EN.vitD.range)} unit={`IU/kg/day (per kg, not per day!) · at most ${D_A.displayNum(D_A.VIT_D_MAX_IU_DAY, 0)} IU/day`} highlight />
+              <RangeRow label="Iron" {...span(EN.fe.range)} unit={`mg/kg/day, start at 2 wks (up to ${n(EN.fe.max)})`} />
+              <RangeRow label="Zinc" {...span(EN.zn.range)} unit="mg/kg/day (↑↑ from 1.1–2)" highlight />
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ok)", fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
                 <Icon name="check" size={13} stroke={2.2} />
                 Key 2022 changes: DHA↑ · K↑ · Ca↑ · P↑ · Zn↑ · Vit D switched to per kg/day
@@ -4584,11 +4619,13 @@ function GuidelinesPanel() {
             </div>
             <div className="card-b">
               <div className="feeding-steps-grid">
+                {/* "up to 30" is WHO's own figure and the HMF indication and oral
+                    feeding's PMA 32 are held as text or not at all, so they are typed. */}
                 {[
-                  ["1. Start ASAP", "12–24 mL/kg/day", "MEF (trophic)", "Day 1 — even ELBW", "GOR B"],
-                  ["2. Advance", "+18–30 mL/kg/day", "per day", "WHO 2023: up to 30 safe", "Mod certainty"],
-                  ["3. Fortify", "≥40 mL/kg/day", "Start HMF", "<32 wk or <1.5 kg on MOM/DHM", "WHO 2023"],
-                  ["4. Full EN", "≥100 mL/kg/day", "Wean PN", "KCMH threshold · switch to EN targets", "KCMH practice"],
+                  ["1. Start ASAP", `${rng(ADV.mef)} mL/kg/day`, "MEF (trophic)", "Day 1 — even ELBW", "GOR B"],
+                  ["2. Advance", `+${rng(ADV.step)} mL/kg/day`, "per day", "WHO 2023: up to 30 safe", "Mod certainty"],
+                  ["3. Fortify", `≥${n(ADV.hmfStart)} mL/kg/day`, "Start HMF", "<32 wk or <1.5 kg on MOM/DHM", "WHO 2023"],
+                  ["4. Full EN", `≥${n(ADV.fullFeeds)} mL/kg/day`, "Wean PN", "KCMH threshold · switch to EN targets", "KCMH practice"],
                   ["5. Oral feed", "PMA ≥32 wks", "Non-nutritive", "Support breastfeeding", ""],
                 ].map(([step, vol, label, note, ref], i) => (
                   <div key={i} style={{ padding: "12px 10px", textAlign: "center",
@@ -4611,7 +4648,7 @@ function GuidelinesPanel() {
 
               <div style={{ marginTop: 12, padding: "10px 14px", background: "var(--brand-bg)",
                 borderRadius: 8, fontSize: 12, color: "var(--ink-2)" }}>
-                <strong>Growth targets (ESPGHAN 2022):</strong> Weight ≥17–20 g/kg/day · Length ≥0.8 cm/wk · HC ≥0.5 cm/wk
+                <strong>Growth targets (ESPGHAN 2022):</strong> Weight ≥{rng(EN.growth.weight)} g/kg/day · Length ≥{n(EN.growth.length)} cm/wk · HC ≥{n(EN.growth.hc)} cm/wk
               </div>
             </div>
           </div>
@@ -4629,6 +4666,10 @@ function GuidelinesPanel() {
               WHO 2023 Preterm Feeding — New & Changed Recommendations
             </div>
             <div className="card-b">
+              {/* WHO's own figures, typed on purpose: they are the guideline's words,
+                  not NeoFeed's values (ESPGHAN_TARGETS.who2023 holds some of them as
+                  text; the trial figures, the schedule and probiotics it does not).
+                  Only the HMF start is NeoFeed's, and it reads en.advancement.hmfStart. */}
               {[
                 { level:"crit", title:"Ca/P supplementation: NOT recommended",
                   body:"Changed from 2015 — routine Ca/P supplement for formula-fed preterm/LBW no longer recommended (insufficient evidence)." },
@@ -4674,18 +4715,21 @@ function GuidelinesPanel() {
               <PhaseTable
                 cols={["Nutrient","ESPGHAN 2010","ESPGHAN 2022","Change","Unit"]}
                 rows={[
-                  ["Energy",    "110–135", "115–140 (max 160)", "↑ upper", "kcal/kg/day"],
-                  ["Protein",   "3.5–4.5", "3.5–4.0 (max 4.5)", "Quality focus", "g/kg/day"],
-                  ["Fat",       "4.8–6.6", "4.8–8.1",           "↑↑ upper",      "g/kg/day"],
+                  // The 2022 column reads ESPGHAN_TARGETS.en (DHA and ARA are
+                  // only in EN.fat.note's text). The 2010 column is typed: data.js
+                  // holds no 2010 figure as a number (a few sit in a note's text).
+                  ["Energy",    "110–135", `${rng(EN.energy.range)} (max ${n(EN.energy.max)})`, "↑ upper", "kcal/kg/day"],
+                  ["Protein",   "3.5–4.5", `${rng(EN.protein.range)} (max ${n(EN.protein.max)})`, "Quality focus", "g/kg/day"],
+                  ["Fat",       "4.8–6.6", rng(EN.fat.range),     "↑↑ upper",      "g/kg/day"],
                   ["DHA",       "12–30",   "30–65",              "↑↑",            "mg/kg/day"],
                   ["ARA",       "18–42",   "30–100",             "↑",             "mg/kg/day"],
-                  ["Na",        "3.0–5.0", "3.0–5.0 (–8.0)",    "↑ upper range", "mmol/kg/day"],
-                  ["K",         "1.7–3.4", "2.3–4.6",           "↑↑ both ends",  "mmol/kg/day"],
-                  ["Ca",        "3.0–3.5 mmol","3.0–5.0 mmol",  "↑ upper",       "mmol/kg/day"],
-                  ["P",         "1.9–2.9 mmol","2.2–3.7 mmol",  "↑",             "mmol/kg/day"],
-                  ["Vitamin D", "800–1000 IU/day","400–700 IU/kg/day","Per kg now!","IU"],
-                  ["Iron",      "2–3 mg/kg", "2–3 (up to 6)",   "≈same",         "mg/kg/day"],
-                  ["Zinc",      "1.1–2.0", "2.0–3.0",           "↑↑",            "mg/kg/day"],
+                  ["Na",        "3–5",     `${rng(EN.na.range)} (–${n(EN.na.high)})`, "↑ upper range", "mmol/kg/day"],
+                  ["K",         "1.7–3.4", rng(EN.k.range),       "↑↑ both ends",  "mmol/kg/day"],
+                  ["Ca",        "3–3.5 mmol", `${rng(EN.ca.range)} mmol`, "↑ upper",  "mmol/kg/day"],
+                  ["P",         "1.9–2.9 mmol", `${rng(EN.p.range)} mmol`, "↑",       "mmol/kg/day"],
+                  ["Vitamin D", "800–1000 IU/day", `${rng(EN.vitD.range)} IU/kg/day`, "Per kg now!", "IU"],
+                  ["Iron",      "2–3 mg/kg", `${rng(EN.fe.range)} (up to ${n(EN.fe.max)})`, "≈same", "mg/kg/day"],
+                  ["Zinc",      "1.1–2",   rng(EN.zn.range),      "↑↑",            "mg/kg/day"],
                 ]}
               />
             </div>

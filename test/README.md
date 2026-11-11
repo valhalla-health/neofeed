@@ -1573,8 +1573,9 @@ failure that matters most, a copy that still talks to production: `boot.js` name
 never `script.google.com`, every script the shell names loads, internal files and a file beside the copy
 (`..%2f`) are not served, the seeded doctor signs in through the real `gas-backend.gs` and a wrong
 password is refused, the seed is there (AA submitted, BB draft, CC under an older `CONSTANTS_VERSION`, DD
-nothing), a `boot.js` it cannot rewrite stops it, and stop removes the copy. 17 checks, each seen to fail
-on a tool broken for it.
+nothing), a `boot.js` it cannot rewrite stops it, and stop removes the copy. The served shell does not load
+Google Sign-In, and `.claude/launch.json` starts the tool by name. 19 checks; 1.6 and 5.0 were seen to fail
+before the change, the other 17 on a tool broken for them.
 
 ## The Fenton rows at exact age, 2026-10-17 — one harness added
 
@@ -2224,3 +2225,23 @@ discharged infant are not tagged; both the phone card and the desktop row show i
 the report must name (printed line, sticker, alert level, GIR colour, tile, other screen text, saved string, empty object);
 `--intended`, a version number alone, orders that cannot be entered or submitted, git refs, and that the release template
 and `REFERENCE.md` name the tool and its limits. Needs the jsdom set above; about three minutes.
+
+## The Reference page and the last copies read data.js, 2026-11-10 — one harness added, one extended
+
+`verify-one-source-reference-1110.cjs`: renders the real `<GuidelinesPanel>` (the Reference page) in jsdom after
+planting other values in `ESPGHAN_TARGETS`, `TPN_TARGETS`, `KCMH_STOCK` and `VIT_D_MAX_IU_DAY`, and reads each
+RangeRow by its own label, the fluid and electrolyte tables, the feeding steps and the 2022 column of the WHO tab;
+then the real values read today's words and no figure on any tab ends in ".0". 70 of its 85 checks fail on `a360580`.
+`verify-one-source-thresholds-1110.cjs` gains §7 (lipid "Infuse over" and `PUMP_MAX_HOURS`), §8 (the MEN caution's
+MEF range) and §9 (`FULL_EN_ML_KG`: the banner, the P:E tile by its label cell and the alert, and P:E at exactly
+100 mL/kg/d, and the show-working line at a planted 90); 9 of them fail on `a360580`. Both need
+the jsdom set above.
+
+## Limits written out read data.js, 2026-11-10 — one harness added
+
+`verify-one-source-thresholds-1110.cjs`: plants other values for `TARGETS.girTarget`, `GIR_HARD_HI`,
+`OSM_PERIPHERAL_MAX`, `NPE_IV_WARN_LO`, `DEX_PERIPHERAL_MAX_PCT`, `MAX_DEXTROSE_G_KG` and
+`HEPARIN_USUAL_MAX_U_ML` in `window.NEOFEED_DATA` and reads the GIR meter and its line, the dextrose-ceiling alert,
+the heparin hint and printed line, the printed route line, the quick calc's Copy, the NPE:AA alerts and the
+"Central only!" flag; then the real values print the same words as before (GIR, route line, NPE:AA, heparin hint,
+dextrose alert). 12 of its 23 checks fail on `e555695`. Needs the jsdom set above.

@@ -311,12 +311,16 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
 
   await section('§7 the Reference page and the trend bands read the new rows', async () => {
     const app = R('app.jsx'), log = R('log.jsx');
+    // Since 2026-11-10 (5) the rows read ESPGHAN_TARGETS.pn.fluid; the rendered
+    // cells are read by test/verify-one-source-reference-1110.cjs.
     ok('fluid table: a DOL 6+ column, ELBW 140–160 there',
       /cols=\{\["BW category", "DOL 1", "DOL 2", "DOL 3", "DOL 4", "DOL 5", "DOL 6\+"\]\}/.test(app)
-      && /\["ELBW <1000g",\s*"80–100","100–120","120–140","140–160","160–180","140–160"\]/.test(app));
+      && /\["ELBW <1000g", PN\.fluid\.elbw\]/.test(app) && /"d5", "d6plus"\]/.test(app)
+      && JSON.stringify(D.ESPGHAN_TARGETS.pn.fluid.elbw.d6plus) === '[140,160]');
     ok('Cu: preterm and term from ESPGHAN_TARGETS', /micronutrients\.cu\.term/.test(app)
       && D.ESPGHAN_TARGETS.pn.micronutrients.cu.preterm === 40 && D.ESPGHAN_TARGETS.pn.micronutrients.cu.term === 20);
-    ok('Ca/P/Mg heads read FIRST_DAYS_LAST_DOL', /First days \(DOL 1–\{D_A\.FIRST_DAYS_LAST_DOL\}\)/.test(app));
+    ok('Ca/P/Mg heads read FIRST_DAYS_LAST_DOL', /const FD = D_A\.FIRST_DAYS_LAST_DOL;/.test(app)
+      && /First days \(DOL 1–\{FD\}\)/.test(app) && /Growing preterm \(DOL \{FD \+ 1\}\+\)/.test(app));
     ok('the electrolyte table has the day columns the tiles use', /\["Electrolyte","D1–2","D3","D4–5","D6–7","D8\+","Notes"\]/.test(app));
     ok('vitamin D row says at most 1,000 IU/day', /at most \$\{D_A\.displayNum\(D_A\.VIT_D_MAX_IU_DAY, 0\)\} IU\/day/.test(app));
     ok('trend bands: Na and K take the weight group',

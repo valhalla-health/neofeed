@@ -7,6 +7,112 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-10 (5) — The Reference page, the lipid hours, MEF and Full EN read data.js
+
+`data.js`, `app.jsx` (GuidelinesPanel), `calculator.jsx`, the neofeed-clinical-rules skill (CR-U-SWITCH, CR-TGT-PE,
+CR-R-PUMP-RATE), `docs/CLINICAL_CONSTANTS.md`, `tools/reference-tabs.json`; `test/verify-one-source-reference-1110.cjs`
+(new), `test/verify-one-source-thresholds-1110.cjs` (§7–§9), and the source-text checks in
+`test/verify-tpn-answers-1027.cjs` §7 and `test/verify-review-0911.cjs`, which matched the old literals' spelling.
+
+What 2026-11-10 (4) left, done:
+
+- **The Reference page** (Clinical Guidelines). Every figure `ESPGHAN_TARGETS` holds is read from it: amino acid,
+  lipid (start, step, max 4, TG 265, 2 kcal/mL), Ca · P · Mg and Ca:P, the fluid and electrolyte tables, Zn, Fe and Cu,
+  every EN target, the feeding steps (MEF, step, HMF at 40, Full EN at 100), the growth targets and the 2022 column of
+  "ESPGHAN 2022 vs 2010". The mg beside Ca, P and Mg are the tiles' own bands (`TPN_TARGETS`), as the growing-P row
+  already was, and so is the lipid start's top (`TPN_TARGETS.lipid(1)`, the DOL 1 band). Glycophos, Peditrace,
+  Soluvit and "1 g fat = 5 mL" are `KCMH_STOCK`, the strengths and doses the Calculator uses. In
+  `data.js`, `ESPGHAN_TARGETS.en.vitD.maxIuDay` is `VIT_D_MAX_IU_DAY`, `en.advancement.mef` ends at `MEN_MAX_ML_KG`,
+  and `pn.electrolytes.caP_mass` is `TARGETS.caP()`, the band the tile grades.
+- **No trailing zero on that page** (Pp, 2026-11-10: "ตัดศูนย์ท้าย"): 3.0 → 3, 4.0 → 4, 1.0–1.7 → 1–1.7, and the
+  typed 2010 figures too (3.0–5.0 → 3–5). That is the only text change on the page: a before/after dump of all three
+  tabs differs in nothing else.
+- **Lipid "Infuse over"**: its "1–24 h" hint and the 24 h the typed hours are held at both read `PUMP_MAX_HOURS`.
+  They are one rule: the cap (lipid hangs 24 h at most, TPN team 2026-09-28) is older than the pump limit Pp chose
+  on 2026-11-06 (CR-R-PUMP-RATE), and it is what keeps a lipid run at or under 24 h, since `pumpRate` holds that
+  only for hours of 24 or fewer (a 14 mL lipid bag typed at 30 h would run 28 h). The 1 h floor stays typed; it
+  guards a division.
+- **"MEF 12–24"** on the MEN caution reads `ESPGHAN_TARGETS.en.advancement.mef[0]` and `MEN_MAX_ML_KG`.
+- **Full EN, `FULL_EN_ML_KG` = 100** (new). `isFullEn`, the switch to enteral targets, Step 2's done mark, the EN
+  volume tile and its band (to `en.advancement.maxVol`), the "Full EN ≥100" banner, the show-working panel's
+  "นมที่นับได้ถึง 100 mL/kg/d", and the P:E tile and its alert read it.
+- **One behaviour change, Pp's call.** The P:E tile and its alert showed only above 100 mL/kg/d while the enteral
+  targets switched on at 100, so an infant fed exactly 100 got enteral targets and no P:E. Asked, Pp chose "≥ 100
+  เหมือนกันหมด": both now show on `calc.useEnteralTargets`, the switch itself (never for MEN, as before).
+  CR-TGT-PE gains cases at 100 and 99.2.
+
+Still typed, because data.js holds no number for them, only text or nothing (a comment beside each says which): the
+lipid's smallest step of 0.5, cysteine 50–75 and the 65 kcal/kg, DHA and ARA (inside `en.fat.note`), the EN fluid
+row's 180 (`en.fluid.range` is the attending's 150–200; ESPGHAN's 180 is only in its note), IWL 30 and 120, the
+incubator's 80–90 % humidity and the UO target, the Cl row, the 2010 figures, iron's "start at 2 wks", the GIR card's
++1 step and "step down 1–2", WHO's own figures on the WHO tab (the guideline's words), the HMF indication, oral
+feeding at PMA 32, and Vitalipid's 4 mL/kg and 10 mL (literals in `calculator.jsx`'s dose code, CR-VITALIPID-CAP).
+The GIR card's figures, from #240, read data.js without displayNum; none has a trailing zero today. The Reference page does not show Soluvit's 10 mL/day cap, which
+`KCMH_STOCK.soluvit.maxMl` holds; adding it would be new text, so it is left for Pp.
+
+No dose or printed figure moved, so `CONSTANTS_VERSION` stays. `node tools/calc-compare.cjs` against `origin/main`
+and against PR #240's head: see the PR. The new Reference harness plants other values in `window.NEOFEED_DATA` and
+reads the three tabs: 70 of its 85 checks fail on `a360580` (PR #240's head). The Calculator harness's new §7–§9 fail
+there too (9 checks), and its "30 h is held at 24" check passes on both, as it should. Its P:E checks find the tile by
+its label cell: the alert's title carries the same words, and a page-text check passed with the tile reverted to
+`> 100` (the first new reader's mutation). CR-TGT-PE's case at 100 checks the alert only, for the same reason.
+§9 also reads the show-working panel's "นมที่นับได้ถึง 90 mL/kg/d" at a planted 90.
+
+## Session 2026-11-10 (4) — Limits written out on the Calculator read data.js
+
+`data.js`, `calculator.jsx`, `log.jsx`, `app.jsx`, the neofeed-clinical-rules skill (CR-NPE-AA),
+`docs/CLINICAL_CONSTANTS.md`, `tools/reference-tabs.json` (a unit for the new constant); `test/verify-one-source-thresholds-1110.cjs` (new).
+
+Pp asked whether any other clinical rule was copied the way GIR's limit was until 2026-09-23. The grading
+moved into `data.js` then, but text beside the grade still typed the numbers, so a change to the constant
+would have left it behind:
+
+- the line under the GIR meter, "target 8–10 · max 12", and its optimal zone (also the Daily log's GIR band)
+  now read `TARGETS.girTarget` and `GIR_HARD_HI`; the Calculator grades GIR with `girStatus`, as the Alerts
+  page does, instead of building the same grade itself
+- the printed form's route line (three places) and the quick calc's Copy, "Peripheral (<900 mOsm/L)",
+  and the osmolarity tile's range read `OSM_PERIPHERAL_MAX`
+- the IV NPE:AA caution at 20 is `NPE_IV_WARN_LO` (new), and so is the 20 in the total figure's
+  "soft-alert zone 20–<24"
+- the "Central only!" dextrose flag at 12.5 % is `DEX_PERIPHERAL_MAX_PCT` (new), which the Reference page
+  and `ESPGHAN_TARGETS.pn.gir.peripheralMaxDex` read too
+- the dextrose-ceiling alert's "(glucose 12 mg/kg/min)" is `MAX_DEXTROSE_G_KG` converted to mg/kg/min, to one
+  decimal (17.3 g/kg/d prints 12; 18 would print 12.5). A first fix tied it to `GIR_HARD_HI` (Vera's
+  suggestion); a second reader caught that the two are different limits, 18 g/kg/d and GIR 13 until
+  2026-10-27. A third caught that a whole-number conversion would also have printed 13 for 18, hiding the half
+- the Reference page's GIR card reads `ESPGHAN_TARGETS.pn.gir`. That object keeps ESPGHAN's own figures on
+  purpose: when the app's GIR limit was 13 (2026-09-22 to 2026-10-27), the guideline still said 12, and the
+  card showed the guideline. `tools/reference-tabs.json` holds them at or below `GIR_HARD_HI`.
+
+The printed form's "<900" was the KCMH paper form's wording; it now follows the app's limit, so a new limit
+would print beside the paper's layout. Pp chose that direction in the PR (2026-11-10: "ตามค่าในแอป"), and
+`REFERENCE.md` § The printed order and CR-OSM-PERIPH say so.
+`DEX_PERIPHERAL_MAX_PCT` joins CR-OSM-PERIPH with cases at 12.5 and 12.6 (Vera).
+
+No value changed and no figure moved, so `CONSTANTS_VERSION` stays. The new harness plants other values in
+`data.js`'s exports and reads the screen, the printed form and the Copy: 12 of its 23 checks fail on `e555695`.
+
+Left out: Full EN at 100 mL/kg/d, which PR #239 moved into `isFullEn` for a saved row; `calculator.jsx` still tests
+`> 100` in two places (the P:E alert and its panel) where everything else tests `>= 100`, and that boundary
+is Pp's call. The nursing form's 200–8,000 g and the backend's `_checkRange` bounds stay literal: they
+mirror input validation in another runtime. `gas-backend.gs:2394`'s comment still says 300–8,000 g; the
+code says 200.
+
+**After the second reader** (a sweep of calculator.jsx, log.jsx and app.jsx at the merge of #237, which on the
+Reference page reached only the GIR card), more copies of exported constants: the No TPN title's 80 (`NO_TPN_EN_MIN_ML_KG`), the vitamin D title's 1,000
+(`VIT_D_MAX_IU_DAY`), heparin's "0.5–1" on the hint, the note and the printed form (`HEPARIN_USUAL_MAX_U_ML`),
+the Mg tooltip (`TPN_TARGETS.mg`), the oral Fe, Ca, P and vitamin D hints (`ESPGHAN_TARGETS.en`,
+`ENTERAL_TARGETS.ca`), the Reference page's GIR step, and the Glycophos and K₂HPO₄ strengths beside `KCMH_STOCK`
+(2, 31 and 15.5, which feed the Na and P totals). All now read data.js. Two texts change: the oral P hint read
+"~68–115 mg/kg/day", the exact conversion of 2.2–3.7 mmol, and now shows the graded band, "~70–115"
+(data.js rounds it to [70, 115] on purpose); the Mg tooltip loses two trailing zeros ("5.0" → "5" in each band). Still literal, with no constant to read:
+Vitalipid's 4 mL/kg and 10 mL cap, heparin's 0.5 floor, the energy-split targets, and the fluid-mismatch margin of
+20, which `NO_TPN_PLAN_GAP_ML_KG` shares by choice. Still literal although a constant exists, left for a later PR:
+the Reference page's rows other than the GIR card (amino acid, lipid, PN and EN electrolytes, EN targets, which
+`ESPGHAN_TARGETS` holds), the lipid "1–24 h" hint (`PUMP_MAX_HOURS`) and "MEF 12–"
+(`ESPGHAN_TARGETS.en.advancement.mef`). The harness plants the dextrose ceiling and heparin; the other
+replacements are held only by today's text (calc-compare, the oracle and the rule cases).
+
 ## Session 2026-11-10 (3) — Full EN never counts a MEN feed
 
 Pp, 2026-11-10: a feed ticked MEN does not count toward Full EN. The calculator already switched targets on counted EN
@@ -50,6 +156,12 @@ Reading the 53 fields of the comparison for release #236 turned up two consequen
 A typed dose prints as before. A tap on Lipid volume can now keep a higher whole mL (580 g, 3.7 g/kg/d: 11 mL, 3.79, where it
 stepped down to 10 mL, 3.45; Vera). `CONSTANTS_VERSION` stays 2026-11-06.1 for now: whether this needs a bump is Pp's call. No second
 clinician has reviewed this. Backend unchanged.
+
+## Session 2026-11-09 — an agent can open dev local unattended
+
+`tools/dev-local.mjs` no longer serves the Google Sign-In script: the sandbox refuses every Google token, and a
+Google window seen on the PR #163 run blocked the Browser pane until a person closed it. The cause was not traced. `.claude/launch.json` starts the tool as `neofeed-dev-local`,
+and `AGENTS.md` now says it exists. `verify-dev-local` gained 1.6 and 5.0.
 
 ## Session 2026-11-08 (9) — NF-42, one wording in (8)
 
