@@ -32,10 +32,7 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
-- [ ] **Center Point: sync the new feed keys before PR #247 is released** (Vera, 2026-11-11). `center-point/tpn-document.mjs`
-  (`TPN_PREPARATIONS`) and CP's own copy lack `BM_PF_22–27`, `ENFALAC_PREM_20/26/27`, `PRENAN_20/26/27`, `HIQLBW_20/22/26/27`
-  and `BM_PFP_22–27`; a Center Point save on one of them is refused (`invalid_tpn_snapshot`), not printed wrongly. Add the
-  labels in both copies, re-pin CP's `test/neofeed-commit`, then the digest in `test/verify-center-point-entry.cjs` §6.
+- [x] **Center Point: sync the new feed keys before PR #247 is released** (Vera, 2026-11-11): done in #247 and its NICU-Center-Point PR.
 - [ ] **FBM with PF: Step 2's breast-milk line does not explain the concentrate** (Vera, 2026-11-11, finding 3). The recipe is the milk room's chart (Pp, 2026-11-11); a 26 kcal/oz row needs the chart's share first.
 - [ ] 🩺 **safety/product · What the nutrition team's meeting of 2026-10-28 left open.** Built for the
       16 Nov ward start (`CHANGELOG.md` 2026-10-28 (13)): Submit locks, the revision mark and ฉบับแก้ไข,

@@ -316,9 +316,10 @@ function mount(props, { pressRoute = true } = {}) {
   // commit, then record the new digest below.
   console.log('\n── §6 center-point/tpn-document.mjs matches the version CP was synced to ──');
   // 2026-10-27: two feed labels added (Enfalac Premature and Pre Nan at 24 kcal/oz).
+  // 2026-11-11: the PR #247 feed labels (preterm formulas 20–27, FBM with PF); CP synced in its own PR.
   // 2026-10-28: tpnBagOverfull and its red line (PR #175). CP's copy is synced with both on
   // NICU-Center-Point branch claude/tpn-overfull-stop-1028, which re-pins test/neofeed-commit.
-  const TPN_DOCUMENT_SHA256 = '25ab564e6e19902a3a37e785204672e1a7ccc95f9789b72e9025849907097ada';
+  const TPN_DOCUMENT_SHA256 = '67ba3b042b06372409a9134d21a9631f9ae4517617f58b2201aed03fc9444876';
   const digest = require('crypto').createHash('sha256')
     .update(fs.readFileSync(DIR + 'center-point/tpn-document.mjs', 'utf8').replace(/\r\n/g, '\n')).digest('hex');
   ok('tpn-document.mjs is the version CP is synced to (else: sync CP, re-pin, update this digest)', digest === TPN_DOCUMENT_SHA256, digest);
