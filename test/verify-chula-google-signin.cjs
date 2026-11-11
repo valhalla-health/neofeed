@@ -127,8 +127,9 @@ T.section('4 · every sign-in needs an active Staff row with a valid role', () =
   T.eq('deleting the row ends the session already in use', g.post({ action: 'getActivePatients', token: ok.token }), { error: 'Unauthorized' });
 });
 
-T.section('5 · the prepared hd restriction and its telemetry cover every Chula domain', () => {
+T.section('5 · the hd restriction and its telemetry cover every Chula domain', () => {
   const g = boot();
+  g.sb.GOOGLE_HD_ENFORCE = false; // ships true since 2026-11-11; the off-path telemetry is still tested
   for (const d of CHULA) { g.addStaff('staff@' + d, 'doctor', ''); googleLogin(g, 'staff@' + d, d); }
   T.eq('off: each domain records hd_seen_<domain> = yes', CHULA.map(d => g.props.get('hd_seen_' + d)), CHULA.map(() => 'yes'));
   g.sb.GOOGLE_HD_ENFORCE = true;

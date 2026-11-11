@@ -1,5 +1,8 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-11 — `GOOGLE_HD_ENFORCE` on: a Google sign-in on a Workspace domain needs the matching `hd`: PR #243, merged into `main` on Praew's instruction; backend only, deployed with `clasp` on her go-ahead (the version is on #243).**
+> Pp checked every `hd_seen_<domain>` read "yes" first. `hd_seen_*` stops updating while the flag is on. Rollback: `clasp update-deployment AKfycbz8Nt… -V 69`.
+>
 > ⏳ **2026-11-10 — The Reference page, the lipid hours, "MEF 12–24" and Full EN read `data.js`; P:E shows from 100 mL/kg/d itself: PR #241, merged into `main` on Praew's instruction; not live.**
 > Frontend only. The Reference page drops its trailing zeros; P:E at exactly 100 mL/kg/d is new (Pp's call); no dose moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-10 (5)).
 >
