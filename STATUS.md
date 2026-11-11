@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-11 — `clasp` pushes the backend from this repo; the `~/nicu-tools/neofeed` mirror is retired (Pp's decision): this PR, not merged.** No code change; the next backend deploy is the first from the repo (`REFERENCE.md` § Backend (GAS)).
+> ⏳ **2026-11-11 — `clasp` pushes the backend from this repo; the `~/nicu-tools/neofeed` mirror is retired (Pp's decision): PR #245, merged into `main` on Praew's instruction.** No code change; the next backend deploy is the first from the repo (`REFERENCE.md` § Backend (GAS)).
 >
 > ✅ **2026-11-11 — Backend `@70` live: `GOOGLE_HD_ENFORCE` on, a Google sign-in on a Workspace domain needs the matching `hd`: PR #243, merged into `main` on Praew's instruction, deployed with `clasp` on her go-ahead (verification on #243).**
 > Pp checked every `hd_seen_<domain>` read "yes" first. `hd_seen_*` stops updating while the flag is on. Rollback: `clasp update-deployment AKfycbz8Nt… -V 69`.
