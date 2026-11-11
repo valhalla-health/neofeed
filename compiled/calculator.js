@@ -379,18 +379,30 @@ function Chk({ label, value, onChange, hint }) {
   return /* @__PURE__ */ React.createElement("label", { className: "chk-label", style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 6, background: value ? "var(--brand-bg)" : "var(--bg-2)", border: `1px solid ${value ? "var(--brand-line)" : "var(--line-2)"}`, cursor: "pointer", fontSize: 13 } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: value, onChange: (e) => onChange(e.target.checked), style: { marginTop: 2, width: 18, height: 18, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 500, color: value ? "var(--brand-2)" : "var(--ink)" } }, label), hint && /* @__PURE__ */ React.createElement("span", { className: "chk-hint", style: { display: "block", color: "var(--ink-3)", marginTop: 2, fontSize: 11 } }, hint)));
 }
 function EnFeedPicker({ value, onChange }) {
-  const at = D.enProductOf(value);
-  const groups = [...new Set(D.EN_PRODUCTS.map((p) => p.group))];
+  const atAny = D.enProductOf(value);
+  const at = atAny && !atAny.product.hidden ? atAny : null;
+  const offered = D.EN_PRODUCTS.filter((p) => !p.hidden);
+  const groups = [...new Set(offered.map((p) => p.group))];
   const [dropped, setDropped] = React.useState(null);
   const pickProduct = (id) => {
-    const p = D.EN_PRODUCTS.find((x) => x.id === id);
+    const p = offered.find((x) => x.id === id);
     if (!p) return;
-    const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
+    const same = atAny && p.strengths.find(([oz]) => oz === atAny.kcalOz);
     const next = same || p.strengths[0];
-    setDropped(at && !same ? { from: at.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
+    setDropped(atAny && !same ? { from: atAny.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
     onChange(next[1]);
   };
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "en-picker", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { className: "field", style: { gridColumn: "span 2" } }, /* @__PURE__ */ React.createElement("label", null, "Feed type"), /* @__PURE__ */ React.createElement("select", { className: "sel en-product", value: at ? at.product.id : "", onChange: (e) => pickProduct(e.target.value) }, !at && /* @__PURE__ */ React.createElement("option", { value: "" }, D.EN_DB[value]?.label || value), groups.map((g) => /* @__PURE__ */ React.createElement("optgroup", { key: g, label: g }, D.EN_PRODUCTS.filter((p) => p.group === g).map((p) => /* @__PURE__ */ React.createElement("option", { key: p.id, value: p.id }, p.label)))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "kcal/oz"), /* @__PURE__ */ React.createElement("select", { className: "sel en-strength", value, onChange: (e) => onChange(e.target.value) }, (at ? at.product.strengths : [["—", value]]).map(([oz, k]) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, oz))), /* @__PURE__ */ React.createElement("div", { className: "field-hint", style: { fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 } }, fmt(D.EN_DB[value]?.kcal, 0), " kcal/100 mL"))), dropped && dropped.key === value && /* @__PURE__ */ React.createElement("div", { className: "en-strength-changed", role: "status", style: { fontSize: 11.5, fontWeight: 600, color: "var(--warn-ink)", marginTop: 4 } }, "kcal/oz ", dropped.from, " → ", dropped.to, ": ", dropped.milk, " ไม่มี ", dropped.from, " kcal/oz — ตรวจ kcal/oz ก่อน Submit"));
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "en-picker", style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { className: "field", style: { gridColumn: "span 2" } }, /* @__PURE__ */ React.createElement("label", null, "Feed type"), /* @__PURE__ */ React.createElement("select", { className: "sel en-product", value: at ? at.product.id : "", onChange: (e) => pickProduct(e.target.value) }, !at && /* @__PURE__ */ React.createElement("option", { value: "" }, D.EN_DB[value]?.label || value), groups.map((g) => /* @__PURE__ */ React.createElement("optgroup", { key: g, label: g }, offered.filter((p) => p.group === g).map((p) => /* @__PURE__ */ React.createElement("option", { key: p.id, value: p.id }, p.label)))))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "kcal/oz"), /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      className: "sel en-strength",
+      value,
+      onChange: (e) => onChange(e.target.value),
+      disabled: !!at && at.product.strengths.length === 1,
+      title: at && at.product.strengths.length === 1 ? `${at.product.label}: ${at.kcalOz} kcal/oz เสมอ` : void 0
+    },
+    (at ? at.product.strengths : [["—", value]]).map(([oz, k]) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, oz))
+  ), /* @__PURE__ */ React.createElement("div", { className: "field-hint", style: { fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 } }, fmt(D.EN_DB[value]?.kcal, 0), " kcal/100 mL"))), dropped && dropped.key === value && /* @__PURE__ */ React.createElement("div", { className: "en-strength-changed", role: "status", style: { fontSize: 11.5, fontWeight: 600, color: "var(--warn-ink)", marginTop: 4 } }, "kcal/oz ", dropped.from, " → ", dropped.to, ": ", dropped.milk, " ไม่มี ", dropped.from, " kcal/oz — ตรวจ kcal/oz ก่อน Submit"));
 }
 const EN_NO_FEED = { kcal: 0, pro: 0, fat: 0, cho: 0, na: 0, k: 0, ca: 0, p: 0, osm: null, lf: false };
 const EN_FEED_BOX = { padding: 10, border: "1px solid var(--line)", borderRadius: 8 };
@@ -3188,7 +3200,7 @@ function KcalBar({ cho, pro, fat }) {
 function KcalLegend({ color, label, pct, target }) {
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 10, height: 10, background: color, borderRadius: 2 } }), label), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, fontSize: 16, marginTop: 2 } }, pct.toFixed(0), "%"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, target));
 }
-const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true };
+const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true, BM_PFP_22: false, BM_PFP_24: false, BM_PFP_27: false };
 function WorkVal({ k, v, d = 2, t }) {
   return /* @__PURE__ */ React.createElement("span", { className: "num", "data-v": k }, t ?? fmt(v, d));
 }

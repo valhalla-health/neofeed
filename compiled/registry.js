@@ -1198,6 +1198,13 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
     const bedHistory = [...patient.bedHistory || [], hop()];
     submit({ ...patient, currentBed: "", bedHistory }, mergeBase);
   };
+  const deleteHop = (i) => {
+    const h = (patient.bedHistory || [])[i];
+    if (!h) return;
+    if (!window.confirm(`ลบ "${D_R.normalizeBed(h.bed) || "—"} until ${h.date}" ออกจาก Previous beds? (ลงผิด)`)) return;
+    const bedHistory = patient.bedHistory.filter((_, j) => j !== i);
+    submit({ ...patient, bedHistory }, mergeBase);
+  };
   return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose, "data-back-confirm": "Transfer bed" }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 400 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Transfer bed · ", D_R.patientName(patient)), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink-2)" } }, /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), currentBed || "—"), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)" } }, "→"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, style: { flex: 1 }, occupancy, occupiedSelectable: true })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 } }, "ย้ายไปเตียงว่างถัดไป"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, WARDS.map((w) => /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -1210,7 +1217,17 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
     w,
     " · ",
     nextFree[w] || "เต็ม"
-  )))), bedTaken && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)" } }, D_R.bedTakenMsg(D_R.normalizeBed(bed), bedTaken), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", marginTop: 4 } }, "สลับเตียง: เปิด ⇄ ของ ", D_R.patientName(bedTaken) || bedTaken.sessionId, ' แล้วกด "พักไว้ก่อน" เตียงนี้จะว่าง จึงย้ายรายนี้เข้าได้')), !currentBed && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--warn-ink)" } }, "รอเตียง — ย้ายออกจาก ", D_R.lastBed(patient) || "เตียงเดิม", " แล้ว เลือกเตียงใหม่ด้านบน"), (patient.bedHistory || []).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: 4 } }, "Previous beds"), patient.bedHistory.map((h, i) => /* @__PURE__ */ React.createElement("div", { key: i }, D_R.normalizeBed(h.bed), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-4)" } }, "until ", h.date)))), /* @__PURE__ */ React.createElement(SubmitError, { error: submitError }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" } }, currentBed && /* @__PURE__ */ React.createElement(
+  )))), bedTaken && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)" } }, D_R.bedTakenMsg(D_R.normalizeBed(bed), bedTaken), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", marginTop: 4 } }, "สลับเตียง: เปิด ⇄ ของ ", D_R.patientName(bedTaken) || bedTaken.sessionId, ' แล้วกด "พักไว้ก่อน" เตียงนี้จะว่าง จึงย้ายรายนี้เข้าได้')), !currentBed && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--warn-ink)" } }, "รอเตียง — ย้ายออกจาก ", D_R.lastBed(patient) || "เตียงเดิม", " แล้ว เลือกเตียงใหม่ด้านบน"), (patient.bedHistory || []).length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: 4 } }, "Previous beds"), patient.bedHistory.map((h, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", null, D_R.normalizeBed(h.bed) || "—", " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-4)" } }, "until ", h.date)), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "btn bed-hop-delete",
+      style: { fontSize: 11, padding: "2px 8px", marginLeft: "auto" },
+      disabled: busy,
+      title: "ลบรายการเตียงนี้ (ลงผิด)",
+      onClick: () => deleteHop(i)
+    },
+    "ลบ"
+  )))), /* @__PURE__ */ React.createElement(SubmitError, { error: submitError }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" } }, currentBed && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn",

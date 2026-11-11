@@ -66,6 +66,9 @@ const { act } = require('react');
 global.React = React; window.React = React;
 vm.runInThisContext(R('data.js'));
 const D = window.NEOFEED_DATA;
+// FBM with HMF is hidden from Step 2 (Pp, 2026-11-11, no HMF in Thailand); saved orders
+// still compute on BM_HMF_24, so this harness unhides it to reach that row.
+for (const p of D.EN_PRODUCTS || []) if (p.id === 'bmHmf') p.hidden = false;
 for (const f of ['icons.jsx', 'calculator.jsx', 'log.jsx']) {
   vm.runInThisContext(babel.transformSync(R(f), {
     presets: [[require('@babel/preset-react'), { runtime: 'classic' }]],

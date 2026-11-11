@@ -32,6 +32,8 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [x] **Center Point: sync the new feed keys before PR #247 is released** (Vera, 2026-11-11): done in #247 and its NICU-Center-Point PR.
+- [ ] **FBM with PF: Step 2's breast-milk line does not explain the concentrate** (Vera, 2026-11-11, finding 3). The recipe is the milk room's chart (Pp, 2026-11-11); a 26 kcal/oz row needs the chart's share first.
 - [ ] 🩺 **safety/product · What the nutrition team's meeting of 2026-10-28 left open.** Built for the
       16 Nov ward start (`CHANGELOG.md` 2026-10-28 (13)): Submit locks, the revision mark and ฉบับแก้ไข,
       the doctor's sheet only, Vitalipid rounded down, Mg in mg/kg/d, PED AMINE. Open:

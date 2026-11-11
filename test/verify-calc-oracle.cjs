@@ -83,6 +83,9 @@ global.React = React; window.React = React;
 }
 vm.runInThisContext(R('data.js'));
 const D = window.NEOFEED_DATA;
+// FBM with HMF is hidden from Step 2 (Pp, 2026-11-11); saved orders still compute on
+// BM_HMF_24, so this harness unhides it to reach that row.
+for (const p of D.EN_PRODUCTS || []) if (p.id === 'bmHmf') p.hidden = false;
 for (const f of ['icons.jsx', 'calculator.jsx']) {
   vm.runInThisContext(babel.transformSync(R(f), {
     presets: [[require('@babel/preset-react'), { runtime: 'classic' }]],
@@ -127,7 +130,7 @@ const INFATRINI = perMl(PER_100_KCAL.infatrini, 100);
 const FEED = {
   BM_20:        BM,
   BM_HMF_24:    BM_HMF,
-  BM_PF_20:     [67, 1.5, 3.5, 7.4, 1.0, 1.7, 50, 28],     // no source; kept as it was (Pp, 2026-10-20)
+  BM_PF_20:     perMl(PER_100_KCAL.enfalacPremature, 67),   // PF = Enfalac Premature (Pp, 2026-11-11)
   FBM_PF_22:    perMl(PER_100_KCAL.enfalacPremature, 73),   // the ward's 22 kcal/oz
   PRENAN_22:    perMl(PER_100_KCAL.preNan, 73),
   // The ward mixes both at 24 too (nutrition unit, 2026-10-25).

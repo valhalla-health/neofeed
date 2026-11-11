@@ -100,6 +100,9 @@ function calculatorSource() {
 }
 vm.runInThisContext(R('data.js'));
 const D = window.NEOFEED_DATA;
+// FBM with HMF is hidden from Step 2 (Pp, 2026-11-11, no HMF in Thailand); saved orders
+// still compute on BM_HMF_24, so this harness unhides it to reach that row.
+for (const p of D.EN_PRODUCTS || []) if (p.id === 'bmHmf') p.hidden = false;
 for (const [code, f] of [[R('icons.jsx'), 'icons.jsx'], calculatorSource()]) {
   vm.runInThisContext(babel.transformSync(code, {
     presets: [[require('@babel/preset-react'), { runtime: 'classic' }]],
