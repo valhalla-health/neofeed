@@ -34,6 +34,10 @@ _config.yml
 # Backend source. Served by Google Apps Script, never by Cloudflare.
 gas-backend.gs
 gas-backend.gs.js
+# clasp pushes from this repo (2026-11-11): its project file, ignore list and manifest.
+appsscript.json
+.clasp.json
+.claspignore
 
 # Tooling output and dev-only trees
 # .wrangler/ is scaffolding wrangler creates inside this directory during a

@@ -6,7 +6,7 @@
 // Properties and cache, until someone removes it, and a plain `clasp deploy` adds one
 // without a word. So a third deployment stops the release until a person has looked at it.
 //
-//   node tools/check-deployments.mjs                # asks clasp, in ~/nicu-tools/neofeed
+//   node tools/check-deployments.mjs                # asks clasp, in this repo (its .clasp.json)
 //   node tools/check-deployments.mjs --dir <path>   # the clasp project is somewhere else
 //   node tools/check-deployments.mjs --from <file>  # a saved `clasp list-deployments`
 //
@@ -19,7 +19,6 @@
 
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -65,7 +64,7 @@ function argValue(args, flag) {
 function readListing(args) {
   const from = argValue(args, "--from");
   if (from) return readFileSync(from, "utf8");
-  const dir = argValue(args, "--dir") || path.join(homedir(), "nicu-tools", "neofeed");
+  const dir = argValue(args, "--dir") || path.join(HERE, "..");
   // One string, so Windows can find clasp.cmd through the shell. Nothing here comes from the user.
   const r = spawnSync("clasp list-deployments", { cwd: dir, encoding: "utf8", shell: true });
   if (r.error || r.status !== 0) throw new Error(`clasp list-deployments did not run in ${dir}`);
