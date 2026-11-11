@@ -543,12 +543,13 @@ function Chk({ label, value, onChange, hint }) {
 // list does not offer is shown, never swapped.
 function EnFeedPicker({ value, onChange }) {
   const at = D.enProductOf(value);
-  const groups = [...new Set(D.EN_PRODUCTS.map(p => p.group))];
+  const offered = D.EN_PRODUCTS.filter(p => !p.hidden);   // FBM with HMF hidden (Pp, 2026-11-11)
+  const groups = [...new Set(offered.map(p => p.group))];
   // The kcal/oz the last change of milk could not keep. Shown only while the
   // feed is still the one it switched to, so it never outlives that choice.
   const [dropped, setDropped] = React.useState(null);
   const pickProduct = (id) => {
-    const p = D.EN_PRODUCTS.find(x => x.id === id);
+    const p = offered.find(x => x.id === id);
     if (!p) return;
     const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
     const next = same || p.strengths[0];
@@ -566,7 +567,7 @@ function EnFeedPicker({ value, onChange }) {
           {!at && <option value="">{D.EN_DB[value]?.label || value}</option>}
           {groups.map(g => (
             <optgroup key={g} label={g}>
-              {D.EN_PRODUCTS.filter(p => p.group === g).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              {offered.filter(p => p.group === g).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
             </optgroup>
           ))}
         </select>

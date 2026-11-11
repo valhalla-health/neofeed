@@ -199,7 +199,7 @@ clinical threshold.
 {"rule": "CR-EN-FEEDS-MAX", "kind": "stop", "coded": {"EN_FEEDS_PER_DAY_MAX": 8}, "where": [{"file": "data.js", "line": 482, "has": "const EN_FEEDS_PER_DAY_MAX = 8;"}, {"file": "calculator.jsx", "line": 2223, "has": "const feedsOverMax = twoFeeds && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;"}]}
 {"case": "4 + 4 = 8 feeds a day (q3h): saves", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 10, "Frequency": 4}, "feed2": "PRENAN_22", "order2": {"Volume(mL/feed)": 10, "Frequency": 4}, "tick": {"No TPN": true}, "expect": {"no_alert": "Feeds above 8 a day", "submit": "no_reason", "shows": "Feed 1 + 2 = 8 feeds/d · q3h"}}
 {"case": "6 + 6 = 12 feeds a day (q2h): refused", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 10, "Frequency": 6}, "feed2": "PRENAN_22", "order2": {"Volume(mL/feed)": 10, "Frequency": 6}, "expect": {"alert": "Feeds above 8 a day", "level": "crit", "no_alert": "Two feeds off a regular schedule", "submit": "blocked", "shows": "Feed 1 + Feed 2 รวม 12 มื้อ/วัน เกิน 8 มื้อ"}}
-{"case": "3 + 3 = 6 feeds a day (q4h): saves", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 15, "Frequency": 3}, "feed2": "BM_HMF_24", "order2": {"Volume(mL/feed)": 15, "Frequency": 3}, "expect": {"no_alert": "Feeds above 8 a day", "shows": "Feed 1 + 2 = 6 feeds/d · q4h"}}
+{"case": "3 + 3 = 6 feeds a day (q4h): saves", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 15, "Frequency": 3}, "feed2": "FBMPF_24", "order2": {"Volume(mL/feed)": 15, "Frequency": 3}, "expect": {"no_alert": "Feeds above 8 a day", "shows": "Feed 1 + 2 = 6 feeds/d · q4h"}}
 {"case": "feed 1 with no volume is not given: 8 + 8 saves", "side": "inside", "infant": {"g": 1000}, "order": {"Frequency": 8}, "feed2": "PRENAN_22", "order2": {"Volume(mL/feed)": 10, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"no_alert": "Feeds above 8 a day", "submit": "no_reason"}}
 {"case": "feed 2 alone at 12 a day (q2h), feed 1 empty: one feed, not checked", "side": "inside", "infant": {"g": 1000}, "feed2": "PRENAN_22", "order2": {"Volume(mL/feed)": 8, "Frequency": 12}, "tick": {"No TPN": true}, "expect": {"no_alert": "Feeds above 8 a day", "submit": "no_reason"}}
 {"case": "one feed at 12 a day (q2h): not checked", "side": "inside", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 8, "Frequency": 12}, "tick": {"No TPN": true}, "expect": {"no_alert": "Feeds above 8 a day", "submit": "no_reason"}}
@@ -1132,7 +1132,8 @@ and a milk with one strength shows its kcal/oz locked. "Preterm Formula" is the 
 profile. Every row comes from the book's per-100-kcal column (`_enFromChula`). Another
 strength is Pp's and the nutrition unit's call.
 Changing the milk keeps the kcal/oz when the new milk comes in it; otherwise it takes the new milk's
-first and says so beside the picker ("kcal/oz 30 → 22", Vera 2026-10-28). FBM 24 ↔ Infatrini 30
+first and says so beside the picker ("kcal/oz 30 → 22", Vera 2026-10-28). FBM with HMF is hidden from Step 2 since
+2026-11-11 (Pp: no HMF in Thailand; FBM with PF instead); an order saved on `BM_HMF_24` still computes and shows it as saved. FBM 24 ↔ Infatrini 30
 (alternating) is not offered since 2026-11-06 (Pp: feed 1 and feed 2 give FBM with HMF and Infatrini as
 two feeds); its `EN_DB` row stays, so an order saved on it still computes and shows it as saved.
 Source: Chula Pediatric Nutrition Handbook 3rd ed. (2565), Tables 5, 7 and 16 (pinned separately by
@@ -1192,7 +1193,7 @@ printed, and not in the quick calc's copied text.
 {"case": "breast milk: 1.2 g protein/100 mL", "fn": "EN_DB.BM_20.pro", "want": 1.2, "within": 1e-9}
 {"case": "BM + HMF: 2.3 g protein/100 mL", "fn": "EN_DB.BM_HMF_24.pro", "want": 2.3, "within": 1e-9}
 {"case": "breast milk 2 mL × 8: Step 2 names 1.2 g and 67 kcal per 100 mL, the source, and that milk varies", "infant": {"g": 1000}, "order": {"Volume(mL/feed)": 2, "Frequency": 8}, "expect": {"shows": ["นมแม่ที่ใช้คำนวณ ต่อ 100 mL: protein 1.2 g · 67 kcal · WHO 2006 technical review, Box 1.3.1 (term mature milk); kcal: Chula Handbook p. 8", "นมแม่จริงแต่ละคนมีโปรตีนและพลังงานไม่เท่ากัน"]}}
-{"case": "BM + HMF: HMF adds 1.1 g and 14.3 kcal per 100 mL, 2.3 g and 81.3 kcal in all", "infant": {"g": 1000}, "feed": "BM_HMF_24", "order": {"Volume(mL/feed)": 2, "Frequency": 8}, "expect": {"shows": "HMF ที่เติมต่อ 100 mL: protein +1.1 g · +14.3 kcal รวมเป็น 2.3 g · 81.3 kcal · Enfamil HMF, Chula Handbook p. 10"}}
+{"case": "BM + HMF (hidden from Step 2 since 2026-11-11, saved orders still compute): 81.3 kcal/100 mL", "fn": "EN_DB.BM_HMF_24.kcal", "want": 81.3, "within": 1e-9}
 {"case": "Hi-Q LBW 24: no breast-milk line", "infant": {"g": 1000}, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 2, "Frequency": 8}, "expect": {"hides": "นมแม่ที่ใช้คำนวณ"}}
 {"case": "no feed volume: no breast-milk line", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"hides": "นมแม่ที่ใช้คำนวณ"}}
 {"case": "Hi-Q LBW 24 as feed 1 and breast milk as feed 2: the breast-milk line", "infant": {"g": 1000}, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 2, "Frequency": 4}, "feed2": "BM_20", "order2": {"Volume": 2, "Frequency": 4}, "expect": {"shows": "นมแม่ที่ใช้คำนวณ ต่อ 100 mL: protein 1.2 g · 67 kcal"}}

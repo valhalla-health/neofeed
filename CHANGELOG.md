@@ -30,6 +30,10 @@ Pp, 2026-11-11, from two phone screenshots:
   the rest of the energy with the Chula Table 5 column; the powder's volume is not counted, as for HMF. At 24:
   protein 1.59 g, Ca 41.7 mg, P 23.4 mg per 100 mL (FBM with HMF 24: 2.3 g, 116, 59.9). Step 2's breast-milk
   line names the milk it assumes; it does not yet explain the powder.
+  **FBM with HMF hidden** (Pp, same day: "ตอนนี้ไม่มี HMF ในไทย ให้ซ่อนอันนี้ไว้ก่อน ให้ใช้เป็น FBM with PF แทน"):
+  Step 2 no longer offers it (`hidden: true` on its `EN_PRODUCTS` entry); an order saved on `BM_HMF_24` still
+  computes and shows it as saved. She wants it back at 24 and 27 when HMF returns; a 27 needs its HMF dose
+  decided first, so only 24 exists.
   **Center Point** validates feeds against its own copy of `center-point/tpn-document.mjs`, which this PR leaves
   unchanged (its digest is pinned by `verify-center-point-entry` §6): until CP's copy gains the new keys, a CP
   packet on one of the new strengths (or on PF 22–27) is refused, not printed wrongly. Sync CP next.

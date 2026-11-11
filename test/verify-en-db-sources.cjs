@@ -195,7 +195,8 @@ const KEPT = {};
 // The Calculator's feed list for a new order (calculator.jsx, Step 2). The two
 // 24 kcal/oz rows and Enfalac LF joined on 2026-10-27 (nutrition unit).
 // FBM 24 ↔ Infatrini 30 left it on 2026-11-06 (Pp: two feeds do it).
-const CALC_OFFERS = ['BM_20', 'BM_HMF_24', 'FBMPF_22', 'FBMPF_24', 'FBMPF_26', 'FBMPF_27', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_PREM_20', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'PRENAN_20', 'PRENAN_26', 'PRENAN_27', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
+// FBM with HMF hidden since 2026-11-11 (Pp: no HMF in Thailand).
+const CALC_OFFERS = ['BM_20', 'FBMPF_22', 'FBMPF_24', 'FBMPF_26', 'FBMPF_27', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_PREM_20', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'PRENAN_20', 'PRENAN_26', 'PRENAN_27', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
   'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27'];
 const FIELDS = ['kcal', 'pro', 'fat', 'cho', 'na', 'k', 'ca', 'p'];
 const close = (a, b) => typeof a === 'number' && Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));

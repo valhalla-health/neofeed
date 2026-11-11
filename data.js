@@ -499,7 +499,11 @@ const EN_DB = {
 // milk stays 20 and Infatrini 30, each with one strength the picker locks.
 const EN_PRODUCTS = [
   { id: "bm",          group: "Breast Milk",         label: "Breast Milk (mature)",          strengths: [[20, "BM_20"]] },
-  { id: "bmHmf",       group: "Breast Milk",         label: "FBM with HMF",                  strengths: [[24, "BM_HMF_24"]] },
+  // Hidden (Pp, 2026-11-11): "ตอนนี้ไม่มี HMF ในไทย ให้ซ่อนอันนี้ไว้ก่อน ให้ใช้เป็น FBM with PF แทน".
+  // Not offered for a new feed; an order saved on BM_HMF_24 still computes and
+  // shows it as saved. Pp also wants 24 and 27 when HMF returns: 27 needs a dose
+  // of HMF decided first, so only 24 is here.
+  { id: "bmHmf",       group: "Breast Milk",         label: "FBM with HMF",                  strengths: [[24, "BM_HMF_24"]], hidden: true },
   { id: "fbmPf",       group: "Breast Milk",         label: "FBM with PF",                   strengths: [[22, "FBMPF_22"], [24, "FBMPF_24"], [26, "FBMPF_26"], [27, "FBMPF_27"]] },
   { id: "pf",          group: "Preterm formula",     label: "Preterm Formula",               strengths: [[20, "BM_PF_20"], [22, "BM_PF_22"], [24, "BM_PF_24"], [26, "BM_PF_26"], [27, "BM_PF_27"]] },
   { id: "enfalacPrem", group: "Preterm formula",     label: "Enfalac Premature",             strengths: [[20, "ENFALAC_PREM_20"], [22, "FBM_PF_22"], [24, "ENFALAC_PREM_24"], [26, "ENFALAC_PREM_26"], [27, "ENFALAC_PREM_27"]] },
@@ -516,9 +520,10 @@ const EN_PRODUCTS = [
 const EN_FEEDS_PER_DAY_MAX = 8;
 
 // The product and strength an EN_DB key is offered as, or null for a key the
-// Calculator does not offer (the Formula page's HIQLF_* copies).
+// Calculator does not offer (the Formula page's HIQLF_* copies, a hidden product).
 function enProductOf(key) {
   for (const product of EN_PRODUCTS) {
+    if (product.hidden) continue;
     const s = product.strengths.find(([, k]) => k === key);
     if (s) return { product, kcalOz: s[0] };
   }
