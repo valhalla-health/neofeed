@@ -2166,6 +2166,16 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
     submit({ ...patient, currentBed: "", bedHistory }, mergeBase);
   };
 
+  // Remove one "Previous beds" line entered by mistake. The backend removes
+  // that entry only (merge against the base this dialog opened on).
+  const deleteHop = (i) => {
+    const h = (patient.bedHistory || [])[i];
+    if (!h) return;
+    if (!window.confirm(`ลบ "${D_R.normalizeBed(h.bed) || "—"} until ${h.date}" ออกจาก Previous beds? (ลงผิด)`)) return;
+    const bedHistory = patient.bedHistory.filter((_, j) => j !== i);
+    submit({ ...patient, bedHistory }, mergeBase);
+  };
+
   return (
     <div className="picker-backdrop" onClick={onClose} data-back-confirm="Transfer bed">
       <div className="picker" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
@@ -2218,7 +2228,14 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
             <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Previous beds</div>
               {patient.bedHistory.map((h, i) => (
-                <div key={i}>{D_R.normalizeBed(h.bed)} <span style={{ color: "var(--ink-4)" }}>until {h.date}</span></div>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>{D_R.normalizeBed(h.bed) || "—"} <span style={{ color: "var(--ink-4)" }}>until {h.date}</span></span>
+                  {/* Delete a bed entered by mistake (Pp, 2026-11-11). Only the
+                      history line goes; the current bed is set above. */}
+                  <button className="btn bed-hop-delete" style={{ fontSize: 11, padding: "2px 8px", marginLeft: "auto" }}
+                    disabled={busy} title="ลบรายการเตียงนี้ (ลงผิด)"
+                    onClick={() => deleteHop(i)}>ลบ</button>
+                </div>
               ))}
             </div>
           )}

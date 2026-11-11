@@ -107,6 +107,9 @@ async function snapshot(o) {
   console.error = () => {};
   vm.runInThisContext(R('data.js'));
   const D = window.NEOFEED_DATA;
+  // A product hidden from Step 2 (FBM with HMF, 2026-11-11) still computes for orders saved on it;
+  // unhide it so the same made-up orders type on both sides.
+  for (const p of D.EN_PRODUCTS || []) if (p.hidden) p.hidden = false;
   for (const f of ['icons.jsx', 'calculator.jsx']) {
     vm.runInThisContext(babel.transformSync(R(f), { presets: [[require('@babel/preset-react'), { runtime: 'classic' }]], filename: f, configFile: false, babelrc: false }).code);
   }

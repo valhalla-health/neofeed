@@ -154,6 +154,9 @@ const { act } = require('react');
 global.React = React; window.React = React;
 { const w = console.error; console.error = (...a) => { if (!/act\(|not wrapped|Not implemented/.test(String(a[0]))) w(...a); }; }
 vm.runInThisContext(R('data.js'));
+// FBM with HMF is hidden from Step 2 (Pp, 2026-11-11); saved orders still compute on
+// BM_HMF_24, so this harness unhides it to reach that row.
+for (const p of window.NEOFEED_DATA.EN_PRODUCTS || []) if (p.id === 'bmHmf') p.hidden = false;
 
 // ── the negative controls: patch the source text, never the expectation ─────
 const PATCHES = {

@@ -542,17 +542,19 @@ function Chk({ label, value, onChange, hint }) {
 // Infatrini 30 → Pre Nan became 22 with nothing to point it out). A key the
 // list does not offer is shown, never swapped.
 function EnFeedPicker({ value, onChange }) {
-  const at = D.enProductOf(value);
-  const groups = [...new Set(D.EN_PRODUCTS.map(p => p.group))];
+  const atAny = D.enProductOf(value);   // found even when hidden: its kcal/oz carries over
+  const at = atAny && !atAny.product.hidden ? atAny : null;   // shown as offered
+  const offered = D.EN_PRODUCTS.filter(p => !p.hidden);   // FBM with HMF hidden (Pp, 2026-11-11)
+  const groups = [...new Set(offered.map(p => p.group))];
   // The kcal/oz the last change of milk could not keep. Shown only while the
   // feed is still the one it switched to, so it never outlives that choice.
   const [dropped, setDropped] = React.useState(null);
   const pickProduct = (id) => {
-    const p = D.EN_PRODUCTS.find(x => x.id === id);
+    const p = offered.find(x => x.id === id);
     if (!p) return;
-    const same = at && p.strengths.find(([oz]) => oz === at.kcalOz);
+    const same = atAny && p.strengths.find(([oz]) => oz === atAny.kcalOz);
     const next = same || p.strengths[0];
-    setDropped(at && !same ? { from: at.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
+    setDropped(atAny && !same ? { from: atAny.kcalOz, to: next[0], milk: p.label, key: next[1] } : null);
     onChange(next[1]);
   };
   return (<>
@@ -566,14 +568,18 @@ function EnFeedPicker({ value, onChange }) {
           {!at && <option value="">{D.EN_DB[value]?.label || value}</option>}
           {groups.map(g => (
             <optgroup key={g} label={g}>
-              {D.EN_PRODUCTS.filter(p => p.group === g).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              {offered.filter(p => p.group === g).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
             </optgroup>
           ))}
         </select>
       </div>
       <div className="field">
         <label>kcal/oz</label>
-        <select className="sel en-strength" value={value} onChange={(e) => onChange(e.target.value)}>
+        {/* One strength (Breast Milk 20, FBM with HMF 24, Infatrini 30): fixed,
+            shown locked so it never reads as a broken dropdown (Pp, 2026-11-11). */}
+        <select className="sel en-strength" value={value} onChange={(e) => onChange(e.target.value)}
+          disabled={!!at && at.product.strengths.length === 1}
+          title={at && at.product.strengths.length === 1 ? `${at.product.label}: ${at.kcalOz} kcal/oz เสมอ` : undefined}>
           {(at ? at.product.strengths : [["—", value]]).map(([oz, k]) => <option key={k} value={k}>{oz}</option>)}
         </select>
         <div className="field-hint" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>{fmt(D.EN_DB[value]?.kcal, 0)} kcal/100 mL</div>
@@ -4849,7 +4855,7 @@ function KcalLegend({ color, label, pct, target }) {
 // the print form and the copied order read none of it. A day can have two
 // feeds (main's #182): both read the feeds given, never feed 1's picker alone,
 // which can sit at 0 mL beside feed 2.
-const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true };   // feed → carries HMF
+const BM_ASSUMED_FEEDS = { BM_20: false, BM_HMF_24: true, FBM_INF_MIX: true, BM_PFP_22: false, BM_PFP_24: false, BM_PFP_27: false };   // feed → carries HMF
 
 // One figure in the working, keyed for the harness; `t` is one already formatted.
 function WorkVal({ k, v, d = 2, t }) {
