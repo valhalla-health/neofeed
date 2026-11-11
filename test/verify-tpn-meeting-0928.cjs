@@ -385,7 +385,7 @@ function baseOrder({ tf = 120 } = {}) {
     const block = /function FormulasPanel\(\)[\s\S]*?const groups = \[([\s\S]*?)\];/.exec(src)?.[1] || '';
     const groupLines = block.split(/\r?\n/).filter(l => /label:/.test(l));
     const pageKeys = (re) => { const l = groupLines.find(x => re.test(x)) || ''; return [...l.matchAll(/"([A-Z0-9_]+)"/g)].map(m => m[1]); };
-    eq('Formula page · preterm formula', pageKeys(/Preterm formula/), ['BM_PF_20', 'FBM_PF_22', 'ENFALAC_PREM_24', 'PRENAN_22', 'PRENAN_24', 'FBM_PF_24']);
+    eq('Formula page · preterm formula', pageKeys(/Preterm formula/), ['BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_27', 'ENFALAC_PREM_20', 'FBM_PF_22', 'ENFALAC_PREM_24', 'ENFALAC_PREM_27', 'PRENAN_20', 'PRENAN_22', 'PRENAN_24', 'PRENAN_27', 'HIQLBW_20', 'HIQLBW_22', 'FBM_PF_24', 'HIQLBW_27']);
     eq('Formula page · no post-discharge group', pageKeys(/Post-discharge formula/), []);
     eq('Formula page · high-energy', pageKeys(/High-energy/), ['FBM_INF_MIX', 'INFATRINI_30']);
     const all = [...block.matchAll(/"([A-Z0-9_]+)"/g)].map(m => m[1]);

@@ -435,7 +435,7 @@ const scenarios = {
     const rows = [...document.querySelectorAll('table tbody tr')];
     const DB = t.D().EN_DB;
     // 16 since 2026-10-27: Enfalac Premature and Pre Nan at 24 kcal/oz.
-    A.eq('5.1 the page lists its 16 formula rows', rows.length, 16);
+    A.eq('5.1 the page lists its 26 formula rows (ten preterm strengths added 2026-11-11)', rows.length, 26);
     const byLabel = (key) => rows.find(r => {
       const first = r.querySelector('td');
       return first && first.textContent.replace(/\s+/g, ' ').trim() === DB[key].label.replace(/\s+/g, ' ').trim()

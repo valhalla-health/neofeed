@@ -398,6 +398,13 @@ T.section('UP-S1 · three-way merge: a stale device no longer erases another dev
   g.as(g.dt, { action: 'updatePatient', base: s9, patient: Object.assign({}, s9, { bedHistory: s9.bedHistory.slice(0, -1) }) });
   const left = g.synced('AA-BW900').bedHistory;
   T.eq('a deleted bedHistory entry is removed, the rest kept', [left.length, left.some(h => JSON.stringify(h) === JSON.stringify(hopGone))], [2, false]);
+  // A replayed delete (same base and incoming) does not take a second identical line.
+  const gReplay = ward();
+  gReplay.seedPatient(P('DUP-1', { weights: W0, bedHistory: [{ bed: 'NICU 4', date: TODAY }, { bed: 'NICU 4', date: TODAY }] }));
+  const dRep = gReplay.synced('DUP-1');
+  const delReq = { action: 'updatePatient', base: dRep, patient: Object.assign({}, dRep, { bedHistory: dRep.bedHistory.slice(1) }) };
+  gReplay.as(gReplay.dt, delReq); gReplay.as(gReplay.dt, delReq);
+  T.eq('a replayed bedHistory delete removes one copy only', gReplay.synced('DUP-1').bedHistory.length, 1);
 
   // Old clients (no base) keep the old whole-record behaviour.
   const g2 = ward();
