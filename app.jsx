@@ -1943,7 +1943,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (wasActive) { setActiveId(null); goTo("registry"); }
 
     if (!GAS_ON) { showToast(`ลบ session ${D_A.patientName(patient) || id} แล้ว`); return Promise.resolve({ ok: true }); }
-    return writeGAS({ action: "deletePatient", sessionId: id }).then(res => {
+    // A submitted order needs a second yes (Pp, 2026-11-12). The backend
+    // counts them from the Sheet and answers needsConfirm; only then ask, and
+    // resend with confirmPublished. Pharmacy may already hold the order.
+    const send = (confirmPublished) => writeGAS({ action: "deletePatient", sessionId: id,
+      ...(confirmPublished ? { confirmPublished: true } : {}) });
+    const askAgain = (res) => {
+      if (!res || !res.needsConfirm || res.code !== "HasPublished") return res;
+      const ok = window.confirm(
+        `ยืนยันอีกครั้ง: ${D_A.patientName(patient) || id} มีใบสั่งที่ Submit แล้ว ${res.publishedCount} ฉบับ` + "\n" +
+        `เภสัชอาจได้ใบสั่งไปแล้ว ตรวจกับเภสัชก่อนลบ การลบนี้ไม่สามารถย้อนกลับได้`);
+      return ok ? send(true) : { ok: false, cancelled: true };
+    };
+    return send(false).then(askAgain).then(res => {
       if (res.ok) {
         serverPatientsRef.current.delete(id);
         showToast(`ลบ session ${D_A.patientName(patient) || id} ถาวรแล้ว`);
@@ -2546,7 +2558,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           {/* The modal waits for the server and closes itself on success (UP-S9). */}
           {editingPatient && <EditPatientModal patient={editingPatient} patients={patients} onClose={() => setEditingPatient(null)}
             onSubmit={handleEditPatient} mergeBaseFor={mergeBaseFor}
-            onDelete={role === "admin" ? handleDeletePatient : undefined} />}
+            onDelete={role === "admin" ? handleDeletePatient : undefined}
+            canDeleteHop={role === "doctor" || role === "admin"} />}
 
           {/* Print ทั้งหมด's one print job, in place of the list it came from. */}
           {view === "registry" && printBatch && printWard === printBatch.ward &&

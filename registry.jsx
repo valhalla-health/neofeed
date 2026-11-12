@@ -580,7 +580,7 @@ function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
   );
 }
 
-function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor,
+function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor,
   printWard, onPrintWard, onPrintOrder, onPrintAll }) {
   const [filter, setFilter]         = React.useState("");
   // Which stats tile the list is narrowed to: null (every active infant),
@@ -1155,7 +1155,8 @@ function PatientRegistry({ patients, activeId, log = {}, ward, onWardChange, onS
       {/* Each modal closes itself once its request succeeds (useModalSubmit). */}
       {showAdd          && <NewPatientModal patients={patients} onClose={() => setShowAdd(false)} onSubmit={p => onAdd(p)} />}
       {editPatient      && <EditPatientModal patient={editPatient} patients={patients} onClose={() => setEditPatient(null)}
-        onSubmit={(p, base) => onEdit?.(p, base)} mergeBaseFor={mergeBaseFor} onDelete={onDelete} />}
+        onSubmit={(p, base) => onEdit?.(p, base)} mergeBaseFor={mergeBaseFor} onDelete={onDelete}
+        canDeleteHop={role === "doctor" || role === "admin"} />}
       {transferPatient  && <TransferBedModal patient={transferPatient} patients={patients} onClose={() => setTransferPatient(null)}
         onSubmit={(p, base) => onEdit?.(p, base)} mergeBaseFor={mergeBaseFor} />}
       {statusPatient    && <StatusModal patient={statusPatient} patients={patients} onClose={() => setStatusPatient(null)}
@@ -1740,7 +1741,7 @@ function PatientPicker({ patients, activeId, onSelect, onClose }) {
   );
 }
 
-function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, mergeBaseFor }) {
+function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, mergeBaseFor, canDeleteHop = false }) {
   const today = D_R.todayLocal();   // local date, not UTC
   // ชื่อ + นามสกุล (NameFields). A name already in the two-part form opens in
   // its two boxes and must stay complete. One from before 2026-09-25 — the
@@ -1895,6 +1896,17 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   const bedLeft  = D_R.normalizeBed(patient.currentBed);
   const hopRef   = React.useRef(null);
   const bedMoves = (next) => D_R.isOnUnit(patient) && !!bedLeft && next !== bedLeft;
+  // "Previous beds" lines marked ลบ (Pp, 2026-11-12: easy to find, and one
+  // more confirm before it goes). A tap marks a line; Save asks once more,
+  // naming each line, then sends the record without them. Doctor and admin
+  // only; the backend puts a line back for anyone else.
+  const [hopsGone, setHopsGone] = React.useState(() => new Set());
+  const toggleHop = (i) => setHopsGone(prev => {
+    const next = new Set(prev);
+    next.has(i) ? next.delete(i) : next.add(i);
+    return next;
+  });
+  const hopLabel = (h) => `${D_R.normalizeBed(h.bed) || "—"} until ${h.date}`;
 
   // Permanently deletes the session — removes it from Patient_Registry and
   // every Daily_Log row for it on the server (`handleDeletePatient` in
@@ -1917,6 +1929,13 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
 
   const save = () => {
     if (!confirmStatusChange(patient, status)) return;
+    const keptHops = (patient.bedHistory || []).filter((_, i) => !(canDeleteHop && hopsGone.has(i)));
+    const hopsDeleted = (patient.bedHistory || []).length - keptHops.length;
+    if (hopsDeleted > 0 && !window.confirm(
+      `ลบออกจาก Previous beds ${hopsDeleted} รายการ?\n` +
+      (patient.bedHistory || []).filter((_, i) => hopsGone.has(i)).map(h => `• ${hopLabel(h)}`).join("\n") +
+      `\n(ลงผิด) การลบนี้ไม่สามารถย้อนกลับได้`
+    )) return;
     // status and statusDate as the ward list's status chip writes them
     // (D_R.statusChange): statusDate is the day the patient left Active, and
     // the list hides an archived name 7 days after it.
@@ -1943,8 +1962,8 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
       : {};
     const nextBed = D_R.normalizeBed(bed);
     const moved = bedMoves(nextBed)
-      ? { bedHistory: [...(patient.bedHistory || []), (hopRef.current = hopRef.current || D_R.bedHop(bedLeft))] }
-      : {};
+      ? { bedHistory: [...keptHops, (hopRef.current = hopRef.current || D_R.bedHop(bedLeft))] }
+      : hopsDeleted > 0 ? { bedHistory: keptHops } : {};
     submit({
       ...patient,
       ...named,
@@ -2062,6 +2081,36 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
               <input className="inp" value={dx} onChange={e => setDx(e.target.value)} placeholder="ELBW · RDS …" />
             </div>
           </div>
+          {(patient.bedHistory || []).length > 0 && (
+            <div className="field">
+              <label>Previous beds</label>
+              {patient.bedHistory.map((h, i) => {
+                const gone = canDeleteHop && hopsGone.has(i);
+                return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 40, fontSize: 13 }}>
+                    <span style={gone ? { textDecoration: "line-through", color: "var(--ink-4)" } : null}>
+                      {D_R.normalizeBed(h.bed) || "—"} <span style={{ color: "var(--ink-4)" }}>until {h.date}</span>
+                    </span>
+                    {canDeleteHop && (
+                      <button type="button" className="btn bed-hop-delete"
+                        style={{ marginLeft: "auto", minHeight: 36, padding: "4px 14px", fontSize: 13,
+                          ...(gone ? {} : { color: "var(--crit)", borderColor: "var(--crit-line)" }) }}
+                        disabled={busy} aria-pressed={gone}
+                        aria-label={`${gone ? "เลิกลบ" : "ลบ"} ${hopLabel(h)} ออกจาก Previous beds`}
+                        onClick={() => toggleHop(i)}>
+                        {gone ? "เลิกลบ" : "ลบ"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              {canDeleteHop && hopsGone.size > 0 && (
+                <div style={{ fontSize: 11.5, color: "var(--crit)" }}>
+                  จะลบ {hopsGone.size} รายการเมื่อกด Save (ถามยืนยันอีกครั้ง)
+                </div>
+              )}
+            </div>
+          )}
           <PnIndicationFields indication={pnIndication} onIndication={setPnIndication}
             liverDx={liverDx} onLiverDx={setLiverDx} renalDx={renalDx} onRenalDx={setRenalDx} />
           {!canSave && (
@@ -2166,16 +2215,6 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
     submit({ ...patient, currentBed: "", bedHistory }, mergeBase);
   };
 
-  // Remove one "Previous beds" line entered by mistake. The backend removes
-  // that entry only (merge against the base this dialog opened on).
-  const deleteHop = (i) => {
-    const h = (patient.bedHistory || [])[i];
-    if (!h) return;
-    if (!window.confirm(`ลบ "${D_R.normalizeBed(h.bed) || "—"} until ${h.date}" ออกจาก Previous beds? (ลงผิด)`)) return;
-    const bedHistory = patient.bedHistory.filter((_, j) => j !== i);
-    submit({ ...patient, bedHistory }, mergeBase);
-  };
-
   return (
     <div className="picker-backdrop" onClick={onClose} data-back-confirm="Transfer bed">
       <div className="picker" style={{ width: 400 }} onClick={e => e.stopPropagation()}>
@@ -2227,15 +2266,9 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
           {(patient.bedHistory || []).length > 0 && (
             <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Previous beds</div>
+              {/* A line entered by mistake is deleted in Edit (Pp, 2026-11-12). */}
               {patient.bedHistory.map((h, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span>{D_R.normalizeBed(h.bed) || "—"} <span style={{ color: "var(--ink-4)" }}>until {h.date}</span></span>
-                  {/* Delete a bed entered by mistake (Pp, 2026-11-11). Only the
-                      history line goes; the current bed is set above. */}
-                  <button className="btn bed-hop-delete" style={{ fontSize: 11, padding: "2px 8px", marginLeft: "auto" }}
-                    disabled={busy} title="ลบรายการเตียงนี้ (ลงผิด)"
-                    onClick={() => deleteHop(i)}>ลบ</button>
-                </div>
+                <div key={i}>{D_R.normalizeBed(h.bed) || "—"} <span style={{ color: "var(--ink-4)" }}>until {h.date}</span></div>
               ))}
             </div>
           )}
