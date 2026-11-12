@@ -251,8 +251,15 @@ T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retr
   g.as(g.at, { action: 'publishLog', sessionId: 'BB-2', entryId: pub.entryId, expectedLastModified: pub.lastModified });
   const auditBefore = g.audit().length, rowsBefore = snapshot(g);
   const refused = g.as(g.at, { action: 'deletePatient', sessionId: 'BB-2' });
-  T.ok('a patient with a submitted (published) row cannot be deleted', /Submit/.test(refused.error || ''), refused);
+  // Pp, 2026-11-12: a submitted order no longer blocks the delete outright;
+  // the first call asks again, with the count from the Sheet.
+  T.eq('a patient with a submitted row: first call asks again', [refused.needsConfirm, refused.code, refused.publishedCount, !!refused.ok], [true, 'HasPublished', 1, false]);
   T.eq('…nothing deleted, and no start row written', [snapshot(g) === rowsBefore, g.audit().length], [true, auditBefore]);
+  const nurseTry = g.as(g.nt, { action: 'deletePatient', sessionId: 'BB-2', confirmPublished: true });
+  T.ok('…a nurse with confirmPublished is still Forbidden', /Forbidden/.test(nurseTry.error || '') && snapshot(g) === rowsBefore, nurseTry);
+  const confirmed = g.as(g.at, { action: 'deletePatient', sessionId: 'BB-2', confirmPublished: true });
+  T.eq('…the second yes deletes it', [!!confirmed.ok, g.synced('BB-2', g.at)], [true, undefined]);
+  T.ok('…and the audit names the submitted count', g.audit().some(r => String(r[1] || r.action || '').indexOf('deletePatient:published=1') === 0 || JSON.stringify(r).indexOf('deletePatient:published=1') >= 0));
 });
 
 T.section('UP-B7 · doPost forwards revised / entryId / revisionNumber', () => {
@@ -405,6 +412,25 @@ T.section('UP-S1 · three-way merge: a stale device no longer erases another dev
   const delReq = { action: 'updatePatient', base: dRep, patient: Object.assign({}, dRep, { bedHistory: dRep.bedHistory.slice(1) }) };
   gReplay.as(gReplay.dt, delReq); gReplay.as(gReplay.dt, delReq);
   T.eq('a replayed bedHistory delete removes one copy only', gReplay.synced('DUP-1').bedHistory.length, 1);
+  // Pp, 2026-11-12: only a doctor or an admin deletes a Previous beds line.
+  const gRole = ward();
+  const hops3 = [{ bed: 'NICU 2', date: TODAY }, { bed: 'NICU 4', date: TODAY }, { bed: 'NICU 4', date: TODAY }];
+  gRole.seedPatient(P('ROLE-1', { weights: W0, bedHistory: hops3 }));
+  const r0 = gRole.synced('ROLE-1');
+  const rNurse = gRole.as(gRole.nt, { action: 'updatePatient', base: r0, patient: Object.assign({}, r0, { bedHistory: r0.bedHistory.slice(1) }) });
+  T.eq('a nurse deleting a Previous beds line: saved, line kept', [!!rNurse.ok, gRole.synced('ROLE-1').bedHistory.length], [true, 3]);
+  const r1 = gRole.synced('ROLE-1');
+  gRole.as(gRole.nt, { action: 'updatePatient', patient: Object.assign({}, r1, { bedHistory: [] }) });
+  T.eq('a nurse whole-record write without base keeps every stored line', gRole.synced('ROLE-1').bedHistory.length, 3);
+  const r2 = gRole.synced('ROLE-1');
+  gRole.as(gRole.nt, { action: 'updatePatient', base: r2, patient: Object.assign({}, r2, { bedHistory: r2.bedHistory.concat([{ bed: 'SCN 1', date: TODAY }]) }) });
+  T.eq('a nurse can still add a line', gRole.synced('ROLE-1').bedHistory.length, 4);
+  const r3 = gRole.synced('ROLE-1');
+  gRole.as(gRole.nt, { action: 'updatePatient', base: r3, patient: Object.assign({}, r3, { bedHistory: r3.bedHistory.slice(0, 1).concat(r3.bedHistory.slice(2)) }) });
+  T.eq('a nurse cannot drop one of two identical lines', gRole.synced('ROLE-1').bedHistory.filter(h => h.bed === 'NICU 4').length, 2);
+  const r4 = gRole.synced('ROLE-1');
+  gRole.as(gRole.at, { action: 'updatePatient', base: r4, patient: Object.assign({}, r4, { bedHistory: r4.bedHistory.filter(h => h.bed !== 'NICU 2') }) });
+  T.eq('an admin deletes a line', gRole.synced('ROLE-1').bedHistory.some(h => h.bed === 'NICU 2'), false);
 
   // Old clients (no base) keep the old whole-record behaviour.
   const g2 = ward();

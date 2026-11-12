@@ -1218,7 +1218,20 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       showToast(`ลบ session ${D_A.patientName(patient) || id} แล้ว`);
       return Promise.resolve({ ok: true });
     }
-    return writeGAS({ action: "deletePatient", sessionId: id }).then((res) => {
+    const send = (confirmPublished) => writeGAS({
+      action: "deletePatient",
+      sessionId: id,
+      ...confirmPublished ? { confirmPublished: true } : {}
+    });
+    const askAgain = (res) => {
+      if (!res || !res.needsConfirm || res.code !== "HasPublished") return res;
+      const ok = window.confirm(
+        `ยืนยันอีกครั้ง: ${D_A.patientName(patient) || id} มีใบสั่งที่ Submit แล้ว ${res.publishedCount} ฉบับ
+เภสัชอาจได้ใบสั่งไปแล้ว ตรวจกับเภสัชก่อนลบ การลบนี้ไม่สามารถย้อนกลับได้`
+      );
+      return ok ? send(true) : { ok: false, cancelled: true };
+    };
+    return send(false).then(askAgain).then((res) => {
       if (res.ok) {
         serverPatientsRef.current.delete(id);
         showToast(`ลบ session ${D_A.patientName(patient) || id} ถาวรแล้ว`);
@@ -1586,7 +1599,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       onClose: () => setEditingPatient(null),
       onSubmit: handleEditPatient,
       mergeBaseFor,
-      onDelete: role === "admin" ? handleDeletePatient : void 0
+      onDelete: role === "admin" ? handleDeletePatient : void 0,
+      canDeleteHop: role === "doctor" || role === "admin"
     }
   ), view === "registry" && printBatch && printWard === printBatch.ward && /* @__PURE__ */ React.createElement(WardPrintBatch, { batch: printBatch, patients, log, onBack: () => setPrintBatch(null) }), view === "registry" && !(printBatch && printWard === printBatch.ward) && /* @__PURE__ */ React.createElement(
     PatientRegistry,

@@ -7,6 +7,28 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-12 — Previous beds deleted in Edit, doctor and admin only; an ID with a submitted order deletes after a second yes
+
+`registry.jsx` (EditPatientModal, TransferBedModal), `app.jsx` (handleDeletePatient), `gas-backend.gs`
+(`_keepStoredHops`, `registerPatient`, `deletePatient`), `test/verify-review-0917-backend-writes.cjs`.
+
+- **Where.** On a phone the ลบ button in ⇄ Transfer bed (2026-11-11) went unseen: small, grey, at the right
+  edge. Pp chose the patient's **Edit** dialog: a "Previous beds" field under Diagnosis, a red ลบ per line
+  (36 px tall). A tap marks the line (struck through, button reads เลิกลบ); **Save** asks once more, naming
+  each line. ⇄ shows the history read-only.
+- **Who.** Doctor and admin only, on screen and in the backend: for any other role `registerPatient` puts
+  every stored line back, with or without `base` (an old client's whole-record write included). A nurse
+  still adds lines by moving a bed.
+- **Deleting a whole ID with a submitted order.** It used to be refused outright ("part of the medical
+  record"). Pp, 2026-11-12: an admin may delete it after a second yes. `deletePatient` counts submitted rows
+  from the Sheet and answers `needsConfirm` (`HasPublished`, with the count); the app asks again ("ตรวจกับ
+  เภสัชก่อนลบ") and resends with `confirmPublished: true`. Audit_Log gets `deletePatient:published=<n>`.
+  Still admin only.
+- **Checked.** Backend writes 158/158 (5 role checks for bed lines, 4 for the second yes). Dev local at
+  375 px: a doctor marks, saves, confirms, and the line is gone. A new agent read the diff: no errors; its
+  should-fix (the second yes read only the client's loaded log) is the server-side count above.
+- **Deploy.** Backend first (`@72`), then the frontend release.
+
 ## Session 2026-11-11 — Preterm formulas at 20/22/24/27 kcal/oz; delete a bed entered by mistake
 
 `data.js`, `calculator.jsx` (EnFeedPicker), `center-point/tpn-document.mjs`, `registry.jsx` (TransferBedModal),
