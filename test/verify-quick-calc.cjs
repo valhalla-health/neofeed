@@ -334,7 +334,7 @@ ok('the unsaved-draft store is off', /const writeDraft = \(inputs\) => \{\s*\n?\
 ok('the previous-submission store is never read',
   /if \(scratch\) \{[\s\S]{0,400}?applyCalcInput\(\{ deadVol_mL/.test(calcSrc));
 ok('the localStorage sweep is off', /if \(centerPoint \|\| scratch\) return;[\s\S]{0,120}localStorage\.length/.test(calcSrc));
-ok('PrintOrderForm is blocked', /\{printable && !centerPoint && !scratch && <PrintOrderForm/.test(calcSrc));
+ok('PrintOrderForm is blocked', /\{printReady && !centerPoint && !scratch && <PrintOrderForm/.test(calcSrc));
 ok('the DOL is not re-derived across midnight',
   /const orderDayRolledOver = !scratch &&/.test(calcSrc));
 

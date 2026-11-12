@@ -569,7 +569,8 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     mount({ patient: P, editEntry: row({ critOverride: { reason: 'r', alerts: [titles[0]], at: 'x' } }), logDate: null });
     ok(`a reason naming only "${titles[0]}" of ${titles.length}: still withheld`, titles.length < 2 || !printForm(), titles);
     mount({ patient: P, editEntry: row({ critOverride: { reason: 'hyperkalaemia treated', alerts: titles, at: 'x' } }), logDate: null });
-    ok('a reason naming every critical alert: printable', !!printForm());
+    ok('a reason naming every critical alert: printable, once ticked (2026-11-12)',
+      !container.querySelector('#print-form') && container.querySelectorAll('.print-ack input').length === titles.length);
     eq('…but Print order waits for the ticks (2026-11-12)', (await tryPrint()).printed, 0);
     act(() => { container.querySelectorAll('.print-ack input[type=checkbox]').forEach(b => b.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
     const p2 = await tryPrint();
