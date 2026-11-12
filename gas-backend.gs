@@ -1542,7 +1542,8 @@ function doPost(e) {
       // from a client that knows the three-way merge (see registerPatient).
       var regBase = (!isNewReg && body.base && typeof body.base === "object" && !Array.isArray(body.base)) ? body.base : null;
       var regResult = registerPatient(body.patient, isNewReg, regBase, body.confirmOverwrite === true,
-        body.confirmDuplicate === true, user.role === "admin");
+        body.confirmDuplicate === true, user.role === "admin",
+        user.role === "doctor" || user.role === "admin");
       // A taken id, or an infant that looks like one already on file, and this
       // call did not confirm: pass the question back and write nothing. The
       // look-alike question tells the caller whether an infant is on file, so it
@@ -1625,8 +1626,11 @@ function doPost(e) {
       if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
       // deletePatient writes its own "deletePatient:start" audit row before
       // it destroys anything; this row records that it finished.
-      var delPatResult = deletePatient(body.sessionId, user.email);
+      var delPatResult = deletePatient(body.sessionId, user.email, body.confirmPublished === true);
       if (delPatResult.error) return jsonOut(_errorBody(delPatResult));
+      if (delPatResult.needsConfirm) {
+        return jsonOut({ needsConfirm: true, code: delPatResult.code, publishedCount: delPatResult.publishedCount });
+      }
       logAudit("deletePatient", body.sessionId, user.email);
       return jsonOut({ ok: true });
     }
@@ -3614,7 +3618,7 @@ function deleteNursingEntry(sessionId, entryId, actorEmail) {
 // under an id nobody could see or delete — the retry answered "ไม่พบ session".
 // Log-first means a partial failure leaves the patient visible, and a retry
 // (registry row present or already gone) simply finishes the cleanup.
-function deletePatient(sessionId, actorEmail) {
+function deletePatient(sessionId, actorEmail, confirmPublished) {
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
   var lock = LockService.getScriptLock();
   _waitLockOrBusy(lock, 10000);
@@ -3631,16 +3635,22 @@ function deletePatient(sessionId, actorEmail) {
     }
     var logData = logSheet.getLastRow() > 0 ? logSheet.getDataRange().getValues() : [[]];
     var logRows = [];
-    var anyPublished = false;
+    var publishedCount = 0;
     for (var j = 1; j < logData.length; j++) {
       if (String(logData[j][1]) !== sid) continue;
       logRows.push(j + 1);
-      if (logData[j][33]) anyPublished = true;
+      if (logData[j][33]) publishedCount++;
     }
     if (!patRows.length && !logRows.length) return { error: "ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว" };
-    if (anyPublished) {
-      return { error: "ผู้ป่วยรายนี้มีรายการที่ส่ง (Submit) แล้ว ลบทั้ง session ไม่ได้ — รายการที่ส่งแล้วเป็นส่วนหนึ่งของเวชระเบียน" };
+    // Submitted orders used to block the delete outright. Since 2026-11-12
+    // (Pp) an admin may delete after a second yes: the first call returns
+    // needsConfirm with the count, and only a call carrying
+    // confirmPublished === true goes ahead. The count comes from the Sheet,
+    // not the client's log, so an infant outside the sync window still asks.
+    if (publishedCount > 0 && confirmPublished !== true) {
+      return { needsConfirm: true, code: "HasPublished", publishedCount: publishedCount };
     }
+    if (publishedCount > 0) _logAuditStrict("deletePatient:published=" + publishedCount, sid, actorEmail || "");
     // Nursing_Log rows go with the patient too (UX roadmap #4), for the same
     // reason as Daily_Log's: a sessionId can be re-issued to a different
     // infant, who must not inherit this one's Intake/Output. Found before
@@ -4413,7 +4423,22 @@ function _mergePatient(storedRow, incoming, base) {
 // import; test/verify-hardening-1102.cjs §7 runs that function against this rule.
 var NEW_SESSION_ID_RE = /^NF-\d{6}$/;
 var NEW_SESSION_ID_MSG = "ID ของผู้ป่วยรายใหม่ต้องเป็น NF- ตามด้วยเลข 6 หลัก — รีเฟรชหน้าแล้วลงทะเบียนใหม่ ระบบจะออก ID ใหม่ให้";
-function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, seesArchive) {
+// Only a doctor or an admin deletes a "Previous beds" line (Pp, 2026-11-12).
+// For anyone else every stored line is put back, with or without `base`, so a
+// nurse's edit or an old client's whole-record write cannot drop one. Counted,
+// so one of two identical lines is not lost either.
+function _keepStoredHops(storedHops, outHops) {
+  var out = _asArray(outHops).slice();
+  var have = {};
+  out.forEach(function (e) { var c = _canonJson(e); have[c] = (have[c] || 0) + 1; });
+  _asArray(storedHops).forEach(function (e) {
+    var c = _canonJson(e);
+    if (have[c] > 0) { have[c]--; return; }
+    out.push(e);
+  });
+  return out;
+}
+function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, seesArchive, canDeleteHop) {
   if (!p || typeof p !== "object" || !_requiredString(p.sessionId) || !p.sessionId.trim()) {
     throw new Error("sessionId is required");
   }
@@ -4441,6 +4466,9 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
       throw new Error("ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว (ไม่ได้บันทึกการแก้ไข)");
     }
     var m = stored ? _mergePatient(stored, p, isNew === true ? null : base) : p;
+    if (stored && canDeleteHop !== true) {
+      m.bedHistory = _keepStoredHops(_storedPatient(stored).bedHistory, m.bedHistory);
+    }
     // Canonicalise status BEFORE the bed check reads it — a stray-space "Active"
     // must not skip the one-infant-per-bed guard (BE-4, 2026-09-24).
     m.status = _normStatus(m.status);

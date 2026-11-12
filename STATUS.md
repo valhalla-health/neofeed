@@ -1,5 +1,10 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-12 — "Previous beds" lines are deleted in Edit (doctor and admin only, Save confirms again); an admin deletes an ID with a submitted order after a second yes: PR #249, merged into `main` on Praew's instruction.**
+> Frontend **and backend**: deploy the backend (`@72`) first, then the frontend release (`CHANGELOG.md` 2026-11-12).
+>
+> ✅ **2026-11-12 — Backend `@71` live: deleting a wrong Previous beds line (#247, #248).** Deployed with `clasp` from a clean `main` at `23ac4fd` on Pp's go-ahead, the first deploy from this repo; the pulled script matched `main`. Verification on #248. Rollback: `clasp update-deployment AKfycbz8Nt… -V 70`.
+>
 > ⏳ **2026-11-11 — Preterm formulas at 20/22/24/26/27 kcal/oz, PF = Enfalac Premature, FBM with PF 22/24/27 (milk room chart), FBM with HMF hidden (BM 20, Infatrini 30 locked); "ลบ" a wrong bed in Previous beds: PR #247, not merged.** `CONSTANTS_VERSION` 2026-11-11.1; a saved PF 20 order prints new figures. **Release waits on:** the NICU-Center-Point PR that syncs its feed list (merged first). The bed delete needs a backend `clasp` deploy as well as the frontend release (`CHANGELOG.md` 2026-11-11).
 >
 > ⏳ **2026-11-11 — `clasp` pushes the backend from this repo; the `~/nicu-tools/neofeed` mirror is retired (Pp's decision): PR #245, merged into `main` on Praew's instruction.** No code change; the next backend deploy is the first from the repo (`REFERENCE.md` § Backend (GAS)).
