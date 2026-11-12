@@ -16,6 +16,7 @@
 // Dev-only deps as in test/README.md (react@18 react-dom@18 @babel/core
 // @babel/preset-react jsdom).
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -329,13 +330,17 @@ const openAll = () => click(btnExact('Open all'));
   printed = 0;
   act(() => { document.dispatchEvent(new window.CustomEvent('__neofeed_print')); });
   await act(async () => { await new Promise(r => setTimeout(r, 30)); });
-  ok('Print after saving prints', printed === 1);
-  ok('print form carries the override', /สั่งทั้งที่มีค่าวิกฤต: .*Potassium critically out of range/.test(container.querySelector('#print-form')?.textContent || ''));
+  ok('Print waits for a tick per red alert (2026-11-12)', printed === 0 && toasts.some(t => /ติ๊กรับทราบค่าวิกฤตทุกข้อก่อนพิมพ์/.test(t.msg)));
+  act(() => { container.querySelectorAll('.print-ack input[type=checkbox]').forEach(b => b.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
+  act(() => { document.dispatchEvent(new window.CustomEvent('__neofeed_print')); });
+  await act(async () => { await new Promise(r => setTimeout(r, 30)); });
+  ok('Print after saving and ticking prints', printed === 1);
+  ok('print form carries the override', /สั่งทั้งที่มีค่าวิกฤต: .*Potassium critically out of range/.test(__printFormTicked(container)?.textContent || ''));
   ok('…nor once it is saved and printable', !copyBtn(), copyBtn()?.textContent);
   // edit after save → dirty → print refused, second save updates the same row
   setField('KCl', 4);
   ok('an edit after saving marks the form unsaved', /มีการแก้ไขที่ยังไม่ได้บันทึก/.test(text()));
-  ok('the print form is withdrawn while unsaved', !container.querySelector('#print-form'));
+  ok('the print form is withdrawn while unsaved', !__printFormTicked(container));
   printed = 0; toasts.length = 0;
   act(() => { document.dispatchEvent(new window.CustomEvent('__neofeed_print')); });
   await act(async () => { await new Promise(r => setTimeout(r, 10)); });

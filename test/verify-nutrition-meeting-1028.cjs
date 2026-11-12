@@ -20,6 +20,7 @@
 //
 // Same jsdom harness as verify-review-0917-drafts.cjs. Synthetic infants only.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -91,7 +92,7 @@ const clickAsync = async (el) => {
 const button = (name) => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === name) || null;
 const submitBtn = () => button('Submit');
 const draftBtn = () => [...container.querySelectorAll('button')].find(b => /Save draft/.test(b.textContent)) || null;
-const printForm = () => container.querySelector('#print-form');
+const printForm = () => __printFormTicked(container);
 const printText = () => squash(printForm()?.textContent);
 
 const MG = D.MG_MG_PER_MEQ;

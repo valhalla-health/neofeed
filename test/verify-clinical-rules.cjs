@@ -45,6 +45,7 @@
 // Mounts the real <Calculator> in jsdom: the deps in test/README.md. Synthetic
 // infants only.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -258,7 +259,7 @@ async function runOrder(c, ruleId, kind) {
       }
       if (e.submit === 'no_reason') ok(`${label}: Submit saves without asking`, asked == null && box.calls === 1, { asked, logged: box.calls });
       if (e.prints != null) {
-        const form = text(container.querySelector('#print-form'));
+        const form = text(__printFormTicked(container));
         for (const t of list(e.prints)) ok(`${label}: prints "${t}"`, form.includes(t), form ? 'not on the order form' : 'no order form');
       }
     }

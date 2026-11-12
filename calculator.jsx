@@ -2579,6 +2579,23 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const orderSettled = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange
     && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const printable = orderSettled && (!noTpnOn || noTpnSheet);
+  // A tick per red alert before Print (BACKLOG C · 9 · 28, Pp, 2026-11-12). Every
+  // red line counts, `noReason` ones too: the reason typed at Submit covers the
+  // order, the tick covers this print. Ticks live only on this screen and are
+  // keyed on the saved row and its revision, so a new save, another order or a
+  // reload asks again; an alert that appears after ticking is unticked. Submit
+  // and Copy do not wait for it. The Print button, the ward's Print list and the
+  // sheet itself (a browser Ctrl+P prints nothing) wait (Pp, 2026-11-12). A doctor
+  // or a nurse may tick: both may print; only a doctor submits an order.
+  const redAlertTitles = [...new Set(alerts.filter(a => a.level === "crit").map(a => a.title))];
+  const printAckKey = `${savedEntryId || ""}|${savedMeta?.at || ""}`;
+  const [printAcks, setPrintAcks] = useState({ key: "", titles: [] });
+  const ackedNow = printAcks.key === printAckKey ? printAcks.titles : [];
+  const unackedRed = redAlertTitles.filter(t => !ackedNow.includes(t));
+  const togglePrintAck = (t) => setPrintAcks({ key: printAckKey,
+    titles: ackedNow.includes(t) ? ackedNow.filter(x => x !== t) : [...ackedNow, t] });
+  const printReady = printable && unackedRed.length === 0;
+  const printAckText = `ติ๊กรับทราบค่าวิกฤตทุกข้อก่อนพิมพ์ (${unackedRed.length} ข้อ): ${unackedRed.join(" · ")}`;
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
   // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01);
   // Center Point offers no tick, so it is not offered there (Vera, 2026-11-01).
@@ -2602,7 +2619,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}`
     : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}`
     : "";
-  const printBlockToast = printable ? "" : printBlockMessage("ก่อนพิมพ์");
+  const printBlockToast = !printable ? printBlockMessage("ก่อนพิมพ์") : unackedRed.length > 0 ? printAckText : "";
 
   // N1: a nurse account saves Intake/Output on a doctor's submitted order, and
   // nothing else (NURSE_SUBMIT_TEXT). Its Submit is refused on a new order or a
@@ -2655,7 +2672,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       }
       // Saved, but edited since (or held back — see printable): printing now
       // would put numbers nobody saved under the saved row's entry id.
-      if (!printable) {
+      if (!printReady) {
         showToast(printBlockToast || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนพิมพ์", "error");
         return;
       }
@@ -2668,7 +2685,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     };
     document.addEventListener('__neofeed_print', handler);
     return () => document.removeEventListener('__neofeed_print', handler);
-  }, [savedEntryId, printable, printBlockToast, noTpnOn, noTpnSheet]);
+  }, [savedEntryId, printReady, printBlockToast, noTpnOn, noTpnSheet]);
 
   // Opened from the ward's Print order list (registry.jsx WardPrintList): ask
   // for the print preview once, exactly as the Print order button does, as
@@ -2686,14 +2703,25 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   printBlockRef.current = printBlockToast && heldChanges && heldChanges.changes.length > 0
     ? `${printBlockToast} (${heldChanges.changes.map(heldChangeLine).join(" · ")})`
     : printBlockToast;
+  // A red alert on an order opened from the print list (one order or Print ทั้งหมด): a
+  // pop-up names them and asks once (Pp, 2026-11-12: "ถ้ามี red alert ให้เด้งขึ้นมาให้กด
+  // ยืนยันก่อน"). Yes ticks them all, the same as ticking each; No leaves the order held.
+  const autoAckAsked = React.useRef(null);
   React.useEffect(() => {
     if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
     const go = () => { autoPrintDone.current = autoPrint; requestPrint(printBlockRef.current); };
-    if (printable) { go(); return; }
+    if (printable && unackedRed.length > 0 && autoAckAsked.current !== autoPrint) {
+      autoAckAsked.current = autoPrint;
+      const yes = window.confirm(`${patient?.currentBed ? `เตียง ${patient.currentBed} · ` : ""}คำสั่งนี้มีค่าวิกฤต ${redAlertTitles.length} ข้อ:\n`
+        + redAlertTitles.map(t => `• ${t}`).join("\n") + "\n\nรับทราบทุกข้อและพิมพ์?");
+      if (yes) { setPrintAcks({ key: printAckKey, titles: redAlertTitles }); return; }
+      go(); return;
+    }
+    if (printReady) { go(); return; }
     const t = setTimeout(go, 1500);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoPrint, printable]);
+  }, [autoPrint, printReady, printable]);
 
   // TwoCol is defined at module level (below) — do NOT define inside Calculator
   // (inline component definitions cause React to unmount/remount on every render → focus lost)
@@ -4657,6 +4685,23 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย
               </div>
             )}
+            {/* A tick per red alert before Print (printAcks). Shown once the order
+                is otherwise printable, so the ticks are on the numbers that print. A doctor
+                or a nurse may tick, as both may print (Pp, 2026-11-12). */}
+            {!centerPoint && !scratch && printable && redAlertTitles.length > 0 && (
+              <div className="print-ack" role="group" aria-label="ติ๊กรับทราบค่าวิกฤตก่อนพิมพ์"
+                style={{ border: "1px solid var(--crit-line)", borderRadius: 6, padding: "6px 8px", marginBottom: 8, fontSize: 12 }}>
+                <div style={{ fontWeight: 600, color: "var(--crit)", marginBottom: 4 }}>
+                  รับทราบค่าวิกฤตก่อนพิมพ์ ({redAlertTitles.length - unackedRed.length}/{redAlertTitles.length})
+                </div>
+                {redAlertTitles.map(t => (
+                  <label key={t} style={{ display: "flex", gap: 6, alignItems: "flex-start", lineHeight: 1.4, cursor: "pointer" }}>
+                    <input type="checkbox" checked={ackedNow.includes(t)} onChange={() => togglePrintAck(t)} />
+                    <span>{t}</span>
+                  </label>
+                ))}
+              </div>
+            )}
             {/* A locked order with nothing changed has nothing to submit, unless
                 something is holding it for a new save (orderSettled). A No TPN
                 order that never prints is still settled. An order with no sticker figures
@@ -4692,7 +4737,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       {/* Rendered only while the form matches what was saved — so neither the
           Print button nor the browser's own Ctrl+P can put unsaved numbers
           on a pharmacy order (2026-09-11 review, F2). */}
-      {printable && !centerPoint && !scratch && <PrintOrderForm
+      {printReady && !centerPoint && !scratch && <PrintOrderForm
+        printAcks={redAlertTitles.map(t => ({ title: t, ticked: ackedNow.includes(t) }))}
         targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: tMg, source: tileRef }}
         savedMeta={savedMeta} critOverride={critOverride} orderChanges={orderChanges}
         previousDol={previousEntry ? D.entryDol(patient, previousEntry) : null}
@@ -5063,7 +5109,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   aaPerKg, lipidPerKg, lipidDripHours, naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg,
   inclSoluvit, inclPeditrace, znPerKg, inclAddamel, heparinUmL, calc,
   suppVitD, suppCa, suppCaType, suppPO4, suppPO4Type, suppMTV, suppFerdek, suppFeType,
-  mineral, published, targets, savedMeta, critOverride, orderChanges, previousDol, noTpnSheet }) {
+  mineral, published, targets, savedMeta, critOverride, orderChanges, previousDol, noTpnSheet, printAcks = [] }) {
   // "Normal requirement" comes from the same targets the tiles use — it used
   // to be hard-coded form text (P 30-70, Ca 50-120, K 1-3) that contradicted
   // the calculator after the 2026-09-05 phosphorus correction (review F4).
@@ -5120,11 +5166,13 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   // must not be anonymous (Pp, 2026-11-02). Plain spans, not <strong>: they are not figures. The gap above
   // the line is room to sign by hand, so it is not cut to fit; an order with no critical value keeps its
   // line as it was.
+  // The red box holds a reason confirmed at Submit, the ticks made before Print, or both.
+  const inCritBox = !!critOverride || printAcks.length > 0;
   const signRow = (
     <div className="print-sign" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", gap:"4px 12px",
-      marginTop:critOverride ? 18 : 14, flexWrap:critOverride ? "wrap" : undefined }}>
+      marginTop:inCritBox ? 18 : 14, flexWrap:inCritBox ? "wrap" : undefined }}>
       <div>แพทย์ <span className="print-doctor">..............................................................</span> (ลงนาม)</div>
-      {critOverride && (
+      {inCritBox && (
         <div className="print-sign-id">NeoFeed ID: <span style={{ fontWeight:700 }}>{patient?.sessionId || "—"}</span> · {noTpnSheet ? "วันที่สั่ง" : "วันที่ให้ TPN"}: <span style={{ fontWeight:700 }}>{orderDateLabel}</span></div>
       )}
       <div>รหัส ................................</div>
@@ -5417,12 +5465,31 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         {lipidPerKg > 0 && <span style={{ fontSize:9.5 }}> (= {f(D.lipidGkghAt(lipidPerKg, calc.lipidBagVol, lipidDripHours || 24), 2)} g/kg/h)</span>}
       </div>
       </>)}
-      {critOverride ? (
+      {inCritBox ? (
         <div className="print-crit-box" style={{ border:"2px solid #c00", padding:"4px 8px 8px", marginTop:6 }}>
           <div style={{ color:"#c00", fontSize:10.5, fontWeight:700 }}>
-            <div className="crit-confirmed">✔ แพทย์ยืนยันคำสั่ง (ยืนยันพร้อมเหตุผลตอนบันทึก)</div>
-            ⚠ สั่งทั้งที่มีค่าวิกฤต: {critOverride.alerts.join("; ")}
-            <div style={{ fontWeight:400, color:"#000" }}>เหตุผล: {critOverride.reason}</div>
+            {(() => {
+              // One line for the ticks: a count, folded into the confirmation line when there is
+              // one, and by name only what the reason does not already name, so 15 alerts still
+              // fit one A4 page (Pp, 2026-11-02).
+              const acked = printAcks.filter(a => a.ticked).length;
+              const ackCount = printAcks.length > 0
+                ? <span className="print-acks">รับทราบก่อนพิมพ์ {acked === printAcks.length ? "☑" : "☐"} {acked}/{printAcks.length} ข้อ</span> : null;
+              const unnamed = printAcks.filter(a => !(critOverride?.alerts || []).includes(a.title));
+              return (<>
+                {critOverride && (<>
+                <div className="crit-confirmed">✔ แพทย์ยืนยันคำสั่ง (ยืนยันพร้อมเหตุผลตอนบันทึก){ackCount && <> · {ackCount}</>}</div>
+                ⚠ สั่งทั้งที่มีค่าวิกฤต: {critOverride.alerts.join("; ")}
+                <div style={{ fontWeight:400, color:"#000" }}>เหตุผล: {critOverride.reason}</div>
+                </>)}
+                {(!critOverride || unnamed.length > 0) && ackCount && (
+                  <div style={{ fontWeight:400, color:"#000" }}>
+                    {!critOverride && ackCount}
+                    {unnamed.map(a => <span key={a.title} style={{ marginLeft:8 }}>{a.ticked ? "☑" : "☐"} {a.title}</span>)}
+                  </div>
+                )}
+              </>);
+            })()}
           </div>
           {signRow}
         </div>

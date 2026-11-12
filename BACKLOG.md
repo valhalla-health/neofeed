@@ -247,8 +247,8 @@ clinical judgement. Everything else is engineering sequencing.
           Na or K typed for Glycophos or K₂HPO₄.
         - **5 · Liver and renal dysfunction in the app**, saved with the order and printed ticked; decide
           whether they prompt anything (Peditrace's Mn and Cu in cholestasis, for one).
-        - **9 · 28 · Acknowledging red alerts.** A tick per red alert before Print (today: a typed reason
-          at Submit); the front sheet lists the critical alerts with a tick and a signature, and has a
+        - **9 · 28 · Acknowledging red alerts.** ~~A tick per red alert before Print~~ built 2026-11-12 (ticks on
+          screen, printed in the red box, not saved to the row). Still open: the front sheet lists the critical alerts with a tick and a signature, and has a
           "ยืนยันการสั่ง" box for the sticker and signature.
         - **19 · 27 · A pharmacist view.** How many TPN orders there are; Submit = compound, Save draft =
           may be waiting for labs, do not compound yet. The "ถึงผู้ป่วย + คาสาย" split left the doctor's

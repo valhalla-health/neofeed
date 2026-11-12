@@ -29,6 +29,7 @@
 //     (verify-center-point-order-changes.cjs). Different baselines, so not
 //     compared here; no previousEntry is passed, so NeoFeed's form omits it.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -149,7 +150,7 @@ async function compareOrder(label, extra) {
   console.log('\n── NeoFeed\'s pharmacy form (legacy save) ──');
   await saveOrder({ onLog() { return Promise.resolve({ ok: true, entryId: 'e-parity', lastModified: 'lm-parity' }); }, onUpdate() {}, onSaved() {} },
     [...extra, ['Input', 180], ['Urine output', 90], ['Drain content', 0]]);
-  const form = container.querySelector('#print-form');
+  const form = __printFormTicked(container);
   ok('the legacy save rendered the print form', !!form);
   if (!form) { console.log('\nPRINT PARITY: cannot run'); process.exit(1); }
   const patientTable = form.querySelector(':scope > table');

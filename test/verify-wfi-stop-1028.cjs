@@ -21,6 +21,7 @@
 // reason, and the same order with KCl 1.1 instead of 1, which adds 0.1 mL of stock. Mounts the real <Calculator> in jsdom: the
 // deps in test/README.md. Synthetic infants only.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -94,7 +95,7 @@ const buttonNamed = (name) => [...container.querySelectorAll('button')].find(b =
 const draftBtn = () => container.querySelector('button.save-draft');
 const routeBtn = (name) => [...container.querySelectorAll('.step2-ctrl .seg button')].find(b => b.textContent.trim() === name);
 const critTitles = () => [...container.querySelectorAll('.calc-bottom .alert-row.crit .title')].map(t => t.textContent);
-const printForm = () => container.querySelector('#print-form');
+const printForm = () => __printFormTicked(container);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 async function tryPrint() {
   printed = 0; const t0 = toasts.length;

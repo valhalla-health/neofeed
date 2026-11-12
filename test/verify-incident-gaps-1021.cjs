@@ -40,6 +40,7 @@
 // Central, a last submission's bag route, the quick calc.
 // Mounts the real <Calculator> in jsdom — the deps in test/README.md.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -113,7 +114,7 @@ const draftBtn = () => container.querySelector('button.save-draft');
 const fillRequired = (tf) => ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']
   .forEach(l => setField(l, l === 'Target fluid' ? tf : 0));
 const text = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
-const printText = () => text(container.querySelector('#print-form'));
+const printText = () => text(__printFormTicked(container));
 const alertRows = () => [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => ({
   level: ['crit', 'warn', 'info'].find(c => a.classList.contains(c)),
   title: a.querySelector('.title')?.textContent || '' }));

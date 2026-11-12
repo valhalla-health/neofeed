@@ -38,6 +38,7 @@
 // Mounts the real <Calculator> in jsdom: the deps in test/README.md.
 // Synthetic infants only.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -428,7 +429,7 @@ const BM = D.EN_DB.BM_20, BMH = D.EN_DB.BM_HMF_24;
       const submit = buttonNamed('button', 'Submit');
       if (!submit || submit.disabled) return { error: 'Submit not available' };
       await clickAsync(submit);
-      const form = container.querySelector('#print-form');
+      const form = __printFormTicked(container);
       return { form: form ? form.innerHTML : null, formText: text(form), copyButton: !!copyButton() };
     }
     for (const c of [A, B]) {

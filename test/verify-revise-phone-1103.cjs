@@ -7,6 +7,7 @@
 //
 // Mounts the real <Calculator> in jsdom. Synthetic infants only.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -187,7 +188,7 @@ const tickNoTpn = () => {
   eq('…asking the doctor nothing', asked, 0);
   mount({ editEntry: row(bag, { published: '' }), ...rec() });
   setField('Amino acid', 2.1);
-  const form = container.querySelector('#print-form');
+  const form = __printFormTicked(container);
   eq('the printed sheet does not carry the line', !!form && form.textContent.includes(LINE), false);
 
   section('§3 the screens that send nothing to the room do not show it');

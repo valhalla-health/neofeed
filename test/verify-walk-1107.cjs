@@ -17,6 +17,7 @@
 // Synthetic infants only.
 process.env.TZ = process.env.TZ || 'Asia/Bangkok';
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -246,7 +247,7 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   const ioRev = row({ ...bag, calcInput: { ...bag.calcInput, orderBy: 'doc@kcmh.test', orderRev: 1, orderAt: TODAY + 'T02:00:00.000Z' } },
     { revisionNumber: 3, lastModifiedBy: 'nurse@kcmh.test', submittedBy: 'doc@kcmh.test' });
   mount({ ...DOCTOR, editEntry: ioRev, ...rec() });
-  eq('the sheet of an order a nurse added I/O to twice: no "Revision" box', [!!container.querySelector('#print-form'), !!container.querySelector('.print-revision')], [true, false]);
+  eq('the sheet of an order a nurse added I/O to twice: no "Revision" box', [!!__printFormTicked(container), !!container.querySelector('.print-revision')], [true, false]);
   eq('…and the order names the doctor, not the nurse', /doc@kcmh\.test|Dr Test/.test(container.querySelector('.print-saved-by')?.textContent || '')
     && !/nurse@/.test(container.querySelector('.print-saved-by')?.textContent || ''), true);
   mount({ ...DOCTOR, editEntry: row({ ...bag, calcInput: { ...bag.calcInput, orderRev: 3 } }, { revisionNumber: 3 }), ...rec() });

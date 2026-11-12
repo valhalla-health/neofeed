@@ -19,6 +19,7 @@
 // Mounts the real components in jsdom (same dev-only deps as the other
 // calculator harnesses — see test/README.md).
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -80,7 +81,7 @@ const text = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
 // What a person sees on screen: everything but the (print-only) order form.
 function screenText() {
   const c = container.cloneNode(true);
-  c.querySelector('#print-form')?.remove();
+  __printFormTicked(c)?.remove();
   return text(c);
 }
 const COLOUR_EMOJI = /[\p{Emoji_Presentation}️]/u;

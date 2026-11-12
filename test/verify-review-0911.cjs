@@ -9,6 +9,7 @@
 // Each section names the review finding it pins. Every one of them fails
 // against the pre-review source (1922488).
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const crypto = require('crypto');
@@ -288,7 +289,7 @@ const saveBtn = () => [...container.querySelectorAll('button')].find(b => ['Subm
 const fillRequired = () => ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']
   .forEach(l => setField(l, l === 'Target fluid' ? 120 : 0));
 const alertTexts = () => [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => a.textContent.replace(/\s+/g, ' '));
-const printForm = () => container.querySelector('#print-form');
+const printForm = () => __printFormTicked(container);
 function mount(props) {
   act(() => { root.unmount(); });
   root = ReactDOM.createRoot(container);

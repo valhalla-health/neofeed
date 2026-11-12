@@ -12,6 +12,7 @@
 //   § 3 a reopened draft asks again for the boxes that were blank
 //   § 4 completing it and pressing Submit writes "submitted" and unlocks print
 const fs = require('fs');
+const { tickRedAlerts } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const babel = require('@babel/core');
 const { JSDOM } = require('jsdom');
@@ -148,12 +149,12 @@ function mount(props) {
   ok('…with status "submitted"', s && s.e.status === 'submitted', s && s.e.status);
   ok('…and no blankFields', s && !('blankFields' in s.e.calcInput), s && s.e.calcInput.blankFields);
   ok('the draft note is gone', !/บันทึกเป็นแบบร่าง/.test(text()));
-  ok('the pharmacy form renders — printable', !!container.querySelector('.print-back'));
+  ok('the pharmacy form renders — printable', !!(tickRedAlerts(container), container.querySelector('.print-back')));
   ok('Save draft is disabled once submitted', draftBtn()?.disabled === true);
 
   // A legacy (pre-draft) row reopens printable.
   mount({ editEntry: { ...s.e, entryId: 'old', lastModified: 'lm-old', ts: '2026-09-22', status: 'submitted' }, logDate: null });
-  ok('an old "submitted" row reopens printable', !!container.querySelector('.print-back'));
+  ok('an old "submitted" row reopens printable', !!(tickRedAlerts(container), container.querySelector('.print-back')));
 
   act(() => root.unmount());
   console.log(`\nSAVE DRAFT: ${fail ? fail + ' FAILED' : 'ALL PASS'} (${pass} passed)`);

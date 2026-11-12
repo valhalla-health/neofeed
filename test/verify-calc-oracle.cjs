@@ -41,6 +41,7 @@
 // Dev-only deps as in test/README.md (react@18 react-dom@18 @babel/core
 // @babel/preset-react jsdom).
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -771,7 +772,7 @@ async function run(scIn) {
   }
 
   // ─ printed pharmacy form ─
-  const form = container.querySelector('#print-form');
+  const form = __printFormTicked(container);
   // A No TPN order prints only a short sheet for its oral orders (Pp, 2026-11-01).
   same(sc, 'print form rendered after save', !!form, orderable && (!noTpnScenario(sc) || oralScenario(sc)));
   if (form && noTpnScenario(sc)) {

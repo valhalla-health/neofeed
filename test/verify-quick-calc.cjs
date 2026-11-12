@@ -19,6 +19,7 @@
 // Same jsdom harness as verify-tpn-calc-weight.cjs: mounts the real
 // <Calculator> and drives its actual inputs.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const babel = require('@babel/core');
 const { JSDOM } = require('jsdom');
@@ -216,7 +217,7 @@ ok('no Save button', !buttonMatching(scratchBox, /^\s*บันทึก/),
   buttonMatching(scratchBox, /^\s*บันทึก/)?.textContent);
 ok('the patient entry does have one', !!buttonMatching(patientBox, /บันทึก/));
 ok('no delete-entry button', !buttonMatching(scratchBox, /ลบบันทึกนี้/));
-ok('no printed pharmacy order form', !scratchBox.querySelector('#print-form'));
+ok('no printed pharmacy order form', !__printFormTicked(scratchBox));
 ok('no Intake / Output card', !field(scratchBox, 'Urine output', 'mL/d'));
 ok('the patient entry does have one', !!field(patientBox, 'Urine output', 'mL/d'));
 ok('no required-field gate is shown (there is nothing to save)',
@@ -333,7 +334,7 @@ ok('the unsaved-draft store is off', /const writeDraft = \(inputs\) => \{\s*\n?\
 ok('the previous-submission store is never read',
   /if \(scratch\) \{[\s\S]{0,400}?applyCalcInput\(\{ deadVol_mL/.test(calcSrc));
 ok('the localStorage sweep is off', /if \(centerPoint \|\| scratch\) return;[\s\S]{0,120}localStorage\.length/.test(calcSrc));
-ok('PrintOrderForm is blocked', /\{printable && !centerPoint && !scratch && <PrintOrderForm/.test(calcSrc));
+ok('PrintOrderForm is blocked', /\{printReady && !centerPoint && !scratch && <PrintOrderForm/.test(calcSrc));
 ok('the DOL is not re-derived across midnight',
   /const orderDayRolledOver = !scratch &&/.test(calcSrc));
 
