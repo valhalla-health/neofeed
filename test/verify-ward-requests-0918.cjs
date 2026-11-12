@@ -44,6 +44,7 @@
 // Mounts the real <Calculator> in jsdom (same dev-only deps as the other
 // calculator harnesses — see test/README.md). Fails against f0c172c.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -147,7 +148,7 @@ const tileVal = (label) => { const t = tileEl(label); return t ? parseFloat(t.qu
 const tileStatus = (label) => { const t = tileEl(label); return t ? (t.className.match(/s-(\w+)/) || [])[1] : null; };
 const tileRange = (label) => tileEl(label)?.querySelector('.range')?.textContent || null;
 const text = (el) => (el?.textContent || '').replace(/\s+/g, ' ');
-const printForm = () => container.querySelector('#print-form');
+const printForm = () => __printFormTicked(container);
 const printText = () => text(printForm());
 const enBox = () => container.querySelector('.en-delivered');
 const aaButtons = () => [...container.querySelectorAll('.s2-aa-row .aa-product button')];

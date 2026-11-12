@@ -25,6 +25,7 @@
 // Every section fails on 2cf4277 (main before this change). Mounts the real
 // <Calculator> in jsdom — the deps in test/README.md. Synthetic infants only.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -190,7 +191,7 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     eq('Submit asks for no reason', asked, false);
     eq('…and the order is logged', box.calls, 1);
     ok('…with no critical-value override', !box.entry?.calcInput?.critOverride, box.entry?.calcInput?.critOverride);
-    ok('the saved order prints', !!container.querySelector('#print-form'));
+    ok('the saved order prints', !!__printFormTicked(container));
     window.prompt = () => null;
   });
 
@@ -251,7 +252,7 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     window.prompt = () => null;
     await clickAsync(submitBtn());
     eq('the order is logged with no reason asked', box.calls, 1);
-    const form = text(container.querySelector('#print-form'));
+    const form = text(__printFormTicked(container));
     ok('DOL 3, 1200 g: Na 0–5 (Jochum < 1500 g)', /Na 0–5 mEq\/kg\/day/.test(form), form.match(/Na [^ ]+ mEq\/kg\/day/));
     ok('…K 0–3', /K⁺ 0–3 mEq\/kg\/day/.test(form), form.match(/K⁺ [^ ]+ mEq\/kg\/day/));
     ok('…Ca 32–80 and P 31–62 (first days to DOL 7)', /Ca 32–80 mg\/kg\/day/.test(form) && /P 31–62 mg\/kg\/day/.test(form),

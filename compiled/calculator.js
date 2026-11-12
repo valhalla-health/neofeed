@@ -1792,19 +1792,31 @@ function Calculator({
   const autoPrintDone = React.useRef(null);
   const printBlockRef = React.useRef("");
   printBlockRef.current = printBlockToast && heldChanges && heldChanges.changes.length > 0 ? `${printBlockToast} (${heldChanges.changes.map(heldChangeLine).join(" · ")})` : printBlockToast;
+  const autoAckAsked = React.useRef(null);
   React.useEffect(() => {
     if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
     const go = () => {
       autoPrintDone.current = autoPrint;
       requestPrint(printBlockRef.current);
     };
+    if (printable && unackedRed.length > 0 && autoAckAsked.current !== autoPrint) {
+      autoAckAsked.current = autoPrint;
+      const yes = window.confirm(`${patient?.currentBed ? `เตียง ${patient.currentBed} · ` : ""}คำสั่งนี้มีค่าวิกฤต ${redAlertTitles.length} ข้อ:
+` + redAlertTitles.map((t2) => `• ${t2}`).join("\n") + "\n\nรับทราบทุกข้อและพิมพ์?");
+      if (yes) {
+        setPrintAcks({ key: printAckKey, titles: redAlertTitles });
+        return;
+      }
+      go();
+      return;
+    }
     if (printReady) {
       go();
       return;
     }
     const t = setTimeout(go, 1500);
     return () => clearTimeout(t);
-  }, [autoPrint, printReady]);
+  }, [autoPrint, printReady, printable]);
   const handleSave = async (asDraft = false) => {
     asDraft = asDraft === true;
     if (saving) return;
@@ -3065,7 +3077,7 @@ function Calculator({
     /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14 }),
     " ",
     saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"
-  ), figuresMissing && !scratch && !ordersReadOnly && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), (nurseSubmitRefused || nurseHeldOrder) && /* @__PURE__ */ React.createElement("div", { className: "nurse-doctor-submits", role: "note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, NURSE_SUBMIT_TEXT), revisingForRoom && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "revise-phone-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย"), !centerPoint && !scratch && !ordersReadOnly && !nurseIoOnly && printable && redAlertTitles.length > 0 && /* @__PURE__ */ React.createElement(
+  ), figuresMissing && !scratch && !ordersReadOnly && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), (nurseSubmitRefused || nurseHeldOrder) && /* @__PURE__ */ React.createElement("div", { className: "nurse-doctor-submits", role: "note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, NURSE_SUBMIT_TEXT), revisingForRoom && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "revise-phone-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย"), !centerPoint && !scratch && printable && redAlertTitles.length > 0 && /* @__PURE__ */ React.createElement(
     "div",
     {
       className: "print-ack",
@@ -3105,7 +3117,7 @@ function Calculator({
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "trash", size: 14, color: "var(--crit)" }),
     " ลบบันทึกนี้"
-  ))))), printable && !centerPoint && !scratch && /* @__PURE__ */ React.createElement(
+  ))))), printReady && !centerPoint && !scratch && /* @__PURE__ */ React.createElement(
     PrintOrderForm,
     {
       printAcks: redAlertTitles.map((t) => ({ title: t, ticked: ackedNow.includes(t) })),

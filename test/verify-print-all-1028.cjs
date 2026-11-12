@@ -47,6 +47,7 @@
 // test/README.md).
 const { boot, runScenarios, mkPatient, TODAY, addDays, DIR } = require('./review-0917-boot.cjs');
 
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const CONSTANTS_VERSION = require('fs').readFileSync(DIR + 'data.js', 'utf8').match(/const CONSTANTS_VERSION = "([^"]+)"/)[1];
 const CI = { curWtG: 900, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, ioInput: 130, ioOutput: 60, drainContent: 0,
   totalTPN_mL: 110, dexPct: 12.5, aaPerKg: 3, lipidPerKg: 3, naCl: 2, kCl: 1, caPerKg: 60, glycophosP: 1, constantsVersion: CONSTANTS_VERSION };
@@ -133,6 +134,34 @@ const watchBar = (t) => {
   seen.stop = () => { mo.disconnect(); t.window.print = print; };
   return seen;
 };
+
+async function popUp(A, answer) {
+    console.log(`\n── #4b a red alert with its reason: Print ทั้งหมด asks first (Pp, 2026-11-12): ${answer ? 'yes' : 'no'} ──`);
+    // SS's K 6 with a reason naming every critical alert it raises: printable, so only the ticks hold it.
+    const reasonFor = ['Potassium critically out of range', 'K⁺ concentration too high', 'Osmolarity > peripheral limit'];
+    const withReason = { ...log, 'SS-1': [order('e-ss', {}, { kCl: 6, critOverride: { reason: 'renal loss', alerts: reasonFor, at: TODAY + 'T02:00:00.000Z' } })] };
+    {
+      const t = boot({ patients, log: withReason });
+      t.quiet(); t.printed = 0; t.printedSheets = [];
+      t.window.print = () => { t.printed++; t.printedSheets = batchSheets().map(s => s.getAttribute('data-session-id')); };
+      const asked = [];
+      t.window.confirm = (m) => { asked.push(String(m)); return answer; };
+      await t.start();
+      await t.click(wardPrint('SCN'));
+      await t.click(printAll());
+      await runDone(t);
+      const popup = asked.find(m => /ค่าวิกฤต/.test(m)) || '';
+      A.ok(`4b.${answer ? 3 : 0} the pop-up names SS's bed and its red alerts`, /SCN 1/.test(popup) && /Potassium critically out of range/.test(popup) && /รับทราบทุกข้อและพิมพ์/.test(popup), asked);
+      if (!answer) {
+        A.ok('4b.1 no: SS is not in the job', sheetsMatch(['TT-1', 'e-tt']), batchSheets().map(x => x.getAttribute('data-session-id')));
+        A.ok('4b.2 …and the page says the ticks are missing', /SCN 1 SS — ติ๊กรับทราบค่าวิกฤตทุกข้อก่อนพิมพ์/.test(skipped()), skipped());
+      } else {
+        A.ok('4b.4 yes: SS is in the job, with the count in its red box',
+          sheetsMatch(['SS-1', 'e-ss'], ['TT-1', 'e-tt']) && /รับทราบก่อนพิมพ์ ☑/.test(batchSheets()[0]?.textContent || ''),
+          batchSheets().map(x => x.getAttribute('data-session-id')));
+      }
+    }
+  }
 
 const scenarios = {
   async 'list'(A) {
@@ -239,6 +268,9 @@ const scenarios = {
     await settle(t);
     A.ok('4.4 …then TT\'s prints', t.printed === 1 && t.printedSheets.join() === 'TT-1');
   },
+
+  async 'red-alert pop-up, no'(A) { await popUp(A, false); },
+  async 'red-alert pop-up, yes'(A) { await popUp(A, true); },
 
   async 'leave'(A) {
     console.log('\n── #5 leaving the run ends it ──');

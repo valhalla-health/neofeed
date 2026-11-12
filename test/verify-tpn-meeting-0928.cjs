@@ -37,6 +37,7 @@
 // calculator harnesses — see test/README.md). Fails against 6269b88; §10 and
 // §14 fail against f055360 (peripheral maximum 200).
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -116,12 +117,12 @@ const saveBtn = () => [...container.querySelectorAll('button')].find(b => ['Subm
 const fillRequired = (tf) => ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']
   .forEach(l => setField(l, l === 'Target fluid' ? tf : 0));
 const text = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
-const printForm = () => container.querySelector('#print-form');
+const printForm = () => __printFormTicked(container);
 const printText = () => text(printForm());
 // What a person sees on screen: everything but the (print-only) order form.
 function screenText() {
   const c = container.cloneNode(true);
-  c.querySelector('#print-form')?.remove();
+  __printFormTicked(c)?.remove();
   return text(c);
 }
 const alertRows = () => [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => ({

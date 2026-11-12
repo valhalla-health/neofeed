@@ -20,6 +20,7 @@
 //
 // Mounts the real <Calculator> in jsdom (dev-only deps, see test/README.md).
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -75,7 +76,7 @@ const container = document.getElementById('root');
 let root = ReactDOM.createRoot(container);
 const clickAsync = (el) => act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 const saveBtn = () => [...container.querySelectorAll('button')].find(b => ['Submit', 'บันทึก'].includes(b.textContent.trim()));
-const printForm = () => container.querySelector('#print-form');
+const printForm = () => __printFormTicked(container);
 const banner = () => (container.querySelector('.print-blocked')?.textContent || '').replace(/\s+/g, ' ');
 const critTitles = () => [...container.querySelectorAll('.calc-bottom .alert-row.crit .title')].map(t => t.textContent);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));

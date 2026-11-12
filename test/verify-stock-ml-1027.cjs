@@ -24,6 +24,7 @@
 // Every section fails on 83aefe4 (main with PR #170). Mounts the real
 // <Calculator> in jsdom — the deps in test/README.md. Synthetic infants only.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -107,7 +108,7 @@ const routeBtn = (name) => [...container.querySelectorAll('.step2-ctrl .seg butt
 
 // The back sheet's "Aqueous bag — stock" table: { stock name: printed mL text }.
 function backSheetMl() {
-  const form = container.querySelector('#print-form');
+  const form = __printFormTicked(container);
   if (!form) return null;
   const table = [...form.querySelectorAll('table')].find(t => /Aqueous bag — stock/.test(t.querySelector('thead')?.textContent || ''));
   if (!table) return null;
@@ -182,7 +183,7 @@ function order700(box, zn, k2 = 0.5) {
     eq('heparin 35 U ÷ 100 = 0.35 mL prints 0.4 (was 0.35)', ml[Object.keys(ml).find(k => k.startsWith('Heparin'))], '0.4');
     const twoDecimals = Object.entries(ml).filter(([, t]) => /\.\d\d/.test(t));
     eq('no stock line has two decimals', twoDecimals, []);
-    const front = text(container.querySelector('#print-form'));
+    const front = text(__printFormTicked(container));
     ok('front sheet: K₂HPO₄ 0.4 mL', /0\.4 mL/.test(front) && !/= 0\.35 mL/.test(front), front.slice(0, 200));
     ok('front sheet: MgSO₄ 0.3 mL (10%)', /= 0\.3 mL \(10%\)/.test(front));
   });
@@ -191,7 +192,7 @@ function order700(box, zn, k2 = 0.5) {
     const box = logger();
     order700(box, 0.4, 1.5);
     await clickAsync(submitBtn());
-    const t = text(container.querySelector('#print-form'));
+    const t = text(__printFormTicked(container));
     ok('the order prints', !!t, alertRows().filter(a => a.level === 'crit'));
     ok('front sheet: K₂HPO₄ "1.1 mEq = 1.1 mL" (1.5 × 0.7 = 1.05 mEq)', /1\.1 mEq = 1\.1 mL/.test(t), t.match(/[\d.]+ mEq = [\d.]+ mL/g));
     ok('…never "1 mEq = 1.1 mL"', !/(^|[^\d.])1 mEq = 1\.1 mL/.test(t), t.match(/[\d.]+ mEq = [\d.]+ mL/g));
@@ -251,12 +252,12 @@ function order700(box, zn, k2 = 0.5) {
     ok('§5b reopened: the vial reads 10%', /Vial 10%/.test(text(container)), text(container).match(/Vial \d+%/));
     const ml2 = backSheetMl();
     eq('…it prints MgSO₄ 10% 0.3 mL', ml2 && ml2['MgSO₄ 10%'], '0.3');
-    ok('…and no MgSO₄ at 50% on the form', !/MgSO₄ 50%|mL \(50%\)/.test(text(container.querySelector('#print-form'))));
+    ok('…and no MgSO₄ at 50% on the form', !/MgSO₄ 50%|mL \(50%\)/.test(text(__printFormTicked(container))));
     // §5c: a production row carries an older stamp, so calcMoved holds it.
     const prod = { ...saved, entryId: 'e-mg50p', calcInput: { ...saved.calcInput, constantsVersion: '2026-10-27.1' } };
     mount({ patient: pt('MG-0600', 600), editEntry: prod, logDate: null,
       onUpdate() { return Promise.resolve({ ok: true, lastModified: 'lm-mg50p2' }); } });
-    ok('§5c a row stamped 2026-10-27.1 that says 50%: no print form until saved again', !container.querySelector('#print-form'));
+    ok('§5c a row stamped 2026-10-27.1 that says 50%: no print form until saved again', !__printFormTicked(container));
     await clickAsync(submitBtn());
     const ml3 = backSheetMl();
     eq('…saved again, it prints MgSO₄ 10% 0.3 mL', ml3 && ml3['MgSO₄ 10%'], '0.3');

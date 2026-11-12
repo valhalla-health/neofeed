@@ -68,9 +68,10 @@ Synthetic infants only: this repo is public.
 | `unit`, `round` | conventions every figure follows | — |
 
 A critical alert is one `alerts.push({ level: "crit" … })`; Submit collects every one that is not
-`noReason` and asks once (`calculator.jsx`, `const critical = …`). The Print button and the ward's Print list
-wait until every red alert, `noReason` ones too, is ticked on screen (`printReady`, 2026-11-12); each prints
-in the red box beside the doctor's signature, ☑ or ☐ (a browser Ctrl+P), and is asked again after every save. Each limit is graded on the figure the
+`noReason` and asks once (`calculator.jsx`, `const critical = …`). The Print button, the ward's Print list and the
+sheet itself wait until every red alert, `noReason` ones too, is ticked on screen or confirmed in the print
+list's pop-up (`printReady`, 2026-11-12); the count prints in the red box beside the doctor's signature, and
+the ticks are asked again after every save. Each limit is graded on the figure the
 order prints wherever the code says so; the rule says which.
 
 ---

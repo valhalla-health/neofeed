@@ -13,11 +13,13 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 `.claude/skills/neofeed-clinical-rules/SKILL.md` (What each kind does), `BACKLOG.md` (C · 9 · 28).
 
 - **What.** Once an order is saved and printable, the save panel lists every red alert with a tick box
-  ("รับทราบค่าวิกฤตก่อนพิมพ์ n/m"). Print and the ward's Print order list wait until all are ticked (a browser Ctrl+P prints ☐ for each one left);
-  the toast names the ones left. `noReason` red lines (NPE:AA) count too. Submit and Copy do not wait. Only a doctor's account is offered the
-  ticks (Vera): a nurse account's Print is refused until a doctor ticks. **Print ทั้งหมด** has no ticks, so it
-  now skips every order with a red alert and names why; tick and print those one by one.
-- **On paper.** The red box prints "รับทราบก่อนพิมพ์: ☑ …" for each, above the doctor's signature line, so a
+  ("รับทราบค่าวิกฤตก่อนพิมพ์ n/m"). Print, the ward's Print order list and the sheet itself wait until all are ticked (a browser Ctrl+P prints
+  nothing until then; Pp, 2026-11-12);
+  the toast names the ones left. `noReason` red lines (NPE:AA) count too. Submit and Copy do not wait. A doctor or a nurse may tick, since both
+  may print; only a doctor submits (Pp, 2026-11-12). **From the print list** (one order or Print ทั้งหมด) an order
+  with a red alert pops up a confirm naming the bed and each alert: yes ticks them all and prints, no skips it
+  with its reason.
+- **On paper.** The red box prints "รับทราบก่อนพิมพ์ ☑ n/m ข้อ" (a red line with no reason also by name), above the doctor's signature line, so a
   red alert with no Submit reason now gets the box and its signature too.
 - **Not saved.** The ticks live on this screen, keyed on the saved row and its save time: another order, a
   new save or a reload asks again. Saving them to the row is a later decision.

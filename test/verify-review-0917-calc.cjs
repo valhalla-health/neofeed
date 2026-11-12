@@ -22,6 +22,7 @@
 // Mounts the real <Calculator> and <DailyLog> in jsdom (same dev-only deps as
 // verify-review-0911.cjs — see test/README.md). Fails against 42ce553.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const crypto = require('crypto');
@@ -120,7 +121,7 @@ const tileStatus = (label) => {
 };
 const tileRange = (label) => [...container.querySelectorAll('.metric')]
   .find(x => x.querySelector('.lbl')?.textContent === label)?.querySelector('.range')?.textContent;
-const printForm = () => container.querySelector('#print-form');
+const printForm = () => __printFormTicked(container);
 // An order with no TPN is submitted with Step 3's "No TPN" ticked (CR-NO-TPN-TICK, Pp 2026-11-01).
 const tickNoTpn = () => { const b = container.querySelector('label.no-tpn-chk input'); if (b && !b.checked) act(() => { b.click(); }); };
 // The on-screen change list is a table since 2026-11-01: each row's name, old,

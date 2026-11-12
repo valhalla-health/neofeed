@@ -2584,8 +2584,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // order, the tick covers this print. Ticks live only on this screen and are
   // keyed on the saved row and its revision, so a new save, another order or a
   // reload asks again; an alert that appears after ticking is unticked. Submit
-  // and Copy do not wait for it. The Print button and the ward's Print list wait;
-  // the sheet itself still renders (browser Ctrl+P) and prints ☐ for an untick.
+  // and Copy do not wait for it. The Print button, the ward's Print list and the
+  // sheet itself (a browser Ctrl+P prints nothing) wait (Pp, 2026-11-12). A doctor
+  // or a nurse may tick: both may print; only a doctor submits an order.
   const redAlertTitles = [...new Set(alerts.filter(a => a.level === "crit").map(a => a.title))];
   const printAckKey = `${savedEntryId || ""}|${savedMeta?.at || ""}`;
   const [printAcks, setPrintAcks] = useState({ key: "", titles: [] });
@@ -2702,14 +2703,25 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   printBlockRef.current = printBlockToast && heldChanges && heldChanges.changes.length > 0
     ? `${printBlockToast} (${heldChanges.changes.map(heldChangeLine).join(" · ")})`
     : printBlockToast;
+  // A red alert on an order opened from the print list (one order or Print ทั้งหมด): a
+  // pop-up names them and asks once (Pp, 2026-11-12: "ถ้ามี red alert ให้เด้งขึ้นมาให้กด
+  // ยืนยันก่อน"). Yes ticks them all, the same as ticking each; No leaves the order held.
+  const autoAckAsked = React.useRef(null);
   React.useEffect(() => {
     if (!autoPrint || !requestPrint || autoPrintDone.current === autoPrint) return;
     const go = () => { autoPrintDone.current = autoPrint; requestPrint(printBlockRef.current); };
+    if (printable && unackedRed.length > 0 && autoAckAsked.current !== autoPrint) {
+      autoAckAsked.current = autoPrint;
+      const yes = window.confirm(`${patient?.currentBed ? `เตียง ${patient.currentBed} · ` : ""}คำสั่งนี้มีค่าวิกฤต ${redAlertTitles.length} ข้อ:\n`
+        + redAlertTitles.map(t => `• ${t}`).join("\n") + "\n\nรับทราบทุกข้อและพิมพ์?");
+      if (yes) { setPrintAcks({ key: printAckKey, titles: redAlertTitles }); return; }
+      go(); return;
+    }
     if (printReady) { go(); return; }
     const t = setTimeout(go, 1500);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoPrint, printReady]);
+  }, [autoPrint, printReady, printable]);
 
   // TwoCol is defined at module level (below) — do NOT define inside Calculator
   // (inline component definitions cause React to unmount/remount on every render → focus lost)
@@ -4674,9 +4686,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             )}
             {/* A tick per red alert before Print (printAcks). Shown once the order
-                is otherwise printable, so the ticks are on the numbers that print. A doctor's
-                acknowledgement: a nurse account is not offered the ticks (Vera, 2026-11-12). */}
-            {!centerPoint && !scratch && !ordersReadOnly && !nurseIoOnly && printable && redAlertTitles.length > 0 && (
+                is otherwise printable, so the ticks are on the numbers that print. A doctor
+                or a nurse may tick, as both may print (Pp, 2026-11-12). */}
+            {!centerPoint && !scratch && printable && redAlertTitles.length > 0 && (
               <div className="print-ack" role="group" aria-label="ติ๊กรับทราบค่าวิกฤตก่อนพิมพ์"
                 style={{ border: "1px solid var(--crit-line)", borderRadius: 6, padding: "6px 8px", marginBottom: 8, fontSize: 12 }}>
                 <div style={{ fontWeight: 600, color: "var(--crit)", marginBottom: 4 }}>
@@ -4725,7 +4737,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       {/* Rendered only while the form matches what was saved — so neither the
           Print button nor the browser's own Ctrl+P can put unsaved numbers
           on a pharmacy order (2026-09-11 review, F2). */}
-      {printable && !centerPoint && !scratch && <PrintOrderForm
+      {printReady && !centerPoint && !scratch && <PrintOrderForm
         printAcks={redAlertTitles.map(t => ({ title: t, ticked: ackedNow.includes(t) }))}
         targets={{ na: tNa, k: tK, ca: tCa, p: tP, mg: tMg, source: tileRef }}
         savedMeta={savedMeta} critOverride={critOverride} orderChanges={orderChanges}

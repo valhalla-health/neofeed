@@ -14,6 +14,7 @@
 // Synthetic infants only. Mounts the real <Calculator> in jsdom — the deps in
 // test/README.md.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -308,7 +309,7 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
   };
   const NOTICE = 'ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง';
   const noticeShown = () => container.textContent.includes(NOTICE);
-  const printForm = () => container.querySelector('#print-form');
+  const printForm = () => __printFormTicked(container);
   const UNSAVED = 'มีการแก้ไขที่ยังไม่ได้บันทึก';
   const upd = (r) => (r.calls.find(c => c[0] === 'update') || [])[3];
 
