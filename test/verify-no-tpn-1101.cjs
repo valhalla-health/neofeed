@@ -16,6 +16,7 @@
 // Mounts the real <Calculator> in jsdom: the deps in test/README.md. Synthetic
 // infants only. Fails on the source before this change (no tick to press).
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -196,7 +197,7 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
     [ci.totalTPN_mL, ci.dexPct, ci.aaPerKg, ci.lipidPerKg, ci.kCl, ci.znPerKg]);
   ok('…and no stop went with it', Array.isArray(ci.stops) && ci.stops.length === 0, ci.stops);
   // Pp, 2026-11-01: "ถ้า ไม่มี tpn เราก็จะไม่ปริ้นท order" — and the app never prints one.
-  ok('the saved No TPN order has no print form', !container.querySelector('#print-form'));
+  ok('the saved No TPN order has no print form', !__printFormTicked(container));
   ok('…and no red "held from Print" line', !container.querySelector('.print-blocked'));
   toast = null;
   let printed = 0; window.print = () => { printed++; };
@@ -214,7 +215,7 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   const legacyFeeds = { curWtG: 1000, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, totalTPN_mL: 0, enType: 'BM_20', enVol: 12, enFreq: 8 };
   mount({ editEntry: savedRow(legacyFeeds) });
   ok('a submitted feeds-only row saved before the tick existed reopens ticked', noTpnBox()?.checked === true);
-  ok('…so no stop holds it, and as a No TPN order it is not printed', !container.querySelector('.no-tpn-unticked') && !container.querySelector('#print-form'));
+  ok('…so no stop holds it, and as a No TPN order it is not printed', !container.querySelector('.no-tpn-unticked') && !__printFormTicked(container));
   mount({ editEntry: { ...savedRow(legacyFeeds), status: 'draft' } });
   ok('the same row as a draft reopens unticked (its TPN may not be filled in yet)', noTpnBox()?.checked === false);
   mount({ editEntry: savedRow({ ...legacyFeeds, totalTPN_mL: 100, dexPct: 10, aaPerKg: 3, route: 'central' }) });
@@ -250,7 +251,7 @@ const savedRow = (calcInput) => ({ entryId: 'e-old', lastModified: 'lm-old', ts:
   section('8 · the short sheet: oral orders, and the day TPN stopped ("No TPN today" or "TPN stopped today")');
   // Pp, 2026-11-01: a No TPN order prints a short sheet for its oral orders, and
   // on the first No TPN day after a day with TPN; otherwise nothing prints.
-  const sheet = () => container.querySelector('#print-form');
+  const sheet = () => __printFormTicked(container);
   // Print waits two animation frames before window.print (calculator.jsx).
   const printNow = async () => { let n = 0; window.print = () => { n++; }; toast = null;
     await act(async () => { document.dispatchEvent(new window.Event('__neofeed_print')); await new Promise(r => setTimeout(r, 30)); });

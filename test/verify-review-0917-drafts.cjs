@@ -14,6 +14,7 @@
 //
 // Same jsdom harness as verify-review-0911.cjs. Fails against 42ce553.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -82,7 +83,7 @@ const fillRequired = () => ['Target fluid', 'Other IV', 'Drug volume', 'Input', 
 const draftBanner = () => /มีข้อมูลที่กรอกค้างไว้/.test(container.textContent);
 const keys = (prefix) => Object.keys(window.localStorage).filter(k => k.startsWith(prefix)).sort();
 const readJSON = (k) => { try { return JSON.parse(window.localStorage.getItem(k)); } catch { return null; } };
-const printText = () => (container.querySelector('#print-form')?.textContent || '').replace(/\s+/g, ' ');
+const printText = () => (__printFormTicked(container)?.textContent || '').replace(/\s+/g, ' ');
 
 const A = 'Dr A (a.doctor@kcmh.test)', B = 'Dr B (b.nurse@kcmh.test)';
 const BASE = { dol: 10, editEntry: null, baselineEntry: null, previousEntry: null, logDate: '2026-09-15', userLabel: A,

@@ -7,6 +7,24 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-12 (2) — A tick per red alert before Print
+
+`calculator.jsx` (`printReady`, the save panel's ticks, PrintOrderForm's red box), `compiled/`,
+`.claude/skills/neofeed-clinical-rules/SKILL.md` (What each kind does), `BACKLOG.md` (C · 9 · 28).
+
+- **What.** Once an order is saved and printable, the save panel lists every red alert with a tick box
+  ("รับทราบค่าวิกฤตก่อนพิมพ์ n/m"). Print, the ward's Print order list and the sheet itself wait until all are ticked (a browser Ctrl+P prints
+  nothing until then; Pp, 2026-11-12);
+  the toast names the ones left. `noReason` red lines (NPE:AA) count too. Submit and Copy do not wait. A doctor or a nurse may tick, since both
+  may print; only a doctor submits (Pp, 2026-11-12). **From the print list** (one order or Print ทั้งหมด) an order
+  with a red alert pops up a confirm naming the bed and each alert: yes ticks them all and prints, no skips it
+  with its reason.
+- **On paper.** The red box prints "รับทราบก่อนพิมพ์ ☑ n/m ข้อ" (a red line with no reason also by name), above the doctor's signature line, so a
+  red alert with no Submit reason now gets the box and its signature too.
+- **Not saved.** The ticks live on this screen, keyed on the saved row and its save time: another order, a
+  new save or a reload asks again. Saving them to the row is a later decision.
+- **Left open in C · 9 · 28.** The front sheet's "ยืนยันการสั่ง" box for the sticker.
+
 ## Session 2026-11-12 — Previous beds deleted in Edit, doctor and admin only; an ID with a submitted order deletes after a second yes
 
 `registry.jsx` (EditPatientModal, TransferBedModal), `app.jsx` (handleDeletePatient), `gas-backend.gs`

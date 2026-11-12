@@ -26,6 +26,7 @@
 // other jsdom harnesses (see test/README.md):
 //   node test/verify-picker-print-identity.cjs
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const babel = require('@babel/core');
 const { JSDOM } = require('jsdom');
@@ -116,7 +117,7 @@ function printTextFor(patient) {
       onLog(){}, onUpdate(){}, onSaved(){}, onWeightChange(){},
     }));
   });
-  const form = printContainer.querySelector('#print-form');
+  const form = __printFormTicked(printContainer);
   if (!form) throw new Error('print form did not render for ' + patient.sessionId);
   return form.textContent.replace(/\s+/g, ' ');
 }

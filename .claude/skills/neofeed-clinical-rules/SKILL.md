@@ -60,15 +60,18 @@ Synthetic infants only: this repo is public.
 | kind | on the Calculator | Submit and Print |
 |---|---|---|
 | `stop` | red line in the save panel | refused; a draft may still be kept (weight out of range: no draft either). The backend refuses a submitted row that carries it (`calcInput.stops`) |
-| `critical` | red alert | Submit asks for a clinical reason; it prints on the order |
-| `red` | red alert | no reason asked |
+| `critical` | red alert | Submit asks for a clinical reason; it prints on the order. Print waits for a tick on it |
+| `red` | red alert | no reason asked. Print waits for a tick on it |
 | `caution` | amber (or blue info) alert | unaffected |
 | `cap` | a ceiling that changes the dose itself | unaffected |
 | `target` | the amber band a tile is graded against | unaffected |
 | `unit`, `round` | conventions every figure follows | — |
 
 A critical alert is one `alerts.push({ level: "crit" … })`; Submit collects every one that is not
-`noReason` and asks once (`calculator.jsx`, `const critical = …`). Each limit is graded on the figure the
+`noReason` and asks once (`calculator.jsx`, `const critical = …`). The Print button, the ward's Print list and the
+sheet itself wait until every red alert, `noReason` ones too, is ticked on screen or confirmed in the print
+list's pop-up (`printReady`, 2026-11-12); the count prints in the red box beside the doctor's signature, and
+the ticks are asked again after every save. Each limit is graded on the figure the
 order prints wherever the code says so; the rule says which.
 
 ---

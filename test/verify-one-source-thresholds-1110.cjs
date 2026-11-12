@@ -30,6 +30,7 @@
 // <Calculator> in jsdom (the dev-only deps every calculator harness uses — see
 // test/README.md). Synthetic infants only.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -171,7 +172,7 @@ function feedOnly(mlPerFeed, men = false) {
   tick('MEN (trophic)', men);
 }
 const submitBtn = () => [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Submit');
-const printText = () => text(container.querySelector('#print-form'));
+const printText = () => text(__printFormTicked(container));
 
 (async () => {
   await section('§1 GIR: the meter and its line follow TARGETS.girTarget and GIR_HARD_HI', async () => {

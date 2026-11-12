@@ -104,7 +104,9 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
   side by side, so a ticked product that is not first on the paper (Aminoplasmal) is no longer printed
   where the paper has it. Oral orders go under "8. Other", and "แพทย์" is a
   blank line the checking doctor writes and signs (Pp, 2026-11-06; it printed the saver's name before). Alerts are settled in the app, where a critical one needs a confirmation with a
-  reason at Save; the only alert text on the front is that confirmation, since 2026-10-28. The "Normal Requirement" column is NeoFeed's targets, not
+  reason at Save; the only alert text on the front is that confirmation, since 2026-10-28, and since 2026-11-12
+  the ticks made before Print ("รับทราบก่อนพิมพ์ ☑ n/m ข้อ", a red line with no reason by name; the sheet
+  does not render until all are ticked) in the same red box, which an order with only such a line now prints too. The "Normal Requirement" column is NeoFeed's targets, not
   the paper's printed ranges, which disagree with the app (review F4). **A departure in words (2026-11-10):**
   the route line's "Peripheral (<900 mOsm/L)" prints `OSM_PERIPHERAL_MAX`, so it follows the app's limit if that
   ever moves, not the paper's fixed text (Pp, PR #240: "ตามค่าในแอป").

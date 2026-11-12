@@ -1,3 +1,4 @@
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 // verify-pn-indication-1105.cjs — "Indication for PN" dropdown and Liver/Renal
 // Dysfunction ticks on the patient record (Pp, 2026-10-28 meeting; built
 // 2026-11-05). Frontend only this round (Pp, 2026-11-05): the fields live on
@@ -161,7 +162,7 @@ const scenarios = {
       await settle(submitBtn());
     }
     function click(el) { act(() => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }); }
-    const sheetText = () => (container.querySelector('#print-form') || container).textContent;
+    const sheetText = () => (__printFormTicked(container) || container).textContent;
 
     await mountSubmittedOrder({});
     A.ok('4.1 no indication, both unticked: the sheet says so plainly', /Indication for PN:\s*—/.test(sheetText()));

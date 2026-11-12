@@ -7,6 +7,7 @@
 // 2026-09-18: NeoFeed scales Soluvit/Peditrace by the overfill, where the
 // sheet's G43/G45 use actual weight (see vitExtra below).
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const babel = require('@babel/core');
 const { JSDOM } = require('jsdom');
@@ -168,7 +169,7 @@ const want = sheet(IN);
 // precisely vitExtra.
 const overfill = want.prepared / IN.delivered;
 const vitExtra = (want.soluvitMl + want.peditraceMl) * (overfill - 1);
-const form = container.querySelector('#print-form');
+const form = __printFormTicked(container);
 const formText = form.textContent.replace(/\s+/g, ' ');
 const bodyText = container.textContent.replace(/\s+/g, ' ');
 

@@ -112,6 +112,7 @@
 // Dev-only deps as in test/README.md (react@18 react-dom@18 @babel/core
 // @babel/preset-react jsdom).
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const babel = require('@babel/core');
@@ -373,7 +374,7 @@ const screenFigures = () => ({
 
 // The pharmacy back page's "Aqueous bag — stock" table, line by line.
 function readPrintBag() {
-  const form = container.querySelector('#print-form');
+  const form = __printFormTicked(container);
   if (!form) return null;
   const table = [...form.querySelectorAll('table')].find(t => /Aqueous bag — stock/.test(t.querySelector('thead')?.textContent || ''));
   if (!table) return { error: 'no "Aqueous bag — stock" table on the print form' };
@@ -564,19 +565,19 @@ async function run(scIn, idx) {
   ok(sc, 'Submit enabled exactly when the order can be saved', !!(saveBtn && !saveBtn.disabled) === orderable, { disabled: saveBtn?.disabled, dosingG, zeroed });
   if (zeroed.length) {
     ok(sc, 'a stock at 0 mL: the save panel says so', !!container.querySelector('.stock-at-zero-ml'), zeroed);
-    ok(sc, 'a stock at 0 mL: no print form', !container.querySelector('#print-form'));
+    ok(sc, 'a stock at 0 mL: no print form', !__printFormTicked(container));
     return `stock at 0 mL: ${zeroed.join(', ')}`;
   }
   if (overfull) {
     ok(sc, 'over-full bag: "Bag cannot be made (ใส่ถุงไม่ได้)" on screen',
       [...container.querySelectorAll('.calc-bottom .alert-row.crit .title')].some(t => t.textContent === 'Bag cannot be made (ใส่ถุงไม่ได้)'), scr0);
     ok(sc, 'over-full bag: the save panel says so', !!container.querySelector('.bag-cannot-be-made'));
-    ok(sc, 'over-full bag: no print form', !container.querySelector('#print-form'));
+    ok(sc, 'over-full bag: no print form', !__printFormTicked(container));
     return 'over-full: not orderable';
   }
   if (!orderable) {
     // No print: nothing to add up. The screen still shows the bag.
-    ok(sc, 'not orderable → no print form', !container.querySelector('#print-form'));
+    ok(sc, 'not orderable → no print form', !__printFormTicked(container));
     return 'screen only (not orderable)';
   }
   await clickAsync(saveBtn);
@@ -585,7 +586,7 @@ async function run(scIn, idx) {
   // up on save 1. The change below gives it a bag, and that one prints.
   const noTpnOrder = !!container.querySelector('label.no-tpn-chk input')?.checked;
   let first = null;
-  if (noTpnOrder) ok(sc, 'No TPN: saved, and no print form (it is never printed)', !container.querySelector('#print-form'));
+  if (noTpnOrder) ok(sc, 'No TPN: saved, and no print form (it is never printed)', !__printFormTicked(container));
   else {
     first = sumCheck(sc, 'save 1', Vd);
     if (!first) return 'no print';
@@ -617,7 +618,7 @@ async function run(scIn, idx) {
   ok(sc, `wired-in (${how}): on-screen Bag total changed`, after.bagTotal !== before.bagTotal, { before, after });
   if (useChip && sc.dex > 0) ok(sc, `wired-in (${how}): on-screen Components changed (D50W follows the prepared volume)`,
     after.components !== before.components, { before, after });
-  ok(sc, `wired-in (${how}): the stale print form is withdrawn until saved`, !container.querySelector('#print-form'));
+  ok(sc, `wired-in (${how}): the stale print form is withdrawn until saved`, !__printFormTicked(container));
 
   // ── save 2: the reprint carries the new figures, and still adds up ──
   // A bigger volume lowers the overfill, so a small stock can reach 0 mL.
@@ -720,7 +721,7 @@ function delivered() {
 }
 const prescribedMlDay = () => grabT(/· Prescribed (-?[\d.,]+) mL\/d/);
 function printedFigures() {
-  const form = container.querySelector('#print-form');
+  const form = __printFormTicked(container);
   if (!form) return null;
   const t = form.textContent.replace(/\s+/g, ' ');
   const e = t.match(/Energy \(TPN\) (\S+) kcal = (\S+) kcal\/kg(?: · total incl\. EN (\S+) kcal\/kg)?/);
@@ -839,7 +840,7 @@ async function runTwoFeeds(sc) {
     ok(sc, `wired-in: ${c.via.join(' + ')} = ${nv} a day is refused on screen`,
       (container.querySelector('.en-feeds-total')?.textContent || '').includes(`Feed 1 + 2 = ${nv} feeds/d`) && btnExact('Submit')?.disabled === true,
       container.querySelector('.en-feeds-total')?.textContent);
-    ok(sc, `wired-in: at ${nv} a day the print form is withdrawn`, !container.querySelector('#print-form'));
+    ok(sc, `wired-in: at ${nv} a day the print form is withdrawn`, !__printFormTicked(container));
     typeChars('Frequency', String(c.to[0]), box(1)); q1 = c.to[0];
     how = `frequencies typed ${c.from.join(' + ')} → ${c.via.join(' + ')} → ${c.to.join(' + ')}`;
   }
@@ -848,7 +849,7 @@ async function runTwoFeeds(sc) {
   ok(sc, `wired-in (${how}): each feed's mL/day follows`, after.day1.mlDay === rd(m1, 1) && after.day2.mlDay === rd(m2, 1), { before, after, m1, m2 });
   ok(sc, `wired-in (${how}): the EN volume tile follows`, after.tile === rd((m1 + m2) / kg, 0), { before: before.tile, after: after.tile });
   ok(sc, `wired-in (${how}): delivered kcal per kg moved`, after.kcal !== before.kcal, { before: before.kcal, after: after.kcal });
-  ok(sc, `wired-in (${how}): the stale print form is withdrawn until saved`, !container.querySelector('#print-form'));
+  ok(sc, `wired-in (${how}): the stale print form is withdrawn until saved`, !__printFormTicked(container));
   const btn = btnExact('Submit');
   ok(sc, `wired-in (${how}): Submit enabled`, !!btn && !btn.disabled);
   if (!btn || btn.disabled) return null;

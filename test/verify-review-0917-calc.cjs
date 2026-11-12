@@ -22,6 +22,7 @@
 // Mounts the real <Calculator> and <DailyLog> in jsdom (same dev-only deps as
 // verify-review-0911.cjs — see test/README.md). Fails against 42ce553.
 const fs = require('fs');
+const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
 const path = require('path');
 const crypto = require('crypto');
@@ -120,7 +121,7 @@ const tileStatus = (label) => {
 };
 const tileRange = (label) => [...container.querySelectorAll('.metric')]
   .find(x => x.querySelector('.lbl')?.textContent === label)?.querySelector('.range')?.textContent;
-const printForm = () => container.querySelector('#print-form');
+const printForm = () => __printFormTicked(container);
 // An order with no TPN is submitted with Step 3's "No TPN" ticked (CR-NO-TPN-TICK, Pp 2026-11-01).
 const tickNoTpn = () => { const b = container.querySelector('label.no-tpn-chk input'); if (b && !b.checked) act(() => { b.click(); }); };
 // The on-screen change list is a table since 2026-11-01: each row's name, old,
@@ -568,9 +569,12 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     mount({ patient: P, editEntry: row({ critOverride: { reason: 'r', alerts: [titles[0]], at: 'x' } }), logDate: null });
     ok(`a reason naming only "${titles[0]}" of ${titles.length}: still withheld`, titles.length < 2 || !printForm(), titles);
     mount({ patient: P, editEntry: row({ critOverride: { reason: 'hyperkalaemia treated', alerts: titles, at: 'x' } }), logDate: null });
-    ok('a reason naming every critical alert: printable', !!printForm());
+    ok('a reason naming every critical alert: printable, once ticked (2026-11-12)',
+      !container.querySelector('#print-form') && container.querySelectorAll('.print-ack input').length === titles.length);
+    eq('…but Print order waits for the ticks (2026-11-12)', (await tryPrint()).printed, 0);
+    act(() => { container.querySelectorAll('.print-ack input[type=checkbox]').forEach(b => b.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
     const p2 = await tryPrint();
-    eq('…and Print order prints', p2.printed, 1);
+    eq('…and, ticked, Print order prints', p2.printed, 1);
   });
 
   // ═══════════════════════ UP-C9 · optimistic tmp_ rows ═════════════════════
