@@ -7,6 +7,13 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-12 (3) — The release comparison ticks the red alerts
+
+`tools/calc-compare.cjs`. Since #251 the sheet renders only once every red alert is ticked, so the
+comparison found no sheet on 48 of 100 made-up orders on the `main` side and stopped the release on 76
+"absent" fields. It now ticks them as a doctor or nurse does before Print. With it, `release` → `main`
+differs only in the red box's "รับทราบก่อนพิมพ์ ☑ n/m ข้อ" line (48 orders).
+
 ## Session 2026-11-12 (2) — A tick per red alert before Print
 
 `calculator.jsx` (`printReady`, the save panel's ticks, PrintOrderForm's red box), `compiled/`,

@@ -206,6 +206,10 @@ async function snapshot(o) {
       flatten('saved', row, f);
       flatten('stickers', printJson, f);
     }
+    // Since 2026-11-12 (PR #251) the sheet renders only once every red alert is ticked, as a
+    // doctor or nurse does before Print; tick them, so both sides compare the sheet that prints.
+    const acks = [...container.querySelectorAll('.print-ack input[type=checkbox]')].filter(x => !x.checked);
+    if (acks.length) act(() => { acks.forEach(x => x.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
     const form = container.querySelector('#print-form');
     if (form) {
       const seen = {};

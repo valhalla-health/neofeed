@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-12 — A tick per red alert before Print, the ticks printed in the red box: this PR, not merged.** Frontend only; no figure moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-12 (2)).
+> ⏳ **2026-11-12 — A tick per red alert before Print, the ticks printed in the red box: PR #251, merged into `main` on Praew's instruction; release PR to follow.** `tools/calc-compare.cjs` now ticks the red alerts before reading the sheet. Frontend only; no figure moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-12 (2)).
 >
 > ⏳ **2026-11-12 — "Previous beds" lines are deleted in Edit (doctor and admin only, Save confirms again); an admin deletes an ID with a submitted order after a second yes: PR #249, merged into `main` on Praew's instruction.**
 > Frontend **and backend**: deploy the backend (`@72`) first, then the frontend release (`CHANGELOG.md` 2026-11-12).
