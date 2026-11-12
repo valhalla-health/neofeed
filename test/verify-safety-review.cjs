@@ -72,7 +72,7 @@ ok('print requires a successfully saved entry; Copy renders only in the quick ca
 ok('the print form renders only while the form matches the saved row',
   /const orderSettled\s*=\s*!!savedEntryId\s*&&\s*!dirty/.test(calc) &&
   /const printable\s*=\s*orderSettled\b/.test(calc) &&
-  /\{printable(?:\s*&&\s*!centerPoint)?(?:\s*&&\s*!scratch)?\s*&&\s*<PrintOrderForm/.test(calc) &&
+  /\{printReady(?:\s*&&\s*!centerPoint)?(?:\s*&&\s*!scratch)?\s*&&\s*<PrintOrderForm/.test(calc) &&
   // 2026-11-12: Print also waits for a tick per red alert (printReady = printable + the ticks).
   /const printReady\s*=\s*printable\s*&&\s*unackedRed\.length === 0/.test(calc) &&
   /if\s*\(!printReady\)[\s\S]{0,160}ก่อนพิมพ์/.test(calc));
