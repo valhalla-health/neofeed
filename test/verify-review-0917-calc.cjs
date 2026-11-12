@@ -569,8 +569,10 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     ok(`a reason naming only "${titles[0]}" of ${titles.length}: still withheld`, titles.length < 2 || !printForm(), titles);
     mount({ patient: P, editEntry: row({ critOverride: { reason: 'hyperkalaemia treated', alerts: titles, at: 'x' } }), logDate: null });
     ok('a reason naming every critical alert: printable', !!printForm());
+    eq('…but Print order waits for the ticks (2026-11-12)', (await tryPrint()).printed, 0);
+    act(() => { container.querySelectorAll('.print-ack input[type=checkbox]').forEach(b => b.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
     const p2 = await tryPrint();
-    eq('…and Print order prints', p2.printed, 1);
+    eq('…and, ticked, Print order prints', p2.printed, 1);
   });
 
   // ═══════════════════════ UP-C9 · optimistic tmp_ rows ═════════════════════
