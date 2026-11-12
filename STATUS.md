@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-12 — "Previous beds" lines are deleted in Edit (doctor and admin only, Save confirms again); an admin deletes an ID with a submitted order after a second yes: this PR, not merged.**
+> ⏳ **2026-11-12 — "Previous beds" lines are deleted in Edit (doctor and admin only, Save confirms again); an admin deletes an ID with a submitted order after a second yes: PR #249, merged into `main` on Praew's instruction.**
 > Frontend **and backend**: deploy the backend (`@72`) first, then the frontend release (`CHANGELOG.md` 2026-11-12).
 >
 > ✅ **2026-11-12 — Backend `@71` live: deleting a wrong Previous beds line (#247, #248).** Deployed with `clasp` from a clean `main` at `23ac4fd` on Pp's go-ahead, the first deploy from this repo; the pulled script matched `main`. Verification on #248. Rollback: `clasp update-deployment AKfycbz8Nt… -V 70`.
