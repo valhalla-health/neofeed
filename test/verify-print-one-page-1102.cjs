@@ -30,6 +30,8 @@
 //      signature and the infant's ID and date are on page 2; with the rule switched off the same order
 //      splits, which proves the check can see a split.
 //
+//   §1t a tick per red alert before Print (2026-11-12): Print refuses, then prints; the sheet shows ☐ or ☑.
+//
 // Same jsdom harness as verify-nutrition-meeting-1028.cjs. Synthetic infants only.
 const fs = require('fs');
 const vm = require('vm');
@@ -293,6 +295,31 @@ const topStrings = (form) => {
     mount({ ...recorder(), patient: pt({ diagnosis: DIAG_600 }), editEntry: reopened(heavy.row, { reason: REASON_300, alerts: alertsAll }) });
     ok('a 600-character diagnosis prints in full', squash(printForm()?.textContent).includes(DIAG_600.trim().slice(0, 590)), '');
     forms.overflow = printForm()?.outerHTML;
+  });
+
+  // A tick per red alert before Print (Pp, 2026-11-12, BACKLOG C · 9 · 28).
+  await section('§1t Print waits for a tick per red alert; the ticks print in the red box', async () => {
+    const titles = one.alerts;
+    mount({ ...recorder(), editEntry: reopened(one.row, { reason: REASON_40, alerts: titles }) });
+    const boxes = () => [...container.querySelectorAll('.print-ack input[type=checkbox]')];
+    eq('one tick box per red alert on screen', boxes().length, titles.length);
+    const ackLine = () => squash(printForm()?.querySelector('.print-acks')?.textContent);
+    eq('unticked, the sheet says so (a browser Ctrl+P)', ackLine(), `รับทราบก่อนพิมพ์ ☐ 0/${titles.length} ข้อ`);
+    let printed = 0, toast = '';
+    window.print = () => { printed++; };
+    global.showToast = (m) => { toast = m; };
+    const press = async () => { await act(async () => { document.dispatchEvent(new window.CustomEvent('__neofeed_print')); await new Promise(r => setTimeout(r, 20)); }); };
+    await press();
+    ok('Print refuses while any is unticked, and names it', printed === 0 && /ติ๊กรับทราบค่าวิกฤตทุกข้อก่อนพิมพ์/.test(toast) && toast.includes(titles[0]), [printed, toast]);
+    act(() => { boxes().forEach(b => b.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))); });
+    eq('every box ticked', boxes().every(b => b.checked), true);
+    eq('the sheet prints ☑ with the count', ackLine(), `รับทราบก่อนพิมพ์ ☑ ${titles.length}/${titles.length} ข้อ`);
+    ok('…inside the red box, above the signature', !!printForm()?.querySelector('.print-crit-box .print-acks') && !!printForm()?.querySelector('.print-crit-box .print-sign'));
+    await press();
+    eq('ticked, Print goes to the browser', printed, 1);
+    mount({ ...recorder(), editEntry: { ...reopened(one.row, { reason: REASON_40, alerts: titles }), lastModified: 'lm2', published: '2026-11-02T04:00:00Z' } });
+    ok('another save asks again (the ticks are not kept)', boxes().length === titles.length && boxes().every(b => !b.checked));
+    window.print = () => {}; global.showToast = () => {};
   });
 
   await section('§1c nothing printed is cut or shrunk to make room', async () => {
