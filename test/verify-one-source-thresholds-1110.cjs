@@ -13,7 +13,7 @@
 // and the Copy text. A copy left in calculator.jsx keeps the old number and fails.
 //
 //   §1  GIR: the meter's optimal zone and the line under it follow TARGETS.girTarget
-//       and GIR_HARD_HI; the dextrose-ceiling alert's mg/kg/min follows MAX_DEXTROSE_G_KG
+//       and GIR_HARD_HI; the GIR line's dextrose-only mg/kg/min follows MAX_DEXTROSE_G_KG
 //   §2  osmolarity: the printed form's route line and the quick calc's Copy
 //       follow OSM_PERIPHERAL_MAX
 //   §3  NPE:AA IV caution follows NPE_IV_WARN_LO (alert, its text, the zone)
@@ -183,21 +183,24 @@ const printText = () => text(__printFormTicked(container));
     ok('optimal zone title reads the planted 7–9', zone?.getAttribute('title') === 'Optimal: 7–9', zone?.getAttribute('title'));
     const row = text(container.querySelector('.dex-gir-row'));
     ok('line under the meter: "target 7–9 · max 13"', row.includes('target 7–9 · max 13'), row.slice(-80));
-    // The dextrose-ceiling alert converts MAX_DEXTROSE_G_KG to mg/kg/min; it is not GIR_HARD_HI,
-    // which a planted 13 above leaves alone (second reader: until 2026-10-27 they were 18 and 13).
-    // A planted 18.72 g/kg/d is 13 mg/kg/min; D20 at 100 mL/kg/d is 20 g/kg/d, over it.
+    // The dextrose ceiling is part of "GIR critically high" since 2026-11-14 (Pp). When dextrose
+    // alone is over MAX_DEXTROSE_G_KG (GIR under 12), the line converts that max to mg/kg/min; it
+    // is not GIR_HARD_HI (second reader: until 2026-10-27 they were 18 and 13). A planted 14.4
+    // g/kg/d is 10 mg/kg/min; D15 at 100 mL/kg/d is 15 g/kg/d (GIR 10.4), over it.
     restore();
-    plant({ MAX_DEXTROSE_G_KG: 18.72 });
+    plant({ MAX_DEXTROSE_G_KG: 14.4 });
     mountPatient('Central');
-    order({ dex: 20, aa: 2 });
-    const dexAlert = alertTexts().find(t => t.includes('Dextrose over KCMH max'));
-    ok('dextrose-ceiling alert: "(glucose 13 mg/kg/min)"', !!dexAlert && dexAlert.includes('(glucose 13 mg/kg/min)'), dexAlert);
-    // 18 g/kg/d, the ceiling until 2026-10-27, is 12.5 mg/kg/min: one decimal, not a rounded 13 (third reader).
-    plant({ MAX_DEXTROSE_G_KG: 18 });
+    order({ dex: 15, aa: 2 });
+    const girLines = alertTexts().filter(t => t.includes('GIR critically high'));
+    const dexAlert = girLines[0];
+    ok('dextrose over its max alone raises one "GIR critically high" line', girLines.length === 1, alertTexts());
+    ok('…which reads "(glucose 10 mg/kg/min)"', !!dexAlert && dexAlert.includes('(glucose 10 mg/kg/min)'), dexAlert);
+    // 14 g/kg/d is 9.7 mg/kg/min: one decimal, not a rounded 10 (third reader).
+    plant({ MAX_DEXTROSE_G_KG: 14 });
     mountPatient('Central');
-    order({ dex: 20, aa: 2 });
-    const dex18 = alertTexts().find(t => t.includes('Dextrose over KCMH max'));
-    ok('a planted 18 g/kg/d reads "(glucose 12.5 mg/kg/min)"', !!dex18 && dex18.includes('(glucose 12.5 mg/kg/min)'), dex18);
+    order({ dex: 15, aa: 2 });
+    const dex14 = alertTexts().find(t => t.includes('GIR critically high'));
+    ok('a planted 14 g/kg/d reads "(glucose 9.7 mg/kg/min)"', !!dex14 && dex14.includes('(glucose 9.7 mg/kg/min)'), dex14);
   });
 
   await section('§2 osmolarity: printed route line and quick calc Copy follow OSM_PERIPHERAL_MAX', async () => {
@@ -281,8 +284,9 @@ const printText = () => text(__printFormTicked(container));
     ok('IV 19.9 still reads "kcal/g AA < 20"', alertTexts().join(' | ').includes('NPE:AA IV 19.9 kcal/g AA < 20'), alertTexts());
     ok('heparin hint still reads "Normal 0.5–1 U/mL"', text(container).includes('Normal 0.5–1 U/mL'), (text(container).match(/Normal 0\.5–[^·]*/) || [])[0]);
     order({ dex: 20, aa: 2 });
-    const dex = alertTexts().find(t => t.includes('Dextrose over KCMH max'));
-    ok('17.3 g/kg/d still reads "(glucose 12 mg/kg/min)"', !!dex && dex.includes('(glucose 12 mg/kg/min)'), dex);
+    const gir = alertTexts().filter(t => t.includes('GIR critically high'));
+    ok('D20 raises one red glucose line, not two', gir.length === 1 && !alertTexts().some(t => t.includes('Dextrose over KCMH max')), alertTexts());
+    ok('…naming the 17.3 g/kg/d max', !!gir[0] && gir[0].includes('max 17.3 g/kg/d'), gir[0]);
   });
 
   await section('§7 lipid "Infuse over" follows PUMP_MAX_HOURS', async () => {

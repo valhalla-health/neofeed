@@ -2329,7 +2329,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const alerts = [];
   if (tpnWtOutOfRange) alerts.push({ level: "crit", title: "TPN calc. weight out of range", body: `${fmt(wtG, 0)} g — NeoFeed takes ${tpnWtLo}–${tpnWtHi} g, so this order cannot be saved. Check the digits.`, ref: "Pp, 2026-10-08" });
   else if (tpnWtFar) alerts.push({ level: "crit", title: "TPN calc. weight far from automatic", body: `${fmt(wtG, 0)} g typed, automatic ${fmt(autoWtG, 0)} g (${wtG > autoWtG ? "+" : "−"}${fmt(tpnWtDiff * 100, 0)} %, more than ${fmt(D.TPN_WT_MANUAL_MAX_DIFF * 100, 0)} %). Every dose and mL on this order is computed from ${fmt(wtG, 0)} g — check the digits.`, ref: "Pp, 2026-10-08" });
-  if (calc.totalTPN_mL > 0 && sGir === "crit") alerts.push({ level: "crit", title: "GIR critically high", body: `${vsLimit(calc.gir, D.GIR_HARD_HI, 1)} mg/kg/min — above ${D.GIR_HARD_HI}; lower dextrose %.`, ref: "ESPGHAN 2018" });else
+  // GIR and dextrose g/kg/d are one figure in two units (g/kg/d = GIR × 1.44),
+  // so one red line carries both (Pp, 2026-11-14). Until then a second line,
+  // "Dextrose over KCMH max", fired on every order above 17.3 g/kg/d, which is
+  // GIR 12.01 and already GIR-critical. It still raises this line on its own
+  // should the two constants ever part. A reason saved under the old title
+  // still prints: the check only looks for current titles missing from it.
+  const dexOverMax = calc.dexGPerKg > D.MAX_DEXTROSE_G_KG;
+  if (calc.totalTPN_mL > 0 && (sGir === "crit" || dexOverMax)) alerts.push({ level: "crit", title: "GIR critically high",
+    body: sGir === "crit"
+      ? `${vsLimit(calc.gir, D.GIR_HARD_HI, 1)} mg/kg/min — above ${D.GIR_HARD_HI} (dextrose ${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d, max ${D.MAX_DEXTROSE_G_KG} g/kg/d). Lower dextrose % or bag volume.`
+      : `Dextrose ${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — above the ${D.MAX_DEXTROSE_G_KG} g/kg/d max (glucose ${fmt(D.MAX_DEXTROSE_G_KG / D.girToGPerKg(1), 1)} mg/kg/min); GIR ${fmt(calc.gir, 2)} mg/kg/min. Lower dextrose % or bag volume.`,
+    ref: "ESPGHAN 2018 (Mesotten R 5.4)" });else
   if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });
   // Titles are unchanged from the total-based alerts they replace: a saved
   // critOverride lists titles, and print checks the current ones against it.
@@ -2453,10 +2464,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if ((calc.totalTPN_mL > 0 || (noTpnOn && !noTpnEnLow && !noTpnPlanLow)) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   // The TPN pump runs 24 h with no volume limit, so a rate rounded up gives more (Q21).
   if (tpnOver) alerts.push({ level: "info", title: "TPN rate gives more than ordered", body: `${fmt(tpnPump.rate, 1)} mL/hr for 24 h gives ${fmt(tpnOver.givenMl, 1)} mL, ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct} %) more than the ${fmt(totalTPN_mL, 1)} mL ordered, from the bag's dead space. Glucose and every additive run ${tpnOver.pct} % above the figures shown.`, ref: "Pp, 2026-11-10" });
-  // ── KCMH worksheet hard ceilings (F9, G25) + compoundability ──────────────
-  // The title is unchanged so a saved critOverride still names it; the limit
-  // is ESPGHAN's 17.3 g/kg/d since 2026-10-27, no longer the sheet's 18.
-  if (calc.dexGPerKg > D.MAX_DEXTROSE_G_KG) alerts.push({ level: "crit", title: "Dextrose over KCMH max", body: `${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — limit ${D.MAX_DEXTROSE_G_KG} g/kg/d (glucose ${fmt(D.MAX_DEXTROSE_G_KG / D.girToGPerKg(1), 1)} mg/kg/min). Lower dextrose % or bag volume.`, ref: "ESPGHAN 2018 (Mesotten R 5.4)" });
+  // ── KCMH worksheet hard ceilings (G25) + compoundability ──────────────────
+  // The dextrose ceiling (F9) is part of "GIR critically high" above since
+  // 2026-11-14 (Pp): the same limit in g/kg/d.
   // By route since 2026-09-28 (D.K_BAG_MEQ_PER_L — TPN team and Praew): above
   // `hardMax` the order cannot be saved (kOverMax); above `red` it is critical,
   // so it is ordered only with a confirmed reason; above `warn` is a caution.

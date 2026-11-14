@@ -260,7 +260,7 @@ listed by name in §1 but not tabulated — they take props and draw them.
 |---|---|---|---|
 | `calc` (memo) | Full wizard state + weight, dol, route | Derives the whole prescription: total fluid, dextrose g/kg/d and GIR, amino acid and lipid g/kg/d, kcal and NPE:AA ratio, Na/K/Ca/P/Mg per kg, Ca:P mass ratio, osmolarity, bag component volumes, WFI q.s., overfill factor and delivered fraction | One object of derived clinical values, consumed by the tiles, the alerts and the Daily_Log row |
 | `mineral` (memo) | `calc` + oral supplement inputs | Breaks Ca and PO₄ down by source (TPN / EN / oral) and totals them. `mineral.ivCaP` is defined to equal `calc.caP` so the two cannot drift | Mineral memo object |
-| `alerts` (array) | `calc`, `mineral`, `D.TARGETS` | Threshold comparisons producing info / warn / crit flags: GIR out of range, NPE:AA off target, Ca:P off target, osmolarity above peripheral limit, dextrose above the KCMH maximum, K⁺ concentration above the bag maximum, bag not compoundable (negative WFI) | Ordered alert list with level, title, body and reference |
+| `alerts` (array) | `calc`, `mineral`, `D.TARGETS` | Threshold comparisons producing info / warn / crit flags: GIR out of range (dextrose above its g/kg/d maximum raises the same line), NPE:AA off target, Ca:P off target, osmolarity above peripheral limit, K⁺ concentration above the bag maximum, bag not compoundable (negative WFI) | Ordered alert list with level, title, body and reference |
 
 > **Ca/PO₄ split.** `calc.caKg` / `calc.pKg` — and therefore the `ca` / `p`
 > columns in every Daily_Log row — count **TPN + EN only**. Oral supplement
