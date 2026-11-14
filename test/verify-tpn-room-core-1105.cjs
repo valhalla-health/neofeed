@@ -186,7 +186,9 @@ section('§6 the page ships no dose code');
   ok('…and its STICKER_SCHEMA_VERSION', vers.includes(`stickerSchema: ${data.STICKER_SCHEMA_VERSION}`));
   ok('no dangerouslySetInnerHTML or innerHTML: every string is text', !/dangerouslySetInnerHTML|innerHTML/.test(R('tpn-room.jsx')));
   ok('its own session key, never neofeed_session', /neofeed_tpn_room_session/.test(R('tpn-room.jsx')) && !/["']neofeed_session["']/.test(R('tpn-room.jsx')));
-  ok('no Google sign-in script on a page that holds names', !/accounts\.google\.com|gsi\/client/.test(html + R('tpn-room.jsx')));
+  // Google sign-in is a redirect (Pp, 2026-11-14): the page may name Google's auth URL,
+  // but never loads Google's script or adds a <script> of its own.
+  ok('no Google sign-in script on a page that holds names', !/accounts\.google\.com/.test(html) && !/gsi\/client|createElement\(\s*["']script/.test(R('tpn-room.jsx')));
   ok('no timer reads orders: the only setInterval is the idle sign-out', (R('tpn-room.jsx').match(/setInterval/g) || []).length === 1);
 }
 
