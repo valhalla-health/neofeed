@@ -1767,11 +1767,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const email = user && user.email;
     if (!GAS_ON || !email || testOwnerRef.current === email) return;
     testOwnerRef.current = email;
+    // Replaces, never adds to, the test patients on screen: whatever another
+    // account left in state goes, remount or not (Vera, 2026-11-14).
     const st = loadTestStore(email);
-    if (!st.patients.length) return;
+    const notTest = (map) => Object.fromEntries(Object.entries(map || {}).filter(([k]) => !D_A.isTestSession(k)));
     setPatients(prev => [...prev.filter(p => !D_A.isTestSession(p.sessionId)), ...st.patients]);
-    setLog(prev => ({ ...prev, ...st.log }));
-    setNursing(prev => ({ ...prev, ...st.nursing }));
+    setLog(prev => ({ ...notTest(prev), ...st.log }));
+    setNursing(prev => ({ ...notTest(prev), ...st.nursing }));
   }, [user && user.email]);
 
   // NF-02's weekly counts for the Admin page: a read, so not a writeGAS, and

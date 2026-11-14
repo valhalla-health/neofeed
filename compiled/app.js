@@ -1087,10 +1087,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (!GAS_ON || !email || testOwnerRef.current === email) return;
     testOwnerRef.current = email;
     const st = loadTestStore(email);
-    if (!st.patients.length) return;
+    const notTest = (map) => Object.fromEntries(Object.entries(map || {}).filter(([k]) => !D_A.isTestSession(k)));
     setPatients((prev) => [...prev.filter((p) => !D_A.isTestSession(p.sessionId)), ...st.patients]);
-    setLog((prev) => ({ ...prev, ...st.log }));
-    setNursing((prev) => ({ ...prev, ...st.nursing }));
+    setLog((prev) => ({ ...notTest(prev), ...st.log }));
+    setNursing((prev) => ({ ...notTest(prev), ...st.nursing }));
   }, [user && user.email]);
   const loadUsage = React.useCallback(() => gasPost({ action: "getUsageWeekly" }, { quiet: true }), [gasPost]);
   const blockedByUnknownWrite = (quiet = false) => {
