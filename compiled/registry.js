@@ -100,8 +100,7 @@ function TestTag({ p }) {
   );
 }
 function WardTile({ label, sub, list, log, today, onPick }) {
-  const logged = list.filter((p) => D_R.hasLogOnDate(log[p.sessionId], today)).length;
-  const needs = list.length - logged;
+  const needs = list.filter((p) => D_R.needsEntryOn(log[p.sessionId], today)).length;
   return /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -148,7 +147,9 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
 }
 function NoTpnTag({ p, entries }) {
   if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
-  return /* @__PURE__ */ React.createElement("span", { className: "log-badge is-no-tpn", title: "ใบสั่งล่าสุดไม่มี TPN" }, "No TPN");
+  const due = D_R.noTpnEntryDueOn(entries);
+  const dueText = due ? ` · ลงนมใหม่ ${due.slice(8, 10)}/${due.slice(5, 7)}` : "";
+  return /* @__PURE__ */ React.createElement("span", { className: "log-badge is-no-tpn", title: `ใบสั่งล่าสุดไม่มี TPN${dueText}` }, "No TPN");
 }
 const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {
@@ -232,7 +233,8 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
   const wardName = ward === "other" ? "ทดสอบระบบ" : ward;
   const active = patients.filter((p) => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active.map((p) => ({ p, orders: todaysOrders(log[p.sessionId], today) })).filter((r) => r.orders.length > 0);
-  const waiting = active.length - rows.length;
+  const waiting = active.filter((p) => D_R.needsEntryOn(log[p.sessionId], today)).length;
+  const notDue = active.length - rows.length - waiting;
   const printable = rows.flatMap(({ p }) => {
     const order = wardPrintableOrder(p, log[p.sessionId], ward, today);
     return order ? [{
@@ -324,7 +326,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         !pending && !noTpn && /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: one ? "#fff" : void 0 })
       )
     ));
-  }), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`), waiting > 0 && /* @__PURE__ */ React.createElement("div", { className: "print-waiting" }, /* @__PURE__ */ React.createElement("span", null, "ยังไม่ Submit ", /* @__PURE__ */ React.createElement("span", { className: "num" }, waiting), " ราย — ไม่อยู่ในรายการพิมพ์"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: onShowNeeds }, "ดูรายชื่อ Needs entry →"))));
+  }), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`), (waiting > 0 || notDue > 0) && /* @__PURE__ */ React.createElement("div", { className: "print-waiting" }, /* @__PURE__ */ React.createElement("span", null, waiting > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, "ยังไม่ Submit ", /* @__PURE__ */ React.createElement("span", { className: "num" }, waiting), " ราย — ไม่อยู่ในรายการพิมพ์"), waiting > 0 && notDue > 0 && " · ", notDue > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, "No TPN ยังไม่ถึงวันลงนม ", /* @__PURE__ */ React.createElement("span", { className: "num" }, notDue), " ราย")), waiting > 0 && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: onShowNeeds }, "ดูรายชื่อ Needs entry →"))));
 }
 function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
   return /* @__PURE__ */ React.createElement("div", { className: "search-miss" }, /* @__PURE__ */ React.createElement("div", null, "ไม่พบ “", query, "” ใน ", wardName), elsewhere.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 } }, elsewhere.map((x) => /* @__PURE__ */ React.createElement("button", { key: x.ward, type: "button", className: "btn sm", onClick: () => onWardChange?.(x.ward) }, "พบใน ", x.ward === "other" ? "ทดสอบระบบ" : x.ward, " ", x.n, " ราย · ไปดู →"))));
@@ -409,8 +411,14 @@ function PatientRegistry({
   const loggedSet = new Set(
     wardPatients.filter((p) => isActivePatient(p) && D_R.hasLogOnDate(log[p.sessionId], today)).map((p) => p.sessionId)
   );
-  const shownActive = statFilter === "logged" ? activeSorted.filter((p) => loggedSet.has(p.sessionId)) : statFilter === "needs" ? activeSorted.filter((p) => !loggedSet.has(p.sessionId)) : activeSorted;
-  const STAT_FILTER_LABEL = { logged: "Logged today", needs: "Needs entry" };
+  const needsSet = new Set(
+    wardPatients.filter((p) => isActivePatient(p) && D_R.needsEntryOn(log[p.sessionId], today)).map((p) => p.sessionId)
+  );
+  const draftSet = new Set(
+    wardPatients.filter((p) => isActivePatient(p) && !loggedSet.has(p.sessionId) && D_R.hasDraftOnDate(log[p.sessionId], today)).map((p) => p.sessionId)
+  );
+  const shownActive = statFilter === "logged" ? activeSorted.filter((p) => loggedSet.has(p.sessionId)) : statFilter === "needs" ? activeSorted.filter((p) => needsSet.has(p.sessionId)) : statFilter === "draft" ? activeSorted.filter((p) => draftSet.has(p.sessionId)) : activeSorted;
+  const STAT_FILTER_LABEL = { logged: "Logged today", needs: "Needs entry", draft: "Draft" };
   const ARCHIVE_VISIBLE_DAYS = 7;
   const daysSinceStatus = (p) => {
     if (!p.statusDate) return Infinity;
@@ -424,7 +432,8 @@ function PatientRegistry({
   const activePatients = wardPatients.filter(isActivePatient);
   const totalActive = activePatients.length;
   const loggedToday = loggedSet.size;
-  const needsLog = totalActive - loggedToday;
+  const needsLog = needsSet.size;
+  const draftCount = draftSet.size;
   const elsewhere = q && activeSorted.length === 0 ? ["NICU", "SCN", "other"].filter((w) => w !== ward).map((w) => ({
     ward: w,
     n: D_R.searchPatients(patients.filter((p) => D_R.patientWard(p) === w && isActivePatient(p)), q).hits.length
@@ -444,17 +453,6 @@ function PatientRegistry({
     },
     /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, totalActive),
     /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Active")
-  ), /* @__PURE__ */ React.createElement("div", { className: "reg-stat" }, /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, wardPatients.length), /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Total sessions")), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      type: "button",
-      className: `reg-stat ${loggedToday === totalActive && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}${statFilter === "logged" ? " is-on" : ""}`,
-      "aria-pressed": statFilter === "logged",
-      onClick: () => setStatFilter((f) => f === "logged" ? null : "logged")
-    },
-    /* @__PURE__ */ React.createElement(RegStatMark, { tone: loggedToday === totalActive && totalActive > 0 ? "ok" : loggedToday > 0 ? "warn" : "crit" }),
-    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, loggedToday),
-    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Logged today")
   ), /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -466,6 +464,28 @@ function PatientRegistry({
     /* @__PURE__ */ React.createElement(RegStatMark, { tone: needsLog === 0 ? null : needsLog <= 1 ? "warn" : "crit" }),
     /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, needsLog),
     /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Needs entry")
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: `reg-stat ${draftCount > 0 ? "s-warn" : ""}${statFilter === "draft" ? " is-on" : ""}`,
+      "aria-pressed": statFilter === "draft",
+      onClick: () => setStatFilter((f) => f === "draft" ? null : "draft")
+    },
+    /* @__PURE__ */ React.createElement(RegStatMark, { tone: draftCount > 0 ? "warn" : null }),
+    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, draftCount),
+    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Draft")
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: `reg-stat ${needsLog === 0 && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}${statFilter === "logged" ? " is-on" : ""}`,
+      "aria-pressed": statFilter === "logged",
+      onClick: () => setStatFilter((f) => f === "logged" ? null : "logged")
+    },
+    /* @__PURE__ */ React.createElement(RegStatMark, { tone: needsLog === 0 && totalActive > 0 ? "ok" : loggedToday > 0 ? "warn" : "crit" }),
+    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-val" }, loggedToday),
+    /* @__PURE__ */ React.createElement("span", { className: "reg-stat-lbl" }, "Logged today")
   )), /* @__PURE__ */ React.createElement("div", { className: "reg-filter" }, /* @__PURE__ */ React.createElement("div", { className: "reg-search" }, /* @__PURE__ */ React.createElement("div", { className: "s-ico" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 14 })), /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -498,7 +518,8 @@ function PatientRegistry({
     const entries = D_R.finalEntries(log[p.sessionId]);
     const lastEntry = entries[entries.length - 1];
     const hasToday = loggedSet.has(p.sessionId);
-    const draftToday = !hasToday && D_R.hasDraftOnDate(log[p.sessionId], today);
+    const draftToday = draftSet.has(p.sessionId);
+    const needsToday = needsSet.has(p.sessionId);
     return /* @__PURE__ */ React.createElement(
       "div",
       {
@@ -510,7 +531,7 @@ function PatientRegistry({
       /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pmc-dol" }, "DOL ", dol)), /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus })),
       /* @__PURE__ */ React.createElement("div", { className: "pmc-row" }, /* @__PURE__ */ React.createElement(BedChipButton, { p, onOpen: openTransfer }), /* @__PURE__ */ React.createElement("span", { className: "pmc-meta" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, D_R.fmtGA(p.ga)), " wk ·", " ", /* @__PURE__ */ React.createElement("span", { className: "num" }, p.bw.toLocaleString()), " g")),
       p.diagnosis && /* @__PURE__ */ React.createElement("div", { className: "pmc-diagnosis" }, p.diagnosis),
-      /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-stats" }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { className: "pmc-lbl" }, "Wt"), /* @__PURE__ */ React.createElement("span", { className: "num" }, last?.w?.toLocaleString() || "—"), " g"), /* @__PURE__ */ React.createElement("span", { style: { color: last ? deltaColor : "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-lbl" }, "Δ"), last ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "num" }, delta >= 0 ? "+" : "", delta), " g (", D_R.displayNum(deltaPct, 1), "%)") : /* @__PURE__ */ React.createElement("span", { className: "num" }, "—")), /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-stats" }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { className: "pmc-lbl" }, "Wt"), /* @__PURE__ */ React.createElement("span", { className: "num" }, last?.w?.toLocaleString() || "—"), " g"), /* @__PURE__ */ React.createElement("span", { style: { color: last ? deltaColor : "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-lbl" }, "Δ"), last ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "num" }, delta >= 0 ? "+" : "", delta), " g (", D_R.displayNum(deltaPct, 1), "%)") : /* @__PURE__ */ React.createElement("span", { className: "num" }, "—")), (hasToday || draftToday || needsToday) && /* @__PURE__ */ React.createElement(
         "span",
         {
           className: "log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : ""),
@@ -580,7 +601,8 @@ function PatientRegistry({
     const entries = D_R.finalEntries(log[p.sessionId]);
     const lastEntry = entries[entries.length - 1];
     const hasToday = loggedSet.has(p.sessionId);
-    const draftToday = !hasToday && D_R.hasDraftOnDate(log[p.sessionId], today);
+    const draftToday = draftSet.has(p.sessionId);
+    const needsToday = needsSet.has(p.sessionId);
     const isSelected = p.sessionId === activeId;
     return /* @__PURE__ */ React.createElement(
       "tr",
@@ -606,7 +628,7 @@ function PatientRegistry({
       /* @__PURE__ */ React.createElement("td", { className: "num", style: { fontWeight: 700, color: "var(--brand-2)", fontSize: 15 } }, dol),
       /* @__PURE__ */ React.createElement("td", { className: "num" }, last ? `${last.w.toLocaleString()} g` : "—"),
       /* @__PURE__ */ React.createElement("td", { className: "num", style: { color: !last ? "var(--ink-3)" : deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)", fontWeight: 600 } }, last ? /* @__PURE__ */ React.createElement(React.Fragment, null, delta >= 0 ? "+" : "", delta, " g", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 400, color: "var(--ink-3)", fontSize: 11, marginLeft: 3 } }, "(", D_R.displayNum(deltaPct, 1), "%)")) : "—"),
-      /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3 } }, /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3 } }, (hasToday || draftToday || needsToday) && /* @__PURE__ */ React.createElement(
         "span",
         {
           className: "log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : ""),

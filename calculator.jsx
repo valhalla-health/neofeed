@@ -2422,13 +2422,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // or the day's fluid requirement where that is lower (D.noTpnEnMinPerKg, on
   // the tier tFluid reads). Critical: Submit asks for a reason, which prints
   // (Pp chose it over a stop, so a day on IV fluid alone can still be ordered).
-  // Float noise stripped, as for K⁺, so 80 is not 79.99….
+  // Float noise stripped, as for K⁺, so 80 is not 79.99…. Its title is
+  // D.NO_TPN_FEEDS_LOW_TITLE: the ward list reads it off a Submitted order's
+  // critOverride and keeps that infant on daily entries (Pp, 2026-11-14).
   const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw);
   const enCountedPerKg = calc.wtKg > 0 ? calc.enCounted / calc.wtKg : 0;
   const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
   const noTpnEnBasis = noTpnEnMin < D.NO_TPN_EN_MIN_ML_KG
     ? `fluid requirement DOL ${dol} ${tFluid[0]}–${tFluid[1]} mL/kg/d` : `เกณฑ์ ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d`;
-  if (noTpnEnLow) alerts.push({ level: "crit", title: `No TPN: feeds below ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d or the day's minimum`,
+  if (noTpnEnLow) alerts.push({ level: "crit", title: D.NO_TPN_FEEDS_LOW_TITLE,
     body: `No TPN แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})`
       + `${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""}`
       + ` — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,

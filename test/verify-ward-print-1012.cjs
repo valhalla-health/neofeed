@@ -77,9 +77,9 @@ const scenarios = {
     await t.start();
     await t.pickWard('NICU');
     A.eq('1.0 NICU lists its five active infants', cardNames().sort(), ['AA', 'BB', 'CC', 'EE', 'FF']);
-    A.ok('1.1 Active, Logged today and Needs entry are buttons',
-      ['Active', 'Logged today', 'Needs entry'].every(l => statTile(l)?.tagName === 'BUTTON'));
-    A.ok('1.2 …Total sessions stays a plain figure', statTile('Total sessions')?.tagName === 'DIV');
+    A.ok('1.1 Active, Needs entry, Draft and Logged today are buttons',
+      ['Active', 'Needs entry', 'Draft', 'Logged today'].every(l => statTile(l)?.tagName === 'BUTTON'));
+    A.ok('1.2 …and Total sessions is no tile (Draft took its place, 2026-11-14)', !statTile('Total sessions'));
 
     await t.click(statTile('Needs entry'));
     A.eq('1.3 Needs entry: the draft and the un-logged only', cardNames(), ['BB', 'CC']);

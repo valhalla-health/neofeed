@@ -181,8 +181,9 @@ function TestTag({ p }) {
 }
 
 function WardTile({ label, sub, list, log, today, onPick }) {
-  const logged = list.filter(p => D_R.hasLogOnDate(log[p.sessionId], today)).length;
-  const needs  = list.length - logged;
+  // D.needsEntryOn, as the ward's own Needs entry tile: a No TPN infant is
+  // asked every 3 days (Pp, 2026-11-14), so this is not active − logged.
+  const needs  = list.filter(p => D_R.needsEntryOn(log[p.sessionId], today)).length;
   return (
     <button className="ward-tile" onClick={onPick}
       style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
@@ -255,10 +256,13 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
 
 // "No TPN" beside the today badge, on an infant still on the unit whose latest
 // Submitted order has no bag (nutrition team, 2026-10-28). The ward then sees
-// who is off PN without opening each infant.
+// who is off PN without opening each infant. Its title names the day the feeds
+// are asked for again (D.noTpnEntryDueOn, every 3 days; Pp, 2026-11-14).
 function NoTpnTag({ p, entries }) {
   if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
-  return <span className="log-badge is-no-tpn" title="ใบสั่งล่าสุดไม่มี TPN">No TPN</span>;
+  const due = D_R.noTpnEntryDueOn(entries);
+  const dueText = due ? ` · ลงนมใหม่ ${due.slice(8, 10)}/${due.slice(5, 7)}` : "";
+  return <span className="log-badge is-no-tpn" title={`ใบสั่งล่าสุดไม่มี TPN${dueText}`}>No TPN</span>;
 }
 
 // Today's submitted orders for one ward, for printing only (Pp, 2026-10-12:
@@ -444,7 +448,14 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
   const rows = active
     .map(p => ({ p, orders: todaysOrders(log[p.sessionId], today) }))
     .filter(r => r.orders.length > 0);
-  const waiting = active.length - rows.length;
+  // Those the ward's Needs entry list shows (D.needsEntryOn). A No TPN infant
+  // inside its 3 days, with no draft started today, is not listed and not
+  // waiting: nothing is due today.
+  const waiting = active.filter(p => D_R.needsEntryOn(log[p.sessionId], today)).length;
+  // The rest of those not listed: No TPN, nothing due until their 3 days are
+  // up. Named under the list so Submitted + waiting + these = the header's
+  // "จาก N ราย" (Vera, 2026-11-14).
+  const notDue = active.length - rows.length - waiting;
   // Print ทั้งหมด (Pp, 2026-10-28: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด"):
   // every row a tap would open straight to print, in the list's bed order.
   // App opens them one at a time, each as a tap on its row would (app.jsx
@@ -558,10 +569,14 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
           </div>
         )}
 
-        {waiting > 0 && (
+        {(waiting > 0 || notDue > 0) && (
           <div className="print-waiting">
-            <span>ยังไม่ Submit <span className="num">{waiting}</span> ราย — ไม่อยู่ในรายการพิมพ์</span>
-            <button type="button" className="btn sm" onClick={onShowNeeds}>ดูรายชื่อ Needs entry →</button>
+            <span>
+              {waiting > 0 && <>ยังไม่ Submit <span className="num">{waiting}</span> ราย — ไม่อยู่ในรายการพิมพ์</>}
+              {waiting > 0 && notDue > 0 && " · "}
+              {notDue > 0 && <>No TPN ยังไม่ถึงวันลงนม <span className="num">{notDue}</span> ราย</>}
+            </span>
+            {waiting > 0 && <button type="button" className="btn sm" onClick={onShowNeeds}>ดูรายชื่อ Needs entry →</button>}
           </div>
         )}
       </div>
@@ -677,12 +692,26 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
   const loggedSet = new Set(
     wardPatients.filter(p => isActivePatient(p) && D_R.hasLogOnDate(log[p.sessionId], today)).map(p => p.sessionId)
   );
+  // Who the ward is asked for an entry today: nothing Submitted today, and not
+  // a No TPN infant inside its 3 days unless a draft was started today or its
+  // order carries the feeds-below critical (D.needsEntryOn; Pp, 2026-11-14).
+  // The Needs entry tile, its list and the NEEDS ENTRY badge read this one set.
+  const needsSet = new Set(
+    wardPatients.filter(p => isActivePatient(p) && D_R.needsEntryOn(log[p.sessionId], today)).map(p => p.sessionId)
+  );
+  // A draft today and no Submitted order today: the Draft tile, its list and
+  // the DRAFT badge (Pp, 2026-11-14: the tile replaces Total sessions).
+  const draftSet = new Set(
+    wardPatients.filter(p => isActivePatient(p) && !loggedSet.has(p.sessionId)
+      && D_R.hasDraftOnDate(log[p.sessionId], today)).map(p => p.sessionId)
+  );
   // The list as the tiles narrow it. The search applies first, then the tile:
   // "Needs entry" with "สม" typed is the infants matching สม who need an entry.
   const shownActive = statFilter === "logged" ? activeSorted.filter(p => loggedSet.has(p.sessionId))
-    : statFilter === "needs" ? activeSorted.filter(p => !loggedSet.has(p.sessionId))
+    : statFilter === "needs" ? activeSorted.filter(p => needsSet.has(p.sessionId))
+    : statFilter === "draft" ? activeSorted.filter(p => draftSet.has(p.sessionId))
     : activeSorted;
-  const STAT_FILTER_LABEL = { logged: "Logged today", needs: "Needs entry" };
+  const STAT_FILTER_LABEL = { logged: "Logged today", needs: "Needs entry", draft: "Draft" };
   // Discharged/Transferred/Expired patients drop off the registry 7 days
   // after their statusDate — the name shouldn't linger on the dashboard
   // once the case is old news.
@@ -707,8 +736,10 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
     !isActivePatient(p) && daysSinceStatus(p) <= ARCHIVE_VISIBLE_DAYS
   );
 
-  // Summary stats — all three counts are over the *same* set (active patients)
-  // so the strip always reconciles: logged + needs entry === active.
+  // Summary stats — every count is over the *same* set (active patients).
+  // Until 2026-11-14 logged + needs entry === active; since then a No TPN
+  // infant inside its 3 days is in neither, so logged + needs entry can be
+  // less than active, never more. Drafts are counted inside Needs entry too.
   // `hasLogOnDate` scans every entry rather than only the last one (a
   // back-filled past date is appended after today's, which used to make an
   // already-logged patient read as "needs entry") and normalizes `ts` first
@@ -716,7 +747,8 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
   const activePatients = wardPatients.filter(isActivePatient);
   const totalActive  = activePatients.length;
   const loggedToday  = loggedSet.size;
-  const needsLog     = totalActive - loggedToday;
+  const needsLog     = needsSet.size;
+  const draftCount   = draftSet.size;
 
   // Asked only when this ward has no active match: which other ward does.
   // Active infants only — this is "they moved", not the archive.
@@ -743,43 +775,51 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
         </button>
       </div>
 
-      {/* ── Stats strip ── Active, Logged today and Needs entry are buttons
-          that narrow the list below to their infants (Pp, 2026-10-12); a
-          second tap on the lit one, or a tap on Active, shows everyone again.
-          Total sessions stays a plain figure: it counts the discharged, who
-          are not on this list. */}
+      {/* ── Stats strip ── Active, Needs entry, Draft and Logged today are
+          buttons that narrow the list below to their infants (Pp, 2026-10-12);
+          a second tap on the lit one, or a tap on Active, shows everyone again.
+          Active sits next to Needs entry, on a phone too, where the strip
+          wraps two by two (Pp, 2026-11-14: "เอา active กับ needs entry อยู่
+          ติดกัน ... เพื่อให้กดเข้ามาดูง่าย"). Draft took the place of Total
+          sessions the same day ("total session คิดว่าไม่จำเป็น ให้เปลี่ยนเป็น
+          show draft แทน"); the line under the ward's name still counts the
+          sessions. */}
       <div className="reg-stats" role="group" aria-label="กรองรายชื่อ">
         <button type="button" className="reg-stat s-brand"
           aria-pressed={statFilter === null} onClick={() => setStatFilter(null)}>
           <span className="reg-stat-val">{totalActive}</span>
           <span className="reg-stat-lbl">Active</span>
         </button>
-        {/* Ward-scoped like the other three: a strip that mixed one ward's
-            active count with the whole unit's session count invited reading
-            the difference as "13 discharged" when most of it is the other
-            ward still on the unit. */}
-        <div className="reg-stat">
-          <span className="reg-stat-val">{wardPatients.length}</span>
-          <span className="reg-stat-lbl">Total sessions</span>
-        </div>
         {/* A stat that is off normal has a shape ahead of the number, as well as
             the colour the number is drawn in: the 3px side stripe that was the
             only thing separating these four is gone (Hallmark audit
             2026-10-11, C1). A stat that is fine has none (Pp, 2026-10-11). The
             label under each already names the count. */}
         <button type="button"
-          className={`reg-stat ${loggedToday === totalActive && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}${statFilter === "logged" ? " is-on" : ""}`}
-          aria-pressed={statFilter === "logged"} onClick={() => setStatFilter(f => f === "logged" ? null : "logged")}>
-          <RegStatMark tone={loggedToday === totalActive && totalActive > 0 ? "ok" : loggedToday > 0 ? "warn" : "crit"} />
-          <span className="reg-stat-val">{loggedToday}</span>
-          <span className="reg-stat-lbl">Logged today</span>
-        </button>
-        <button type="button"
           className={`reg-stat ${needsLog === 0 ? "" : needsLog <= 1 ? "s-warn" : "s-crit"}${statFilter === "needs" ? " is-on" : ""}`}
           aria-pressed={statFilter === "needs"} onClick={() => setStatFilter(f => f === "needs" ? null : "needs")}>
           <RegStatMark tone={needsLog === 0 ? null : needsLog <= 1 ? "warn" : "crit"} />
           <span className="reg-stat-val">{needsLog}</span>
           <span className="reg-stat-lbl">Needs entry</span>
+        </button>
+        {/* An unsubmitted draft is an order not yet in: amber, as its DRAFT
+            badge. None is normal, so no shape. */}
+        <button type="button"
+          className={`reg-stat ${draftCount > 0 ? "s-warn" : ""}${statFilter === "draft" ? " is-on" : ""}`}
+          aria-pressed={statFilter === "draft"} onClick={() => setStatFilter(f => f === "draft" ? null : "draft")}>
+          <RegStatMark tone={draftCount > 0 ? "warn" : null} />
+          <span className="reg-stat-val">{draftCount}</span>
+          <span className="reg-stat-lbl">Draft</span>
+        </button>
+        {/* Every order due today is in when nothing needs an entry: a No TPN
+            infant inside its 3 days has none due (D.needsEntryOn), so it is
+            not "all logged" that turns this green. */}
+        <button type="button"
+          className={`reg-stat ${needsLog === 0 && totalActive > 0 ? "s-ok" : loggedToday > 0 ? "s-warn" : "s-crit"}${statFilter === "logged" ? " is-on" : ""}`}
+          aria-pressed={statFilter === "logged"} onClick={() => setStatFilter(f => f === "logged" ? null : "logged")}>
+          <RegStatMark tone={needsLog === 0 && totalActive > 0 ? "ok" : loggedToday > 0 ? "warn" : "crit"} />
+          <span className="reg-stat-val">{loggedToday}</span>
+          <span className="reg-stat-lbl">Logged today</span>
         </button>
       </div>
 
@@ -854,7 +894,8 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
           const entries   = D_R.finalEntries(log[p.sessionId]);
           const lastEntry = entries[entries.length - 1];
           const hasToday  = loggedSet.has(p.sessionId);
-          const draftToday = !hasToday && D_R.hasDraftOnDate(log[p.sessionId], today);
+          const draftToday = draftSet.has(p.sessionId);
+          const needsToday = needsSet.has(p.sessionId);
 
           return (
             <div key={p.sessionId}
@@ -901,12 +942,16 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
                 </span>
                 {/* Today's entry, stated outright rather than as a quiet grey
                     hint — this is the one thing the round asks of the list. */}
+                {/* None for a No TPN infant inside its 3 days: nothing is due
+                    today, and its No TPN tag says when (Pp, 2026-11-14). */}
+                {(hasToday || draftToday || needsToday) && (
                 <span className={"log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : "")}
                       title={hasToday ? "บันทึกวันนี้แล้ว"
                         : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit"
                         : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"}>
                   {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                 </span>
+                )}
                 <NoTpnTag p={p} entries={log[p.sessionId]} />
               </div>
 
@@ -1046,7 +1091,8 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
               const entries  = D_R.finalEntries(log[p.sessionId]);
               const lastEntry = entries[entries.length - 1];
               const hasToday  = loggedSet.has(p.sessionId);
-              const draftToday = !hasToday && D_R.hasDraftOnDate(log[p.sessionId], today);
+              const draftToday = draftSet.has(p.sessionId);
+              const needsToday = needsSet.has(p.sessionId);
               const isSelected = p.sessionId === activeId;
 
               return (
@@ -1083,12 +1129,14 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
                     {/* Same today's-entry state as the mobile card — the table
                         computed it already but never showed it. */}
                     <div style={{ marginTop: 3 }}>
+                      {(hasToday || draftToday || needsToday) && (
                       <span className={"log-badge" + (hasToday ? " is-logged" : draftToday ? " is-draft" : "")}
                             title={hasToday ? "บันทึกวันนี้แล้ว"
                               : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit"
                               : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"}>
                         {hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"}
                       </span>
+                      )}
                       <NoTpnTag p={p} entries={log[p.sessionId]} />
                     </div>
                   </td>

@@ -3966,7 +3966,10 @@ function LoginScreen({ onLogin, notice = null }) {
 //   beds              D_A.BED_OPTIONS grouped by D_A.wardGroup (NICU 1–12 and
 //                     the iso rooms = 20, SCN 1–30 = 30)
 //   logged / draft    D_A.hasLogOnDate / D_A.hasDraftOnDate for today;
-//                     logged + needs entry = active, as on the ward tiles
+//   needs entry       D_A.needsEntryOn, as on the ward tiles: a No TPN infant
+//                     is asked every 3 days (Pp, 2026-11-14), so logged +
+//                     needs entry can be less than active; draft counts the
+//                     needs-entry infants with a draft today
 //   critical/caution  computeAlerts, one count per infant at its worst level,
 //                     and deliberately NOT net of acknowledgements: those are
 //                     per device, and one device's acks say nothing about the
@@ -3989,7 +3992,7 @@ function buildCensus(patients, log, today) {
     const entries = (log && log[p.sessionId]) || [];
     w.active++;
     if (D_A.hasLogOnDate(entries, today)) w.logged++;
-    else { w.needs++; if (D_A.hasDraftOnDate(entries, today)) w.draft++; }
+    else if (D_A.needsEntryOn(entries, today)) { w.needs++; if (D_A.hasDraftOnDate(entries, today)) w.draft++; }
     const alerts = computeAlerts(p, entries);
     if (alerts.some(a => a.level === "crit")) w.crit++;
     else if (alerts.some(a => a.level === "warn")) w.warn++;
@@ -4056,7 +4059,7 @@ function CensusWard({ w }) {
         <div className="census-bar" role="img" aria-label={`ครองเตียง ${pct}%`}><span style={{ width: `${pct}%` }} /></div>}
       <div className="census-stats">
         {stat("Active", w.active)}
-        {stat("Logged today", w.logged, w.active > 0 && w.logged === w.active ? "ok" : "")}
+        {stat("Logged today", w.logged, w.active > 0 && w.needs === 0 ? "ok" : "")}
         {stat("Needs entry", w.needs, w.needs ? "warn" : "", w.draft ? `draft ${w.draft}` : null)}
         {stat("รอเตียง", w.parked, w.parked ? "warn" : "")}
         {stat("Critical", w.crit, w.crit ? "crit" : "")}

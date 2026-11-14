@@ -43,9 +43,20 @@ clinical judgement. Everything else is engineering sequencing.
         5, under C below), saved with the order and printed ticked.
       - **"ไม่มี PN แล้ว"**: one button that fills an enteral-only order, and a TPN / no-TPN tag on the
         ward list. Full-feed infants are entered every 3 days or at each step-up. ⏳ **PR #206** builds the
-        button as Step 3's "No TPN" tick (it clears the bag and the order saves as `calcInput.noTpn`); a No
-        TPN order is never printed, and the ward's Print order list tags it "No TPN — ไม่ต้องพิมพ์". The
-        tag on the ward list itself: built 2026-11-08, a grey "No TPN" from the latest Submitted order.
+        button as Step 3's "No TPN" tick (it clears the bag and the order saves as `calcInput.noTpn`). A No
+        TPN order prints only a short sheet: for its oral orders, the day TPN stopped, or a same-day TPN
+        order it cancels (`D.orderPrints`, Pp 2026-11-01); otherwise the ward's Print order list tags it
+        "No TPN — ไม่ต้องพิมพ์". The tag on the ward list itself: built 2026-11-08, a grey "No TPN" from
+        the latest Submitted order. Every 3 days: built 2026-11-14 (`D.needsEntryOn`; an order Submitted
+        with the feeds-below critical is still entered every day).
+      - **Pp to decide · which No TPN short sheets survive.** Pp, 2026-11-14: "ถ้าไม่มี TPN ไม่ต้องมีอะไร
+        พิมพ์ที่ห้อง TPN เลย oral EN ทำเองที่วอร์ด". Read literally it drops all three short sheets above,
+        including "TPN stopped today", which is how pharmacy learns a same-day bag is cancelled (Vera,
+        2026-11-14). Ask which survive (oral orders, TPN stopped, cancels a same-day bag) before changing
+        `D.orderPrints`.
+      - **Pp to decide · a readmission inside the 3 days.** An infant readmitted under the same ID within
+        2 days of a No TPN order gets no NEEDS ENTRY until the 3 days are up: `D.needsEntryOn` reads the
+        log, not the admission (Vera, 2026-11-14). Rare; left as is until Pp says otherwise.
       - **The Dashboard counts pending TPN orders** (joins 19 · 27, the pharmacist view, under C below).
         `pharmacyOrders` already returns a date's counts (TPN-room stickers, PR A, not live).
         Pp, 2026-11-01: a No TPN order never counts as waiting for TPN, so pharmacy sees in real time how

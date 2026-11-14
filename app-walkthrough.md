@@ -670,7 +670,12 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    a tap narrows both layouts to that tile's infants (`statFilter`), a
    "แสดงเฉพาะ … · N จาก M ราย" line says so with its way back, the
    discharged section hides while narrowed, and `← เปลี่ยน ward` drops it.
-   The search applies first, then the tile. Total sessions stays a figure.
+   The search applies first, then the tile. Since 2026-11-14 the strip reads
+   Active, Needs entry, Draft, Logged today: Draft replaced Total sessions
+   (the session count is on the line under the ward's name), and Active sits
+   next to Needs entry on a phone too. Needs entry is `D.needsEntryOn`: an
+   infant whose latest Submitted order is No TPN is asked every 3 days, not
+   daily, so logged + needs entry can be less than active.
    **Each ward on the gate has a Print order button** under its tile
    (`WardGateCell` — a sibling, since the tile is itself a button). It opens
    `WardPrintList`: that ward's active infants whose order for today is
@@ -683,7 +688,8 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    checked }`) and never goes while a colleague holds the order. The list never
    decides what may print. A `tmp_` row is shown but not opened; two
    submitted orders on one day open the Dashboard to choose; those not yet
-   submitted are counted under the list, one tap from Needs entry. The
+   submitted are counted under the list, one tap from Needs entry, and since
+   2026-11-14 the No TPN infants not due yet are counted beside them. The
    print list's ward (`printWard`) lives in `app.jsx` so "← กลับไปรายการ Print
    order" returns to it; `goTo` and leaving the Calculator clear the request.
    **The phone's Back button steps back inside the app** (Pp, 2026-10-12;
