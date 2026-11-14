@@ -1,7 +1,9 @@
 # NeoFeed — Status
 
 > ⏳ **2026-11-14 — The TPN room's page lists orders by ward (NICU with its iso rooms, then SCN), each with its own Submit and draft counts; "ผู้ป่วยในหน่วย" is gone: PR #259, not merged.**
-> Frontend only, the TPN room's page alone; no figure or rule changes (`CHANGELOG.md` 2026-11-14 (5)).
+> Frontend only, the TPN room's page alone; no figure or rule changes (`CHANGELOG.md` 2026-11-14 (6)).
+>
+> ⏳ **2026-11-14 — The อื่นๆ tile becomes ทดสอบระบบ: a patient registered with no bed is a TEST patient kept in this browser, never sent to the backend; the server's no-bed records go read-only until given a bed; a test order never prints: PR #258, merged into `main` on Praew's instruction; release PR to follow.** Frontend only (`CHANGELOG.md` 2026-11-14 (5)).
 >
 > ⏳ **2026-11-14 — A No TPN infant is asked for an entry every 3 days (every day while its feeds are below the bar, or with a draft started today); the ward strip reads Active, Needs entry, Draft, Logged today: PR #256, merged into `main` on Praew's instruction; release PR to follow.** Frontend only; no dose or printed figure moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-14 to 2026-11-14 (4)). Two decisions wait for Pp in `BACKLOG.md`: which No TPN short sheets still print, and a readmission inside the 3 days.
 >
