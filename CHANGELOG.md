@@ -7,6 +7,13 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-14 (4) — Vera's review of (3): the open decisions go to BACKLOG
+
+`BACKLOG.md` (the "ไม่มี PN แล้ว" bullet). Vera: NO BLOCK, two findings. (3) recorded Pp's printing answer and the
+readmission gap only here. Both are now BACKLOG items for Pp to decide; the readmission gap is not closed on
+the author's word, as (3) said. The same bullet said "a No TPN order is never printed", which `D.orderPrints`
+contradicts since 2026-11-01; corrected, and the 3-day rule is marked built there.
+
 ## Session 2026-11-14 (3) — Pp's answers: feeds below the bar are entered every day
 
 `data.js` (`NO_TPN_FEEDS_LOW_TITLE`, `noTpnEntryDueOn`), `calculator.jsx` (the CR-NO-TPN-EN alert takes its title
