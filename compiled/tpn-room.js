@@ -4,6 +4,9 @@ const NameStore = window.TPNRoomStore;
 const VERSIONS = window.TPN_ROOM_VERSIONS || {};
 const GAS_URL = window.NEOFEED_GAS_URL || "";
 const SESSION_KEY = "neofeed_tpn_room_session";
+const NOTICE_KEY = "neofeed_tpn_room_notice";
+const GSI_SRC = "https://accounts.google.com/gsi/client";
+const GSI_LOAD_TIMEOUT_MS = 1e4;
 const IDLE_LOGOUT_MS = 30 * 60 * 1e3;
 const REQUEST_MS = 3e4;
 async function gas(body) {
@@ -43,21 +46,45 @@ function clearSession() {
   } catch (e) {
   }
 }
+function takeNotice() {
+  try {
+    const n = sessionStorage.getItem(NOTICE_KEY) || "";
+    sessionStorage.removeItem(NOTICE_KEY);
+    return n;
+  } catch (e) {
+    return "";
+  }
+}
+function leaveNotice(n) {
+  try {
+    if (n) sessionStorage.setItem(NOTICE_KEY, n);
+  } catch (e) {
+  }
+}
+const gsiLoaded = () => !!document.querySelector("script[data-tpn-gsi]");
+function loadGsi() {
+  let s = document.querySelector("script[data-tpn-gsi]");
+  if (!s) {
+    s = document.createElement("script");
+    s.src = GSI_SRC;
+    s.async = true;
+    s.setAttribute("data-tpn-gsi", "");
+    document.head.appendChild(s);
+  }
+  return s;
+}
 function SignIn({ onUser, notice }) {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!email.trim() || !password) {
-      setError("กรอก email และรหัสผ่าน");
-      return;
-    }
+  const [gsiFailed, setGsiFailed] = React.useState(false);
+  const btnRef = React.useRef(null);
+  const login = async (body) => {
     setBusy(true);
     setError("");
     try {
-      const r = await gas({ action: "login", email: email.trim(), password });
+      const r = await gas({ action: "login", ...body });
       if (r.status !== "ok") {
         setError(String(r.error || "เข้าสู่ระบบไม่สำเร็จ"));
         return;
@@ -68,14 +95,64 @@ function SignIn({ onUser, notice }) {
         setError("บัญชีนี้ไม่มีสิทธิ์ใช้หน้าห้อง TPN");
         return;
       }
-      onUser({ name: r.name, role: r.role, email: r.email, token: r.token, mustChangePassword: !!r.mustChangePassword });
+      onUser({ name: r.name, role: r.role, email: r.email, token: r.token, authMethod: r.authMethod === "google" ? "google" : "password", mustChangePassword: !!r.mustChangePassword });
     } catch (err) {
       setError(err.message);
     } finally {
       setBusy(false);
     }
   };
-  return /* @__PURE__ */ React.createElement("main", { className: "narrow" }, /* @__PURE__ */ React.createElement("h1", null, "ห้อง TPN"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, "NeoFeed สำหรับเภสัช ดู order และพิมพ์สติกเกอร์ แก้ข้อมูลใน NeoFeed จากหน้านี้ไม่ได้"), notice && /* @__PURE__ */ React.createElement("p", { className: "note", role: "status" }, notice), /* @__PURE__ */ React.createElement("form", { onSubmit: submit, className: "stack" }, /* @__PURE__ */ React.createElement("label", null, "Email", /* @__PURE__ */ React.createElement("input", { type: "email", autoComplete: "username", value: email, onChange: (e) => setEmail(e.target.value) })), /* @__PURE__ */ React.createElement("label", null, "รหัสผ่าน", /* @__PURE__ */ React.createElement("input", { type: "password", autoComplete: "current-password", value: password, onChange: (e) => setPassword(e.target.value) })), error && /* @__PURE__ */ React.createElement("p", { className: "bad", role: "alert" }, error), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "primary", disabled: busy }, busy ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ")), /* @__PURE__ */ React.createElement(Contacts, null));
+  const submit = (e) => {
+    e.preventDefault();
+    if (!email.trim() || !password) {
+      setError("กรอก email และรหัสผ่าน");
+      return;
+    }
+    login({ email: email.trim(), password });
+  };
+  React.useEffect(() => {
+    if (!window.NEOFEED_CLIENT_ID) return;
+    let gone = false;
+    const init = () => {
+      if (gone || !window.google?.accounts?.id || !btnRef.current) return;
+      setGsiFailed(false);
+      window.google.accounts.id.initialize({
+        client_id: window.NEOFEED_CLIENT_ID,
+        callback: (resp) => {
+          if (resp && resp.credential) login({ googleToken: resp.credential });
+        }
+      });
+      window.google.accounts.id.renderButton(btnRef.current, {
+        type: "standard",
+        shape: "pill",
+        theme: "outline",
+        text: "signin_with",
+        locale: "th",
+        size: "large",
+        width: 300
+      });
+    };
+    const fail = () => {
+      if (!gone && !window.google?.accounts?.id) setGsiFailed(true);
+    };
+    if (window.google?.accounts?.id) {
+      init();
+      return () => {
+        gone = true;
+      };
+    }
+    const s = loadGsi();
+    s.addEventListener("load", init);
+    s.addEventListener("error", fail);
+    const timer = setTimeout(fail, GSI_LOAD_TIMEOUT_MS);
+    return () => {
+      gone = true;
+      clearTimeout(timer);
+      s.removeEventListener("load", init);
+      s.removeEventListener("error", fail);
+    };
+  }, []);
+  return /* @__PURE__ */ React.createElement("main", { className: "narrow" }, /* @__PURE__ */ React.createElement("h1", null, "ห้อง TPN"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, "NeoFeed สำหรับเภสัช ดู order และพิมพ์สติกเกอร์ แก้ข้อมูลใน NeoFeed จากหน้านี้ไม่ได้"), notice && /* @__PURE__ */ React.createElement("p", { className: "note", role: "status" }, notice), /* @__PURE__ */ React.createElement("div", { className: "gsi", ref: btnRef, "aria-label": "เข้าสู่ระบบด้วย Google" }), gsiFailed && /* @__PURE__ */ React.createElement("p", { className: "muted" }, "โหลดปุ่ม Google ไม่สำเร็จ ใช้ email และรหัสผ่านด้านล่าง หรือตรวจเครือข่าย"), /* @__PURE__ */ React.createElement("p", { className: "or muted" }, "หรือใช้ email และรหัสผ่านของ NeoFeed"), /* @__PURE__ */ React.createElement("form", { onSubmit: submit, className: "stack" }, /* @__PURE__ */ React.createElement("label", null, "Email", /* @__PURE__ */ React.createElement("input", { type: "email", autoComplete: "username", value: email, onChange: (e) => setEmail(e.target.value) })), /* @__PURE__ */ React.createElement("label", null, "รหัสผ่าน", /* @__PURE__ */ React.createElement("input", { type: "password", autoComplete: "current-password", value: password, onChange: (e) => setPassword(e.target.value) })), error && /* @__PURE__ */ React.createElement("p", { className: "bad", role: "alert" }, error), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "primary", disabled: busy }, busy ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ")), /* @__PURE__ */ React.createElement(Contacts, null));
 }
 function ChangePassword({ user, forced, onDone, onCancel, onLogout }) {
   const [oldPwd, setOld] = React.useState("");
@@ -441,7 +518,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const count = file ? Object.keys(file.state.infants).length : 0;
   const backToDraft = reply && file ? Core.draftAfterPrint(orders, file.state.printLog, reply.date) : [];
   const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob } : null;
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "screen" }, /* @__PURE__ */ React.createElement("header", { className: "top" }, /* @__PURE__ */ React.createElement("h1", null, "ห้อง TPN"), /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("button", { onClick: onChangePassword }, "เปลี่ยนรหัสผ่าน"), /* @__PURE__ */ React.createElement("button", { onClick: onLogout }, "ออกจากระบบ"))), /* @__PURE__ */ React.createElement("p", { className: "status-line", role: "status" }, "ชื่อในไฟล์ ", count, " คน · ", file ? `ไฟล์เปิดอยู่ · โฟลเดอร์ ${file.folderName}` : "ไฟล์ชื่อยังไม่เปิด", " · เข้าระบบ ", who), !file && /* @__PURE__ */ React.createElement(NameFilePanel, { store, onOpen: setFile }), /* @__PURE__ */ React.createElement("section", { className: "controls" }, /* @__PURE__ */ React.createElement("label", { className: "inline" }, "วันที่", /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "screen" }, /* @__PURE__ */ React.createElement("header", { className: "top" }, /* @__PURE__ */ React.createElement("h1", null, "ห้อง TPN"), /* @__PURE__ */ React.createElement("div", { className: "row" }, user.authMethod !== "google" && /* @__PURE__ */ React.createElement("button", { onClick: onChangePassword }, "เปลี่ยนรหัสผ่าน"), /* @__PURE__ */ React.createElement("button", { onClick: onLogout }, "ออกจากระบบ"))), /* @__PURE__ */ React.createElement("p", { className: "status-line", role: "status" }, "ชื่อในไฟล์ ", count, " คน · ", file ? `ไฟล์เปิดอยู่ · โฟลเดอร์ ${file.folderName}` : "ไฟล์ชื่อยังไม่เปิด", " · เข้าระบบ ", who), !file && /* @__PURE__ */ React.createElement(NameFilePanel, { store, onOpen: setFile }), /* @__PURE__ */ React.createElement("section", { className: "controls" }, /* @__PURE__ */ React.createElement("label", { className: "inline" }, "วันที่", /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "date",
@@ -458,18 +535,21 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
 }
 function TpnRoomApp({ store }) {
   const [user, setUser] = React.useState(readSession);
-  const [notice, setNotice] = React.useState("");
+  const [notice, setNotice] = React.useState(takeNotice);
   const [changing, setChanging] = React.useState(false);
   const signIn = (u) => {
     writeSession(u);
+    if (gsiLoaded()) {
+      window.location.reload();
+      return;
+    }
     setUser(u);
     setNotice("");
   };
   const signOut = (why) => {
     clearSession();
-    setUser(null);
-    setChanging(false);
-    setNotice(why || "");
+    leaveNotice(why || "");
+    window.location.reload();
   };
   const logout = () => {
     if (user) gas({ action: "logout", token: user.token }).catch(() => {

@@ -224,7 +224,8 @@ if (JSON.stringify(order) !== JSON.stringify(want))
 
 // ── 4b · the TPN room's shells ──
 // Same rules as the ward shells: a token on every same-origin script and stylesheet,
-// no inline script, no third party, boot.js first. Nothing from Google on this page.
+// no inline script, no third party, boot.js first. Nothing from Google in the shell:
+// tpn-room.jsx adds Sign-In's script on the sign-in screen only.
 const roomAssets = [
   { src: 'boot.js', text: read('boot.js') },
   { src: 'compiled/tpn-room-version.js', text: compiled['tpn-room-version'] },

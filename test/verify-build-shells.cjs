@@ -182,7 +182,7 @@ console.log('\n── #8 the TPN room\'s two shells ──');
   const shellOf = (f) => lf(read(f)).replace(/<!--[\s\S]*?-->/g, '');
   const srcs = (html) => [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].map(m => ({ src: (m[1].match(/\bsrc="([^"]*)"/) || [])[1] || null, body: m[2] }));
   const room = srcs(shellOf('tpn-room.html'));
-  eq('8.1 tpn-room.html load order: no data.js, no Google', room.map(s => base(s.src || 'INLINE')),
+  eq('8.1 tpn-room.html load order: no data.js, no Google in the shell', room.map(s => base(s.src || 'INLINE')),
     ['boot.js', ...Object.keys(VENDOR), 'compiled/tpn-room-version.js', 'tpn-room-core.js', 'tpn-room-store.js', 'compiled/tpn-room.js']);
   const check = srcs(shellOf('tpn-room-check.html'));
   eq('8.2 tpn-room-check.html loads only boot.js and its own script', check.map(s => base(s.src || 'INLINE')), ['boot.js', 'tpn-room-check.js']);

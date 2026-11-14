@@ -126,7 +126,12 @@ const INIT = `
     const page = await open(ctxA);
     await page.getByRole('button', { name: 'เข้าสู่ระบบ' }).waitFor();
     ok('Sarabun is served with the page', (await page.evaluate(async () => { await document.fonts.ready; return [...document.fonts].filter((f) => f.family.includes('Sarabun')).length; })) >= 4);
-    ok('no Google or other third-party request', !requests.some((r) => !r.url.startsWith(url)));
+    // Sign-In's script, added by the sign-in screen (never by the shell), is the one
+    // third-party request; the route aborts it, so the password form must still work.
+    eq('the one third-party request is the Google Sign-In script', [...new Set(requests.filter((r) => !r.url.startsWith(url)).map((r) => r.url))], ['https://accounts.google.com/gsi/client']);
+    ok('…not in the shell', !/accounts\.google\.com/.test(await raw.text()));
+    await page.getByText('โหลดปุ่ม Google ไม่สำเร็จ', { exact: false }).waitFor();
+    ok('a blocked Google script says so and points to the password form', true);
     eq('nothing in sessionStorage before sign-in', await page.evaluate(() => sessionStorage.length), 0);
 
     section('§2 sign-in');
@@ -142,6 +147,7 @@ const INIT = `
     await page.getByRole('status').filter({ hasText: 'เข้าระบบ' }).waitFor();
     await row(page, 'AA-1').waitFor();
     eq('its own session key', await page.evaluate(() => Object.keys(sessionStorage)), ['neofeed_tpn_room_session']);
+    eq('the room reloaded after sign-in: no Google script on it, no request to Google', [await page.locator('script[data-tpn-gsi]').count(), requests.filter((r) => !r.url.startsWith(url)).length], [0, 0]);
     eq('one read of the orders on open', calls('pharmacyOrders').length, 1);
     eq('…for today', JSON.parse(calls('pharmacyOrders')[0].body).date, today);
     const counts = await text(page, '.counts');

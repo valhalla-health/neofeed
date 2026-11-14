@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-14 — The TPN room signs in with Google too
+
+`tpn-room.jsx`, `tpn-room.css`, `compiled/`, both TPN-room shells' tokens, `test/verify-tpn-room-page-1105.cjs`,
+`openspec/changes/tpn-room-stickers/` (design, tasks).
+
+- **Why.** Pp, on her admin gmail account, got "email หรือรหัสผ่านไม่ถูกต้อง" on the live page. A gmail or Chula
+  address signs in with Google and never gets a NeoFeed password (`_usesGoogleSignIn`), and the page had the
+  password form only. Backend's Path B answers a hash-less row like a wrong password on purpose (SEC-B8).
+- **What.** A Google button above the password form (Pp, 2026-11-14: Google plus password, so a pharmacy account
+  on a non-Google domain still signs in). Same role check (pharmacy or admin) on both. A Google session hides
+  "เปลี่ยนรหัสผ่าน".
+- **Google's script and the names.** The shell still loads nothing from Google. The sign-in screen adds
+  `accounts.google.com/gsi/client` itself; after a sign-in on a page that has it, the page reloads and the room
+  opens from the stored session on a page that never loaded it. A sign-out reloads too (its message rides one
+  load in `neofeed_tpn_room_notice`). So the script never runs while names are on the page or the name file is
+  open. It still runs on this origin at sign-in, where IndexedDB holds the device key and folder handle: the
+  residual risk is in design.md § Network.
+- **Not checked:** a real Google sign-in. It needs a real account and an origin on the OAuth client's list;
+  on dev local the button renders, and the harness covers the reload and the password path. Pp checks Google on
+  the Workers host after the release.
+
 ## Session 2026-11-12 (3) — The release comparison ticks the red alerts
 
 `tools/calc-compare.cjs`. Since #251 the sheet renders only once every red alert is ticked, so the
