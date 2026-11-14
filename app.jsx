@@ -94,11 +94,19 @@ const TEST_MOVE_MSG = "คนไข้ทดสอบย้ายเข้าเ
 const READ_ONLY_OTHER_MSG = "ผู้ป่วยรายนี้ยังไม่มีเตียงในระบบ บันทึกไม่ได้ ย้ายเข้าเตียงจริงก่อน";
 const onlyTestKeys = (map) => Object.fromEntries(
   Object.entries(map || {}).filter(([k]) => D_A.isTestSession(k)));
-function loadTestStore() {
+// The store belongs to the account that wrote it (Vera, 2026-11-14): a session
+// can end with no logout (expiry, a closed tab), so another account signing in
+// on the same PC deletes it rather than reading it.
+function loadTestStore(email) {
   const empty = { patients: [], log: {}, nursing: {} };
+  if (!email) return empty;
   try {
     const raw = JSON.parse(localStorage.getItem(D_A.TEST_STORE_KEY) || "null");
-    if (!raw || !Array.isArray(raw.patients)) return empty;
+    if (!raw) return empty;
+    if (raw.owner !== email || !Array.isArray(raw.patients)) {
+      localStorage.removeItem(D_A.TEST_STORE_KEY);
+      return empty;
+    }
     return {
       patients: raw.patients.filter(x => x && D_A.isTestSession(x.sessionId)),
       log: D_A.normalizeLogMap(onlyTestKeys(raw.log)),
@@ -106,13 +114,14 @@ function loadTestStore() {
     };
   } catch { return empty; }
 }
-function saveTestStore(patients, log, nursing) {
+function saveTestStore(email, patients, log, nursing) {
+  if (!email) return;
   try {
     const tests = patients.filter(x => D_A.isTestSession(x.sessionId));
     // No test patient, no key: nothing left behind for the next account.
     if (!tests.length) { localStorage.removeItem(D_A.TEST_STORE_KEY); return; }
     localStorage.setItem(D_A.TEST_STORE_KEY, JSON.stringify({
-      patients: tests,
+      owner: email, patients: tests,
       log: onlyTestKeys(log), nursing: onlyTestKeys(nursing) }));
   } catch { /* storage blocked or full: the test patients last this tab only */ }
 }
@@ -722,7 +731,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
 
   // Patient registry — empty until GAS sync completes (prevents mock patient identity confusion)
   // Read once, at mount: the test patients this browser holds (see loadTestStore).
-  const [testStore0] = React.useState(() => (GAS_ON ? loadTestStore() : null));
+  const [testStore0] = React.useState(() => (GAS_ON ? loadTestStore(user && user.email) : null));
   const [patients, setPatients] = React.useState(GAS_ON ? testStore0.patients : D_A.MOCK_PATIENTS);
   const [log, setLog] = React.useState(GAS_ON ? testStore0.log : D_A.MOCK_DAILY_LOG);
   // Nursing I/O records by sessionId (UX roadmap #4), and whether the backend
@@ -1745,8 +1754,21 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // Never after the session ended: a late render must not write back what
   // endSession just cleared.
   React.useEffect(() => {
-    if (GAS_ON && !endedRef.current) saveTestStore(patients, log, nursing);
+    if (GAS_ON && !endedRef.current) saveTestStore(user && user.email, patients, log, nursing);
   }, [patients, log, nursing]);
+  // A sign-in inside this mount (the login screen is part of App): load that
+  // account's test patients, or delete another account's.
+  const testOwnerRef = React.useRef(user && user.email);
+  React.useEffect(() => {
+    const email = user && user.email;
+    if (!GAS_ON || !email || testOwnerRef.current === email) return;
+    testOwnerRef.current = email;
+    const st = loadTestStore(email);
+    if (!st.patients.length) return;
+    setPatients(prev => [...prev.filter(p => !D_A.isTestSession(p.sessionId)), ...st.patients]);
+    setLog(prev => ({ ...prev, ...st.log }));
+    setNursing(prev => ({ ...prev, ...st.nursing }));
+  }, [user && user.email]);
 
   // NF-02's weekly counts for the Admin page: a read, so not a writeGAS, and
   // quiet, because the card shows its own state (UsageCard).

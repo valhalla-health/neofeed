@@ -123,7 +123,7 @@ const scenarios = {
     const t = boot();
     const restore = t.quiet();
     const tp = RB.mkPatient({ sessionId: 'TEST-NF-424242', name: 'ทด กลับ', currentBed: '' });
-    t.window.localStorage.setItem(STORE, JSON.stringify({ patients: [tp, { sessionId: 'NF-000999', name: 'แอบ ใส่' }], log: {}, nursing: {} }));
+    t.window.localStorage.setItem(STORE, JSON.stringify({ owner: RB.DOCTOR.email, patients: [tp, { sessionId: 'NF-000999', name: 'แอบ ใส่' }], log: {}, nursing: {} }));
     await t.start(); await t.settle();
     await t.pickWard('ทดสอบระบบ');
     A.ok('3.1 the stored test patient is back', /ทด กลับ/.test(t.text()));
@@ -138,7 +138,7 @@ const scenarios = {
     const t = boot();
     const restore = t.quiet();
     const tp = RB.mkPatient({ sessionId: 'TEST-NF-616161', name: 'ทด ออก', currentBed: '' });
-    t.window.localStorage.setItem(STORE, JSON.stringify({ patients: [tp], log: {}, nursing: {} }));
+    t.window.localStorage.setItem(STORE, JSON.stringify({ owner: RB.DOCTOR.email, patients: [tp], log: {}, nursing: {} }));
     await t.start(); await t.settle();
     await t.pickWard('ทดสอบระบบ');
     A.ok('3b.1 the test patient is on screen', /ทด ออก/.test(t.text()));
@@ -154,12 +154,51 @@ const scenarios = {
     const t = boot();
     const restore = t.quiet();
     const tp = RB.mkPatient({ sessionId: 'TEST-NF-626262', name: 'ทด หลับ', currentBed: '' });
-    t.window.localStorage.setItem(STORE, JSON.stringify({ patients: [tp], log: {}, nursing: {} }));
+    t.window.localStorage.setItem(STORE, JSON.stringify({ owner: RB.DOCTOR.email, patients: [tp], log: {}, nursing: {} }));
     await t.start(); await t.settle();
     t.clock.advance(31 * 60 * 1000);
     await t.tick(30000); await t.settle();
     A.ok('3c.1 the idle logout happened', !t.window.document.querySelector('.ward-gate'));
     A.eq('3c.2 the test store is gone', t.window.localStorage.getItem(STORE), null);
+    restore();
+  },
+
+  async 'other-account'(A) {
+    console.log('\n── § 3d another account\'s store is deleted, never read ──');
+    const t = boot();
+    const restore = t.quiet();
+    const tp = RB.mkPatient({ sessionId: 'TEST-NF-636363', name: 'ทด คนอื่น', currentBed: '' });
+    t.window.localStorage.setItem(STORE, JSON.stringify({ owner: 'someone@else.th', patients: [tp], log: {}, nursing: {} }));
+    await t.start(); await t.settle();
+    await t.pickWard('ทดสอบระบบ');
+    A.ok('3d.1 the other account\'s test patient is not shown', !/ทด คนอื่น/.test(t.text()));
+    A.eq('3d.2 …and its store is gone', t.window.localStorage.getItem(STORE), null);
+    restore();
+  },
+
+  async 'expired-then-other'(A) {
+    console.log('\n── § 3e a session that expires, then another account signs in ──');
+    const t = boot();
+    const restore = t.quiet();
+    const tp = RB.mkPatient({ sessionId: 'TEST-NF-646464', name: 'ทด หมดเวลา', currentBed: '' });
+    t.window.localStorage.setItem(STORE, JSON.stringify({ owner: RB.DOCTOR.email, patients: [tp], log: {}, nursing: {} }));
+    await t.start(); await t.settle();
+    await t.pickWard('ทดสอบระบบ');
+    A.ok('3e.1 the owner sees the test patient', /ทด หมดเวลา/.test(t.text()));
+    t.server.hooks.getActivePatients = () => ({ reply: { error: 'Unauthorized' } });
+    await t.click(t.syncButton()); await t.settle();
+    A.ok('3e.2 the session expired to the login screen', !!t.btn(/เข้าด้วย email อื่น/));
+    delete t.server.hooks.getActivePatients;
+    await t.click(t.btn(/เข้าด้วย email อื่น/));
+    const [em, pw] = t.window.document.querySelectorAll('.login-form-wrap input');
+    await t.typeInto(em, 'n@test.th');
+    await t.typeInto(pw, 'correct-horse-battery');
+    await t.act(async () => {
+      t.window.document.querySelector('.login-form-wrap form').dispatchEvent(new t.window.Event('submit', { bubbles: true, cancelable: true }));
+    });
+    await t.settle();
+    A.eq('3e.3 the nurse\'s sign-in deletes the doctor\'s store', t.window.localStorage.getItem(STORE), null);
+    A.ok('3e.4 …and the nurse never sees the test patient', !/ทด หมดเวลา/.test(t.text()));
     restore();
   },
 
@@ -197,7 +236,7 @@ const scenarios = {
     const t = boot();
     const restore = t.quiet();
     const tp = RB.mkPatient({ sessionId: 'TEST-NF-515151', name: 'ทด ย้าย', currentBed: '' });
-    t.window.localStorage.setItem(STORE, JSON.stringify({ patients: [tp], log: {}, nursing: {} }));
+    t.window.localStorage.setItem(STORE, JSON.stringify({ owner: RB.DOCTOR.email, patients: [tp], log: {}, nursing: {} }));
     await t.start(); await t.settle();
     await t.pickWard('ทดสอบระบบ');
     const b = t.moveBtn(/ทด ย้าย/);

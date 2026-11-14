@@ -66,11 +66,16 @@ const READ_ONLY_OTHER_MSG = "ผู้ป่วยรายนี้ยังไ
 const onlyTestKeys = (map) => Object.fromEntries(
   Object.entries(map || {}).filter(([k]) => D_A.isTestSession(k))
 );
-function loadTestStore() {
+function loadTestStore(email) {
   const empty = { patients: [], log: {}, nursing: {} };
+  if (!email) return empty;
   try {
     const raw = JSON.parse(localStorage.getItem(D_A.TEST_STORE_KEY) || "null");
-    if (!raw || !Array.isArray(raw.patients)) return empty;
+    if (!raw) return empty;
+    if (raw.owner !== email || !Array.isArray(raw.patients)) {
+      localStorage.removeItem(D_A.TEST_STORE_KEY);
+      return empty;
+    }
     return {
       patients: raw.patients.filter((x) => x && D_A.isTestSession(x.sessionId)),
       log: D_A.normalizeLogMap(onlyTestKeys(raw.log)),
@@ -80,7 +85,8 @@ function loadTestStore() {
     return empty;
   }
 }
-function saveTestStore(patients, log, nursing) {
+function saveTestStore(email, patients, log, nursing) {
+  if (!email) return;
   try {
     const tests = patients.filter((x) => D_A.isTestSession(x.sessionId));
     if (!tests.length) {
@@ -88,6 +94,7 @@ function saveTestStore(patients, log, nursing) {
       return;
     }
     localStorage.setItem(D_A.TEST_STORE_KEY, JSON.stringify({
+      owner: email,
       patients: tests,
       log: onlyTestKeys(log),
       nursing: onlyTestKeys(nursing)
@@ -418,7 +425,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const authName = user?.name || "";
   const userRef = React.useRef(user);
   userRef.current = user;
-  const [testStore0] = React.useState(() => GAS_ON ? loadTestStore() : null);
+  const [testStore0] = React.useState(() => GAS_ON ? loadTestStore(user && user.email) : null);
   const [patients, setPatients] = React.useState(GAS_ON ? testStore0.patients : D_A.MOCK_PATIENTS);
   const [log, setLog] = React.useState(GAS_ON ? testStore0.log : D_A.MOCK_DAILY_LOG);
   const [nursing, setNursing] = React.useState(GAS_ON ? testStore0.nursing : {});
@@ -1071,8 +1078,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return { ok: false, refused: true, error: READ_ONLY_OTHER_MSG };
   };
   React.useEffect(() => {
-    if (GAS_ON && !endedRef.current) saveTestStore(patients, log, nursing);
+    if (GAS_ON && !endedRef.current) saveTestStore(user && user.email, patients, log, nursing);
   }, [patients, log, nursing]);
+  const testOwnerRef = React.useRef(user && user.email);
+  React.useEffect(() => {
+    const email = user && user.email;
+    if (!GAS_ON || !email || testOwnerRef.current === email) return;
+    testOwnerRef.current = email;
+    const st = loadTestStore(email);
+    if (!st.patients.length) return;
+    setPatients((prev) => [...prev.filter((p) => !D_A.isTestSession(p.sessionId)), ...st.patients]);
+    setLog((prev) => ({ ...prev, ...st.log }));
+    setNursing((prev) => ({ ...prev, ...st.nursing }));
+  }, [user && user.email]);
   const loadUsage = React.useCallback(() => gasPost({ action: "getUsageWeekly" }, { quiet: true }), [gasPost]);
   const blockedByUnknownWrite = (quiet = false) => {
     if (!GAS_ON || !unknownWriteRef.current) return null;

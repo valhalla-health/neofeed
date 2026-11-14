@@ -24,7 +24,8 @@ bed default), `calculator.jsx` (one line on the printed form), `compiled/`, `tes
   starts with no bed and says what that means; from NICU it still pre-picks the next free bed.
 - **Logout clears it** (Vera's 🔴 on this PR). A chosen, idle or pharmacy logout removes
   `neofeed_test_ward_v1`, and an empty store leaves no key, so on a shared ward PC the next account never
-  sees a name typed into a test patient.
+  sees a name typed into a test patient. The store also names its owner: a session that ends with no logout
+  (expiry, a closed tab) leaves it, and the next sign-in by another account deletes it unread.
 - **Server records with no bed** still list under the tile. Nothing saves against them (orders, I/O,
   weights, edits), except a move to a real bed and Delete. Pp can also delete the rows in the sheet.
 - **Not done.** The backend does not refuse `TEST-` ids itself, so a hand-made POST could still write one;
