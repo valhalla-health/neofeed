@@ -116,7 +116,7 @@ Built 2026-11-05 on branch `claude/tpn-room-page`, ahead of 0.1 and 0.3 i on Pp'
       - Served by the Workers host only. On `*.github.io`, which every Pages site in the org shares, the page
         redirects before it touches any storage, as `boot.js` does; Pages sends no CSP.
       - Its own session key, never `neofeed_session`. Sign-in by email and password, and since 2026-11-14 by
-        Google too (design.md § Network: the script loads on the sign-in screen only, and the page reloads). A forced change-password screen on `mustChangePassword` that keeps the
+        Google too, by redirect: still no Google script on the page (design.md § Network). A forced change-password screen on `mustChangePassword` that keeps the
         rotated token: it applies to a pharmacy row typed into the Staff tab with a non-Google address,
         which the onEdit trigger gives a temporary password. A Google-domain address gets no password from
         the trigger and is never forced to change one: give it a password with

@@ -76,13 +76,13 @@ that moved a figure must reload first (Vera, 2026-11-05).
 
 - The page sends only the sign-in and `pharmacyOrders`. No code path puts a name or an AN in a request.
 - `tpn-room.html` gets the same `connect-src` NeoFeed's pages use (the backend URL by full path and
-  `script.googleusercontent.com`), and the shell loads no third-party script.
-- **Google Sign-In (Pp, 2026-11-14).** A gmail or Chula account has no NeoFeed password, so the sign-in
-  screen also offers Google. It adds `accounts.google.com/gsi/client` itself, on that screen only. A sign-in
-  on a page that loaded it reloads the page, and a sign-out always reloads, so the script never runs while
-  names are on the page or the name file is open. **Residual risk:** at sign-in it runs on this origin, where
-  IndexedDB holds the device key and the folder handle. It is Google's own script, the one the ward app
-  already runs beside every infant's name; the room adds no new party.
+  `script.googleusercontent.com`), and loads no third-party script.
+- **Google sign-in (Pp, 2026-11-14)** is a redirect to Google's OpenID Connect endpoint and back
+  (`response_type=id_token`, state and nonce checked on return, the fragment wiped before the first render).
+  A gmail or Chula account has no NeoFeed password, so the room needs it. Google's Sign-In script was tried
+  first and dropped: any script on this origin can reach the device key and the folder handle in IndexedDB,
+  names on screen or not (Vera, 2026-11-14). The redirect URI `https://neofeed.valhalla-health.workers.dev/tpn-room` must be
+  listed on the OAuth client.
 - A CI test maps a sentinel name and fails if any request URL, header or body contains it.
 - **Residual risk:** the page's code is downloaded from the host, so a malicious `release` could read the
   names, and CSP cannot stop it because the same host serves the CSP. The release gate (CI, Vera,
