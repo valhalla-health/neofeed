@@ -196,10 +196,22 @@ const pick = (w) => w && { capacity: w.capacity, occupied: w.occupied, active: w
        pick(W.other), { capacity: null, occupied: 0, active: 2, logged: 0, needs: 2, draft: 0, parked: 0, crit: 0, warn: 0 });
     eq('the unit: 50 beds, 6 held, 10 infants on the unit',
        pick(c.total), { capacity: 50, occupied: 6, active: 10, logged: 3, needs: 7, draft: 1, parked: 1, crit: 1, warn: 1 });
-    eq('logged + needs entry = active, ward by ward (the ward tiles\' rule)',
+    eq('logged + needs entry = active, ward by ward (no No TPN infant in this fixture)',
        [...c.wards, c.total].every(w => w.logged + w.needs === w.active), true);
     eq('…and the census agrees with the registry\'s own on-unit count',
        c.total.active, PATIENTS.filter(p => !p.status || p.status === 'Active').length);
+    // A No TPN infant is asked every 3 days (Pp, 2026-11-14; D.needsEntryOn),
+    // as on the ward tiles. Its own small fixture, so the counts above stay.
+    const nt = { calcInput: { noTpn: true, totalTPN_mL: 0 } };
+    const cz = global.buildCensus(
+      [rec('QXZA', { currentBed: 'NICU 7' }), rec('QXZB', { currentBed: 'NICU 8' }), rec('QXZC', { currentBed: 'NICU 9' })],
+      { 'QXZA-BW1000': [order({ ts: ago(1), ...nt })],                             // day 1 of 3: not asked
+        'QXZB-BW1000': [order({ ts: ago(3), ...nt })],                             // day 3: asked again
+        'QXZC-BW1000': [order({ ts: ago(2), ...nt }), order({ status: 'draft' })] }, // a draft inside the 3 days
+      TODAY);
+    const z = cz.wards.find(w => w.ward === 'NICU');
+    eq('No TPN: 3 infants, none logged; day 3 and the draft inside the 3 days need entry (draft 1)',
+       [z.active, z.logged, z.needs, z.draft], [3, 0, 2, 1]);
     eq('seven days of movement: 3 admitted (edge day 6 in, day 7 out), 1 discharged, 1 expired, the 10-day transfer out',
        c.movement, { admitted: 3, Discharged: 1, Transferred: 0, Expired: 1 });
     eq('two infants in SCN 5 are reported', c.doubleBooked, [{ bed: 'SCN 5', n: 2 }]);
@@ -263,6 +275,20 @@ const pick = (w) => w && { capacity: w.capacity, occupied: w.occupied, active: w
       patients: PATIENTS.filter(p => ['QXNA', 'QXSA'].includes(p.name)), log: LOG, lastSync: null }));
     ok('a clean census shows no flag box', !host.querySelector('.census-flags'));
     ok('…and no อื่นๆ card', !host.querySelector('.census-ward[data-ward="other"]'));
+    // The census's Logged today reads ok when nothing needs an entry, as on the
+    // ward strip: two No TPN infants inside their 3 days and one logged today
+    // (Vera, 2026-11-14). Under the old rule (logged === active) it stays plain.
+    const ntOrder = (days) => order({ ts: ago(days), calcInput: { noTpn: true, totalTPN_mL: 0 } });
+    await render(React.createElement(global.AdminDashboard, { lastSync: null,
+      patients: [rec('QXZA', { currentBed: 'NICU 7' }), rec('QXZB', { currentBed: 'NICU 8' }), rec('QXZD', { currentBed: 'NICU 9' })],
+      log: { 'QXZA-BW1000': [ntOrder(1)], 'QXZB-BW1000': [ntOrder(2)], 'QXZD-BW1000': [order({})] } }));
+    const nicu = document.querySelector('#probe .census-ward[data-ward="NICU"]');
+    const nstat = (label) => {
+      const s = [...(nicu?.querySelectorAll('.census-stat') || [])].find(x => x.querySelector('.l').textContent.startsWith(label));
+      return s && { v: s.querySelector('.v').textContent, tone: s.className.replace('census-stat', '').trim() };
+    };
+    eq('No TPN inside the 3 days, the rest logged: Logged today 1 reads ok, Needs entry 0 plain',
+       [nstat('Logged today'), nstat('Needs entry')], [{ v: '1', tone: 'ok' }, { v: '0', tone: '' }]);
   });
 
   // ══════════════════════════════════════════════════════════════════════

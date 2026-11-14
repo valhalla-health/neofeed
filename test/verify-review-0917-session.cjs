@@ -56,7 +56,7 @@ const scenarios = {
     seedStorage(t.window);
     await t.start();
     await t.pickWard('NICU');
-    A.ok('1.0 signed in, on the ward list', /Total sessions/.test(t.text()));
+    A.ok('1.0 signed in, on the ward list', /\d+ sessions · \d+ active/.test(t.text()));
 
     t.clock.advance(20 * MIN);
     await t.tick(30000);                       // the 4-min poll is due: a background sync goes out
@@ -80,7 +80,7 @@ const scenarios = {
     A.ok('1.8 the unsaved calculator draft is kept', !!t.window.localStorage.getItem(draftKey));
     A.eq('1.9 the prefill and alert acks are cleared (as on logout)',
       [t.window.localStorage.getItem('neofeed_calc_AA-BW900'), t.window.localStorage.getItem('neofeed_acked_AA-BW900')], [null, null]);
-    A.ok('1.10 no patient data left on screen', !/AA|Total sessions/.test(t.text()));
+    A.ok('1.10 no patient data left on screen', !/AA|\d+ sessions · \d+ active/.test(t.text()));
     // A pointer tap counts as input too.
     await emailLogin(t);
     A.ok('1.11 the notice goes once someone signs in', !document.querySelector('.login-notice'));
@@ -111,7 +111,7 @@ const scenarios = {
     await emailLogin(t);
     A.ok('2.4 the nurse gets the first-load gate', /กำลังโหลดข้อมูลผู้ป่วย|กำลังเชื่อมต่อ/.test(t.text()));
     A.ok('2.5 …not the admin dashboard', !/Admin dashboard/.test(t.text()));
-    A.ok('2.6 …and no rail, no registry, nothing of the previous session', !document.querySelector('.rail') && !/Total sessions/.test(t.text()));
+    A.ok('2.6 …and no rail, no registry, nothing of the previous session', !document.querySelector('.rail') && !/\d+ sessions · \d+ active/.test(t.text()));
     A.eq('2.7 the nurse\'s sync carries the nurse\'s token', t.syncCalls().pop().token, 'tok-nurse-abcdefg');
     t.server.holdSyncs = false;
     await t.releaseSyncs();
@@ -155,7 +155,7 @@ const scenarios = {
     A.ok('3.1 expiry → login screen', hasLoginScreen());
     A.ok('3.2 with the expiry notice', noticeText().includes('เซสชันหมดอายุ — งานที่ยังไม่บันทึกถูกเก็บเป็นร่าง'));
     A.ok('3.3 the draft is kept', !!t.window.localStorage.getItem(draftKey));
-    A.ok('3.4 nothing of the ward list remains', !/Total sessions/.test(t.text()));
+    A.ok('3.4 nothing of the ward list remains', !/\d+ sessions · \d+ active/.test(t.text()));
     t.server.hooks = {};
     // Expiry through a WRITE: its toast must survive the workspace unmounting.
     await emailLogin(t);

@@ -7,6 +7,76 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-14 (4) — Vera's review of (3): the open decisions go to BACKLOG
+
+`BACKLOG.md` (the "ไม่มี PN แล้ว" bullet). Vera: NO BLOCK, two findings. (3) recorded Pp's printing answer and the
+readmission gap only here. Both are now BACKLOG items for Pp to decide; the readmission gap is not closed on
+the author's word, as (3) said. The same bullet said "a No TPN order is never printed", which `D.orderPrints`
+contradicts since 2026-11-01; corrected, and the 3-day rule is marked built there.
+
+## Session 2026-11-14 (3) — Pp's answers: feeds below the bar are entered every day
+
+`data.js` (`NO_TPN_FEEDS_LOW_TITLE`, `noTpnEntryDueOn`), `calculator.jsx` (the CR-NO-TPN-EN alert takes its title
+from `data.js`, wording unchanged), `.claude/skills/neofeed-clinical-rules/SKILL.md` (CR-NO-TPN-EN, and 18 moved
+line numbers rewritten by `--fix-lines`), `registry.jsx` (two comments), `app-walkthrough.md`,
+`test/verify-no-tpn-entry-3day-1114.cjs`, `test/verify-admin-census.cjs`.
+
+Pp answered the questions left open in (2), 2026-11-14:
+
+- **"ทุก 3 วัน"**: an order on the 14th is asked again on the 17th, as built.
+- **A No TPN order Submitted with the critical "No TPN: feeds below 80 mL/kg/d or the day's minimum"** keeps the
+  infant on NEEDS ENTRY every day ("ขึ้นทุกวัน"). The ward list reads the title off the order's `critOverride`,
+  by its "No TPN: feeds below " prefix, so a title saved under an earlier limit still counts. The title now lives
+  in `data.js` so the alert and the ward list cannot drift apart; a saved `critOverride` still matches it.
+- **Oral orders**: "ถ้าไม่มี TPN ไม่ต้องมีอะไรพิมพ์ที่ห้อง TPN เลย oral EN ทำเองที่วอร์ด". The 3-day pass stands for
+  an order with oral orders too. A No TPN order still prints its short sheet (`D.orderPrints`); whether it
+  should print nothing at all is a separate change to the printed order, not made here.
+- **Vera's re-check of (2)**: the census's Logged today tone now has a test that fails under the old rule; two
+  comments brought up to date. The readmission gap (a readmission under the same ID within 2 days of a No TPN
+  order gets the pass) is left as is: rare.
+
+## Session 2026-11-14 (2) — Vera's review of the 3-day rule
+
+`data.js` (`needsEntryOn`), `registry.jsx` (`WardPrintList`), `app.jsx` (the census's Logged today), both shells
+(a comment), `test/verify-no-tpn-entry-3day-1114.cjs`, `test/verify-admin-census.cjs`. Vera: NO BLOCK, five findings.
+
+- **A draft today counts as Needs entry, inside the 3 days too** (finding 1). The entry below let a No TPN infant
+  with a draft started today drop out of Needs entry, the gate tile, the print list's count and the census. A
+  draft is an order begun and not Submitted, so it is asked; every draft stays inside Needs entry again.
+- **The Print order list names the No TPN infants not due yet** (finding 4): "No TPN ยังไม่ถึงวันลงนม N ราย", so
+  Submitted + "ยังไม่ Submit" + these add up to the header's "จาก N ราย". With none waiting the line still shows,
+  without the Needs entry button.
+- **The admin census's Logged today turns green when nothing needs an entry** (finding 5), as on the ward strip.
+- **Left for Pp** (findings 2, 3 and one note): whether a No TPN order saved with the confirmed critical "feeds
+  below 80 mL/kg/d" should still get the 3-day pass; a readmission under the same ID within 2 days of a No TPN
+  order gets the pass too (rare, left as is); whether a No TPN order with oral orders needs its short sheet
+  printed every day.
+
+## Session 2026-11-14 — No TPN asked for an entry every 3 days; the ward strip reads Active, Needs entry, Draft, Logged today
+
+`data.js` (`NO_TPN_ENTRY_EVERY_DAYS`, `noTpnEntryDueOn`, `needsEntryOn`), `registry.jsx` (the stats strip, the row
+badge, the ward gate tile, the Print order list's count, `NoTpnTag`), `app.jsx` (`buildCensus`), `compiled/`,
+`test/verify-no-tpn-entry-3day-1114.cjs` (new), seven harnesses that read the strip or used "Total sessions" as
+the ward list's marker, `app-walkthrough.md`.
+
+- **What.** An infant whose latest Submitted order is No TPN, dated D, is not asked for an entry on D+1 and D+2;
+  from D+3 NEEDS ENTRY is back, to enter the feeds again in case they changed (Pp, 2026-11-14: "ถ้า no TPN ไม่ต้อง
+  needs entry", then "ทุกๆ 3 วัน ให้ขึ้นมาลง นมใหม่เผื่อมีการเปลี่ยนแปลง"). "Every 3 days" is read as D, D+3, D+6.
+  The No TPN tag's title names the day ("ลงนมใหม่ dd/mm").
+- **One rule.** `D.needsEntryOn` decides the NEEDS ENTRY badge (desktop row and phone card), the Needs entry tile
+  and its list, the ward gate tile, the Print order list's "ยังไม่ Submit N ราย" and the admin census. Logged +
+  needs entry can now be less than active, never more. Logged today turns green when nothing needs an entry,
+  not when everyone is logged.
+- **The strip.** Active, Needs entry, Draft, Logged today. Active sits next to Needs entry on a desktop and on a
+  phone, where the strip wraps two by two (Pp: "เอา active กับ needs entry อยู่ติดกัน ... เพื่อให้กดเข้ามาดูง่าย").
+  Draft replaces Total sessions (Pp: "total session คิดว่าไม่จำเป็น ให้เปลี่ยนเป็น show draft แทน"): a button like
+  the others, amber when there is one, listing the infants with a draft today and no Submitted order. The
+  session count stays on the line under the ward's name.
+- **Unchanged.** No dose, no printed figure, nothing saved; `CONSTANTS_VERSION` stays. A draft is not an order
+  for the 3 days.
+- **Seen.** dev local with three made-up No TPN infants submitted 1, 2 and 3 days ago: the first two show only
+  No TPN, the third NEEDS ENTRY beside it; the NICU strip read 7 · 3 · 1 · 2.
+
 ## Session 2026-11-14 — The TPN room signs in with Google too
 
 `tpn-room.jsx`, `tpn-room.css`, `compiled/`, both TPN-room shells' tokens, `test/verify-tpn-room-page-1105.cjs`,

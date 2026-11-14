@@ -1340,9 +1340,10 @@
     letter-spacing: -0.03em; line-height: 1; color: var(--ink); flex-shrink: 0;
   }
   .reg-stat-lbl { font-size: 11px; color: var(--ink-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.3; }
-  /* Active, Logged today and Needs entry are buttons that narrow the list to
-     their infants (registry.jsx statFilter; Pp, 2026-10-12). The lit one is
-     framed in the brand colour; Active, the "everyone" tile, is never lit. */
+  /* Active, Needs entry, Draft and Logged today are buttons that narrow the
+     list to their infants (registry.jsx statFilter; Pp, 2026-10-12, Draft
+     2026-11-14). The lit one is framed in the brand colour; Active, the
+     "everyone" tile, is never lit. */
   button.reg-stat {
     font: inherit; color: inherit; text-align: left; cursor: pointer;
     transition: border-color .15s ease, box-shadow .15s ease;
@@ -2188,13 +2189,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=e4160e262e"></script>
+  <script src="data.js?v=923ff67f94"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
-  <script src="compiled/calculator.js?v=f51a8622ae"></script>
+  <script src="compiled/calculator.js?v=f3bb23810c"></script>
   <script src="compiled/fenton.js?v=196ab85f3a"></script>
-  <script src="compiled/registry.js?v=05c58334e7"></script>
+  <script src="compiled/registry.js?v=c4bc50bce1"></script>
   <script src="compiled/log.js?v=319374e58c"></script>
-  <script src="compiled/app.js?v=86eb4e10bc"></script>
+  <script src="compiled/app.js?v=59f2fdd44c"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

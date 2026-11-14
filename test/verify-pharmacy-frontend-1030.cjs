@@ -71,7 +71,7 @@ const scenarios = {
     t.quiet();
     await t.start();
     await t.pickWard('NICU');
-    A.eq('the ward list is on screen first', /Total sessions/.test(t.text()), true);
+    A.eq('the ward list is on screen first', /\d+ sessions · \d+ active/.test(t.text()), true);
     const ls = t.window.localStorage;
     ls.setItem('neofeed_calc_SYNTH-1', '{}');
     ls.setItem('neofeed_acked_SYNTH-1', '{}');
@@ -80,7 +80,7 @@ const scenarios = {
     await t.click(t.syncButton());
     await t.flush();
     A.eq('a Forbidden sync ends the session: the login screen', !!document.querySelector('.login-wrap'), true);
-    A.eq('…nothing of the ward list remains', /Total sessions/.test(t.text()), false);
+    A.eq('…nothing of the ward list remains', /\d+ sessions · \d+ active/.test(t.text()), false);
     A.eq('…the session is gone from sessionStorage', t.window.sessionStorage.getItem('neofeed_session'), null);
     A.eq('…and the notice says why', /หน้าห้อง TPN/.test((document.querySelector('.login-notice') || {}).textContent || ''), true);
     A.eq('…and its token is logged out (it still opens the TPN room\'s actions)',
