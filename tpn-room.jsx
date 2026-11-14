@@ -656,8 +656,6 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
 
   const dateOk = Core.isRealDate(date) && date >= win.min && date <= win.max;
   const orders = reply ? reply.orders : [];
-  const submitted = orders.filter((o) => o.status === "submitted");
-  const drafts = orders.filter((o) => o.status !== "submitted");
   const gone = reply && file ? Core.goneAfterPrint(orders, file.state.printLog, reply.date) : [];
   const count = file ? Object.keys(file.state.infants).length : 0;
   const backToDraft = reply && file ? Core.draftAfterPrint(orders, file.state.printLog, reply.date) : [];
@@ -691,7 +689,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
             <div className="counts">
               <span><strong>{reply.counts.submitted}</strong> Submit แล้ว</span>
               <span><strong>{reply.counts.drafts}</strong> ฉบับร่าง</span>
-              <span><strong>{reply.counts.active}</strong> ผู้ป่วยในหน่วย</span>
+              {/* No count of infants on the unit: the room works from orders (Pp, 2026-11-14). */}
               <span className="muted">โหลดเมื่อ {Core.wardTime(null, reply.loadedAt)}</span>
             </div>
           )}
@@ -709,22 +707,28 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
             {o.sessionId}: พิมพ์แล้ว แต่ order เปลี่ยนเป็นฉบับร่าง อย่าใช้ถุงนี้จนกว่าหมอจะ Submit ฉบับใหม่
           </p>
         ))}
-        {reply && (
-          <>
-            {submitted.length === 0 && <p className="muted">ยังไม่มี order ที่ Submit แล้วของวันนี้</p>}
-            <ul className="orders">
-              {submitted.map((o) => <OrderRow key={o.entryId || o.sessionId} order={o} {...rowProps} />)}
-            </ul>
-            {drafts.length > 0 && (
+        {reply && Core.ordersByWard(orders).map((w) => (
+          <section key={w.key} className="ward" data-ward={w.key} aria-label={w.label}>
+            <h2 className="ward-head">
+              {w.label}
+              <span className="ward-counts">Submit แล้ว {w.submitted.length} · ฉบับร่าง {w.drafts.length}</span>
+            </h2>
+            {w.submitted.length === 0 && <p className="muted">ยังไม่มี order ที่ Submit แล้ว</p>}
+            {w.submitted.length > 0 && (
+              <ul className="orders">
+                {w.submitted.map((o) => <OrderRow key={o.entryId || o.sessionId} order={o} {...rowProps} />)}
+              </ul>
+            )}
+            {w.drafts.length > 0 && (
               <details className="drafts">
-                <summary>ฉบับร่าง {drafts.length} รายการ</summary>
+                <summary>ฉบับร่าง {w.drafts.length} รายการ</summary>
                 <ul className="orders">
-                  {drafts.map((o) => <OrderRow key={o.entryId || o.sessionId} order={o} {...rowProps} />)}
+                  {w.drafts.map((o) => <OrderRow key={o.entryId || o.sessionId} order={o} {...rowProps} />)}
                 </ul>
               </details>
             )}
-          </>
-        )}
+          </section>
+        ))}
         <Contacts />
       </div>
       {mappingFor && file && (

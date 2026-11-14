@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-14 (5) — The TPN room lists orders by ward; the unit count is gone
+
+`tpn-room-core.js` (`wardGroup`, `ordersByWard`), `tpn-room.jsx`, `tpn-room.css`, the shells' `?v=` tokens,
+`test/verify-tpn-room-core-1105.cjs`, `test/verify-tpn-room-page-1105.cjs`.
+
+Pp, 2026-11-14, from the live page: "ผู้ป่วยในหน่วย ไม่ต้องบอก แต่ให้แยกวอร์ดให้ห้อง TPN เช่นกัน เพื่อให้ดูภาพรวมได้".
+
+- **"ผู้ป่วยในหน่วย" is off the page.** The backend still sends `counts.active`; the page no longer shows it. Dropping it
+  from `pharmacyOrders` would need a backend deploy for no gain on the page, so it stays for now.
+- **One section per ward: NICU, then SCN.** Each heading reads "Submit แล้ว N · ฉบับร่าง M" for that ward, and an empty
+  ward still shows with "ยังไม่มี order ที่ Submit แล้ว", so the room sees that SCN has nothing yet. Each ward folds its
+  own drafts. The groups are the registry's ward gate (`wardGroup` in `data.js`): the iso rooms are NICU's, the rule
+  `wardLabel` already prints on the sticker. The backend blanks a bed outside the two wards, so the third group is
+  "ไม่มีเตียง", shown only when an order has no bed.
+- **Order inside a ward is unchanged:** `currentOrders` still sorts by bed (NICU 1–12, iso, SCN), so NICU 3 comes
+  before iso 2-1.
+- **Tests.** The core harness compares `Core.wardGroup` with `data.js` `wardGroup` bed by bed, so the two cannot drift
+  apart, and runs `ordersByWard` on a made-up list and on a real `pharmacyOrders` reply. The page harness checks the
+  sections, their counts, which order sits under which ward, and that "ผู้ป่วยในหน่วย" is gone. Core 109/109; page
+  103/103 in Chromium on Pp's PC (the launch shim in `test/README.md`).
+
 ## Session 2026-11-14 (4) — Vera's review of (3): the open decisions go to BACKLOG
 
 `BACKLOG.md` (the "ไม่มี PN แล้ว" bullet). Vera: NO BLOCK, two findings. (3) recorded Pp's printing answer and the

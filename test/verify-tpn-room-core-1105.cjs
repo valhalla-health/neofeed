@@ -1,7 +1,7 @@
 // verify-tpn-room-core-1105.cjs — the TPN-room page's rules, in Node, against the real
 // stickerFigures and the real pharmacyOrders (openspec/changes/tpn-room-stickers, PR B).
 //
-//   §1 dates, ward label, twin label, AN
+//   §1 dates, ward label, the list's ward groups, twin label, AN
 //   §2 every "cannot print" reason in the spec, one at a time, and a clean order prints
 //   §3 changed, deleted and cancelled after printing; the re-read before a print
 //   §4 stickerModel copies printJson strings and works out nothing
@@ -50,6 +50,24 @@ section('§1 dates, ward, twins, AN');
   eq('SCN prints 9B2(SCN)', Core.wardLabel('SCN 4'), '9B2(SCN)');
   eq('a blank bed has no ward', Core.wardLabel(''), '');
   eq('a free-text bed has no ward', Core.wardLabel('หน้าห้อง'), '');
+  // The list's ward groups (Pp, 2026-11-14) are the registry's: data.js wardGroup, with
+  // its "other" as "none", since the backend blanks every bed outside the two wards.
+  for (const bed of ['NICU 1', 'NICU 12', 'iso 1', 'iso 2-1', 'SCN 1', 'SCN 30', '', 'หน้าห้อง']) {
+    const want = data.wardGroup(bed);
+    eq(`list group for "${bed}" matches data.js wardGroup (${want})`, Core.wardGroup(bed), want === 'other' ? 'none' : want);
+  }
+  {
+    const o = (sessionId, bed, status) => ({ sessionId, bed, status });
+    const byWard = Core.ordersByWard([o('A', 'SCN 2', 'submitted'), o('B', 'NICU 4', 'submitted'), o('C', 'iso 1', 'draft'),
+      o('D', 'NICU 1', 'submitted'), o('E', 'SCN 5', 'draft')]);
+    eq('NICU first, then SCN; no bedless group when no order lacks a bed', byWard.map((w) => w.key), ['NICU', 'SCN']);
+    eq('NICU holds its iso room; the order given is kept inside the ward', byWard[0].submitted.map((x) => x.sessionId).concat(byWard[0].drafts.map((x) => x.sessionId)), ['B', 'D', 'C']);
+    eq('SCN: one submitted, one draft', [byWard[1].submitted.length, byWard[1].drafts.length], [1, 1]);
+    eq('both wards show with nothing in them', Core.ordersByWard([]).map((w) => [w.key, w.submitted.length, w.drafts.length]), [['NICU', 0, 0], ['SCN', 0, 0]]);
+    const withNone = Core.ordersByWard([o('F', '', 'submitted')]);
+    eq('an order with no bed gets its own group, last', withNone.map((w) => w.key), ['NICU', 'SCN', 'none']);
+    eq('…labelled ไม่มีเตียง', withNone[2].label, 'ไม่มีเตียง');
+  }
   eq('Twin A of 2', Core.twinLabel('A', 2), 'Twin A of 2');
   eq('Triplet C of 3', Core.twinLabel('C', 3), 'Triplet C of 3');
   eq('Quadruplet D of 4', Core.twinLabel('D', 4), 'Quadruplet D of 4');
@@ -173,6 +191,7 @@ section('§5 a reply from the real backend');
   ok('the draft from the real reply does not', Core.printReasons(orders.find((o) => o.sessionId === 'SY-2'), { date: today, ...VERS, nameFileOpen: true, mapping: MAP, fixed: FIXED }).length > 0);
   eq('twin label from the real reply', Core.twinLabel(one.twinSuffix, one.multiplesCount), 'Twin B of 2');
   eq('ward from the real reply', Core.wardLabel(one.bed), '9B2(NICU)');
+  eq('the real reply splits into NICU (iso 2-1) and SCN', Core.ordersByWard(orders).map((w) => [w.key, w.submitted.length + w.drafts.length]), [['NICU', 1], ['SCN', 1]]);
   ok('no patient name in the reply', !JSON.stringify(r).includes('ทารก'));
 }
 

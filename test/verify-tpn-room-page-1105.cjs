@@ -145,8 +145,16 @@ const INIT = `
     eq('one read of the orders on open', calls('pharmacyOrders').length, 1);
     eq('…for today', JSON.parse(calls('pharmacyOrders')[0].body).date, today);
     const counts = await text(page, '.counts');
-    ok('counts: 3 submitted, 1 draft, 6 on the unit', /3\s*Submit แล้ว/.test(counts) && /1\s*ฉบับร่าง/.test(counts) && /6\s*ผู้ป่วยในหน่วย/.test(counts));
+    ok('counts: 3 submitted, 1 draft', /3\s*Submit แล้ว/.test(counts) && /1\s*ฉบับร่าง/.test(counts));
+    ok('no count of infants on the unit (Pp, 2026-11-14)', !/ผู้ป่วยในหน่วย/.test(await page.locator('body').innerText()));
     ok('and when they were loaded', /โหลดเมื่อ \d\d:\d\d/.test(counts));
+    // One section per ward, as the registry's ward gate: iso 2-1 is NICU's.
+    eq('ward sections NICU then SCN, none for a missing bed', await page.locator('section.ward').evaluateAll((s) => s.map((e) => e.dataset.ward)), ['NICU', 'SCN']);
+    ok('NICU: 2 submitted, 1 draft', /Submit แล้ว 2 · ฉบับร่าง 1/.test(await text(page, 'section.ward[data-ward="NICU"] .ward-head')));
+    ok('SCN: 1 submitted, 0 drafts', /Submit แล้ว 1 · ฉบับร่าง 0/.test(await text(page, 'section.ward[data-ward="SCN"] .ward-head')));
+    // By bed inside a ward (currentOrders): NICU 3 before iso 2-1, the draft (NICU 2) folded below.
+    eq('each order sits under its ward', await page.locator('section.ward').evaluateAll((s) => s.map((e) => [...e.querySelectorAll('li.order')].map((li) => li.dataset.session))),
+      [['CC-1', 'AA-1', 'BB-1'], ['SS-1']]);
     ok('the draft is folded away', !(await row(page, 'BB-1').isVisible()));
     await page.locator('details.drafts summary').click();
     ok('…and opens', await row(page, 'BB-1').isVisible());

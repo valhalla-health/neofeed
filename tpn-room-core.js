@@ -104,6 +104,30 @@
     return /^SCN /.test(bed) ? "9B2(SCN)" : "9B2(NICU)";
   }
 
+  // ── The list is split by ward so the room sees each ward at a glance (Pp, 2026-11-14:
+  //    "แยกวอร์ดให้ห้อง TPN เช่นกัน เพื่อให้ดูภาพรวมได้"). The groups are the registry's
+  //    ward gate: the iso rooms are NICU's (wardGroup in data.js), the same rule as
+  //    wardLabel above. The backend blanks a bed outside WARD_BED, so an order in neither
+  //    ward has no bed; that group shows only when it holds an order. ──
+  const WARD_GROUPS = [["NICU", "NICU"], ["SCN", "SCN"], ["none", "ไม่มีเตียง"]];
+  function wardGroup(bed) {
+    const b = String(bed || "");
+    if (!WARD_BED.test(b)) return "none";
+    return /^SCN /.test(b) ? "SCN" : "NICU";
+  }
+  // Orders keep the order they come in, which currentOrders sets by bed (NICU, iso, SCN).
+  function ordersByWard(orders) {
+    const list = orders || [];
+    return WARD_GROUPS.map(([key, label]) => {
+      const mine = list.filter((o) => wardGroup(o.bed) === key);
+      return {
+        key, label,
+        submitted: mine.filter((o) => o.status === "submitted"),
+        drafts: mine.filter((o) => o.status !== "submitted"),
+      };
+    }).filter((w) => w.key !== "none" || w.submitted.length + w.drafts.length > 0);
+  }
+
   // ── Twins share BW and DOL, so the mapping dialog says which one in large type.
   //    A registry from before 2026-08-14 has a letter and no set size. ──
   function twinLabel(letter, count) {
@@ -288,7 +312,7 @@
   const api = {
     PN_FIXED, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
-    wardLabel, twinLabel, currentOrders, anProblem, anUsedBy,
+    wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy,
     missingFigures, printReasons, fixedLinesReady,
     lastPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
     recheck, stickerModel,
