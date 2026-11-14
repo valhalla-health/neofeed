@@ -1951,6 +1951,31 @@ function previousFinalEntry(entries, targetDate) {
 function latestOrderIsNoTpn(entries) {
   return orderIsNoTpn(previousFinalEntry(entries, "9999-12-31"));
 }
+// A No TPN infant's feeds are entered every 3 days, not every day (Pp,
+// 2026-11-14: "ถ้า no TPN ไม่ต้อง needs entry", then "ทุกๆ 3 วัน ให้ขึ้นมาลง
+// นมใหม่เผื่อมีการเปลี่ยนแปลง"). Latest Submitted order No TPN, dated D: the
+// ward list asks for no entry on D+1 and D+2, and asks again from D+3. It moves
+// no dose and prints nothing; it decides only who the ward list says still
+// needs an entry.
+const NO_TPN_ENTRY_EVERY_DAYS = 3;
+// The date that infant is next asked for an entry, or null when the latest
+// Submitted order has TPN or there is none: then every day asks.
+function noTpnEntryDueOn(entries) {
+  const last = previousFinalEntry(entries, "9999-12-31");
+  if (!orderIsNoTpn(last)) return null;
+  const d = normalizeDateStr(last.ts);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? addDaysToDateStr(d, NO_TPN_ENTRY_EVERY_DAYS) : null;
+}
+// Whether the ward list asks for an entry on `date` (default today): nothing
+// Submitted that day, and not a No TPN infant inside its 3 days. One rule for
+// the row badge, the Needs entry tile and its list, the ward gate tile, the
+// Print order list's count and the admin census.
+function needsEntryOn(entries, date) {
+  const target = normalizeDateStr(date || todayLocal());
+  if (hasLogOnDate(entries, target)) return false;
+  const due = noTpnEntryDueOn(entries);
+  return !(due && target < due);
+}
 function isDraftEntry(e) {
   return !!e && String(e.status || "").toLowerCase() === "draft";
 }
@@ -3251,7 +3276,7 @@ window.NEOFEED_DATA = {
   useTodayLocal,
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
-  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, latestOrderIsNoTpn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, latestOrderIsNoTpn, NO_TPN_ENTRY_EVERY_DAYS, noTpnEntryDueOn, needsEntryOn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
   // THE current weight — every screen calls it with the patient's Daily_Log
   // (see currentWeight) — and the joined series it reads.
   currentWeight, weightSeries,

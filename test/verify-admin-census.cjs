@@ -196,10 +196,22 @@ const pick = (w) => w && { capacity: w.capacity, occupied: w.occupied, active: w
        pick(W.other), { capacity: null, occupied: 0, active: 2, logged: 0, needs: 2, draft: 0, parked: 0, crit: 0, warn: 0 });
     eq('the unit: 50 beds, 6 held, 10 infants on the unit',
        pick(c.total), { capacity: 50, occupied: 6, active: 10, logged: 3, needs: 7, draft: 1, parked: 1, crit: 1, warn: 1 });
-    eq('logged + needs entry = active, ward by ward (the ward tiles\' rule)',
+    eq('logged + needs entry = active, ward by ward (no No TPN infant in this fixture)',
        [...c.wards, c.total].every(w => w.logged + w.needs === w.active), true);
     eq('…and the census agrees with the registry\'s own on-unit count',
        c.total.active, PATIENTS.filter(p => !p.status || p.status === 'Active').length);
+    // A No TPN infant is asked every 3 days (Pp, 2026-11-14; D.needsEntryOn),
+    // as on the ward tiles. Its own small fixture, so the counts above stay.
+    const nt = { calcInput: { noTpn: true, totalTPN_mL: 0 } };
+    const cz = global.buildCensus(
+      [rec('QXZA', { currentBed: 'NICU 7' }), rec('QXZB', { currentBed: 'NICU 8' }), rec('QXZC', { currentBed: 'NICU 9' })],
+      { 'QXZA-BW1000': [order({ ts: ago(1), ...nt })],                             // day 1 of 3: not asked
+        'QXZB-BW1000': [order({ ts: ago(3), ...nt })],                             // day 3: asked again
+        'QXZC-BW1000': [order({ ts: ago(2), ...nt }), order({ status: 'draft' })] }, // a draft inside the 3 days
+      TODAY);
+    const z = cz.wards.find(w => w.ward === 'NICU');
+    eq('No TPN: 3 infants, none logged; only day 3 needs entry, and a draft inside the 3 days is not counted',
+       [z.active, z.logged, z.needs, z.draft], [3, 0, 1, 0]);
     eq('seven days of movement: 3 admitted (edge day 6 in, day 7 out), 1 discharged, 1 expired, the 10-day transfer out',
        c.movement, { admitted: 3, Discharged: 1, Transferred: 0, Expired: 1 });
     eq('two infants in SCN 5 are reported', c.doubleBooked, [{ bed: 'SCN 5', n: 2 }]);

@@ -125,7 +125,7 @@ const click = async (el) => { await act(async () => { el.dispatchEvent(new windo
   const pickWard = async (name) => click(
     [...document.querySelectorAll('.ward-tile')].find(t => t.textContent.startsWith(name)));
   await pickWard('NICU');
-  ok('picking a ward shows its registry', /Total sessions/.test(text()));
+  ok('picking a ward shows its registry', /\d+ sessions · \d+ active/.test(text()));
 
   // Open a patient, then the Calculator, and type a weight into it.
   await click(document.querySelector('.patient-mc'));

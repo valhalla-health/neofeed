@@ -7,6 +7,31 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-14 — No TPN asked for an entry every 3 days; the ward strip reads Active, Needs entry, Draft, Logged today
+
+`data.js` (`NO_TPN_ENTRY_EVERY_DAYS`, `noTpnEntryDueOn`, `needsEntryOn`), `registry.jsx` (the stats strip, the row
+badge, the ward gate tile, the Print order list's count, `NoTpnTag`), `app.jsx` (`buildCensus`), `compiled/`,
+`test/verify-no-tpn-entry-3day-1114.cjs` (new), seven harnesses that read the strip or used "Total sessions" as
+the ward list's marker, `app-walkthrough.md`.
+
+- **What.** An infant whose latest Submitted order is No TPN, dated D, is not asked for an entry on D+1 and D+2;
+  from D+3 NEEDS ENTRY is back, to enter the feeds again in case they changed (Pp, 2026-11-14: "ถ้า no TPN ไม่ต้อง
+  needs entry", then "ทุกๆ 3 วัน ให้ขึ้นมาลง นมใหม่เผื่อมีการเปลี่ยนแปลง"). "Every 3 days" is read as D, D+3, D+6.
+  The No TPN tag's title names the day ("ลงนมใหม่ dd/mm").
+- **One rule.** `D.needsEntryOn` decides the NEEDS ENTRY badge (desktop row and phone card), the Needs entry tile
+  and its list, the ward gate tile, the Print order list's "ยังไม่ Submit N ราย" and the admin census. Logged +
+  needs entry can now be less than active, never more. Logged today turns green when nothing needs an entry,
+  not when everyone is logged.
+- **The strip.** Active, Needs entry, Draft, Logged today. Active sits next to Needs entry on a desktop and on a
+  phone, where the strip wraps two by two (Pp: "เอา active กับ needs entry อยู่ติดกัน ... เพื่อให้กดเข้ามาดูง่าย").
+  Draft replaces Total sessions (Pp: "total session คิดว่าไม่จำเป็น ให้เปลี่ยนเป็น show draft แทน"): a button like
+  the others, amber when there is one, listing the infants with a draft today and no Submitted order. The
+  session count stays on the line under the ward's name.
+- **Unchanged.** No dose, no printed figure, nothing saved; `CONSTANTS_VERSION` stays. A draft is not an order
+  for the 3 days.
+- **Seen.** dev local with three made-up No TPN infants submitted 1, 2 and 3 days ago: the first two show only
+  No TPN, the third NEEDS ENTRY beside it; the NICU strip read 7 · 3 · 1 · 2.
+
 ## Session 2026-11-12 (3) — The release comparison ticks the red alerts
 
 `tools/calc-compare.cjs`. Since #251 the sheet renders only once every red alert is ticked, so the

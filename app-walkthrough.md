@@ -670,7 +670,12 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    a tap narrows both layouts to that tile's infants (`statFilter`), a
    "แสดงเฉพาะ … · N จาก M ราย" line says so with its way back, the
    discharged section hides while narrowed, and `← เปลี่ยน ward` drops it.
-   The search applies first, then the tile. Total sessions stays a figure.
+   The search applies first, then the tile. Since 2026-11-14 the strip reads
+   Active, Needs entry, Draft, Logged today: Draft replaced Total sessions
+   (the session count is on the line under the ward's name), and Active sits
+   next to Needs entry on a phone too. Needs entry is `D.needsEntryOn`: an
+   infant whose latest Submitted order is No TPN is asked every 3 days, not
+   daily, so logged + needs entry can be less than active.
    **Each ward on the gate has a Print order button** under its tile
    (`WardGateCell` — a sibling, since the tile is itself a button). It opens
    `WardPrintList`: that ward's active infants whose order for today is

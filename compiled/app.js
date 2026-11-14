@@ -2452,7 +2452,7 @@ function buildCensus(patients, log, today) {
     const entries = log && log[p.sessionId] || [];
     w.active++;
     if (D_A.hasLogOnDate(entries, today)) w.logged++;
-    else {
+    else if (D_A.needsEntryOn(entries, today)) {
       w.needs++;
       if (D_A.hasDraftOnDate(entries, today)) w.draft++;
     }
