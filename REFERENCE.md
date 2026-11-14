@@ -736,6 +736,10 @@ that infant.
 **Data minimization:** `handleLogout()` in `app.jsx` clears
 `neofeed_calc_*`/`neofeed_acked_*` localStorage keys on logout, since those
 hold per-patient clinical inputs (weight, fluids, labs) and NICU workstations
-are typically shared devices.
+are typically shared devices. The test area's store, `neofeed_test_ward_v1` (the
+names, orders, I/O and weights of patients registered with no bed, 2026-11-14), goes
+on a chosen, idle or pharmacy logout too. It names the account that wrote it, so a
+session that ends with no logout (expiry, a closed tab) leaves it only until another
+account signs in on that browser, which deletes it unread.
 
 **Open items are tracked in `BACKLOG.md` § 2**, not here.
