@@ -436,6 +436,14 @@ const INIT = `
     await pg9.getByText('เข้าสู่ระบบด้วย Google ไม่สำเร็จ').waitFor();
     eq('a wrong state is refused, with no login call', loginsSince().length, 0);
     eq('…and the token is wiped from the address bar', new URL(pg9.url()).hash, '');
+    // The right state with a token minted for another sign-in (its nonce differs): refused too.
+    await Promise.all([pg9.waitForRequest((r) => r.url().startsWith('https://accounts.google.com/')), pg9.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google' }).click()]).catch(() => {});
+    const qn = new URL(sinceMark().filter((r) => r.url.startsWith('https://accounts.google.com/')).pop().url).searchParams;
+    mark = requests.length;
+    await pg9.goto(url + '/tpn-room.html#id_token=' + fakeJwt({ nonce: 'a-different-nonce' }) + '&state=' + qn.get('state'));
+    await pg9.getByText('เข้าสู่ระบบด้วย Google ไม่สำเร็จ').waitFor();
+    eq('a token with another nonce is refused, with no login call', loginsSince().length, 0);
+    eq('…the token is wiped and the state used up', [new URL(pg9.url()).hash, await pg9.evaluate(() => sessionStorage.getItem('neofeed_tpn_room_oauth'))], ['', null]);
 
     // A good answer: state and nonce match, the server checks the token with Google.
     await Promise.all([pg9.waitForRequest((r) => r.url().startsWith('https://accounts.google.com/')), pg9.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google' }).click()]).catch(() => {});
