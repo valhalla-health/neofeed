@@ -2,15 +2,23 @@
 
 ### Requirement: Orders and counts for a chosen date
 
-`tpn-room.html` SHALL show, for the date chosen (today by default: the ward date, UTC+7), the submitted, draft and active counts
-and the list of TPN orders. It SHALL load them when the page opens and when the pharmacist presses
-refresh, and never on a timer.
+`tpn-room.html` SHALL show, for the date chosen (today by default: the ward date, UTC+7), the submitted and draft counts
+and the list of TPN orders, split by ward. It SHALL load them when the page opens and when the pharmacist presses
+refresh, and never on a timer. It SHALL NOT show a count of infants on the unit (Pp, 2026-11-14).
 
 #### Scenario: Opening the page
 
 - **WHEN** a pharmacist signs in
 - **THEN** the page calls `pharmacyOrders` once for today and shows the counts, the submitted orders and,
   folded away, the drafts
+
+#### Scenario: Orders by ward
+
+- **WHEN** the list holds orders
+- **THEN** it shows a section for NICU (with its iso rooms) and then SCN, each headed by its own submitted and
+  draft counts and folding its own drafts; a ward with no order still shows; a third section, ไม่มีเตียง,
+  shows only when an order has no bed
+- **AND** the counts at the top are the sums of the ward headings
 
 ### Requirement: Names and ANs stay on the PC
 

@@ -145,8 +145,16 @@ const INIT = `
     eq('one read of the orders on open', calls('pharmacyOrders').length, 1);
     eq('…for today', JSON.parse(calls('pharmacyOrders')[0].body).date, today);
     const counts = await text(page, '.counts');
-    ok('counts: 3 submitted, 1 draft, 6 on the unit', /3\s*Submit แล้ว/.test(counts) && /1\s*ฉบับร่าง/.test(counts) && /6\s*ผู้ป่วยในหน่วย/.test(counts));
+    ok('counts: 3 submitted, 1 draft', /3\s*Submit แล้ว/.test(counts) && /1\s*ฉบับร่าง/.test(counts));
+    ok('no count of infants on the unit (Pp, 2026-11-14)', !/ผู้ป่วยในหน่วย/.test(await page.locator('body').innerText()));
     ok('and when they were loaded', /โหลดเมื่อ \d\d:\d\d/.test(counts));
+    // One section per ward, as the registry's ward gate: iso 2-1 is NICU's.
+    eq('ward sections NICU then SCN, none for a missing bed', await page.locator('section.ward').evaluateAll((s) => s.map((e) => e.dataset.ward)), ['NICU', 'SCN']);
+    ok('NICU: 2 submitted, 1 draft', /Submit แล้ว 2 · ฉบับร่าง 1/.test(await text(page, 'section.ward[data-ward="NICU"] .ward-head')));
+    ok('SCN: 1 submitted, 0 drafts', /Submit แล้ว 1 · ฉบับร่าง 0/.test(await text(page, 'section.ward[data-ward="SCN"] .ward-head')));
+    // By bed inside a ward (currentOrders): NICU 3 before iso 2-1, the draft (NICU 2) folded below.
+    eq('each order sits under its ward', await page.locator('section.ward').evaluateAll((s) => s.map((e) => [...e.querySelectorAll('li.order')].map((li) => li.dataset.session))),
+      [['CC-1', 'AA-1', 'BB-1'], ['SS-1']]);
     ok('the draft is folded away', !(await row(page, 'BB-1').isVisible()));
     await page.locator('details.drafts summary').click();
     ok('…and opens', await row(page, 'BB-1').isVisible());
@@ -562,6 +570,31 @@ const INIT = `
       await row(pg, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' }).click();
       ok('a tab older than the release says to reload', await within(pg.getByRole('alert').filter({ hasText: 'โหลดหน้านี้ใหม่' })));
       eq('…and does not print', await pg.evaluate(() => window.__prints), 0);
+      await c.close();
+    }
+
+    section('§12c Vera on the ward split, 2026-11-14: failed on its first commit');
+    {
+      // Two live rows for one infant: the older submitted, a newer revision a draft. The list
+      // keeps one row per infant (currentOrders), so the top must count that list, not the server's rows.
+      const log = g.sheet('Daily_Log').data;
+      // CC-1, since §7 deleted SS-1's row.
+      const extra = g.logRow('CC-1', logRowOf('CC-1')[0], { 2: 5, 3: 900, 14: 'draft', 15: 'doctor@dev.local', 27: 'doctor@dev.local', 35: 2 });
+      log.push(extra);
+      const c = await newRoom();
+      const pg = await open(c);
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await pg.locator('.counts').waitFor();
+      await pg.locator('section.ward[data-ward="NICU"] details.drafts summary').click();
+      await row(pg, 'CC-1').waitFor();
+      const num = (s, re) => Number((s.match(re) || [])[1]);
+      const top = await text(pg, '.counts');
+      const heads = await pg.locator('section.ward .ward-head').allInnerTexts();
+      const sum = (re) => heads.reduce((n, h) => n + num(h, re), 0);
+      eq('CC-1 shows once, as its newer draft', [await row(pg, 'CC-1').count(), /ฉบับร่าง รอหมอ Submit/.test(await row(pg, 'CC-1').innerText())], [1, true]);
+      eq('top counts are the sums of the ward headings', [num(top, /(\d+)\s*Submit แล้ว/), num(top, /(\d+)\s*ฉบับร่าง/)],
+        [sum(/Submit แล้ว (\d+)/), sum(/ฉบับร่าง (\d+)/)]);
+      log.splice(log.indexOf(extra), 1);
       await c.close();
     }
 

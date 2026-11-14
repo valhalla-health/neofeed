@@ -7,6 +7,55 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-14 (7) — The TPN room lists orders by ward; the unit count is gone
+
+`tpn-room-core.js` (`wardGroup`, `ordersByWard`), `tpn-room.jsx`, `tpn-room.css`, the shells' `?v=` tokens,
+`test/verify-tpn-room-core-1105.cjs`, `test/verify-tpn-room-page-1105.cjs`.
+
+Pp, 2026-11-14, from the live page: "ผู้ป่วยในหน่วย ไม่ต้องบอก แต่ให้แยกวอร์ดให้ห้อง TPN เช่นกัน เพื่อให้ดูภาพรวมได้".
+
+- **"ผู้ป่วยในหน่วย" is off the page.** The backend still sends `counts.active`; the page no longer shows it. Dropping it
+  from `pharmacyOrders` would need a backend deploy for no gain on the page, so it stays for now.
+- **One section per ward: NICU, then SCN.** Each heading reads "Submit แล้ว N · ฉบับร่าง M" for that ward, and an empty
+  ward still shows with "ยังไม่มี order ที่ Submit แล้ว", so the room sees that SCN has nothing yet. Each ward folds its
+  own drafts. The groups are the registry's ward gate (`wardGroup` in `data.js`): the iso rooms are NICU's, the rule
+  `wardLabel` already prints on the sticker. The backend blanks a bed outside the two wards, so the third group is
+  "ไม่มีเตียง", shown only when an order has no bed.
+- **Order inside a ward is unchanged:** `currentOrders` still sorts by bed (NICU 1–12, iso, SCN), so NICU 3 comes
+  before iso 2-1.
+- **Tests.** The core harness compares `Core.wardGroup` with `data.js` `wardGroup` bed by bed, so the two cannot drift
+  apart, and runs `ordersByWard` on a made-up list and on a real `pharmacyOrders` reply. The page harness checks the
+  sections, their counts, which order sits under which ward, and that "ผู้ป่วยในหน่วย" is gone. Core 109/109; page
+  105/105 in Chromium on Pp's PC (the launch shim in `test/README.md`).
+- **Vera: NO BLOCK, two findings, both fixed.** (1) The counts at the top were the server's, which counts every row
+  it sends, while the ward headings count the list after `currentOrders` keeps one row per infant: an infant with an
+  older submitted row and a newer draft read "Submit แล้ว 2" at the top and 1 in the headings. The top now adds up
+  the headings; page § 12c failed on the first commit (got 2, want 1) and passes now. (2) The open change's spec
+  still promised the active count; `openspec/changes/tpn-room-stickers` now says submitted and draft counts, split
+  by ward, with a scenario for the sections. Her second proposed test (the ไม่มีเตียง section in Chromium) is left
+  out: it would pass on the first commit too, and the core harness already builds that group.
+
+## Session 2026-11-14 (6) — One red line for GIR and the dextrose ceiling
+
+`calculator.jsx`, `compiled/`, `.claude/skills/neofeed-clinical-rules/SKILL.md` (CR-GIR-MAX, CR-DEX-MAX),
+five harnesses that named the old title.
+
+- **What.** "Dextrose over KCMH max" is gone as a separate red line. Dextrose g/kg/d is GIR × 1.44, so
+  17.3 g/kg/d is GIR 12.01: every order over the ceiling already raised "GIR critically high", and the
+  ward saw two red boxes asking for one reason (Pp's screenshot, 12.7 mg/kg/min and 18.3 g/kg/d). The GIR
+  line now names both figures: "12.7 mg/kg/min — above 12 (dextrose 18.3 g/kg/d, max 17.3 g/kg/d)".
+  The dextrose figure takes extra decimals when it would round to the max (17.29, not 17.3; Vera).
+  Pp, 2026-11-14: "รวมสองกล่องแดงเป็นกล่องเดียว".
+- **Kept.** `MAX_DEXTROSE_G_KG` still raises the GIR line on its own if the two constants ever part (a
+  dextrose-only text that converts the max to mg/kg/min), and still shows under the dextrose field and on
+  the printed form. No dose, limit or `CONSTANTS_VERSION` moves.
+- **Saved orders.** A reason saved under the old title still prints: print checks only for current red
+  titles missing from the saved list, and "GIR critically high" was always on it alongside. On paper the
+  red box counts one tick fewer on these orders ("☑ n/m").
+- **Other repeats checked.** Lipid IV, potassium IV, NPE:AA, magnesium, Ca:P, K⁺ in the bag and the No
+  TPN lines were already one line each (`else if`). Left for Pp: the three stops (weight out of range,
+  K⁺ above the maximum, Bag cannot be made) show as a red alert and again as the save panel's red line.
+
 ## Session 2026-11-14 (5) — The อื่นๆ tile becomes ทดสอบระบบ: no-bed patients never reach the backend
 
 `data.js` (`isTestSession`, `testSessionId`, `isReadOnlyOther`, `TEST_STORE_KEY`), `app.jsx` (every write

@@ -217,7 +217,7 @@ function mount(props, { pressRoute = true } = {}) {
   ok('…and asks for no name or HN (CP keeps identity out of the packet)', /ชื่อ|HN/.test(promptText), promptText);
   const override = saved[0]?.critOverride;
   eq('the reason is handed to Center Point', override && override.reason, 'synthetic — attending aware');
-  ok('…with the alerts it overrode', !!override && override.alerts.some(a => /Dextrose over KCMH max/.test(a)), override);
+  ok('…with the alerts it overrode', !!override && override.alerts.some(a => /GIR critically high/.test(a)), override);
 
   saved = [];
   mount({ centerPoint });
@@ -244,7 +244,7 @@ function mount(props, { pressRoute = true } = {}) {
   if (!saved[0]) throw new Error('§4: the critical order never reached Center Point, so there is no snapshot to check');
   const tpn = buildTpn(saved[0], window.NEOFEED_DATA, from, to);
   eq('the snapshot carries the reason', tpn.criticalOverride && tpn.criticalOverride.reason, 'synthetic — attending aware');
-  ok('…and the alert titles', !!tpn.criticalOverride && tpn.criticalOverride.alerts.some(a => /Dextrose over KCMH max/.test(a)), tpn.criticalOverride);
+  ok('…and the alert titles', !!tpn.criticalOverride && tpn.criticalOverride.alerts.some(a => /GIR critically high/.test(a)), tpn.criticalOverride);
   const sheet = document.createElement('div');
   renderTpn(sheet, tpn);
   ok('CP\'s rendered order shows the reason', /synthetic — attending aware/.test(sheet.textContent), sheet.textContent.slice(0, 200));

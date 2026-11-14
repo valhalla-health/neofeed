@@ -373,7 +373,7 @@ function expectedAlerts(sc, e) {
     else if (sc.fluid > 0 && Number((sc.fluid - e.enCounted / e.W).toPrecision(12)) > 20) { add('warn', 'No TPN: feeds well below the fluid plan'); noTpnShort = true; }
   }
   if ((e.Vd > 0 || (noTpn && !noTpnShort)) && Math.abs(e.fluidKg - sc.fluid) > 20) add('info', 'Fluid: prescribed ≠ target');
-  if (e.dexGkg > 17.3) add('crit', 'Dextrose over KCMH max');
+  // Dextrose above 17.3 g/kg/d is GIR above 12.01: "GIR critically high" above, one line (Pp, 2026-11-14).
   // K⁺ in the bag by route since 2026-09-28 (TPN team and Praew): peripheral amber > 40, not orderable
   // > 60 (Praew, 2026-10-08; it was 200); central amber > 60, critical > 120, not orderable > 200.
   // Graded without float noise, so a bag that is 60 on paper is 60. Written out here, not read from data.js.
