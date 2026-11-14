@@ -23,7 +23,9 @@ const IDLE_LOGOUT_MS = 30 * 60 * 1000;
 const REQUEST_MS = 30000;
 
 // ── The server ───────────────────────────────────────────────
-async function gas(body) {
+// `keepalive` for a request the page reloads right after (logout): the browser
+// finishes it instead of cancelling it with the navigation.
+async function gas(body, { keepalive = false } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_MS);
   try {
@@ -32,6 +34,7 @@ async function gas(body) {
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(body),
       signal: ctrl.signal,
+      keepalive,
     });
     return await res.json();
   } catch (e) {
@@ -757,7 +760,7 @@ function TpnRoomApp({ store }) {
     window.location.reload();
   };
   const logout = () => {
-    if (user) gas({ action: "logout", token: user.token }).catch(() => {});
+    if (user) gas({ action: "logout", token: user.token }, { keepalive: true }).catch(() => {});
     signOut();
   };
 
@@ -770,7 +773,7 @@ function TpnRoomApp({ store }) {
     window.addEventListener("keydown", mark);
     const tick = setInterval(() => {
       if (Date.now() - lastInput > IDLE_LOGOUT_MS) {
-        gas({ action: "logout", token: user.token }).catch(() => {});
+        gas({ action: "logout", token: user.token }, { keepalive: true }).catch(() => {});
         signOut("ไม่ได้ใช้งาน 30 นาที ออกจากระบบแล้ว");
       }
     }, 60000);

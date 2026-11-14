@@ -409,6 +409,13 @@ const INIT = `
     await p5.getByRole('button', { name: 'เข้าสู่ระบบ' }).waitFor();
     eq('sign-out clears the session', await p5.evaluate(() => sessionStorage.length), 0);
     ok('…and takes the names off the screen', !/ชื่อในไฟล์/.test(await p5.innerText('body')));
+    // A Google session has no password to change.
+    await signIn(p5, 'temp-ph@dev.local', 'Synthetic-New-Pass-9');
+    await row(p5, 'AA-1').waitFor();
+    await p5.evaluate(() => { const s = JSON.parse(sessionStorage.getItem('neofeed_tpn_room_session')); s.authMethod = 'google'; sessionStorage.setItem('neofeed_tpn_room_session', JSON.stringify(s)); });
+    await p5.reload();
+    await p5.getByRole('button', { name: 'ออกจากระบบ' }).waitFor();
+    eq('a Google session shows no change-password button', await p5.getByRole('button', { name: 'เปลี่ยนรหัสผ่าน' }).count(), 0);
     await ctxC.close();
 
     section('§10 the ward app\'s refusal links here');
