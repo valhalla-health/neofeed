@@ -7,6 +7,26 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-14 — One red line for GIR and the dextrose ceiling
+
+`calculator.jsx`, `compiled/`, `.claude/skills/neofeed-clinical-rules/SKILL.md` (CR-GIR-MAX, CR-DEX-MAX),
+five harnesses that named the old title.
+
+- **What.** "Dextrose over KCMH max" is gone as a separate red line. Dextrose g/kg/d is GIR × 1.44, so
+  17.3 g/kg/d is GIR 12.01: every order over the ceiling already raised "GIR critically high", and the
+  ward saw two red boxes asking for one reason (Pp's screenshot, 12.7 mg/kg/min and 18.3 g/kg/d). The GIR
+  line now names both figures: "12.7 mg/kg/min — above 12 (dextrose 18.3 g/kg/d, max 17.3 g/kg/d)".
+  Pp, 2026-11-14: "รวมสองกล่องแดงเป็นกล่องเดียว".
+- **Kept.** `MAX_DEXTROSE_G_KG` still raises the GIR line on its own if the two constants ever part (a
+  dextrose-only text that converts the max to mg/kg/min), and still shows under the dextrose field and on
+  the printed form. No dose, limit or `CONSTANTS_VERSION` moves.
+- **Saved orders.** A reason saved under the old title still prints: print checks only for current red
+  titles missing from the saved list, and "GIR critically high" was always on it alongside. On paper the
+  red box counts one tick fewer on these orders ("☑ n/m").
+- **Other repeats checked.** Lipid IV, potassium IV, NPE:AA, magnesium, Ca:P, K⁺ in the bag and the No
+  TPN lines were already one line each (`else if`). Left for Pp: the three stops (weight out of range,
+  K⁺ above the maximum, Bag cannot be made) show as a red alert and again as the save panel's red line.
+
 ## Session 2026-11-12 (3) — The release comparison ticks the red alerts
 
 `tools/calc-compare.cjs`. Since #251 the sheet renders only once every red alert is ticked, so the

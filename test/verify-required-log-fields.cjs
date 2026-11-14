@@ -234,8 +234,8 @@ act(() => { [...container.querySelectorAll('.step2-ctrl .seg button')].find(b =>
 setField('Volume(mL/day)', 300);
 setField('Dextrose final', 25);
 const critAlerts = [...container.querySelectorAll('.calc-bottom .alert-row')].map(a => a.textContent);
-ok_('the order carries a critical alert (dextrose over KCMH max)',
-  critAlerts.some(t => /Dextrose over KCMH max/.test(t)), critAlerts);
+ok_('the order carries a critical alert (GIR critically high)',
+  critAlerts.some(t => /GIR critically high/.test(t)), critAlerts);
 window.prompt = () => null;
 act(() => { saveButton()?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 eq('a critical value with no reason does not reach CP', cpSaved, null);

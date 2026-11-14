@@ -178,10 +178,10 @@ const REASON_40 = REASON_300.slice(0, 40);
 const ALERTS_15 = ['TPN calc. weight far from automatic', 'GIR critically high', 'Protein critically out of range',
   'Energy critically out of range', 'Lipid critically out of range', 'Potassium critically out of range',
   'Magnesium below 1 mg/kg/d: พิมพ์เป็น mEq หรือเปล่า', 'Ca:P ratio (รวม oral supp) — ไม่มี P',
-  'Osmolarity > peripheral limit', 'Dextrose over KCMH max', 'K⁺ concentration too high',
+  'Osmolarity > peripheral limit', 'K⁺ concentration too high',
   'Lipid rate above the ceiling', 'Zinc total above 5 mg/day',
   'Glycophos 10 mEq Na/kg/d or more: พิมพ์เป็น mg P หรือเปล่า', 'Glycophos below 10 mg P/kg/d: พิมพ์เป็น mEq Na หรือเปล่า'];
-const CRIT_LINES_IN_SOURCE = 23;   // `level: "crit"` pushes in calculator.jsx: 15 above + NPE:AA + No TPN feeds + 6 stops
+const CRIT_LINES_IN_SOURCE = 22;   // `level: "crit"` pushes in calculator.jsx: 14 above + NPE:AA + No TPN feeds + 6 stops
 const UUID = '2d0b8f3a-7c1e-4b5a-9f66-1a2b3c4d5e6f';   // the longest NeoFeed ID the sheet could carry
 const DIAG_600 = ('Preterm 27 wk, BPD, NEC stage IIB post bowel resection, short bowel syndrome, cholestasis, PDA ligation, '
   + 'ROP stage 2 zone II, IVH grade 3 with post-haemorrhagic ventricular dilatation, anaemia of prematurity on EPO, '
@@ -365,10 +365,10 @@ const topStrings = (form) => {
   await section('§1e the fit test lists every critical title the app can raise', async () => {
     const lines = (R('calculator.jsx').match(/level: "crit"/g) || []).length;
     eq(`calculator.jsx raises ${CRIT_LINES_IN_SOURCE} kinds of critical alert; a new one needs a place in ALERTS_15 or a reason it is not there`, lines, CRIT_LINES_IN_SOURCE);
-    eq('the list holds 15 distinct titles', new Set(ALERTS_15).size, 15);
+    eq('the list holds 14 distinct titles', new Set(ALERTS_15).size, 14);
     const src = R('calculator.jsx');
     const named = ['TPN calc. weight far from automatic', 'GIR critically high', 'Lipid critically out of range', 'Potassium critically out of range',
-      'Osmolarity > peripheral limit', 'Dextrose over KCMH max', 'K⁺ concentration too high', 'Lipid rate above the ceiling', 'ไม่มี P'];
+      'Osmolarity > peripheral limit', 'K⁺ concentration too high', 'Lipid rate above the ceiling', 'ไม่มี P'];
     eq('…each of the literal ones is still spelled that way in calculator.jsx', named.filter(t => !src.includes(t)), []);
   });
 
