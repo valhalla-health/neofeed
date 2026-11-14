@@ -92,6 +92,10 @@ function gasRequest(body, { timeoutMs = GAS_TIMEOUT_MS } = {}) {
 const TEST_BLOCKED_MSG = "คนไข้ทดสอบไม่บันทึกเข้าระบบ";
 const TEST_MOVE_MSG = "คนไข้ทดสอบย้ายเข้าเตียงจริงไม่ได้ ถ้าเป็นคนไข้จริงให้เปิด New session ใหม่พร้อมเลือกเตียง";
 const READ_ONLY_OTHER_MSG = "ผู้ป่วยรายนี้ยังไม่มีเตียงในระบบ บันทึกไม่ได้ ย้ายเข้าเตียงจริงก่อน";
+// The id a locally saved row keeps. Not "local_tmp_…": log.jsx and the
+// Calculator read /^(local_)?tmp_/ as "still saving", so such a row could never
+// be opened again, and a test patient's orders live on local ids for good.
+const localEntryId = (tempId) => "local_" + String(tempId).replace(/^tmp_/, "");
 const onlyTestKeys = (map) => Object.fromEntries(
   Object.entries(map || {}).filter(([k]) => D_A.isTestSession(k)));
 // The store belongs to the account that wrote it (Vera, 2026-11-14): a session
@@ -1831,7 +1835,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return res;
     };
 
-    if (isLocalId(id)) return Promise.resolve(reconcile({ ok: true, entryId: "local_" + tempId, lastModified: ts }));
+    if (isLocalId(id)) return Promise.resolve(reconcile({ ok: true, entryId: localEntryId(tempId), lastModified: ts }));
     return writeGAS({ action: "logDailyNutrition", sessionId: id, entry: { ...entry, ts } }).then(reconcile);
   };
 
@@ -1963,7 +1967,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           { ...entry, entryId: tempId, enteredBy: who, lastModified: now, lastModifiedBy: who }] }));
         const res = !isLocalId(id)
           ? await writeGAS({ action: "logNursingEntry", sessionId: id, entry }, { quiet: true })
-          : { ok: true, entryId: "local_" + tempId, lastModified: now };
+          : { ok: true, entryId: localEntryId(tempId), lastModified: now };
         if (res.ok) {
           setNursing(prev => ({ ...prev, [id]: (prev[id] || []).map(r =>
             r.entryId === tempId ? { ...r, entryId: res.entryId, lastModified: res.lastModified } : r) }));

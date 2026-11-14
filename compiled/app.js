@@ -63,6 +63,7 @@ function gasRequest(body, { timeoutMs = GAS_TIMEOUT_MS } = {}) {
 const TEST_BLOCKED_MSG = "คนไข้ทดสอบไม่บันทึกเข้าระบบ";
 const TEST_MOVE_MSG = "คนไข้ทดสอบย้ายเข้าเตียงจริงไม่ได้ ถ้าเป็นคนไข้จริงให้เปิด New session ใหม่พร้อมเลือกเตียง";
 const READ_ONLY_OTHER_MSG = "ผู้ป่วยรายนี้ยังไม่มีเตียงในระบบ บันทึกไม่ได้ ย้ายเข้าเตียงจริงก่อน";
+const localEntryId = (tempId) => "local_" + String(tempId).replace(/^tmp_/, "");
 const onlyTestKeys = (map) => Object.fromEntries(
   Object.entries(map || {}).filter(([k]) => D_A.isTestSession(k))
 );
@@ -1130,7 +1131,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       }
       return res;
     };
-    if (isLocalId(id)) return Promise.resolve(reconcile({ ok: true, entryId: "local_" + tempId, lastModified: ts }));
+    if (isLocalId(id)) return Promise.resolve(reconcile({ ok: true, entryId: localEntryId(tempId), lastModified: ts }));
     return writeGAS({ action: "logDailyNutrition", sessionId: id, entry: { ...entry, ts } }).then(reconcile);
   };
   const handleUpdateToGAS = (entryId, expectedLastModified, entry) => {
@@ -1236,7 +1237,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           ...prev[id] || [],
           { ...entry, entryId: tempId, enteredBy: who, lastModified: now, lastModifiedBy: who }
         ] }));
-        const res = !isLocalId(id) ? await writeGAS({ action: "logNursingEntry", sessionId: id, entry }, { quiet: true }) : { ok: true, entryId: "local_" + tempId, lastModified: now };
+        const res = !isLocalId(id) ? await writeGAS({ action: "logNursingEntry", sessionId: id, entry }, { quiet: true }) : { ok: true, entryId: localEntryId(tempId), lastModified: now };
         if (res.ok) {
           setNursing((prev) => ({ ...prev, [id]: (prev[id] || []).map((r) => r.entryId === tempId ? { ...r, entryId: res.entryId, lastModified: res.lastModified } : r) }));
         } else if (!res.unknown) {

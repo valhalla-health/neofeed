@@ -15,6 +15,8 @@
 //   § 3 reload    a test patient in localStorage is back after a reload
 //   § 4 move      a test patient's move to a real bed is refused, nothing sent
 //   § 3b/3c logout  a chosen and an idle logout clear the test store (Vera)
+//   § 6 no print  a test order renders no sheet and Print order prints nothing
+//   § 7 reopen    an order saved locally gets an id the log can open
 //   § 5 read-only a server record with no bed: its move
 //                 to a real bed goes through; § 5b: an edit that keeps no bed
 //                 and a growth-chart weight are refused, nothing sent
@@ -22,6 +24,7 @@
 // Dev-only deps as in test/README.md. One scenario per process (runScenarios).
 process.env.TZ = process.env.TZ || 'Asia/Bangkok';
 const RB = require('./review-0917-boot.cjs');
+const { printFormTicked } = require('./print-acks-helper.cjs');
 
 const REAL = RB.mkPatient({ sessionId: 'NF-000001', name: 'สม จด', currentBed: 'NICU 1' });
 const NOBED = RB.mkPatient({ sessionId: 'NF-000777', name: 'บุญ มา', currentBed: '', bedHistory: [] });
@@ -228,6 +231,55 @@ const scenarios = {
     await t.settle();
     A.eq('5b.3 no updateWeights was sent', t.callsOf('updateWeights').length, 0);
     A.ok('5b.4 the toast says why', t.toasts().some(x => /บันทึกไม่ได้ ย้ายเข้าเตียงจริงก่อน/.test(x)));
+    restore();
+  },
+
+  async 'no-print'(A) {
+    console.log('\n── § 6 a test patient\'s order never prints (Pp, 2026-11-14: "ห้าม Print") ──');
+    const t = boot();
+    const restore = t.quiet();
+    let printed = 0;
+    t.window.print = () => { printed++; };
+    const tp = RB.mkPatient({ sessionId: 'TEST-NF-717171', name: 'ทด พิมพ์', currentBed: '' });
+    const CI = { curWtG: 900, fluidTargetPerKg: 150, otherIV_mL: 0, drug_mL: 0, ioInput: 130, ioOutput: 60, drainContent: 0,
+      totalTPN_mL: 110, dexPct: 12.5, aaPerKg: 3, lipidPerKg: 3, naCl: 2, kCl: 1, caPerKg: 60, glycophosP: 1,
+      constantsVersion: require('fs').readFileSync(RB.DIR + 'data.js', 'utf8').match(/const CONSTANTS_VERSION = "([^"]+)"/)[1] };  // verify-print-all-1028's printable order
+    const entry = { entryId: 'local_1731550000000_abc', lastModified: RB.TODAY + 'T02:00:00.000Z', ts: RB.TODAY, dol: 5,
+      weight: 900, ioInput: 130, ioOutput: 60, drainContent: 0, status: 'submitted', calcInput: CI };
+    t.window.localStorage.setItem(STORE, JSON.stringify({ owner: RB.DOCTOR.email, patients: [tp],
+      log: { 'TEST-NF-717171': [entry] }, nursing: {} }));
+    await t.start(); await t.settle();
+    await t.pickWard('ทดสอบระบบ');
+    await t.openPatientRow(/ทด พิมพ์/);
+    const row = t.window.document.querySelector('tr[data-admit-day]');
+    A.ok('6.1 the saved test order is in the log and opens', !!row && row.style.cursor === 'pointer');
+    await t.click(row); await t.settle();
+    A.ok('6.2 the Calculator says a test patient cannot print', !!t.window.document.querySelector('.test-no-print'));
+    A.ok('6.3 no printed sheet is rendered, even with every red alert ticked', !printFormTicked(t.window.document));
+    await t.click(t.btn(/^\s*Print order\s*$/)); await t.settle();
+    A.eq('6.4 Print order does not print', printed, 0);
+    A.ok('6.5 …and the toast says why', t.toasts().some(x => /คนไข้ทดสอบพิมพ์ใบสั่งไม่ได้/.test(x)));
+    A.eq('6.6 nothing with TEST- sent', leaked(t).length, 0);
+    restore();
+  },
+
+  async 'local-order-reopens'(A) {
+    console.log('\n── § 7 an order saved for a test patient can be opened again ──');
+    const t = boot();
+    const restore = t.quiet();
+    const tp = RB.mkPatient({ sessionId: 'TEST-NF-727272', name: 'ทด เปิด', currentBed: '' });
+    t.window.localStorage.setItem(STORE, JSON.stringify({ owner: RB.DOCTOR.email, patients: [tp], log: {}, nursing: {} }));
+    await t.start(); await t.settle();
+    await t.pickWard('ทดสอบระบบ');
+    await t.openPatientRow(/ทด เปิด/);
+    await t.click(t.btn(/New log/)); await t.settle();
+    await t.click(t.btn(/ดำเนินการต่อ/)); await t.settle();
+    await t.click(t.btn(/^\s*Peripheral\s*$/)); await t.settle();
+    await t.click(t.btn(/Save draft/)); await t.settle();
+    const ids = (t.store()?.log['TEST-NF-727272'] || []).map(e => e.entryId);
+    A.eq('7.1 one order saved locally', ids.length, 1);
+    A.ok('7.2 its id does not read as "still saving"', ids.length === 1 && /^local_/.test(ids[0]) && !/^(local_)?tmp_/.test(ids[0]));
+    A.eq('7.3 nothing with TEST- sent', leaked(t).length, 0);
     restore();
   },
 
