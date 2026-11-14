@@ -14,8 +14,10 @@
 //                 localStorage copy, and a sync that keeps it
 //   § 3 reload    a test patient in localStorage is back after a reload
 //   § 4 move      a test patient's move to a real bed is refused, nothing sent
-//   § 5 read-only a server record with no bed: its weight is refused, its move
-//                 to a real bed goes through
+//   § 3b/3c logout  a chosen and an idle logout clear the test store (Vera)
+//   § 5 read-only a server record with no bed: its move
+//                 to a real bed goes through; § 5b: an edit that keeps no bed
+//                 and a growth-chart weight are refused, nothing sent
 //
 // Dev-only deps as in test/README.md. One scenario per process (runScenarios).
 process.env.TZ = process.env.TZ || 'Asia/Bangkok';
@@ -128,6 +130,65 @@ const scenarios = {
     A.ok('3.2 a non-TEST record in the store is ignored', !/แอบ ใส่/.test(t.text()));
     A.ok('3.3 the server record with no bed lists here too', /บุญ มา/.test(t.text()));
     A.eq('3.4 nothing with TEST- sent', leaked(t).length, 0);
+    restore();
+  },
+
+  async 'logout'(A) {
+    console.log('\n── § 3b logout clears the test store (Vera, 2026-11-14) ──');
+    const t = boot();
+    const restore = t.quiet();
+    const tp = RB.mkPatient({ sessionId: 'TEST-NF-616161', name: 'ทด ออก', currentBed: '' });
+    t.window.localStorage.setItem(STORE, JSON.stringify({ patients: [tp], log: {}, nursing: {} }));
+    await t.start(); await t.settle();
+    await t.pickWard('ทดสอบระบบ');
+    A.ok('3b.1 the test patient is on screen', /ทด ออก/.test(t.text()));
+    await t.click(t.window.document.querySelector('.topbar .user'));
+    await t.click(t.btn(/ออกจากระบบ/));
+    await t.settle();
+    A.eq('3b.2 a chosen logout removes the test store', t.window.localStorage.getItem(STORE), null);
+    restore();
+  },
+
+  async 'idle-logout'(A) {
+    console.log('\n── § 3c an idle logout clears it too ──');
+    const t = boot();
+    const restore = t.quiet();
+    const tp = RB.mkPatient({ sessionId: 'TEST-NF-626262', name: 'ทด หลับ', currentBed: '' });
+    t.window.localStorage.setItem(STORE, JSON.stringify({ patients: [tp], log: {}, nursing: {} }));
+    await t.start(); await t.settle();
+    t.clock.advance(31 * 60 * 1000);
+    await t.tick(30000); await t.settle();
+    A.ok('3c.1 the idle logout happened', !t.window.document.querySelector('.ward-gate'));
+    A.eq('3c.2 the test store is gone', t.window.localStorage.getItem(STORE), null);
+    restore();
+  },
+
+  async 'readonly-saves'(A) {
+    console.log('\n── § 5b a server record with no bed takes no other save ──');
+    const t = boot();
+    const restore = t.quiet();
+    await t.start(); await t.settle();
+    await t.pickWard('ทดสอบระบบ');
+    // Edit session that keeps no bed: refused in the modal, nothing sent.
+    const row = [...t.window.document.querySelectorAll('.patient-table tbody tr')].find(r => /บุญ มา/.test(r.textContent));
+    await t.click([...row.querySelectorAll('button')].find(b => b.textContent.trim() === 'Edit'));
+    const m = t.modal();
+    await t.typeInto(t.fieldInput('Diagnosis', m), 'RDS แก้');
+    t.server.calls.length = 0;
+    await t.click(t.btn(/Save changes/, m));
+    await t.settle();
+    A.ok('5b.1 the edit is refused in words', /บันทึกไม่ได้ ย้ายเข้าเตียงจริงก่อน/.test(t.modal()?.textContent || ''));
+    A.eq('5b.2 no registerPatient was sent', t.callsOf('registerPatient').length, 0);
+    await t.click(t.btn(/Cancel/, t.modal()));
+    // A weight from the growth chart: refused, nothing sent.
+    await t.openPatientRow(/บุญ มา/);
+    await t.rail(/Growth chart/);
+    await t.typeInto(t.fieldInput('Wt'), 950);
+    t.server.calls.length = 0;
+    await t.click(t.btn(/Save measurement/));
+    await t.settle();
+    A.eq('5b.3 no updateWeights was sent', t.callsOf('updateWeights').length, 0);
+    A.ok('5b.4 the toast says why', t.toasts().some(x => /บันทึกไม่ได้ ย้ายเข้าเตียงจริงก่อน/.test(x)));
     restore();
   },
 

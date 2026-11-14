@@ -82,8 +82,13 @@ function loadTestStore() {
 }
 function saveTestStore(patients, log, nursing) {
   try {
+    const tests = patients.filter((x) => D_A.isTestSession(x.sessionId));
+    if (!tests.length) {
+      localStorage.removeItem(D_A.TEST_STORE_KEY);
+      return;
+    }
     localStorage.setItem(D_A.TEST_STORE_KEY, JSON.stringify({
-      patients: patients.filter((x) => D_A.isTestSession(x.sessionId)),
+      patients: tests,
       log: onlyTestKeys(log),
       nursing: onlyTestKeys(nursing)
     }));
@@ -703,7 +708,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     }
     clearSession();
     if (reason === "manual" || reason === "idle" || reason === "pharmacy") {
-      const prefixes = reason === "manual" ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_"] : ["neofeed_calc_", "neofeed_acked_"];
+      const prefixes = reason === "manual" ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_", D_A.TEST_STORE_KEY] : ["neofeed_calc_", "neofeed_acked_", D_A.TEST_STORE_KEY];
       try {
         Object.keys(localStorage).filter((k) => prefixes.some((p) => k.startsWith(p))).forEach((k) => localStorage.removeItem(k));
       } catch {
@@ -1066,7 +1071,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return { ok: false, refused: true, error: READ_ONLY_OTHER_MSG };
   };
   React.useEffect(() => {
-    if (GAS_ON) saveTestStore(patients, log, nursing);
+    if (GAS_ON && !endedRef.current) saveTestStore(patients, log, nursing);
   }, [patients, log, nursing]);
   const loadUsage = React.useCallback(() => gasPost({ action: "getUsageWeekly" }, { quiet: true }), [gasPost]);
   const blockedByUnknownWrite = (quiet = false) => {

@@ -108,8 +108,11 @@ function loadTestStore() {
 }
 function saveTestStore(patients, log, nursing) {
   try {
+    const tests = patients.filter(x => D_A.isTestSession(x.sessionId));
+    // No test patient, no key: nothing left behind for the next account.
+    if (!tests.length) { localStorage.removeItem(D_A.TEST_STORE_KEY); return; }
     localStorage.setItem(D_A.TEST_STORE_KEY, JSON.stringify({
-      patients: patients.filter(x => D_A.isTestSession(x.sessionId)),
+      patients: tests,
       log: onlyTestKeys(log), nursing: onlyTestKeys(nursing) }));
   } catch { /* storage blocked or full: the test patients last this tab only */ }
 }
@@ -1128,9 +1131,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     }
     clearSession();
     if (reason === "manual" || reason === "idle" || reason === "pharmacy") {
+      // The test store goes too (Vera, 2026-11-14): it holds names and orders,
+      // and a ward PC is shared, so the next account must not inherit them.
       const prefixes = reason === "manual"
-        ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_"]
-        : ["neofeed_calc_", "neofeed_acked_"];
+        ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_", D_A.TEST_STORE_KEY]
+        : ["neofeed_calc_", "neofeed_acked_", D_A.TEST_STORE_KEY];
       try {
         Object.keys(localStorage)
           .filter(k => prefixes.some(p => k.startsWith(p)))
@@ -1737,8 +1742,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return { ok: false, refused: true, error: READ_ONLY_OTHER_MSG };
   };
   // The test patients follow every change into localStorage.
+  // Never after the session ended: a late render must not write back what
+  // endSession just cleared.
   React.useEffect(() => {
-    if (GAS_ON) saveTestStore(patients, log, nursing);
+    if (GAS_ON && !endedRef.current) saveTestStore(patients, log, nursing);
   }, [patients, log, nursing]);
 
   // NF-02's weekly counts for the Admin page: a read, so not a writeGAS, and
