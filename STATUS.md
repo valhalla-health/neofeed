@@ -1,5 +1,8 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-14 — The TPN room's page lists orders by ward (NICU with its iso rooms, then SCN), each with its own Submit and draft counts; "ผู้ป่วยในหน่วย" is gone: PR #259, merged into `main` on Praew's instruction.**
+> Frontend only, the TPN room's page alone; no figure or rule changes (`CHANGELOG.md` 2026-11-14 (7)).
+>
 > ⏳ **2026-11-14 — One red line for GIR and the dextrose ceiling ("Dextrose over KCMH max" is part of "GIR critically high", which names both figures): PR #254, merged into `main` on Praew's instruction; release PR to follow.** Frontend only; no dose or limit moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-14).
 >
 > ⏳ **2026-11-14 — The อื่นๆ tile becomes ทดสอบระบบ: a patient registered with no bed is a TEST patient kept in this browser, never sent to the backend; the server's no-bed records go read-only until given a bed; a test order never prints: PR #258, merged into `main` on Praew's instruction; release PR to follow.** Frontend only (`CHANGELOG.md` 2026-11-14 (5)).
