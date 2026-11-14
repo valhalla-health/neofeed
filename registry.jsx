@@ -537,7 +537,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
                  aria-label={`${action} ${D_R.patientName(p) || ""}`.trim()}>
               <div className="pr-who">
                 <BedChip p={p} />
-                <span className="pr-name">{D_R.patientName(p) || "—"} <TestTag p={p} /></span>
+                <span className="pr-name">{D_R.patientName(p) || "—"}<TestTag p={p} /></span>
                 {p.twinSuffix && <span className="chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
                 <span className="pr-dol">DOL {D_R.liveDol(p)}</span>
                 <span className="log-badge is-logged">✓ SUBMITTED</span>
@@ -865,7 +865,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
               {/* Row 1: name + DOL + status */}
               <div className="pmc-row pmc-head">
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span className="pmc-name">{D_R.patientName(p) || "—"} <TestTag p={p} /></span>
+                  <span className="pmc-name">{D_R.patientName(p) || "—"}<TestTag p={p} /></span>
                   {/* Twins share initials — without this, Twin A and Twin B
                       were two identical cards on the phones nurses use
                       (2026-09-11 review, F9; desktop table + picker had it). */}
@@ -956,7 +956,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
                    onClick={() => onSelect(p.sessionId)}>
                 <div className="pmc-row pmc-head">
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="pmc-name">{D_R.patientName(p) || "—"} <TestTag p={p} /></span>
+                    <span className="pmc-name">{D_R.patientName(p) || "—"}<TestTag p={p} /></span>
                     {p.twinSuffix && <span className="pmc-twin chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
                     <BedChip p={p} />
                   </div>
@@ -1058,7 +1058,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
                     onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p.sessionId); } }}>
                   <td><BedChipButton p={p} stacked onOpen={openTransfer} /></td>
                   <td>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{D_R.patientName(p) || "—"} <TestTag p={p} /></div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{D_R.patientName(p) || "—"}<TestTag p={p} /></div>
                     {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{multiplesLabel(p)}</div>}
                   </td>
                   <td className="num" style={{ fontWeight: 600, color: "var(--brand-2)" }}>
@@ -1125,7 +1125,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
               <tr key={p.sessionId} style={{ opacity: 0.5, cursor: "pointer" }}
                   onClick={() => onSelect(p.sessionId)}>
                 <td><BedChip p={p} stacked /></td>
-                <td style={{ fontWeight: 600, fontSize: 13 }}>{D_R.patientName(p) || "—"} <TestTag p={p} /></td>
+                <td style={{ fontWeight: 600, fontSize: 13 }}>{D_R.patientName(p) || "—"}<TestTag p={p} /></td>
                 <td className="num">{D_R.fmtGA(p.ga)}</td>
                 <td className="num">{D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))}</td>
                 <td className="num">{p.bw.toLocaleString()}</td>

@@ -305,7 +305,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         ...open ? rowA11y(open) : {},
         "aria-label": `${action} ${D_R.patientName(p) || ""}`.trim()
       },
-      /* @__PURE__ */ React.createElement("div", { className: "pr-who" }, /* @__PURE__ */ React.createElement(BedChip, { p }), /* @__PURE__ */ React.createElement("span", { className: "pr-name" }, D_R.patientName(p) || "—", " ", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pr-dol" }, "DOL ", D_R.liveDol(p)), /* @__PURE__ */ React.createElement("span", { className: "log-badge is-logged" }, "✓ SUBMITTED")),
+      /* @__PURE__ */ React.createElement("div", { className: "pr-who" }, /* @__PURE__ */ React.createElement(BedChip, { p }), /* @__PURE__ */ React.createElement("span", { className: "pr-name" }, D_R.patientName(p) || "—", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pr-dol" }, "DOL ", D_R.liveDol(p)), /* @__PURE__ */ React.createElement("span", { className: "log-badge is-logged" }, "✓ SUBMITTED")),
       /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -507,7 +507,7 @@ function PatientRegistry({
         onClick: () => onSelect(p.sessionId),
         ...rowA11y(() => onSelect(p.sessionId))
       },
-      /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—", " ", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pmc-dol" }, "DOL ", dol)), /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus })),
+      /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pmc-dol" }, "DOL ", dol)), /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus })),
       /* @__PURE__ */ React.createElement("div", { className: "pmc-row" }, /* @__PURE__ */ React.createElement(BedChipButton, { p, onOpen: openTransfer }), /* @__PURE__ */ React.createElement("span", { className: "pmc-meta" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, D_R.fmtGA(p.ga)), " wk ·", " ", /* @__PURE__ */ React.createElement("span", { className: "num" }, p.bw.toLocaleString()), " g")),
       p.diagnosis && /* @__PURE__ */ React.createElement("div", { className: "pmc-diagnosis" }, p.diagnosis),
       /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-stats" }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { className: "pmc-lbl" }, "Wt"), /* @__PURE__ */ React.createElement("span", { className: "num" }, last?.w?.toLocaleString() || "—"), " g"), /* @__PURE__ */ React.createElement("span", { style: { color: last ? deltaColor : "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-lbl" }, "Δ"), last ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "num" }, delta >= 0 ? "+" : "", delta), " g (", D_R.displayNum(deltaPct, 1), "%)") : /* @__PURE__ */ React.createElement("span", { className: "num" }, "—")), /* @__PURE__ */ React.createElement(
@@ -557,7 +557,7 @@ function PatientRegistry({
       style: { opacity: 0.55 },
       onClick: () => onSelect(p.sessionId)
     },
-    /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—", " ", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement(BedChip, { p })), /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus })),
+    /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement(BedChip, { p })), /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus })),
     /* @__PURE__ */ React.createElement("div", { className: "pmc-row" }, /* @__PURE__ */ React.createElement("span", { className: "pmc-meta" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, D_R.fmtGA(p.ga)), " wk · ", /* @__PURE__ */ React.createElement("span", { className: "num" }, p.bw.toLocaleString()), " g")),
     p.diagnosis && /* @__PURE__ */ React.createElement("div", { className: "pmc-diagnosis" }, p.diagnosis),
     /* @__PURE__ */ React.createElement("div", { className: "pmc-actions" }, /* @__PURE__ */ React.createElement(
@@ -598,7 +598,7 @@ function PatientRegistry({
         }
       },
       /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(BedChipButton, { p, stacked: true, onOpen: openTransfer })),
-      /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 14 } }, D_R.patientName(p) || "—", " ", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, multiplesLabel(p))),
+      /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 14 } }, D_R.patientName(p) || "—", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, multiplesLabel(p))),
       /* @__PURE__ */ React.createElement("td", { className: "num", style: { fontWeight: 600, color: "var(--brand-2)" } }, D_R.fmtGA(p.ga)),
       /* @__PURE__ */ React.createElement("td", { className: "num", style: { fontWeight: 600, color: "var(--ok)" } }, D_R.fmtGA(D_R.pmaShort(p.ga, dol))),
       /* @__PURE__ */ React.createElement("td", { className: "num" }, p.bw.toLocaleString()),
@@ -678,7 +678,7 @@ function PatientRegistry({
       onClick: () => onSelect(p.sessionId)
     },
     /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(BedChip, { p, stacked: true })),
-    /* @__PURE__ */ React.createElement("td", { style: { fontWeight: 600, fontSize: 13 } }, D_R.patientName(p) || "—", " ", /* @__PURE__ */ React.createElement(TestTag, { p })),
+    /* @__PURE__ */ React.createElement("td", { style: { fontWeight: 600, fontSize: 13 } }, D_R.patientName(p) || "—", /* @__PURE__ */ React.createElement(TestTag, { p })),
     /* @__PURE__ */ React.createElement("td", { className: "num" }, D_R.fmtGA(p.ga)),
     /* @__PURE__ */ React.createElement("td", { className: "num" }, D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))),
     /* @__PURE__ */ React.createElement("td", { className: "num" }, p.bw.toLocaleString()),

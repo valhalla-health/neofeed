@@ -79,8 +79,8 @@ const log = {
   'YY-1': [order('e-yy1'), order('e-yy2', { lastModified: TODAY + 'T03:00:00.000Z' })],
 };
 
-function setup() {
-  const t = boot({ patients, log });
+function setup(ps = patients) {
+  const t = boot({ patients: ps, log });
   t.quiet();
   t.printed = 0;
   t.printedSheets = [];
@@ -314,15 +314,20 @@ const scenarios = {
 
   async 'none'(A) {
     console.log('\n── #6 nothing to print ──');
-    const t = setup();
+    // Since 2026-11-14 the no-bed tile is the test area (ทดสอบระบบ) and has no
+    // Print order, so XX and YY, the two unprintable rows, sit on SCN beds
+    // here, alone on the ward.
+    const t = setup(patients.filter(p => ['XX-1', 'YY-1'].includes(p.sessionId))
+      .map((p, i) => ({ ...p, currentBed: 'SCN ' + (3 + i) })));
     await t.start();
-    await t.click(wardPrint('อื่นๆ'));
-    A.ok('6.0 อื่นๆ lists a saving row and a two-orders day', printRows().length === 2);
+    A.ok('6.00 the test tile has no Print order', !wardPrint('ทดสอบระบบ'));
+    await t.click(wardPrint('SCN'));
+    A.ok('6.0 SCN lists a saving row and a two-orders day', printRows().length === 2);
     A.ok('6.1 Print ทั้งหมด is there but off, counting none', !!printAll() && printAll().disabled
       && printAll().querySelector('.num').textContent === '(0)');
     await t.click(printAll());
     await settle(t);
-    A.ok('6.2 …and a tap on it does nothing', /Print order · อื่นๆ/.test(t.text()) && t.printed === 0);
+    A.ok('6.2 …and a tap on it does nothing', /Print order · SCN/.test(t.text()) && t.printed === 0);
   },
 };
 

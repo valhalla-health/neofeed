@@ -115,7 +115,9 @@ const scenarios = {
     const t = setup();
     await t.start();
     const tiles = [...document.querySelectorAll('.ward-tile')];
-    A.eq('2.0 the ward tiles are unchanged', tiles.map(b => b.textContent.match(/^(NICU|SCN)/)?.[1]), ['NICU', 'SCN']);
+    // ทดสอบระบบ, the test area, has shown on every gate since 2026-11-14,
+    // with no Print order of its own (2.1 still counts two buttons).
+    A.eq('2.0 the ward tiles: NICU, SCN and the test area', tiles.map(b => b.textContent.match(/^(NICU|SCN|ทดสอบระบบ)/)?.[1]), ['NICU', 'SCN', 'ทดสอบระบบ']);
     A.eq('2.1 one Print order button per ward', printButtons().length, 2);
     A.ok('2.2 …in the calculator\'s own words', printButtons().every(b => /^\s*Print order/.test(b.textContent)));
     A.ok('2.3 …never inside the tile (a button in a button)', !document.querySelector('.ward-tile button, .ward-tile .ward-print'));
