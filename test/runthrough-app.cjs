@@ -187,7 +187,7 @@ await page.locator('.ward-tile').first().click();
 await page.waitForTimeout(600);
 await shot('01-registry');
 ok_('picking NICU shows that ward\'s registry',
-  await page.getByText('Total sessions').isVisible().catch(() => false));
+  await page.getByText(/\d+ sessions · \d+ active/).isVisible().catch(() => false));
 
 // ── #1 bed label ──────────────────────────────────────────────────────────
 console.log('\n── bed label on the registry card ──');

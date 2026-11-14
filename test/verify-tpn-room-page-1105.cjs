@@ -124,7 +124,7 @@ const INIT = `
     const raw = await ctxA.request.get(url + '/tpn-room.html');
     ok('served under the hosts\' CSP', /connect-src/.test(raw.headers()['content-security-policy'] || ''));
     const page = await open(ctxA);
-    await page.getByRole('button', { name: 'เข้าสู่ระบบ' }).waitFor();
+    await page.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true }).waitFor();
     ok('Sarabun is served with the page', (await page.evaluate(async () => { await document.fonts.ready; return [...document.fonts].filter((f) => f.family.includes('Sarabun')).length; })) >= 4);
     ok('no Google or other third-party request', !requests.some((r) => !r.url.startsWith(url)));
     eq('nothing in sessionStorage before sign-in', await page.evaluate(() => sessionStorage.length), 0);
@@ -132,7 +132,7 @@ const INIT = `
     section('§2 sign-in');
     await signIn(page, pharmacy.email, 'wrong-password');
     await page.getByRole('alert').waitFor();
-    ok('a wrong password stays on the form', await page.getByRole('button', { name: 'เข้าสู่ระบบ' }).isVisible());
+    ok('a wrong password stays on the form', await page.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true }).isVisible());
     const doctor = dev.accounts.find((a) => a.role === 'doctor');
     await signIn(page, doctor.email, doctor.password);
     await page.getByText('บัญชีนี้ไม่มีสิทธิ์ใช้หน้าห้อง TPN').waitFor();
@@ -378,7 +378,7 @@ const INIT = `
       sessionStorage.setItem('neofeed_tpn_room_session', JSON.stringify(s));
     });
     await p4.reload();
-    await p4.getByRole('button', { name: 'เข้าสู่ระบบ' }).waitFor();
+    await p4.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true }).waitFor();
     ok('a dead token lands on sign-in with a reason', /หมดเวลาเข้าสู่ระบบ/.test(await p4.innerText('main')));
     eq('…and clears the stored session', await p4.evaluate(() => sessionStorage.length), 0);
     await ctxB.close();
@@ -400,10 +400,67 @@ const INIT = `
     ok('a change-password button stays on the page', await p5.getByRole('heading', { name: 'เปลี่ยนรหัสผ่าน' }).isVisible());
     await p5.getByRole('button', { name: 'ยกเลิก' }).click();
     await p5.getByRole('button', { name: 'ออกจากระบบ' }).click();
-    await p5.getByRole('button', { name: 'เข้าสู่ระบบ' }).waitFor();
+    await p5.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true }).waitFor();
     eq('sign-out clears the session', await p5.evaluate(() => sessionStorage.length), 0);
     ok('…and takes the names off the screen', !/ชื่อในไฟล์/.test(await p5.innerText('body')));
     await ctxC.close();
+
+    section('§9b Google sign-in by redirect (Pp, 2026-11-14), no Google script on the page');
+    // An admin on a gmail address: no NeoFeed password, so Google is the only way in.
+    g.addStaff('room-admin@gmail.com', 'admin', '', { name: 'แอดมิน Google' });
+    const fakeJwt = (payload) => ['{"alg":"none"}', JSON.stringify(payload), 'sig']
+      .map((x, i) => i === 2 ? x : Buffer.from(x).toString('base64url')).join('.');
+    let mark = requests.length;
+    const sinceMark = () => requests.slice(mark);
+    const loginsSince = () => sinceMark().filter((r) => { try { return JSON.parse(r.body).action === 'login'; } catch { return false; } });
+    const ctxG = await newRoom();
+    const pg9 = await open(ctxG);
+    await pg9.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true }).waitFor();
+    ok('the sign-in screen loads nothing from Google', !sinceMark().some((r) => !r.url.startsWith(url)));
+    eq('…and has no Google script tag', await pg9.locator('script[src*="google"]').count(), 0);
+    await Promise.all([
+      pg9.waitForRequest((r) => r.url().startsWith('https://accounts.google.com/')),
+      pg9.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google' }).click(),
+    ]).catch(() => {});
+    const authReq = sinceMark().filter((r) => r.url.startsWith('https://accounts.google.com/')).pop();
+    const q = new URL(authReq.url).searchParams;
+    eq('the button goes to Google\'s sign-in, asking for an ID token back to this page',
+      [new URL(authReq.url).pathname, q.get('response_type'), q.get('redirect_uri'), q.get('scope'), !!q.get('client_id')],
+      ['/o/oauth2/v2/auth', 'id_token', url + '/tpn-room.html', 'openid email profile', true]);
+    const state = q.get('state'), nonce = q.get('nonce');
+    ok('…with a fresh state and nonce', /^[0-9a-f]{32}$/.test(state) && /^[0-9a-f]{32}$/.test(nonce) && state !== nonce);
+
+    // Google's answer with the wrong state: refused before anything reaches the server.
+    mark = requests.length;
+    await pg9.goto(url + '/tpn-room.html#id_token=' + fakeJwt({ nonce }) + '&state=not-the-state');
+    await pg9.getByText('เข้าสู่ระบบด้วย Google ไม่สำเร็จ').waitFor();
+    eq('a wrong state is refused, with no login call', loginsSince().length, 0);
+    eq('…and the token is wiped from the address bar', new URL(pg9.url()).hash, '');
+    // The right state with a token minted for another sign-in (its nonce differs): refused too.
+    await Promise.all([pg9.waitForRequest((r) => r.url().startsWith('https://accounts.google.com/')), pg9.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google' }).click()]).catch(() => {});
+    const qn = new URL(sinceMark().filter((r) => r.url.startsWith('https://accounts.google.com/')).pop().url).searchParams;
+    mark = requests.length;
+    await pg9.goto(url + '/tpn-room.html#id_token=' + fakeJwt({ nonce: 'a-different-nonce' }) + '&state=' + qn.get('state'));
+    await pg9.getByText('เข้าสู่ระบบด้วย Google ไม่สำเร็จ').waitFor();
+    eq('a token with another nonce is refused, with no login call', loginsSince().length, 0);
+    eq('…the token is wiped and the state used up', [new URL(pg9.url()).hash, await pg9.evaluate(() => sessionStorage.getItem('neofeed_tpn_room_oauth'))], ['', null]);
+
+    // A good answer: state and nonce match, the server checks the token with Google.
+    await Promise.all([pg9.waitForRequest((r) => r.url().startsWith('https://accounts.google.com/')), pg9.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google' }).click()]).catch(() => {});
+    const authReq2 = sinceMark().filter((r) => r.url.startsWith('https://accounts.google.com/')).pop();
+    const q2 = new URL(authReq2.url).searchParams;
+    ok('each try gets a new state', q2.get('state') !== state);
+    g.env.urlFetch = { code: 200, body: JSON.stringify({ aud: 'client-id.apps.googleusercontent.com', iss: 'https://accounts.google.com',
+      exp: String(Math.floor(Date.now() / 1000) + 3600), email: 'room-admin@gmail.com', email_verified: 'true' }) };
+    mark = requests.length;
+    await pg9.goto(url + '/tpn-room.html#id_token=' + fakeJwt({ nonce: q2.get('nonce') }) + '&state=' + q2.get('state'));
+    await row(pg9, 'AA-1').waitFor();
+    eq('a gmail admin is in the room', JSON.parse(loginsSince()[0].body).googleToken.split('.').length, 3);
+    eq('…the address bar holds no token', new URL(pg9.url()).hash, '');
+    eq('…the state is used up', await pg9.evaluate(() => sessionStorage.getItem('neofeed_tpn_room_oauth')), null);
+    eq('…no change-password button for a Google session', await pg9.getByRole('button', { name: 'เปลี่ยนรหัสผ่าน' }).count(), 0);
+    ok('…and nothing went to Google from the room', !sinceMark().some((r) => !r.url.startsWith(url)));
+    await ctxG.close();
 
     section('§10 the ward app\'s refusal links here');
     const ctxD = await browser.newContext();

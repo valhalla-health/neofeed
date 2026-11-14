@@ -129,12 +129,16 @@ render('NICU');
 let stats = readStats();
 let badges = readBadges();
 console.log('  rendered:', stats.join('   '));
+// The strip reads Active, Needs entry, Draft, Logged today since 2026-11-14;
+// the session count moved to the line under the ward's name.
+const subLine = () => document.querySelector('.page-head .sub').textContent;
 eq('Active counts only this ward',           stats[0], 'Active=2');
-eq('Total sessions counts this ward',        stats[1], 'Total sessions=2');
-eq('Logged today survives a Sheets Date + back-fill', stats[2], 'Logged today=2');
-eq('Needs entry = active - logged',          stats[3], 'Needs entry=0');
+eq('Needs entry = active - logged (no No TPN infant here)', stats[1], 'Needs entry=0');
+eq('Draft: none',                            stats[2], 'Draft=0');
+eq('Logged today survives a Sheets Date + back-fill', stats[3], 'Logged today=2');
+eq('the sessions line counts this ward',     subLine(), '2 sessions · 2 active');
 eq('the three reconcile',
-   Number(stats[2].split('=')[1]) + Number(stats[3].split('=')[1]),
+   Number(stats[3].split('=')[1]) + Number(stats[1].split('=')[1]),
    Number(stats[0].split('=')[1]));
 eq('one badge per active patient, per layout', badges.length, 4);
 eq('LOGGED badges',      badges.filter(b => b.includes('LOGGED')).length, 4);
@@ -146,11 +150,11 @@ stats = readStats();
 badges = readBadges();
 console.log('  rendered:', stats.join('   '));
 eq('Active counts a blank status as active', stats[0], 'Active=1');
-eq('Total sessions counts the discharged one too', stats[1], 'Total sessions=2');
-eq('a discharged patient logged today does not inflate Logged', stats[2], 'Logged today=0');
-eq('Needs entry = active - logged',          stats[3], 'Needs entry=1');
+eq('Needs entry = active - logged (no No TPN infant here)', stats[1], 'Needs entry=1');
+eq('the sessions line counts the discharged one too', subLine(), '2 sessions · 1 active');
+eq('a discharged patient logged today does not inflate Logged', stats[3], 'Logged today=0');
 eq('the three reconcile',
-   Number(stats[2].split('=')[1]) + Number(stats[3].split('=')[1]),
+   Number(stats[3].split('=')[1]) + Number(stats[1].split('=')[1]),
    Number(stats[0].split('=')[1]));
 eq('NEEDS ENTRY badges', badges.filter(b => b === 'NEEDS ENTRY').length, 2);
 

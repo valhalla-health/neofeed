@@ -82,7 +82,7 @@ const scenarios = {
     t.quiet();
     await t.start();
     await t.pickWard('NICU');
-    A.ok('1.1 on the ward list, no patient strip', /Total sessions/.test(t.text()) && !strip());
+    A.ok('1.1 on the ward list, no patient strip', /\d+ sessions · \d+ active/.test(t.text()) && !strip());
     await t.click(document.querySelector('.switch-patient'));
     const row = pickerRow(/ZQ/);
     A.ok('1.2 Switch patient lists ZQ as discharged from iso 2-1', row && /Discharged/.test(row.textContent) && /iso 2-1/.test(row.textContent));
