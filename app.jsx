@@ -3943,7 +3943,7 @@ function CensusWard({ w }) {
         <div className="census-bar" role="img" aria-label={`ครองเตียง ${pct}%`}><span style={{ width: `${pct}%` }} /></div>}
       <div className="census-stats">
         {stat("Active", w.active)}
-        {stat("Logged today", w.logged, w.active > 0 && w.logged === w.active ? "ok" : "")}
+        {stat("Logged today", w.logged, w.active > 0 && w.needs === 0 ? "ok" : "")}
         {stat("Needs entry", w.needs, w.needs ? "warn" : "", w.draft ? `draft ${w.draft}` : null)}
         {stat("รอเตียง", w.parked, w.parked ? "warn" : "")}
         {stat("Critical", w.crit, w.crit ? "crit" : "")}

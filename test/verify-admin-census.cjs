@@ -210,8 +210,8 @@ const pick = (w) => w && { capacity: w.capacity, occupied: w.occupied, active: w
         'QXZC-BW1000': [order({ ts: ago(2), ...nt }), order({ status: 'draft' })] }, // a draft inside the 3 days
       TODAY);
     const z = cz.wards.find(w => w.ward === 'NICU');
-    eq('No TPN: 3 infants, none logged; only day 3 needs entry, and a draft inside the 3 days is not counted',
-       [z.active, z.logged, z.needs, z.draft], [3, 0, 1, 0]);
+    eq('No TPN: 3 infants, none logged; day 3 and the draft inside the 3 days need entry (draft 1)',
+       [z.active, z.logged, z.needs, z.draft], [3, 0, 2, 1]);
     eq('seven days of movement: 3 admitted (edge day 6 in, day 7 out), 1 discharged, 1 expired, the 10-day transfer out',
        c.movement, { admitted: 3, Discharged: 1, Transferred: 0, Expired: 1 });
     eq('two infants in SCN 5 are reported', c.doubleBooked, [{ bed: 'SCN 5', n: 2 }]);

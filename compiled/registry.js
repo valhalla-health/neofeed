@@ -222,6 +222,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
   const active = patients.filter((p) => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active.map((p) => ({ p, orders: todaysOrders(log[p.sessionId], today) })).filter((r) => r.orders.length > 0);
   const waiting = active.filter((p) => D_R.needsEntryOn(log[p.sessionId], today)).length;
+  const notDue = active.length - rows.length - waiting;
   const printable = rows.flatMap(({ p }) => {
     const order = wardPrintableOrder(p, log[p.sessionId], ward, today);
     return order ? [{
@@ -313,7 +314,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         !pending && !noTpn && /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: one ? "#fff" : void 0 })
       )
     ));
-  }), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`), waiting > 0 && /* @__PURE__ */ React.createElement("div", { className: "print-waiting" }, /* @__PURE__ */ React.createElement("span", null, "ยังไม่ Submit ", /* @__PURE__ */ React.createElement("span", { className: "num" }, waiting), " ราย — ไม่อยู่ในรายการพิมพ์"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: onShowNeeds }, "ดูรายชื่อ Needs entry →"))));
+  }), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`), (waiting > 0 || notDue > 0) && /* @__PURE__ */ React.createElement("div", { className: "print-waiting" }, /* @__PURE__ */ React.createElement("span", null, waiting > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, "ยังไม่ Submit ", /* @__PURE__ */ React.createElement("span", { className: "num" }, waiting), " ราย — ไม่อยู่ในรายการพิมพ์"), waiting > 0 && notDue > 0 && " · ", notDue > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, "No TPN ยังไม่ถึงวันลงนม ", /* @__PURE__ */ React.createElement("span", { className: "num" }, notDue), " ราย")), waiting > 0 && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: onShowNeeds }, "ดูรายชื่อ Needs entry →"))));
 }
 function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
   return /* @__PURE__ */ React.createElement("div", { className: "search-miss" }, /* @__PURE__ */ React.createElement("div", null, "ไม่พบ “", query, "” ใน ", wardName), elsewhere.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 } }, elsewhere.map((x) => /* @__PURE__ */ React.createElement("button", { key: x.ward, type: "button", className: "btn sm", onClick: () => onWardChange?.(x.ward) }, "พบใน ", x.ward === "other" ? "อื่นๆ" : x.ward, " ", x.n, " ราย · ไปดู →"))));

@@ -18,7 +18,7 @@
 //   D   No TPN submitted 3 days ago                NEEDS ENTRY (D+3)
 //   E   No TPN submitted 5 days ago                NEEDS ENTRY
 //   F   a bag submitted yesterday                  NEEDS ENTRY (TPN is daily)
-//   G   No TPN yesterday, a draft today            DRAFT; not in Needs entry
+//   G   No TPN yesterday, a draft today            DRAFT; in Needs entry (an order begun)
 //   H   a bag yesterday, a draft today             DRAFT; in Needs entry
 //   I   nothing logged                             NEEDS ENTRY
 //   J   a bag 3 days ago, No TPN yesterday, rows in the other order: no badge
@@ -94,7 +94,7 @@ ok('No TPN 3 days ago (D+3): asked again', D.needsEntryOn(log.D, today) === true
 ok('No TPN 5 days ago: asked', D.needsEntryOn(log.E, today) === true);
 ok('a bag yesterday: asked every day', D.needsEntryOn(log.F, today) === true);
 ok('a draft today does not answer it, with a bag yesterday', D.needsEntryOn(log.H, today) === true);
-ok('a draft today, No TPN yesterday: not asked', D.needsEntryOn(log.G, today) === false);
+ok('a draft today, No TPN yesterday: asked, the draft is an order begun', D.needsEntryOn(log.G, today) === true);
 ok('nothing logged, or no log: asked', D.needsEntryOn(log.I, today) === true && D.needsEntryOn(undefined, today) === true);
 ok('the date decides, not the array order', D.needsEntryOn(log.J, today) === false);
 ok('a No TPN draft is not an order: a bag 3 days ago still asks',
@@ -131,7 +131,7 @@ ok('no Total sessions tile', !tile('Total sessions'));
 ok('the line under the ward name still counts the sessions', /11 sessions · 10 active/.test(document.querySelector('.page-head .sub')?.textContent || ''),
   document.querySelector('.page-head .sub')?.textContent);
 ok('Active 10', val('Active') === '10', val('Active'));
-ok('Needs entry 5: D, E, F, H, I', val('Needs entry') === '5', val('Needs entry'));
+ok('Needs entry 6: D, E, F, G, H, I', val('Needs entry') === '6', val('Needs entry'));
 ok('Draft 2: G, H', val('Draft') === '2', val('Draft'));
 ok('Logged today 1: A', val('Logged today') === '1', val('Logged today'));
 ok('Draft is amber with a shape when there is one', tile('Draft').classList.contains('s-warn') && !!tile('Draft').querySelector('.reg-stat-mark'));
@@ -155,7 +155,7 @@ ok('B\'s No TPN tag names the day its feeds are due', bTag.title.includes(`ล�
 
 console.log('\n── each tile narrows the list ──');
 click(tile('Needs entry'));
-ok('Needs entry lists D, E, F, H, I', shown('.patient-mc') === 'DEFHI' && shown('tbody tr') === 'DEFHI', shown('.patient-mc'));
+ok('Needs entry lists D, E, F, G, H, I', shown('.patient-mc') === 'DEFGHI' && shown('tbody tr') === 'DEFGHI', shown('.patient-mc'));
 click(tile('Draft'));
 ok('Draft lists G and H', shown('.patient-mc') === 'GH' && shown('tbody tr') === 'GH', shown('.patient-mc'));
 ok('…and says so above the list', /แสดงเฉพาะ\s*Draft/.test(document.getElementById('root').textContent));
@@ -174,10 +174,18 @@ ok('Logged today reads done (green), Needs entry has no shape',
 console.log('\n── the ward gate and the Print order list ──');
 render({ ward: null });
 const nicuTile = [...document.querySelectorAll('.ward-tile')].find(el => /NICU 1–12/.test(el.textContent));
-ok('the NICU tile counts 5 needing entry', /10\s*active\s*5\s*needs entry/.test(nicuTile?.textContent.replace(/\s+/g, ' ') || ''), nicuTile?.textContent);
+ok('the NICU tile counts 6 needing entry', /10\s*active\s*6\s*needs entry/.test(nicuTile?.textContent.replace(/\s+/g, ' ') || ''), nicuTile?.textContent);
 render({ ward: null, printWard: 'NICU', onPrintOrder() {}, onPrintWard() {} });
 const waiting = document.querySelector('.print-waiting');
-ok('the print list counts 5 not yet submitted, the Needs entry list', /ยังไม่ Submit\s*5\s*ราย/.test(waiting?.textContent || ''), waiting?.textContent);
+ok('the print list counts 6 not yet submitted, the Needs entry list', /ยังไม่ Submit\s*6\s*ราย/.test(waiting?.textContent || ''), waiting?.textContent);
+ok('…and names the 3 No TPN infants not due yet (B, C, J), so 1 + 6 + 3 = 10 in the header',
+  /No TPN ยังไม่ถึงวันลงนม\s*3\s*ราย/.test(waiting?.textContent || '') && /Submit แล้ว\s*1\s*จาก\s*10\s*ราย/.test(document.getElementById('root').textContent),
+  waiting?.textContent);
+render({ ward: null, printWard: 'NICU', onPrintOrder() {}, onPrintWard() {}, patients: patients.slice(0, 3), log: quiet });
+const onlyNotDue = document.querySelector('.print-waiting');
+ok('with none waiting, the line still names the No TPN infants, and offers no Needs entry list',
+  /No TPN ยังไม่ถึงวันลงนม\s*2\s*ราย/.test(onlyNotDue?.textContent || '') && !/ยังไม่ Submit/.test(onlyNotDue?.textContent || '') && !onlyNotDue?.querySelector('button'),
+  onlyNotDue?.textContent);
 
 console.log('\n── the two shells ──');
 const shell = fs.readFileSync(DIR + 'index.html', 'utf8');

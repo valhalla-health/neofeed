@@ -1967,12 +1967,16 @@ function noTpnEntryDueOn(entries) {
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? addDaysToDateStr(d, NO_TPN_ENTRY_EVERY_DAYS) : null;
 }
 // Whether the ward list asks for an entry on `date` (default today): nothing
-// Submitted that day, and not a No TPN infant inside its 3 days. One rule for
-// the row badge, the Needs entry tile and its list, the ward gate tile, the
-// Print order list's count and the admin census.
+// Submitted that day, and not a No TPN infant inside its 3 days. A draft saved
+// that day is an order begun and not Submitted, so it is asked inside the 3
+// days too, and every draft stays inside Needs entry (the ward strip's Draft
+// tile and the census's "draft N" both read that). One rule for the row badge,
+// the Needs entry tile and its list, the ward gate tile, the Print order
+// list's count and the admin census.
 function needsEntryOn(entries, date) {
   const target = normalizeDateStr(date || todayLocal());
   if (hasLogOnDate(entries, target)) return false;
+  if (hasDraftOnDate(entries, target)) return true;
   const due = noTpnEntryDueOn(entries);
   return !(due && target < due);
 }

@@ -7,6 +7,23 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-14 (2) — Vera's review of the 3-day rule
+
+`data.js` (`needsEntryOn`), `registry.jsx` (`WardPrintList`), `app.jsx` (the census's Logged today), both shells
+(a comment), `test/verify-no-tpn-entry-3day-1114.cjs`, `test/verify-admin-census.cjs`. Vera: NO BLOCK, five findings.
+
+- **A draft today counts as Needs entry, inside the 3 days too** (finding 1). The entry below let a No TPN infant
+  with a draft started today drop out of Needs entry, the gate tile, the print list's count and the census. A
+  draft is an order begun and not Submitted, so it is asked; every draft stays inside Needs entry again.
+- **The Print order list names the No TPN infants not due yet** (finding 4): "No TPN ยังไม่ถึงวันลงนม N ราย", so
+  Submitted + "ยังไม่ Submit" + these add up to the header's "จาก N ราย". With none waiting the line still shows,
+  without the Needs entry button.
+- **The admin census's Logged today turns green when nothing needs an entry** (finding 5), as on the ward strip.
+- **Left for Pp** (findings 2, 3 and one note): whether a No TPN order saved with the confirmed critical "feeds
+  below 80 mL/kg/d" should still get the 3-day pass; a readmission under the same ID within 2 days of a No TPN
+  order gets the pass too (rare, left as is); whether a No TPN order with oral orders needs its short sheet
+  printed every day.
+
 ## Session 2026-11-14 — No TPN asked for an entry every 3 days; the ward strip reads Active, Needs entry, Draft, Logged today
 
 `data.js` (`NO_TPN_ENTRY_EVERY_DAYS`, `noTpnEntryDueOn`, `needsEntryOn`), `registry.jsx` (the stats strip, the row

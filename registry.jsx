@@ -441,6 +441,10 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
   // Those the ward's Needs entry list shows (D.needsEntryOn). A No TPN infant
   // inside its 3 days is not listed and not waiting: nothing is due today.
   const waiting = active.filter(p => D_R.needsEntryOn(log[p.sessionId], today)).length;
+  // The rest of those not listed: No TPN, nothing due until their 3 days are
+  // up. Named under the list so Submitted + waiting + these = the header's
+  // "จาก N ราย" (Vera, 2026-11-14).
+  const notDue = active.length - rows.length - waiting;
   // Print ทั้งหมด (Pp, 2026-10-28: "ให้หน้านี้ ทางขวาบนมีปุ่ม ปรินท์ทั้งหมด"):
   // every row a tap would open straight to print, in the list's bed order.
   // App opens them one at a time, each as a tap on its row would (app.jsx
@@ -554,10 +558,14 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
           </div>
         )}
 
-        {waiting > 0 && (
+        {(waiting > 0 || notDue > 0) && (
           <div className="print-waiting">
-            <span>ยังไม่ Submit <span className="num">{waiting}</span> ราย — ไม่อยู่ในรายการพิมพ์</span>
-            <button type="button" className="btn sm" onClick={onShowNeeds}>ดูรายชื่อ Needs entry →</button>
+            <span>
+              {waiting > 0 && <>ยังไม่ Submit <span className="num">{waiting}</span> ราย — ไม่อยู่ในรายการพิมพ์</>}
+              {waiting > 0 && notDue > 0 && " · "}
+              {notDue > 0 && <>No TPN ยังไม่ถึงวันลงนม <span className="num">{notDue}</span> ราย</>}
+            </span>
+            {waiting > 0 && <button type="button" className="btn sm" onClick={onShowNeeds}>ดูรายชื่อ Needs entry →</button>}
           </div>
         )}
       </div>
