@@ -60,6 +60,49 @@ function gasRequest(body, { timeoutMs = GAS_TIMEOUT_MS } = {}) {
   })();
   return Promise.race([run, deadline]).finally(() => clearTimeout(timer));
 }
+const TEST_BLOCKED_MSG = "คนไข้ทดสอบไม่บันทึกเข้าระบบ";
+const TEST_MOVE_MSG = "คนไข้ทดสอบย้ายเข้าเตียงจริงไม่ได้ ถ้าเป็นคนไข้จริงให้เปิด New session ใหม่พร้อมเลือกเตียง";
+const READ_ONLY_OTHER_MSG = "ผู้ป่วยรายนี้ยังไม่มีเตียงในระบบ บันทึกไม่ได้ ย้ายเข้าเตียงจริงก่อน";
+const localEntryId = (tempId) => "local_" + String(tempId).replace(/^tmp_/, "");
+const onlyTestKeys = (map) => Object.fromEntries(
+  Object.entries(map || {}).filter(([k]) => D_A.isTestSession(k))
+);
+function loadTestStore(email) {
+  const empty = { patients: [], log: {}, nursing: {} };
+  if (!email) return empty;
+  try {
+    const raw = JSON.parse(localStorage.getItem(D_A.TEST_STORE_KEY) || "null");
+    if (!raw) return empty;
+    if (raw.owner !== email || !Array.isArray(raw.patients)) {
+      localStorage.removeItem(D_A.TEST_STORE_KEY);
+      return empty;
+    }
+    return {
+      patients: raw.patients.filter((x) => x && D_A.isTestSession(x.sessionId)),
+      log: D_A.normalizeLogMap(onlyTestKeys(raw.log)),
+      nursing: D_A.normalizeNursingMap(onlyTestKeys(raw.nursing))
+    };
+  } catch {
+    return empty;
+  }
+}
+function saveTestStore(email, patients, log, nursing) {
+  if (!email) return;
+  try {
+    const tests = patients.filter((x) => D_A.isTestSession(x.sessionId));
+    if (!tests.length) {
+      localStorage.removeItem(D_A.TEST_STORE_KEY);
+      return;
+    }
+    localStorage.setItem(D_A.TEST_STORE_KEY, JSON.stringify({
+      owner: email,
+      patients: tests,
+      log: onlyTestKeys(log),
+      nursing: onlyTestKeys(nursing)
+    }));
+  } catch {
+  }
+}
 const SEX_ALIASES = {
   boys: "boys",
   boy: "boys",
@@ -383,9 +426,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const authName = user?.name || "";
   const userRef = React.useRef(user);
   userRef.current = user;
-  const [patients, setPatients] = React.useState(GAS_ON ? [] : D_A.MOCK_PATIENTS);
-  const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
-  const [nursing, setNursing] = React.useState({});
+  const [testStore0] = React.useState(() => GAS_ON ? loadTestStore(user && user.email) : null);
+  const [patients, setPatients] = React.useState(GAS_ON ? testStore0.patients : D_A.MOCK_PATIENTS);
+  const [log, setLog] = React.useState(GAS_ON ? testStore0.log : D_A.MOCK_DAILY_LOG);
+  const [nursing, setNursing] = React.useState(GAS_ON ? testStore0.nursing : {});
   const [nursingLive, setNursingLive] = React.useState(!GAS_ON);
   const ordersReadOnly = role === "nurse" && nursingLive;
   const [activeId, setActiveId] = React.useState(null);
@@ -672,7 +716,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     }
     clearSession();
     if (reason === "manual" || reason === "idle" || reason === "pharmacy") {
-      const prefixes = reason === "manual" ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_"] : ["neofeed_calc_", "neofeed_acked_"];
+      const prefixes = reason === "manual" ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_", D_A.TEST_STORE_KEY] : ["neofeed_calc_", "neofeed_acked_", D_A.TEST_STORE_KEY];
       try {
         Object.keys(localStorage).filter((k) => prefixes.some((p) => k.startsWith(p))).forEach((k) => localStorage.removeItem(k));
       } catch {
@@ -788,13 +832,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         const dob = D_A.dobFromAdmission(p);
         return dob ? { ...p, dob } : p;
       });
-      setPatients(withDob.length > 0 ? withDob : []);
-      setActiveId((prev) => data.patients.some((p) => p.sessionId === prev) ? prev : null);
+      const fromServer = withDob.filter((p) => !D_A.isTestSession(p.sessionId));
+      setPatients((prev) => [...fromServer, ...prev.filter((p) => D_A.isTestSession(p.sessionId))]);
+      setActiveId((prev) => D_A.isTestSession(prev) || data.patients.some((p) => p.sessionId === prev) ? prev : null);
     }
-    if (data.log) setLog(D_A.normalizeLogMap(data.log));
+    if (data.log) setLog((prev) => ({ ...D_A.normalizeLogMap(data.log), ...onlyTestKeys(prev) }));
     const nursingServed = !!data.nursing && typeof data.nursing === "object" && !Array.isArray(data.nursing);
     setNursingLive(nursingServed);
-    setNursing(nursingServed ? D_A.normalizeNursingMap(data.nursing) : {});
+    setNursing((prev) => ({ ...nursingServed ? D_A.normalizeNursingMap(data.nursing) : {}, ...onlyTestKeys(prev) }));
     unknownWriteRef.current = false;
     appliedSeqRef.current = seq;
     syncFailsRef.current = 0;
@@ -1014,12 +1059,39 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return { ok: true, ...data };
   }, [flagPasswordChangeRequired]);
   const writeGAS = (payload, opts) => {
+    const sid = payload && (payload.sessionId || payload.patient && payload.patient.sessionId);
+    if (D_A.isTestSession(sid)) {
+      console.error("[NeoFeed] refused a backend write for a test session: " + (payload.action || ""));
+      return Promise.resolve({ ok: false, refused: true, error: TEST_BLOCKED_MSG });
+    }
     const end = beginWrite();
     return gasPost(payload, opts).then((res) => {
       end(res);
       return res;
     });
   };
+  const isLocalId = (id) => !GAS_ON || D_A.isTestSession(id);
+  const readOnlyRefusal = (id, quiet = false) => {
+    if (!GAS_ON) return null;
+    const rec = patients.find((x) => x.sessionId === id);
+    if (!D_A.isReadOnlyOther(rec)) return null;
+    if (!quiet) showToast(READ_ONLY_OTHER_MSG, "error");
+    return { ok: false, refused: true, error: READ_ONLY_OTHER_MSG };
+  };
+  React.useEffect(() => {
+    if (GAS_ON && !endedRef.current) saveTestStore(user && user.email, patients, log, nursing);
+  }, [patients, log, nursing]);
+  const testOwnerRef = React.useRef(user && user.email);
+  React.useEffect(() => {
+    const email = user && user.email;
+    if (!GAS_ON || !email || testOwnerRef.current === email) return;
+    testOwnerRef.current = email;
+    const st = loadTestStore(email);
+    const notTest = (map) => Object.fromEntries(Object.entries(map || {}).filter(([k]) => !D_A.isTestSession(k)));
+    setPatients((prev) => [...prev.filter((p) => !D_A.isTestSession(p.sessionId)), ...st.patients]);
+    setLog((prev) => ({ ...notTest(prev), ...st.log }));
+    setNursing((prev) => ({ ...notTest(prev), ...st.nursing }));
+  }, [user && user.email]);
   const loadUsage = React.useCallback(() => gasPost({ action: "getUsageWeekly" }, { quiet: true }), [gasPost]);
   const blockedByUnknownWrite = (quiet = false) => {
     if (!GAS_ON || !unknownWriteRef.current) return null;
@@ -1033,6 +1105,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const ts = entry.ts || D_A.todayLocal();
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
+    const readOnly = readOnlyRefusal(id);
+    if (readOnly) return Promise.resolve(readOnly);
     const seqAtSave = syncSeqRef.current;
     const tempId = "tmp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     const who = user?.email || "";
@@ -1057,7 +1131,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       }
       return res;
     };
-    if (!GAS_ON) return Promise.resolve(reconcile({ ok: true, entryId: "local_" + tempId, lastModified: ts }));
+    if (isLocalId(id)) return Promise.resolve(reconcile({ ok: true, entryId: localEntryId(tempId), lastModified: ts }));
     return writeGAS({ action: "logDailyNutrition", sessionId: id, entry: { ...entry, ts } }).then(reconcile);
   };
   const handleUpdateToGAS = (entryId, expectedLastModified, entry) => {
@@ -1066,6 +1140,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const who = user?.email || "";
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
+    const readOnly = readOnlyRefusal(id);
+    if (readOnly) return Promise.resolve(readOnly);
     const apply = (res) => {
       if (res.ok && res.revised) {
         setLog((prev) => ({ ...prev, [id]: D_A.normalizeLogEntries([
@@ -1091,7 +1167,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       }
       return res;
     };
-    if (!GAS_ON) return Promise.resolve(apply({ ok: true, lastModified: (/* @__PURE__ */ new Date()).toISOString() }));
+    if (isLocalId(id)) return Promise.resolve(apply({ ok: true, lastModified: (/* @__PURE__ */ new Date()).toISOString() }));
     return writeGAS({ action: "updateDailyNutrition", sessionId: id, entryId, expectedLastModified, entry: { ...entry, ts } }).then(apply);
   };
   const handlePublishToGAS = (entryId, expectedLastModified, { quiet = false } = {}) => {
@@ -1099,6 +1175,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const who = user?.email || "";
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
+    const readOnly = readOnlyRefusal(id, quiet);
+    if (readOnly) return Promise.resolve(readOnly);
     const apply = (res) => {
       if (res.ok && res.alreadyPublished) {
         if (!quiet) showToast("รายการนี้ส่งไปแล้วก่อนหน้านี้");
@@ -1108,17 +1186,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       }
       return res;
     };
-    if (!GAS_ON) return Promise.resolve(apply({ ok: true, publishedAt: (/* @__PURE__ */ new Date()).toISOString() }));
+    if (isLocalId(id)) return Promise.resolve(apply({ ok: true, publishedAt: (/* @__PURE__ */ new Date()).toISOString() }));
     return writeGAS({ action: "publishLog", sessionId: id, entryId, expectedLastModified }).then(apply);
   };
   const handleDeleteEntry = (entry) => {
     const id = active.sessionId;
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
+    const readOnly = readOnlyRefusal(id);
+    if (readOnly) return Promise.resolve(readOnly);
     const prevEntries = log[id] || [];
     setLog((prev) => ({ ...prev, [id]: (prev[id] || []).filter((e) => e.entryId !== entry.entryId) }));
     const shownDol = D_A.entryDol(active, entry);
-    if (!GAS_ON) {
+    if (isLocalId(id)) {
       showToast(`ลบบันทึก DOL ${shownDol} แล้ว`);
       return Promise.resolve({ ok: true });
     }
@@ -1131,11 +1211,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const handleNursingSave = async ({ entry, weightG, dol: dol2, record }) => {
     const id = active.sessionId;
     const who = user?.email || "";
+    const readOnly = readOnlyRefusal(id, true);
+    if (readOnly) return readOnly;
     if (entry) {
       const blocked = blockedByUnknownWrite(true);
       if (blocked) return blocked;
       if (record && record.entryId && !String(record.entryId).startsWith("tmp_")) {
-        const res = GAS_ON ? await writeGAS({
+        const res = !isLocalId(id) ? await writeGAS({
           action: "updateNursingEntry",
           sessionId: id,
           entryId: record.entryId,
@@ -1155,7 +1237,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           ...prev[id] || [],
           { ...entry, entryId: tempId, enteredBy: who, lastModified: now, lastModifiedBy: who }
         ] }));
-        const res = GAS_ON ? await writeGAS({ action: "logNursingEntry", sessionId: id, entry }, { quiet: true }) : { ok: true, entryId: "local_" + tempId, lastModified: now };
+        const res = !isLocalId(id) ? await writeGAS({ action: "logNursingEntry", sessionId: id, entry }, { quiet: true }) : { ok: true, entryId: localEntryId(tempId), lastModified: now };
         if (res.ok) {
           setNursing((prev) => ({ ...prev, [id]: (prev[id] || []).map((r) => r.entryId === tempId ? { ...r, entryId: res.entryId, lastModified: res.lastModified } : r) }));
         } else if (!res.unknown) {
@@ -1185,9 +1267,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const id = active.sessionId;
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
+    const readOnly = readOnlyRefusal(id);
+    if (readOnly) return Promise.resolve(readOnly);
     const prevRecords = nursing[id] || [];
     setNursing((prev) => ({ ...prev, [id]: (prev[id] || []).filter((r) => r.entryId !== record.entryId) }));
-    if (!GAS_ON) {
+    if (isLocalId(id)) {
       showToast("ลบบันทึก I/O แล้ว");
       return Promise.resolve({ ok: true });
     }
@@ -1214,7 +1298,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       setActiveId(null);
       goTo("registry");
     }
-    if (!GAS_ON) {
+    if (isLocalId(id)) {
       showToast(`ลบ session ${D_A.patientName(patient) || id} แล้ว`);
       return Promise.resolve({ ok: true });
     }
@@ -1252,7 +1336,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (!holder) return null;
     return D_A.bedTakenMsg(D_A.normalizeBed(p.currentBed), holder);
   };
-  const handleAddPatient = (p0) => {
+  const handleAddPatient = (pIn) => {
+    const asTest = GAS_ON && D_A.wardGroup(pIn.currentBed) === "other";
+    const p0 = asTest ? { ...pIn, sessionId: D_A.testSessionId(), currentBed: "" } : pIn;
     const clash = bedConflict(p0);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
     const blocked = blockedByUnknownWrite(true);
@@ -1265,6 +1351,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     let p = p0;
     setPatients((prev) => [p0, ...prev]);
     setActiveId(p0.sessionId);
+    if (asTest) {
+      showToast("ลงทะเบียนคนไข้ทดสอบแล้ว เก็บไว้ในเครื่องนี้ ไม่บันทึกเข้าระบบ");
+      return Promise.resolve({ ok: true, test: true });
+    }
     if (!GAS_ON) {
       showToast(`Session ${p.sessionId} registered (local)`);
       return Promise.resolve({ ok: true });
@@ -1321,6 +1411,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (syncRef.current) syncRef.current();
   };
   const handleEditPatient = (p, openedFromBase) => {
+    const toRealBed = D_A.wardGroup(p.currentBed) !== "other";
+    if (GAS_ON && D_A.isTestSession(p.sessionId) && D_A.normalizeBed(p.currentBed)) {
+      return Promise.resolve({ ok: false, refused: true, error: TEST_MOVE_MSG });
+    }
+    if (!toRealBed) {
+      const readOnly = readOnlyRefusal(p.sessionId, true);
+      if (readOnly) return Promise.resolve(readOnly);
+    }
     const clash = bedConflict(p);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
     const blocked = blockedByUnknownWrite(true);
@@ -1328,7 +1426,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const previous = patients.find((x) => x.sessionId === p.sessionId);
     const base = openedFromBase !== void 0 ? openedFromBase : serverPatientsRef.current.get(p.sessionId);
     setPatients((prev) => prev.map((x) => x.sessionId === p.sessionId ? p : x));
-    if (!GAS_ON) {
+    if (isLocalId(p.sessionId)) {
       showToast(`${D_A.patientName(p) || p.sessionId} อัปเดตแล้ว`);
       return Promise.resolve({ ok: true });
     }
@@ -1375,6 +1473,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   }, [lastSync]);
   const handleWeightUpdate = (sessionId, weights, opts) => {
     if (blockedByUnknownWrite(!!opts?.quiet)) return false;
+    if (readOnlyRefusal(sessionId, !!opts?.quiet)) return false;
     const rec0 = patients.find((p) => p.sessionId === sessionId);
     const previousWeights = rec0?.weights || [];
     const erased = String(rec0?.name || "").startsWith("[PDPA-erased");
@@ -1387,7 +1486,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       const rec = serverPatientsRef.current.get(sessionId);
       if (rec) serverPatientsRef.current.set(sessionId, { ...rec, weights });
     };
-    if (GAS_ON) {
+    if (!isLocalId(sessionId)) {
       return writeGAS({
         action: "updateWeights",
         sessionId,
@@ -1628,7 +1727,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   ), view === "admin" && role === "admin" && /* @__PURE__ */ React.createElement(
     AdminDashboard,
     {
-      patients,
+      patients: patients.filter((p) => !D_A.isTestSession(p.sessionId)),
       log,
       lastSync,
       signInTiming,
@@ -1745,7 +1844,7 @@ function useDailyLogLock(sessionId, dateStr, token) {
   const [holder, setHolder] = React.useState(null);
   const [checked, setChecked] = React.useState(false);
   React.useEffect(() => {
-    if (!GAS_ON || !sessionId || !dateStr || !token) {
+    if (!GAS_ON || !sessionId || D_A.isTestSession(sessionId) || !dateStr || !token) {
       setHolder(null);
       setChecked(true);
       return;
@@ -2007,7 +2106,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
   const deltaPct = delta / patient.bw * 100;
   const [wtLabel, wtColor] = patient.bw < 1e3 ? ["ELBW", "var(--crit)"] : patient.bw < 1500 ? ["VLBW", "var(--warn)"] : patient.bw < 2500 ? ["LBW", "var(--ink-3)"] : [null, null];
   const deltaColor = deltaPct < -10 ? "var(--crit)" : deltaPct < 0 ? "var(--warn-ink)" : "var(--ok)";
-  return /* @__PURE__ */ React.createElement("div", { className: "patient-strip" }, /* @__PURE__ */ React.createElement("div", { className: "lead" }, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Active session"), /* @__PURE__ */ React.createElement("div", { className: "pid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "id" }, D_A.patientName(patient) || "—"), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Bed ", /* @__PURE__ */ React.createElement("span", { className: "num" }, patient.currentBed || (D_A.isParked(patient) ? "รอเตียง" : "—")), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { color: "var(--brand-2)", fontWeight: 700 } }, displayDol)), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Admit ", fmtDate(patient.admissionDate)), onEdit && /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "patient-strip" }, /* @__PURE__ */ React.createElement("div", { className: "lead" }, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Active session"), /* @__PURE__ */ React.createElement("div", { className: "pid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "id" }, D_A.patientName(patient) || "—", D_A.isTestSession(patient.sessionId) && /* @__PURE__ */ React.createElement("span", { className: "chip warn", style: { marginLeft: 6, fontSize: 10.5 } }, "TEST")), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Bed ", /* @__PURE__ */ React.createElement("span", { className: "num" }, patient.currentBed || (D_A.isParked(patient) ? "รอเตียง" : "—")), " · DOL ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { color: "var(--brand-2)", fontWeight: 700 } }, displayDol)), /* @__PURE__ */ React.createElement("div", { className: "bed" }, "Admit ", fmtDate(patient.admissionDate)), onEdit && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn sm",

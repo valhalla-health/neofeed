@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-14 (5) — One red line for GIR and the dextrose ceiling
+## Session 2026-11-14 (6) — One red line for GIR and the dextrose ceiling
 
 `calculator.jsx`, `compiled/`, `.claude/skills/neofeed-clinical-rules/SKILL.md` (CR-GIR-MAX, CR-DEX-MAX),
 five harnesses that named the old title.
@@ -27,6 +27,33 @@ five harnesses that named the old title.
 - **Other repeats checked.** Lipid IV, potassium IV, NPE:AA, magnesium, Ca:P, K⁺ in the bag and the No
   TPN lines were already one line each (`else if`). Left for Pp: the three stops (weight out of range,
   K⁺ above the maximum, Bag cannot be made) show as a red alert and again as the save panel's red line.
+
+## Session 2026-11-14 (5) — The อื่นๆ tile becomes ทดสอบระบบ: no-bed patients never reach the backend
+
+`data.js` (`isTestSession`, `testSessionId`, `isReadOnlyOther`, `TEST_STORE_KEY`), `app.jsx` (every write
+handler, `writeGAS`, `applySnapshot`, the test store), `registry.jsx` (gate tile, `TestTag`, New session's
+bed default), `calculator.jsx` (no print for a test patient), `compiled/`, `test/verify-test-ward-1114.cjs`.
+
+- **Why.** Pp: "อันที่เป็นอื่นๆ ให้ขึ้นเป็น test ระบบ ไม่ให้มี save เข้า backend เลย เพราะไม่อยากตามแก้".
+  Her three choices the same day: no bed means a test patient; the server's existing no-bed records go
+  read-only; a test patient cannot move to a real bed.
+- **What.** Registering with no bed gives a `TEST-NF-######` id. The record, its orders, I/O and weights stay
+  in this browser's localStorage (`neofeed_test_ward_v1`), take each handler's local branch, and survive a
+  sync and a reload. `writeGAS` refuses any `TEST-` id as the last line. The tile reads ทดสอบระบบ, is always
+  shown, and has no Print order button; the patient carries a TEST tag; a test patient's order
+  never prints (Pp, "ห้าม Print"): no sheet renders, Print order and Ctrl+P give nothing, and the save panel
+  says "คนไข้ทดสอบพิมพ์ใบสั่งไม่ได้ ใช้ทดลองบันทึกเท่านั้น"; Save and Submit still work. A locally saved row's id
+  is `local_<id>`, no longer `local_tmp_<id>`, which log.jsx read as "still saving", so a test order could
+  not be opened again (the no-backend dev build had the same flaw). The Admin census leaves test patients out. New session opened from the tile
+  starts with no bed and says what that means; from NICU it still pre-picks the next free bed.
+- **Logout clears it** (Vera's 🔴 on this PR). A chosen, idle or pharmacy logout removes
+  `neofeed_test_ward_v1`, and an empty store leaves no key, so on a shared ward PC the next account never
+  sees a name typed into a test patient. The store also names its owner: a session that ends with no logout
+  (expiry, a closed tab) leaves it, and the next sign-in by another account deletes it unread.
+- **Server records with no bed** still list under the tile. Nothing saves against them (orders, I/O,
+  weights, edits), except a move to a real bed and Delete. Pp can also delete the rows in the sheet.
+- **Not done.** The backend does not refuse `TEST-` ids itself, so a hand-made POST could still write one;
+  the client never sends one. Test patients are per browser: another device or a cleared browser shows none.
 
 ## Session 2026-11-14 (4) — Vera's review of (3): the open decisions go to BACKLOG
 

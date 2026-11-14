@@ -2606,7 +2606,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const unackedRed = redAlertTitles.filter(t => !ackedNow.includes(t));
   const togglePrintAck = (t) => setPrintAcks({ key: printAckKey,
     titles: ackedNow.includes(t) ? ackedNow.filter(x => x !== t) : [...ackedNow, t] });
-  const printReady = printable && unackedRed.length === 0;
+  // A test patient's order never prints (Pp, 2026-11-14: "ห้าม Print"): it is
+  // kept in this browser only, and paper that looks like a pharmacy order is
+  // exactly what must not leave the test area. Save and Submit still work.
+  const testOrder = D.isTestSession(patient?.sessionId);
+  const TEST_NO_PRINT_TEXT = "คนไข้ทดสอบพิมพ์ใบสั่งไม่ได้ ใช้ทดลองบันทึกเท่านั้น";
+  const printReady = printable && unackedRed.length === 0 && !testOrder;
   const printAckText = `ติ๊กรับทราบค่าวิกฤตทุกข้อก่อนพิมพ์ (${unackedRed.length} ข้อ): ${unackedRed.join(" · ")}`;
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
   // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01);
@@ -2631,7 +2636,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}`
     : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}`
     : "";
-  const printBlockToast = !printable ? printBlockMessage("ก่อนพิมพ์") : unackedRed.length > 0 ? printAckText : "";
+  const printBlockToast = testOrder ? TEST_NO_PRINT_TEXT
+    : !printable ? printBlockMessage("ก่อนพิมพ์") : unackedRed.length > 0 ? printAckText : "";
 
   // N1: a nurse account saves Intake/Output on a doctor's submitted order, and
   // nothing else (NURSE_SUBMIT_TEXT). Its Submit is refused on a new order or a
@@ -2677,6 +2683,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         showToast("Calculator นี้ไม่ได้ผูกกับผู้ป่วย จึงพิมพ์ใบสั่ง TPN ไม่ได้ — เปิดจากผู้ป่วยเพื่อบันทึกและพิมพ์", "error");
         return;
       }
+      if (testOrder) { showToast(TEST_NO_PRINT_TEXT, "error"); return; }
       if (noTpnOn && !noTpnSheet) { showToast(noTpnNoPrintText, "info"); return; }
       if (!savedEntryId) {
         showToast(ordersReadOnly ? "พิมพ์ได้เฉพาะคำสั่งที่แพทย์บันทึกแล้ว" : "กรุณาบันทึกคำสั่งให้สำเร็จก่อนพิมพ์", "error");
@@ -2697,7 +2704,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     };
     document.addEventListener('__neofeed_print', handler);
     return () => document.removeEventListener('__neofeed_print', handler);
-  }, [savedEntryId, printReady, printBlockToast, noTpnOn, noTpnSheet]);
+  }, [savedEntryId, printReady, printBlockToast, noTpnOn, noTpnSheet, testOrder]);
 
   // Opened from the ward's Print order list (registry.jsx WardPrintList): ask
   // for the print preview once, exactly as the Print order button does, as
@@ -4414,6 +4421,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             )}
 
+            {/* A test patient's order is never printed (Pp, 2026-11-14). */}
+            {testOrder && !centerPoint && !scratch && (
+              <div className="test-no-print" style={{ fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 }}>
+                ● {TEST_NO_PRINT_TEXT}
+              </div>
+            )}
             {/* Saved-state indicator — Print/Submit need a saved, unchanged form */}
             {savedEntryId && dirty && (
               <div style={{ fontSize: 11.5, color: "var(--warn)", fontWeight: 600, marginBottom: 8 }}>
