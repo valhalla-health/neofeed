@@ -2,6 +2,9 @@
 
 > ⏳ **2026-11-14 — A No TPN infant is asked for an entry every 3 days (every day while its feeds are below the bar, or with a draft started today); the ward strip reads Active, Needs entry, Draft, Logged today: PR #256, merged into `main` on Praew's instruction; release PR to follow.** Frontend only; no dose or printed figure moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-14 to 2026-11-14 (4)). Two decisions wait for Pp in `BACKLOG.md`: which No TPN short sheets still print, and a readmission inside the 3 days.
 >
+> ⏳ **2026-11-14 — The TPN room's page signs in with Google too (gmail and Chula accounts, which have no NeoFeed password), beside email and password: PR #255, merged into `main` on Praew's instruction.**
+> Frontend only; the backend's Google path is unchanged. Google sign-in is a redirect, with no Google script on the page. **Before the release:** Pp adds `https://neofeed.valhalla-health.workers.dev/tpn-room` to the OAuth client's Authorized redirect URIs (`CHANGELOG.md` 2026-11-14).
+>
 > ✅ **2026-11-12 — A tick per red alert before Print, the ticks printed in the red box: PR #251, live since release #253 (`e560d75`, `release-2026-11-12-pr253`); verified from Pp's PC on 2026-11-13 (comment on #253).** `tools/calc-compare.cjs` now ticks the red alerts before reading the sheet. Frontend only; no figure moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-12 (2)).
 >
 > ✅ **2026-11-12 — "Previous beds" lines are deleted in Edit (doctor and admin only, Save confirms again); an admin deletes an ID with a submitted order after a second yes: PR #249, live since release #250 (`35198d2`), backend `@72` deployed first from `main` at `150df83`; verified from Pp's PC (comment on #250).**

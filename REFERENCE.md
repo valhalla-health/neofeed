@@ -627,6 +627,7 @@ PR B of `openspec/changes/tpn-room-stickers`. Not live: `STATUS.md` says what ho
   so it has no dose code; `tools/build.mjs` writes the two versions it checks. `tools/build.mjs` writes both room shells'
   `?v=` tokens, and `index.html` does not link them, so `tools/verify-release.mjs` names their files. Sarabun is in `fonts/sarabun/`.
 - **`*.github.io`:** the page leaves for `moved.html` before it touches storage, on any such host. Use the Workers URL.
+- **Sign-in.** Google (gmail and Chula accounts, which have no NeoFeed password) or email and password; pharmacy or admin only. Google is a redirect to Google and back with no Google script on the page; its redirect URI, `https://neofeed.valhalla-health.workers.dev/tpn-room`, must be on the OAuth client's list (§ Deploying), so a real Google sign-in works on the Workers host only.
 - **Two things to fill in, in `tpn-room-core.js`:** `PN_FIXED`, the label's heading, storage line and extension, blank until
   the unit gives them, and the page prints nothing until all three are set; `CONTACTS`, who to call. A release follows either change.
 - **`tpn-room-check.html`** checks a PC's browser: folder, rewrite, permission, device key, after a restart. Use it on a
