@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-14 — The TPN room's page signs in with Google too (gmail and Chula accounts, which have no NeoFeed password), beside email and password: PR to follow this line, not merged.**
+> ⏳ **2026-11-14 — The TPN room's page signs in with Google too (gmail and Chula accounts, which have no NeoFeed password), beside email and password: PR #255, merged into `main` on Praew's instruction.**
 > Frontend only; the backend's Google path is unchanged. Google sign-in is a redirect, with no Google script on the page. **Before the release:** Pp adds `https://neofeed.valhalla-health.workers.dev/tpn-room` to the OAuth client's Authorized redirect URIs (`CHANGELOG.md` 2026-11-14).
 >
 > ⏳ **2026-11-12 — A tick per red alert before Print, the ticks printed in the red box: PR #251, merged into `main` on Praew's instruction; release PR to follow.** `tools/calc-compare.cjs` now ticks the red alerts before reading the sheet. Frontend only; no figure moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-12 (2)).
