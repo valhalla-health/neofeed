@@ -3,6 +3,8 @@
 // Reads one date's orders with pharmacyOrders, keeps NeoFeed ID → name and AN in an
 // encrypted file on this PC, and prints the unit's three stickers from printJson.
 // Two things leave the PC: the sign-in, and { action: "pharmacyOrders", token, date }.
+// Google sign-in is a redirect to Google and back, with no Google script on this page:
+// a script on this origin could reach the name file's key (Pp, 2026-11-14).
 // Everything from the server renders as React text, and nothing here computes a figure.
 const Core = window.TPNRoomCore;
 const NameStore = window.TPNRoomStore;
@@ -12,11 +14,15 @@ const GAS_URL = window.NEOFEED_GAS_URL || "";
 // Its own key, never neofeed_session: the ward app restores that one with no role
 // check, so a pharmacy session stored there would open the ward shell (PR A, Task 6).
 const SESSION_KEY = "neofeed_tpn_room_session";
+// The state and nonce of a Google sign-in on its way, for one round trip.
+const OAUTH_KEY = "neofeed_tpn_room_oauth";
+const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const IDLE_LOGOUT_MS = 30 * 60 * 1000;
 const REQUEST_MS = 30000;
 
 // ── The server ───────────────────────────────────────────────
-async function gas(body) {
+// `keepalive` lets a logout finish even when the page navigates away straight after.
+async function gas(body, { keepalive = false } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_MS);
   try {
@@ -25,6 +31,7 @@ async function gas(body) {
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(body),
       signal: ctrl.signal,
+      keepalive,
     });
     return await res.json();
   } catch (e) {
@@ -43,32 +50,84 @@ function readSession() {
 function writeSession(u) { try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(u)); } catch (e) {} }
 function clearSession() { try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {} }
 
-// ── Sign-in: email and password only. No Google script on a page that holds names. ──
-function SignIn({ onUser, notice }) {
+// ── Google sign-in by redirect (OpenID Connect, response_type=id_token) ──
+// The redirect URI is this page's own address without its query, exactly as it is
+// listed on the OAuth client: https://neofeed.valhalla-health.workers.dev/tpn-room
+// (the host answers /tpn-room.html with a 307 to /tpn-room).
+const redirectUri = () => window.location.origin + window.location.pathname;
+function randomHex(n) {
+  return Array.from(window.crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+function startGoogle() {
+  const state = randomHex(16), nonce = randomHex(16);
+  try { sessionStorage.setItem(OAUTH_KEY, JSON.stringify({ state, nonce })); } catch (e) { return false; }
+  const q = new URLSearchParams({
+    client_id: window.NEOFEED_CLIENT_ID, redirect_uri: redirectUri(), response_type: "id_token",
+    scope: "openid email profile", state, nonce, prompt: "select_account",
+  });
+  window.location.assign(GOOGLE_AUTH_URL + "?" + q.toString());
+  return true;
+}
+// The JWT's payload, read only to compare its nonce: the server checks the token itself.
+function jwtNonce(token) {
+  try {
+    const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(part + "===".slice((part.length + 3) % 4))).nonce || "";
+  } catch (e) { return ""; }
+}
+// Reads Google's answer from the fragment once and wipes it from the address bar and
+// the history entry. Returns null (nothing came back), { error } or { token }.
+function takeGoogleReturn() {
+  const hash = window.location.hash.replace(/^#/, "");
+  if (!/(^|&)(id_token|error|state)=/.test(hash)) return null;
+  window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  let want = null;
+  try { want = JSON.parse(sessionStorage.getItem(OAUTH_KEY)); sessionStorage.removeItem(OAUTH_KEY); } catch (e) {}
+  const h = new URLSearchParams(hash);
+  if (!want || !want.state || h.get("state") !== want.state) return { error: "เข้าสู่ระบบด้วย Google ไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  if (h.get("error")) return { error: h.get("error") === "access_denied" ? "ยกเลิกการเข้าสู่ระบบด้วย Google แล้ว" : "เข้าสู่ระบบด้วย Google ไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  const token = h.get("id_token") || "";
+  if (!token || jwtNonce(token) !== want.nonce) return { error: "เข้าสู่ระบบด้วย Google ไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  return { token };
+}
+
+// ── Sign-in: Google (gmail and Chula accounts, which have no NeoFeed password) by
+//    redirect, or email and password. Both end in the same role check. ──
+function SignIn({ onUser, notice, googleReturn }) {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState("");
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!email.trim() || !password) { setError("กรอก email และรหัสผ่าน"); return; }
+  const [busy, setBusy] = React.useState(!!(googleReturn && googleReturn.token));
+  const [error, setError] = React.useState(googleReturn && googleReturn.error ? googleReturn.error : "");
+  const login = async (body) => {
     setBusy(true); setError("");
     try {
-      const r = await gas({ action: "login", email: email.trim(), password });
+      const r = await gas({ action: "login", ...body });
       if (r.status !== "ok") { setError(String(r.error || "เข้าสู่ระบบไม่สำเร็จ")); return; }
       if (r.role !== "pharmacy" && r.role !== "admin") {
         gas({ action: "logout", token: r.token }).catch(() => {});
         setError("บัญชีนี้ไม่มีสิทธิ์ใช้หน้าห้อง TPN");
         return;
       }
-      onUser({ name: r.name, role: r.role, email: r.email, token: r.token, mustChangePassword: !!r.mustChangePassword });
+      onUser({ name: r.name, role: r.role, email: r.email, token: r.token, authMethod: r.authMethod === "google" ? "google" : "password", mustChangePassword: !!r.mustChangePassword });
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   };
+  // Back from Google with a token: send it once.
+  React.useEffect(() => { if (googleReturn && googleReturn.token) login({ googleToken: googleReturn.token }); }, []);
+  const submit = (e) => {
+    e.preventDefault();
+    if (!email.trim() || !password) { setError("กรอก email และรหัสผ่าน"); return; }
+    login({ email: email.trim(), password });
+  };
+  const google = () => { setError(""); if (!startGoogle()) setError("เบราว์เซอร์นี้เก็บข้อมูลชั่วคราวไม่ได้ ใช้ email และรหัสผ่านแทน"); };
   return (
     <main className="narrow">
       <h1>ห้อง TPN</h1>
       <p className="muted">NeoFeed สำหรับเภสัช ดู order และพิมพ์สติกเกอร์ แก้ข้อมูลใน NeoFeed จากหน้านี้ไม่ได้</p>
       {notice && <p className="note" role="status">{notice}</p>}
+      {window.NEOFEED_CLIENT_ID && (
+        <button type="button" className="google" onClick={google} disabled={busy}>เข้าสู่ระบบด้วย Google</button>
+      )}
+      <p className="or muted">หรือใช้ email และรหัสผ่านของ NeoFeed</p>
       <form onSubmit={submit} className="stack">
         <label>Email<input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
         <label>รหัสผ่าน<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
@@ -610,7 +669,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         <header className="top">
           <h1>ห้อง TPN</h1>
           <div className="row">
-            <button onClick={onChangePassword}>เปลี่ยนรหัสผ่าน</button>
+            {user.authMethod !== "google" && <button onClick={onChangePassword}>เปลี่ยนรหัสผ่าน</button>}
             <button onClick={onLogout}>ออกจากระบบ</button>
           </div>
         </header>
@@ -677,7 +736,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
 }
 
 // ── The page ─────────────────────────────────────────────────
-function TpnRoomApp({ store }) {
+function TpnRoomApp({ store, googleReturn }) {
   const [user, setUser] = React.useState(readSession);
   const [notice, setNotice] = React.useState("");
   const [changing, setChanging] = React.useState(false);
@@ -690,7 +749,7 @@ function TpnRoomApp({ store }) {
     setNotice(why || "");
   };
   const logout = () => {
-    if (user) gas({ action: "logout", token: user.token }).catch(() => {});
+    if (user) gas({ action: "logout", token: user.token }, { keepalive: true }).catch(() => {});
     signOut();
   };
 
@@ -710,7 +769,7 @@ function TpnRoomApp({ store }) {
     return () => { clearInterval(tick); window.removeEventListener("pointerdown", mark); window.removeEventListener("keydown", mark); };
   }, [user && user.token]);
 
-  if (!user) return <SignIn onUser={signIn} notice={notice} />;
+  if (!user) return <SignIn onUser={signIn} notice={notice} googleReturn={googleReturn} />;
   if (user.mustChangePassword || changing) {
     return (
       <ChangePassword
@@ -754,5 +813,7 @@ function TpnRoomApp({ store }) {
     kv: NameStore.browserKv(window.indexedDB),
     today: () => Core.wardToday(),
   });
-  ReactDOM.createRoot(mount).render(<TpnRoomApp store={store} />);
+  // Read before the first render, so the token leaves the address bar at once.
+  const googleReturn = takeGoogleReturn();
+  ReactDOM.createRoot(mount).render(<TpnRoomApp store={store} googleReturn={googleReturn} />);
 })();

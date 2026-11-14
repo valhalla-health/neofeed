@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-14 — The อื่นๆ tile becomes ทดสอบระบบ: no-bed patients never reach the backend
+## Session 2026-11-14 (2) — The อื่นๆ tile becomes ทดสอบระบบ: no-bed patients never reach the backend
 
 `data.js` (`isTestSession`, `testSessionId`, `isReadOnlyOther`, `TEST_STORE_KEY`), `app.jsx` (every write
 handler, `writeGAS`, `applySnapshot`, the test store), `registry.jsx` (gate tile, `TestTag`, New session's
@@ -30,6 +30,31 @@ bed default), `calculator.jsx` (one line on the printed form), `compiled/`, `tes
   weights, edits), except a move to a real bed and Delete. Pp can also delete the rows in the sheet.
 - **Not done.** The backend does not refuse `TEST-` ids itself, so a hand-made POST could still write one;
   the client never sends one. Test patients are per browser: another device or a cleared browser shows none.
+
+## Session 2026-11-14 — The TPN room signs in with Google too
+
+`tpn-room.jsx`, `tpn-room.css`, `compiled/`, both TPN-room shells' tokens, `test/verify-tpn-room-page-1105.cjs`,
+`REFERENCE.md` § The TPN room's page, `openspec/changes/tpn-room-stickers/` (design, tasks).
+
+- **Why.** Pp, on her admin gmail account, got "email หรือรหัสผ่านไม่ถูกต้อง" on the live page. A gmail or Chula
+  address signs in with Google and never gets a NeoFeed password (`_usesGoogleSignIn`), and the page had the
+  password form only. The backend answers a row with no password like a wrong password on purpose (SEC-B8).
+- **What.** A "เข้าสู่ระบบด้วย Google" button above the password form (Pp, 2026-11-14: Google plus password, so a
+  pharmacy account on a non-Google domain still signs in). Same role check (pharmacy or admin) on both. A Google
+  session hides "เปลี่ยนรหัสผ่าน". Logout is sent with `keepalive`.
+- **A redirect, not Google's script (Pp, 2026-11-14).** The first version loaded `gsi/client` on the sign-in
+  screen and reloaded after sign-in. Vera pointed out that a script on this origin can reach the device key and
+  folder handle in IndexedDB even with no names on screen, and Pp chose no Google script at all. The button now
+  goes to `accounts.google.com/o/oauth2/v2/auth` (`response_type=id_token`, a random `state` and `nonce` kept in
+  `sessionStorage` for one trip). Google returns the token in the URL fragment; the page checks state and nonce,
+  wipes the fragment with `history.replaceState` before the first render, and sends the token to `login` as the
+  ward app does. The backend checks it with Google's `tokeninfo`, unchanged.
+- **Pp's step before the release:** add `https://neofeed.valhalla-health.workers.dev/tpn-room` to the OAuth client's Authorized redirect URIs
+  (Google Cloud Console, client 750019806043-imunne8n…). The host answers `/tpn-room.html` with a 307 to
+  `/tpn-room`, so that is the address the page sends. Until it is listed, Google shows `redirect_uri_mismatch`.
+- **Not checked:** a real Google sign-in. The harness checks the request to Google, a wrong state, and a good
+  answer through the real backend (with `tokeninfo` faked). Pp checks a real account on the Workers host after
+  the release.
 
 ## Session 2026-11-12 (3) — The release comparison ticks the red alerts
 
