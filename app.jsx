@@ -83,6 +83,53 @@ function gasRequest(body, { timeoutMs = GAS_TIMEOUT_MS } = {}) {
   return Promise.race([run, deadline]).finally(() => clearTimeout(timer));
 }
 
+// ── The test area: "อื่นๆ" (Pp, 2026-11-14) ─────────────────────
+// A patient registered with no bed is a TEST patient (D_A.isTestSession). Its
+// record, orders, I/O and weights live here, in this browser's localStorage,
+// and never reach the backend: every write handler takes its local branch for
+// a TEST- id, and writeGAS refuses one outright as the last line. A sync from
+// the server replaces only the server's patients, so the test ones stay.
+const TEST_BLOCKED_MSG = "คนไข้ทดสอบไม่บันทึกเข้าระบบ";
+const TEST_MOVE_MSG = "คนไข้ทดสอบย้ายเข้าเตียงจริงไม่ได้ ถ้าเป็นคนไข้จริงให้เปิด New session ใหม่พร้อมเลือกเตียง";
+const READ_ONLY_OTHER_MSG = "ผู้ป่วยรายนี้ยังไม่มีเตียงในระบบ บันทึกไม่ได้ ย้ายเข้าเตียงจริงก่อน";
+// The id a locally saved row keeps. Not "local_tmp_…": log.jsx and the
+// Calculator read /^(local_)?tmp_/ as "still saving", so such a row could never
+// be opened again, and a test patient's orders live on local ids for good.
+const localEntryId = (tempId) => "local_" + String(tempId).replace(/^tmp_/, "");
+const onlyTestKeys = (map) => Object.fromEntries(
+  Object.entries(map || {}).filter(([k]) => D_A.isTestSession(k)));
+// The store belongs to the account that wrote it (Vera, 2026-11-14): a session
+// can end with no logout (expiry, a closed tab), so another account signing in
+// on the same PC deletes it rather than reading it.
+function loadTestStore(email) {
+  const empty = { patients: [], log: {}, nursing: {} };
+  if (!email) return empty;
+  try {
+    const raw = JSON.parse(localStorage.getItem(D_A.TEST_STORE_KEY) || "null");
+    if (!raw) return empty;
+    if (raw.owner !== email || !Array.isArray(raw.patients)) {
+      localStorage.removeItem(D_A.TEST_STORE_KEY);
+      return empty;
+    }
+    return {
+      patients: raw.patients.filter(x => x && D_A.isTestSession(x.sessionId)),
+      log: D_A.normalizeLogMap(onlyTestKeys(raw.log)),
+      nursing: D_A.normalizeNursingMap(onlyTestKeys(raw.nursing)),
+    };
+  } catch { return empty; }
+}
+function saveTestStore(email, patients, log, nursing) {
+  if (!email) return;
+  try {
+    const tests = patients.filter(x => D_A.isTestSession(x.sessionId));
+    // No test patient, no key: nothing left behind for the next account.
+    if (!tests.length) { localStorage.removeItem(D_A.TEST_STORE_KEY); return; }
+    localStorage.setItem(D_A.TEST_STORE_KEY, JSON.stringify({
+      owner: email, patients: tests,
+      log: onlyTestKeys(log), nursing: onlyTestKeys(nursing) }));
+  } catch { /* storage blocked or full: the test patients last this tab only */ }
+}
+
 // ── Sex, as the Fenton chart needs it ─────────────────────────
 // FENTON_WEIGHT/LENGTH/HC are keyed "boys"/"girls", and a Patient_Registry
 // cell typed by hand ("M", "Female", "ชาย") matched neither: the Growth chart
@@ -687,8 +734,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   userRef.current = user;
 
   // Patient registry — empty until GAS sync completes (prevents mock patient identity confusion)
-  const [patients, setPatients] = React.useState(GAS_ON ? [] : D_A.MOCK_PATIENTS);
-  const [log, setLog] = React.useState(GAS_ON ? {} : D_A.MOCK_DAILY_LOG);
+  // Read once, at mount: the test patients this browser holds (see loadTestStore).
+  const [testStore0] = React.useState(() => (GAS_ON ? loadTestStore(user && user.email) : null));
+  const [patients, setPatients] = React.useState(GAS_ON ? testStore0.patients : D_A.MOCK_PATIENTS);
+  const [log, setLog] = React.useState(GAS_ON ? testStore0.log : D_A.MOCK_DAILY_LOG);
   // Nursing I/O records by sessionId (UX roadmap #4), and whether the backend
   // serves them at all. nursingLive follows the sync payload: it carries a
   // `nursing` map exactly while the backend's switch is on (gas-backend.gs
@@ -696,7 +745,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // while the server refuses a nurse's order write (D5). Its sync cache is
   // keyed on the switch, so no payload of the other shape bridges a flip.
   // Local dev has it on.
-  const [nursing, setNursing] = React.useState({});
+  const [nursing, setNursing] = React.useState(GAS_ON ? testStore0.nursing : {});
   const [nursingLive, setNursingLive] = React.useState(!GAS_ON);
   // D5 (Pp, 2026-09-24): "พยาบาลบันทึกหรือ submit ไม่ได้ ได้แค่ใช้ calculator".
   // Only against a backend that also refuses it — while its switch is off, the
@@ -1095,9 +1144,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     }
     clearSession();
     if (reason === "manual" || reason === "idle" || reason === "pharmacy") {
+      // The test store goes too (Vera, 2026-11-14): it holds names and orders,
+      // and a ward PC is shared, so the next account must not inherit them.
       const prefixes = reason === "manual"
-        ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_"]
-        : ["neofeed_calc_", "neofeed_acked_"];
+        ? ["neofeed_calc_", "neofeed_acked_", "neofeed_draft_", D_A.TEST_STORE_KEY]
+        : ["neofeed_calc_", "neofeed_acked_", D_A.TEST_STORE_KEY];
       try {
         Object.keys(localStorage)
           .filter(k => prefixes.some(p => k.startsWith(p)))
@@ -1315,21 +1366,23 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         const dob = D_A.dobFromAdmission(p);
         return dob ? { ...p, dob } : p;
       });
-      setPatients(withDob.length > 0 ? withDob : []);
+      // The server's patients replace the server's; the test ones stay.
+      const fromServer = withDob.filter(p => !D_A.isTestSession(p.sessionId));
+      setPatients(prev => [...fromServer, ...prev.filter(p => D_A.isTestSession(p.sessionId))]);
       // Never auto-pick a patient — keep the current selection only if it
       // still exists in the fresh data, otherwise fall back to none (registry list).
-      setActiveId(prev => data.patients.some(p => p.sessionId === prev) ? prev : null);
+      setActiveId(prev => (D_A.isTestSession(prev) || data.patients.some(p => p.sessionId === prev)) ? prev : null);
     }
     // Normalize before anything reads it: Sheets hands `ts` back as a date
     // value (stringified to "Sun Aug 17 2026 …"), which never matches a
     // YYYY-MM-DD comparison, and rows arrive in insertion order rather
     // than date order. See D.normalizeLogMap.
-    if (data.log) setLog(D_A.normalizeLogMap(data.log));
+    if (data.log) setLog(prev => ({ ...D_A.normalizeLogMap(data.log), ...onlyTestKeys(prev) }));
     // Both ways: switched on, the card appears and a nurse's Submit goes;
     // switched off again, both come back on the same sync.
     const nursingServed = !!data.nursing && typeof data.nursing === "object" && !Array.isArray(data.nursing);
     setNursingLive(nursingServed);
-    setNursing(nursingServed ? D_A.normalizeNursingMap(data.nursing) : {});
+    setNursing(prev => ({ ...(nursingServed ? D_A.normalizeNursingMap(data.nursing) : {}), ...onlyTestKeys(prev) }));
     // Every write this device made has now been checked against the sheet.
     unknownWriteRef.current = false;
     appliedSeqRef.current = seq;
@@ -1681,9 +1734,48 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // it is in flight. changePassword and the edit-lock heartbeat are not data
   // writes and do not.
   const writeGAS = (payload, opts) => {
+    // The test area's last line (2026-11-14): a TEST- id never leaves this
+    // browser, whichever handler forgot to take its local branch.
+    const sid = payload && (payload.sessionId || (payload.patient && payload.patient.sessionId));
+    if (D_A.isTestSession(sid)) {
+      console.error("[NeoFeed] refused a backend write for a test session: " + (payload.action || ""));
+      return Promise.resolve({ ok: false, refused: true, error: TEST_BLOCKED_MSG });
+    }
     const end = beginWrite();
     return gasPost(payload, opts).then(res => { end(res); return res; });
   };
+  // A TEST- id saves locally (the same branch a no-backend dev build takes).
+  const isLocalId = (id) => !GAS_ON || D_A.isTestSession(id);
+  // A server record in "อื่นๆ" takes no saves until it has a real bed.
+  const readOnlyRefusal = (id, quiet = false) => {
+    if (!GAS_ON) return null;
+    const rec = patients.find(x => x.sessionId === id);
+    if (!D_A.isReadOnlyOther(rec)) return null;
+    if (!quiet) showToast(READ_ONLY_OTHER_MSG, "error");
+    return { ok: false, refused: true, error: READ_ONLY_OTHER_MSG };
+  };
+  // The test patients follow every change into localStorage.
+  // Never after the session ended: a late render must not write back what
+  // endSession just cleared.
+  React.useEffect(() => {
+    if (GAS_ON && !endedRef.current) saveTestStore(user && user.email, patients, log, nursing);
+  }, [patients, log, nursing]);
+  // A sign-in inside this mount (the login screen is part of App): load that
+  // account's test patients, or delete another account's.
+  const testOwnerRef = React.useRef(user && user.email);
+  React.useEffect(() => {
+    const email = user && user.email;
+    if (!GAS_ON || !email || testOwnerRef.current === email) return;
+    testOwnerRef.current = email;
+    // Replaces, never adds to, the test patients on screen: whatever another
+    // account left in state goes, remount or not (Vera, 2026-11-14).
+    const st = loadTestStore(email);
+    const notTest = (map) => Object.fromEntries(Object.entries(map || {}).filter(([k]) => !D_A.isTestSession(k)));
+    setPatients(prev => [...prev.filter(p => !D_A.isTestSession(p.sessionId)), ...st.patients]);
+    setLog(prev => ({ ...notTest(prev), ...st.log }));
+    setNursing(prev => ({ ...notTest(prev), ...st.nursing }));
+  }, [user && user.email]);
+
   // NF-02's weekly counts for the Admin page: a read, so not a writeGAS, and
   // quiet, because the card shows its own state (UsageCard).
   const loadUsage = React.useCallback(() => gasPost({ action: "getUsageWeekly" }, { quiet: true }), [gasPost]);
@@ -1711,6 +1803,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const ts = entry.ts || D_A.todayLocal();
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
+    const readOnly = readOnlyRefusal(id);
+    if (readOnly) return Promise.resolve(readOnly);
     // Taken before the request: the re-sync a refusal triggers is issued
     // before reconcile runs, and that is exactly the sync that must count.
     const seqAtSave = syncSeqRef.current;
@@ -1743,7 +1837,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return res;
     };
 
-    if (!GAS_ON) return Promise.resolve(reconcile({ ok: true, entryId: "local_" + tempId, lastModified: ts }));
+    if (isLocalId(id)) return Promise.resolve(reconcile({ ok: true, entryId: localEntryId(tempId), lastModified: ts }));
     return writeGAS({ action: "logDailyNutrition", sessionId: id, entry: { ...entry, ts } }).then(reconcile);
   };
 
@@ -1756,6 +1850,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const who = user?.email || "";
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
+    const readOnly = readOnlyRefusal(id);
+    if (readOnly) return Promise.resolve(readOnly);
 
     const apply = (res) => {
       if (res.ok && res.revised) {
@@ -1784,7 +1880,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return res;
     };
 
-    if (!GAS_ON) return Promise.resolve(apply({ ok: true, lastModified: new Date().toISOString() }));
+    if (isLocalId(id)) return Promise.resolve(apply({ ok: true, lastModified: new Date().toISOString() }));
     return writeGAS({ action: "updateDailyNutrition", sessionId: id, entryId, expectedLastModified, entry: { ...entry, ts } }).then(apply);
   };
 
@@ -1799,6 +1895,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const who = user?.email || "";
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
+    const readOnly = readOnlyRefusal(id, quiet);
+    if (readOnly) return Promise.resolve(readOnly);
 
     const apply = (res) => {
       if (res.ok && res.alreadyPublished) {
@@ -1811,7 +1909,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return res;
     };
 
-    if (!GAS_ON) return Promise.resolve(apply({ ok: true, publishedAt: new Date().toISOString() }));
+    if (isLocalId(id)) return Promise.resolve(apply({ ok: true, publishedAt: new Date().toISOString() }));
     return writeGAS({ action: "publishLog", sessionId: id, entryId, expectedLastModified }).then(apply);
   };
 
@@ -1822,12 +1920,14 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const id = active.sessionId;
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
+    const readOnly = readOnlyRefusal(id);
+    if (readOnly) return Promise.resolve(readOnly);
     const prevEntries = log[id] || [];
     setLog(prev => ({ ...prev, [id]: (prev[id] || []).filter(e => e.entryId !== entry.entryId) }));
     // The DOL the table showed for this row — from its date, not its stored column.
     const shownDol = D_A.entryDol(active, entry);
 
-    if (!GAS_ON) { showToast(`ลบบันทึก DOL ${shownDol} แล้ว`); return Promise.resolve({ ok: true }); }
+    if (isLocalId(id)) { showToast(`ลบบันทึก DOL ${shownDol} แล้ว`); return Promise.resolve({ ok: true }); }
     return writeGAS({ action: "deleteDailyNutrition", sessionId: id, entryId: entry.entryId }).then(res => {
       if (res.ok) showToast(`ลบบันทึก DOL ${shownDol} แล้ว`);
       else if (!res.unknown) setLog(prev => ({ ...prev, [id]: prevEntries }));
@@ -1845,11 +1945,13 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   const handleNursingSave = async ({ entry, weightG, dol, record }) => {
     const id = active.sessionId;
     const who = user?.email || "";
+    const readOnly = readOnlyRefusal(id, true);
+    if (readOnly) return readOnly;
     if (entry) {
       const blocked = blockedByUnknownWrite(true);
       if (blocked) return blocked;
       if (record && record.entryId && !String(record.entryId).startsWith("tmp_")) {
-        const res = GAS_ON
+        const res = !isLocalId(id)
           ? await writeGAS({ action: "updateNursingEntry", sessionId: id, entryId: record.entryId,
               expectedLastModified: record.lastModified, entry }, { quiet: true })
           : { ok: true, lastModified: new Date().toISOString() };
@@ -1865,9 +1967,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         const now = new Date().toISOString();
         setNursing(prev => D_A.normalizeNursingMap({ ...prev, [id]: [...(prev[id] || []),
           { ...entry, entryId: tempId, enteredBy: who, lastModified: now, lastModifiedBy: who }] }));
-        const res = GAS_ON
+        const res = !isLocalId(id)
           ? await writeGAS({ action: "logNursingEntry", sessionId: id, entry }, { quiet: true })
-          : { ok: true, entryId: "local_" + tempId, lastModified: now };
+          : { ok: true, entryId: localEntryId(tempId), lastModified: now };
         if (res.ok) {
           setNursing(prev => ({ ...prev, [id]: (prev[id] || []).map(r =>
             r.entryId === tempId ? { ...r, entryId: res.entryId, lastModified: res.lastModified } : r) }));
@@ -1910,9 +2012,11 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const id = active.sessionId;
     const blocked = blockedByUnknownWrite();
     if (blocked) return Promise.resolve(blocked);
+    const readOnly = readOnlyRefusal(id);
+    if (readOnly) return Promise.resolve(readOnly);
     const prevRecords = nursing[id] || [];
     setNursing(prev => ({ ...prev, [id]: (prev[id] || []).filter(r => r.entryId !== record.entryId) }));
-    if (!GAS_ON) { showToast("ลบบันทึก I/O แล้ว"); return Promise.resolve({ ok: true }); }
+    if (isLocalId(id)) { showToast("ลบบันทึก I/O แล้ว"); return Promise.resolve({ ok: true }); }
     return writeGAS({ action: "deleteNursingEntry", sessionId: id, entryId: record.entryId }).then(res => {
       if (res.ok) showToast("ลบบันทึก I/O แล้ว");
       else if (!res.unknown) setNursing(prev => ({ ...prev, [id]: prevRecords }));
@@ -1942,7 +2046,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setLog(prev => { const next = { ...prev }; delete next[id]; return next; });
     if (wasActive) { setActiveId(null); goTo("registry"); }
 
-    if (!GAS_ON) { showToast(`ลบ session ${D_A.patientName(patient) || id} แล้ว`); return Promise.resolve({ ok: true }); }
+    if (isLocalId(id)) { showToast(`ลบ session ${D_A.patientName(patient) || id} แล้ว`); return Promise.resolve({ ok: true }); }
     // A submitted order needs a second yes (Pp, 2026-11-12). The backend
     // counts them from the Sheet and answers needsConfirm; only then ask, and
     // resend with confirmPublished. Pharmacy may already hold the order.
@@ -1993,7 +2097,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // open until it answers (UP-S9): they used to close the moment Register /
   // Save was pressed, so a refusal (a bed taken on another device, a duplicate
   // sessionId) was a toast over an empty screen and everything typed was gone.
-  const handleAddPatient = (p0) => {
+  const handleAddPatient = (pIn) => {
+    // No bed → a test patient (2026-11-14): a TEST- id, kept in this browser.
+    const asTest = GAS_ON && D_A.wardGroup(pIn.currentBed) === "other";
+    const p0 = asTest ? { ...pIn, sessionId: D_A.testSessionId(), currentBed: "" } : pIn;
     const clash = bedConflict(p0);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
     const blocked = blockedByUnknownWrite(true);
@@ -2010,6 +2117,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     let p = p0;
     setPatients(prev => [p0, ...prev]);
     setActiveId(p0.sessionId);
+    if (asTest) {
+      showToast("ลงทะเบียนคนไข้ทดสอบแล้ว เก็บไว้ในเครื่องนี้ ไม่บันทึกเข้าระบบ");
+      return Promise.resolve({ ok: true, test: true });
+    }
     if (!GAS_ON) {
       showToast(`Session ${p.sessionId} registered (local)`);
       return Promise.resolve({ ok: true });
@@ -2118,6 +2229,16 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   };
 
   const handleEditPatient = (p, openedFromBase) => {
+    // The test area (2026-11-14): a test patient stays without a bed, and a
+    // server record in "อื่นๆ" saves only the edit that gives it a real bed.
+    const toRealBed = D_A.wardGroup(p.currentBed) !== "other";
+    if (GAS_ON && D_A.isTestSession(p.sessionId) && D_A.normalizeBed(p.currentBed)) {
+      return Promise.resolve({ ok: false, refused: true, error: TEST_MOVE_MSG });
+    }
+    if (!toRealBed) {
+      const readOnly = readOnlyRefusal(p.sessionId, true);
+      if (readOnly) return Promise.resolve(readOnly);
+    }
     const clash = bedConflict(p);
     if (clash) return Promise.resolve({ ok: false, refused: true, error: clash });
     const blocked = blockedByUnknownWrite(true);
@@ -2127,7 +2248,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       ? openedFromBase
       : serverPatientsRef.current.get(p.sessionId);
     setPatients(prev => prev.map(x => x.sessionId === p.sessionId ? p : x));
-    if (!GAS_ON) {
+    if (isLocalId(p.sessionId)) {
       showToast(`${D_A.patientName(p) || p.sessionId} อัปเดตแล้ว`);
       return Promise.resolve({ ok: true });
     }
@@ -2202,6 +2323,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // form keeps its typed weight on a refusal). `opts` is gasPost's.
   const handleWeightUpdate = (sessionId, weights, opts) => {
     if (blockedByUnknownWrite(!!opts?.quiet)) return false;
+    if (readOnlyRefusal(sessionId, !!opts?.quiet)) return false;
     const rec0 = patients.find(p => p.sessionId === sessionId);
     const previousWeights = rec0?.weights || [];
     // Send the derived dob so the server can capture it into an empty dob cell
@@ -2222,7 +2344,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       const rec = serverPatientsRef.current.get(sessionId);
       if (rec) serverPatientsRef.current.set(sessionId, { ...rec, weights });
     };
-    if (GAS_ON) {
+    if (!isLocalId(sessionId)) {
       // Do not leave an unsaved measurement looking authoritative. A definite
       // failure rolls back only this exact optimistic update (a newer edit made
       // while the request was in flight must win); an unknown result is left
@@ -2570,7 +2692,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           {/* Role-checked here as well as in the rail: `view` is plain state,
               and before sessions remounted App an admin's "admin" view was
               still selected for the next user of the tab (SEC-F2). */}
-          {view === "admin" && role === "admin" && <AdminDashboard patients={patients} log={log} lastSync={lastSync}
+          {view === "admin" && role === "admin" && <AdminDashboard patients={patients.filter(p => !D_A.isTestSession(p.sessionId))} log={log} lastSync={lastSync}
             signInTiming={signInTiming} loadUsage={GAS_ON ? loadUsage : null}
             includeArchived={includeArchived}
             onToggleArchived={() => {
@@ -2740,7 +2862,7 @@ function useDailyLogLock(sessionId, dateStr, token) {
   const [holder, setHolder] = React.useState(null);
   const [checked, setChecked] = React.useState(false);
   React.useEffect(() => {
-    if (!GAS_ON || !sessionId || !dateStr || !token) { setHolder(null); setChecked(true); return; }
+    if (!GAS_ON || !sessionId || D_A.isTestSession(sessionId) || !dateStr || !token) { setHolder(null); setChecked(true); return; }
     setChecked(false);
     let cancelled = false;
     // Through gasRequest for its timeout (UP-S8); any failure is still "no
@@ -3155,7 +3277,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
         <div className="lbl">Active session</div>
         <div className="pid">
           <div>
-            <div className="id">{D_A.patientName(patient) || "—"}</div>
+            <div className="id">{D_A.patientName(patient) || "—"}{D_A.isTestSession(patient.sessionId) && <span className="chip warn" style={{ marginLeft: 6, fontSize: 10.5 }}>TEST</span>}</div>
             <div className="bed">
               Bed <span className="num">{patient.currentBed || (D_A.isParked(patient) ? "รอเตียง" : "—")}</span>
               {" · DOL "}
