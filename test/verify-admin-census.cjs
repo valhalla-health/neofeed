@@ -275,6 +275,20 @@ const pick = (w) => w && { capacity: w.capacity, occupied: w.occupied, active: w
       patients: PATIENTS.filter(p => ['QXNA', 'QXSA'].includes(p.name)), log: LOG, lastSync: null }));
     ok('a clean census shows no flag box', !host.querySelector('.census-flags'));
     ok('…and no อื่นๆ card', !host.querySelector('.census-ward[data-ward="other"]'));
+    // The census's Logged today reads ok when nothing needs an entry, as on the
+    // ward strip: two No TPN infants inside their 3 days and one logged today
+    // (Vera, 2026-11-14). Under the old rule (logged === active) it stays plain.
+    const ntOrder = (days) => order({ ts: ago(days), calcInput: { noTpn: true, totalTPN_mL: 0 } });
+    await render(React.createElement(global.AdminDashboard, { lastSync: null,
+      patients: [rec('QXZA', { currentBed: 'NICU 7' }), rec('QXZB', { currentBed: 'NICU 8' }), rec('QXZD', { currentBed: 'NICU 9' })],
+      log: { 'QXZA-BW1000': [ntOrder(1)], 'QXZB-BW1000': [ntOrder(2)], 'QXZD-BW1000': [order({})] } }));
+    const nicu = document.querySelector('#probe .census-ward[data-ward="NICU"]');
+    const nstat = (label) => {
+      const s = [...(nicu?.querySelectorAll('.census-stat') || [])].find(x => x.querySelector('.l').textContent.startsWith(label));
+      return s && { v: s.querySelector('.v').textContent, tone: s.className.replace('census-stat', '').trim() };
+    };
+    eq('No TPN inside the 3 days, the rest logged: Logged today 1 reads ok, Needs entry 0 plain',
+       [nstat('Logged today'), nstat('Needs entry')], [{ v: '1', tone: 'ok' }, { v: '0', tone: '' }]);
   });
 
   // ══════════════════════════════════════════════════════════════════════

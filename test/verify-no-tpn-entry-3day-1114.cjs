@@ -23,6 +23,8 @@
 //   I   nothing logged                             NEEDS ENTRY
 //   J   a bag 3 days ago, No TPN yesterday, rows in the other order: no badge
 //   K   discharged, No TPN yesterday               not on the active list
+//   L   No TPN yesterday, Submitted with the feeds-below critical: NEEDS ENTRY
+//       every day (Pp, 2026-11-14, asked)
 //
 // Mounts the real <PatientRegistry> in jsdom (deps in test/README.md); the
 // desktop table and the phone card both render here. Synthetic only.
@@ -65,6 +67,7 @@ const pt = (id, bed, status, extra) => Object.assign({ sessionId: id, name: 'Nam
 const noTpn = (ts, extra) => ({ ts, dol: 2, weight: 1500, calcInput: { noTpn: true, totalTPN_mL: 0 }, ...extra });
 const bag = (ts, extra) => ({ ts, dol: 2, weight: 1500, calcInput: { noTpn: false, totalTPN_mL: 120, dexPct: 10 }, ...extra });
 const draft = { status: 'Draft' };
+const lowFeeds = (ts, titles) => noTpn(ts, { calcInput: { noTpn: true, totalTPN_mL: 0, critOverride: { reason: 'x', alerts: titles, at: ts } } });
 const patients = [
   pt('A', 'NICU 1', 'Active'), pt('B', 'NICU 2', 'Active'), pt('C', 'NICU 3', 'Active'), pt('D', 'NICU 4', 'Active'),
   pt('E', 'NICU 5', 'Active'), pt('F', 'NICU 6', 'Active'), pt('G', 'NICU 7', 'Active'), pt('H', 'NICU 8', 'Active'),
@@ -107,6 +110,14 @@ ok('B is asked on its due day, not the day before',
   D.needsEntryOn(log.B, D.addDaysToDateStr(today, 2)) === true && D.needsEntryOn(log.B, D.addDaysToDateStr(today, 1)) === false);
 ok('the date argument defaults to today', D.needsEntryOn(log.C) === false && D.needsEntryOn(log.D) === true);
 
+console.log('\n── No TPN with feeds below the bar: every day ──');
+ok('the title a saved order lists is unchanged', D.NO_TPN_FEEDS_LOW_TITLE === "No TPN: feeds below 80 mL/kg/d or the day's minimum", D.NO_TPN_FEEDS_LOW_TITLE);
+ok('the calculator builds its alert from that title', fs.readFileSync(DIR + 'calculator.jsx', 'utf8').includes('title: D.NO_TPN_FEEDS_LOW_TITLE,'));
+ok('No TPN yesterday, Submitted with the feeds-below critical: asked', D.needsEntryOn([lowFeeds(ago(1), [D.NO_TPN_FEEDS_LOW_TITLE])], today) === true);
+ok('…also with a title saved under an earlier limit', D.needsEntryOn([lowFeeds(ago(1), ["No TPN: feeds below 60 mL/kg/d or the day's minimum"])], today) === true);
+ok('another critical confirmed (GIR) keeps the 3 days', D.needsEntryOn([lowFeeds(ago(1), ['GIR critically high'])], today) === false);
+ok('the feeds-below order has no due date', D.noTpnEntryDueOn([lowFeeds(ago(1), [D.NO_TPN_FEEDS_LOW_TITLE])]) === null);
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 const render = (props) => act(() => { root.render(React.createElement(PatientRegistry, {
   patients, log, activeId: null, ward: 'NICU', onWardChange() {}, onSelect() {}, onAdd() {}, onEdit() {}, onDelete() {}, ...props })); });
@@ -114,7 +125,7 @@ const click = (el) => act(() => { el.dispatchEvent(new window.MouseEvent('click'
 const tiles = () => [...document.querySelectorAll('.reg-stat')];
 const tile = (label) => tiles().find(el => el.querySelector('.reg-stat-lbl').textContent === label);
 const val = (label) => tile(label)?.querySelector('.reg-stat-val').textContent;
-const who = (el) => (el.textContent.match(/Name([A-K])/) || [])[1];
+const who = (el) => (el.textContent.match(/Name([A-L])/) || [])[1];
 const todayBadge = (el) => el.querySelector('.log-badge:not(.is-no-tpn)')?.textContent || '';
 const byName = (sel) => Object.fromEntries([...document.querySelectorAll(sel)].map(el => [who(el), el]));
 const shown = (sel) => [...document.querySelectorAll(sel)].map(who).filter(Boolean).sort().join('');
@@ -170,6 +181,13 @@ render({ patients: patients.slice(0, 3), log: quiet });
 ok('A logged, B and C inside their 3 days: Needs entry 0, Logged today 1', val('Needs entry') === '0' && val('Logged today') === '1');
 ok('Logged today reads done (green), Needs entry has no shape',
   tile('Logged today').classList.contains('s-ok') && !tile('Needs entry').querySelector('.reg-stat-mark'));
+
+console.log('\n── L, feeds below the bar, on the ward list ──');
+render({ patients: [patients[0], pt('L', 'NICU 12', 'Active')], log: { A: log.A, L: [lowFeeds(ago(1), [D.NO_TPN_FEEDS_LOW_TITLE])] } });
+const rowL = byName('.patient-mc').L;
+ok('L: NEEDS ENTRY beside No TPN, the day after its order', todayBadge(rowL) === 'NEEDS ENTRY' && !!rowL.querySelector('.log-badge.is-no-tpn'), todayBadge(rowL));
+ok('…its No TPN tag names no due day', !/ลงนมใหม่/.test(rowL.querySelector('.log-badge.is-no-tpn').title), rowL.querySelector('.log-badge.is-no-tpn').title);
+ok('…and it is counted in Needs entry', val('Needs entry') === '1', val('Needs entry'));
 
 console.log('\n── the ward gate and the Print order list ──');
 render({ ward: null });

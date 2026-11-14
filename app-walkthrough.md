@@ -688,7 +688,8 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    checked }`) and never goes while a colleague holds the order. The list never
    decides what may print. A `tmp_` row is shown but not opened; two
    submitted orders on one day open the Dashboard to choose; those not yet
-   submitted are counted under the list, one tap from Needs entry. The
+   submitted are counted under the list, one tap from Needs entry, and since
+   2026-11-14 the No TPN infants not due yet are counted beside them. The
    print list's ward (`printWard`) lives in `app.jsx` so "← กลับไปรายการ Print
    order" returns to it; `goTo` and leaving the Calculator clear the request.
    **The phone's Back button steps back inside the app** (Pp, 2026-10-12;

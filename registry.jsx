@@ -439,7 +439,8 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
     .map(p => ({ p, orders: todaysOrders(log[p.sessionId], today) }))
     .filter(r => r.orders.length > 0);
   // Those the ward's Needs entry list shows (D.needsEntryOn). A No TPN infant
-  // inside its 3 days is not listed and not waiting: nothing is due today.
+  // inside its 3 days, with no draft started today, is not listed and not
+  // waiting: nothing is due today.
   const waiting = active.filter(p => D_R.needsEntryOn(log[p.sessionId], today)).length;
   // The rest of those not listed: No TPN, nothing due until their 3 days are
   // up. Named under the list so Submitted + waiting + these = the header's
@@ -682,8 +683,9 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
     wardPatients.filter(p => isActivePatient(p) && D_R.hasLogOnDate(log[p.sessionId], today)).map(p => p.sessionId)
   );
   // Who the ward is asked for an entry today: nothing Submitted today, and not
-  // a No TPN infant inside its 3 days (D.needsEntryOn; Pp, 2026-11-14). The
-  // Needs entry tile, its list and the NEEDS ENTRY badge read this one set.
+  // a No TPN infant inside its 3 days unless a draft was started today or its
+  // order carries the feeds-below critical (D.needsEntryOn; Pp, 2026-11-14).
+  // The Needs entry tile, its list and the NEEDS ENTRY badge read this one set.
   const needsSet = new Set(
     wardPatients.filter(p => isActivePatient(p) && D_R.needsEntryOn(log[p.sessionId], today)).map(p => p.sessionId)
   );

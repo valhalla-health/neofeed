@@ -1958,11 +1958,22 @@ function latestOrderIsNoTpn(entries) {
 // no dose and prints nothing; it decides only who the ward list says still
 // needs an entry.
 const NO_TPN_ENTRY_EVERY_DAYS = 3;
+// Except an order Submitted with the critical "No TPN: feeds below 80 mL/kg/d
+// or the day's minimum" (CR-NO-TPN-EN): feeds still short of the bar change day
+// to day, so that infant is asked every day (Pp, 2026-11-14, asked: "ขึ้นทุก
+// วัน"). The title is the key a saved critOverride lists, so its wording must
+// not change; calculator.jsx builds the alert from it. A title saved under an
+// earlier limit still matches by its prefix.
+const NO_TPN_FEEDS_LOW_PREFIX = "No TPN: feeds below ";
+const NO_TPN_FEEDS_LOW_TITLE = `${NO_TPN_FEEDS_LOW_PREFIX}${NO_TPN_EN_MIN_ML_KG} mL/kg/d or the day's minimum`;
 // The date that infant is next asked for an entry, or null when the latest
-// Submitted order has TPN or there is none: then every day asks.
+// Submitted order has TPN, carries the feeds-below critical, or there is none:
+// then every day asks.
 function noTpnEntryDueOn(entries) {
   const last = previousFinalEntry(entries, "9999-12-31");
   if (!orderIsNoTpn(last)) return null;
+  const crit = last.calcInput.critOverride;
+  if (crit && Array.isArray(crit.alerts) && crit.alerts.some(t => String(t).startsWith(NO_TPN_FEEDS_LOW_PREFIX))) return null;
   const d = normalizeDateStr(last.ts);
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? addDaysToDateStr(d, NO_TPN_ENTRY_EVERY_DAYS) : null;
 }
@@ -3280,7 +3291,7 @@ window.NEOFEED_DATA = {
   useTodayLocal,
   // Date coercion + Daily_Log normalization: the sheet can hand back `ts` as a
   // Date object, so never compare a raw entry.ts to a YYYY-MM-DD string
-  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, latestOrderIsNoTpn, NO_TPN_ENTRY_EVERY_DAYS, noTpnEntryDueOn, needsEntryOn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
+  normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, latestOrderIsNoTpn, NO_TPN_ENTRY_EVERY_DAYS, NO_TPN_FEEDS_LOW_TITLE, noTpnEntryDueOn, needsEntryOn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
   // THE current weight — every screen calls it with the patient's Daily_Log
   // (see currentWeight) — and the joined series it reads.
   currentWeight, weightSeries,

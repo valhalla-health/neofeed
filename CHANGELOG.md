@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-14 (3) — Pp's answers: feeds below the bar are entered every day
+
+`data.js` (`NO_TPN_FEEDS_LOW_TITLE`, `noTpnEntryDueOn`), `calculator.jsx` (the CR-NO-TPN-EN alert takes its title
+from `data.js`, wording unchanged), `.claude/skills/neofeed-clinical-rules/SKILL.md` (CR-NO-TPN-EN, and 18 moved
+line numbers rewritten by `--fix-lines`), `registry.jsx` (two comments), `app-walkthrough.md`,
+`test/verify-no-tpn-entry-3day-1114.cjs`, `test/verify-admin-census.cjs`.
+
+Pp answered the questions left open in (2), 2026-11-14:
+
+- **"ทุก 3 วัน"**: an order on the 14th is asked again on the 17th, as built.
+- **A No TPN order Submitted with the critical "No TPN: feeds below 80 mL/kg/d or the day's minimum"** keeps the
+  infant on NEEDS ENTRY every day ("ขึ้นทุกวัน"). The ward list reads the title off the order's `critOverride`,
+  by its "No TPN: feeds below " prefix, so a title saved under an earlier limit still counts. The title now lives
+  in `data.js` so the alert and the ward list cannot drift apart; a saved `critOverride` still matches it.
+- **Oral orders**: "ถ้าไม่มี TPN ไม่ต้องมีอะไรพิมพ์ที่ห้อง TPN เลย oral EN ทำเองที่วอร์ด". The 3-day pass stands for
+  an order with oral orders too. A No TPN order still prints its short sheet (`D.orderPrints`); whether it
+  should print nothing at all is a separate change to the printed order, not made here.
+- **Vera's re-check of (2)**: the census's Logged today tone now has a test that fails under the old rule; two
+  comments brought up to date. The readmission gap (a readmission under the same ID within 2 days of a No TPN
+  order gets the pass) is left as is: rare.
+
 ## Session 2026-11-14 (2) — Vera's review of the 3-day rule
 
 `data.js` (`needsEntryOn`), `registry.jsx` (`WardPrintList`), `app.jsx` (the census's Logged today), both shells
