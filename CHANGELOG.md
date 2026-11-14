@@ -26,7 +26,14 @@ Pp, 2026-11-14, from the live page: "ผู้ป่วยในหน่วย 
 - **Tests.** The core harness compares `Core.wardGroup` with `data.js` `wardGroup` bed by bed, so the two cannot drift
   apart, and runs `ordersByWard` on a made-up list and on a real `pharmacyOrders` reply. The page harness checks the
   sections, their counts, which order sits under which ward, and that "ผู้ป่วยในหน่วย" is gone. Core 109/109; page
-  103/103 in Chromium on Pp's PC (the launch shim in `test/README.md`).
+  105/105 in Chromium on Pp's PC (the launch shim in `test/README.md`).
+- **Vera: NO BLOCK, two findings, both fixed.** (1) The counts at the top were the server's, which counts every row
+  it sends, while the ward headings count the list after `currentOrders` keeps one row per infant: an infant with an
+  older submitted row and a newer draft read "Submit แล้ว 2" at the top and 1 in the headings. The top now adds up
+  the headings; page § 12c failed on the first commit (got 2, want 1) and passes now. (2) The open change's spec
+  still promised the active count; `openspec/changes/tpn-room-stickers` now says submitted and draft counts, split
+  by ward, with a scenario for the sections. Her second proposed test (the ไม่มีเตียง section in Chromium) is left
+  out: it would pass on the first commit too, and the core harness already builds that group.
 
 ## Session 2026-11-14 (4) — Vera's review of (3): the open decisions go to BACKLOG
 

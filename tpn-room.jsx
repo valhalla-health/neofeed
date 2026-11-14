@@ -656,6 +656,11 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
 
   const dateOk = Core.isRealDate(date) && date >= win.min && date <= win.max;
   const orders = reply ? reply.orders : [];
+  // The counts at the top add up the ward headings, from the same list: the server counts
+  // every row it sends, but the list keeps one per infant (currentOrders), so its numbers
+  // could disagree with the headings below them (Vera, 2026-11-14).
+  const wards = Core.ordersByWard(orders);
+  const total = (k) => wards.reduce((n, w) => n + w[k].length, 0);
   const gone = reply && file ? Core.goneAfterPrint(orders, file.state.printLog, reply.date) : [];
   const count = file ? Object.keys(file.state.infants).length : 0;
   const backToDraft = reply && file ? Core.draftAfterPrint(orders, file.state.printLog, reply.date) : [];
@@ -687,8 +692,8 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
           <button onClick={() => load(date)} disabled={loading || !dateOk}>{loading ? "กำลังโหลด…" : "รีเฟรช"}</button>
           {reply && (
             <div className="counts">
-              <span><strong>{reply.counts.submitted}</strong> Submit แล้ว</span>
-              <span><strong>{reply.counts.drafts}</strong> ฉบับร่าง</span>
+              <span><strong>{total("submitted")}</strong> Submit แล้ว</span>
+              <span><strong>{total("drafts")}</strong> ฉบับร่าง</span>
               {/* No count of infants on the unit: the room works from orders (Pp, 2026-11-14). */}
               <span className="muted">โหลดเมื่อ {Core.wardTime(null, reply.loadedAt)}</span>
             </div>
@@ -707,7 +712,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
             {o.sessionId}: พิมพ์แล้ว แต่ order เปลี่ยนเป็นฉบับร่าง อย่าใช้ถุงนี้จนกว่าหมอจะ Submit ฉบับใหม่
           </p>
         ))}
-        {reply && Core.ordersByWard(orders).map((w) => (
+        {reply && wards.map((w) => (
           <section key={w.key} className="ward" data-ward={w.key} aria-label={w.label}>
             <h2 className="ward-head">
               {w.label}

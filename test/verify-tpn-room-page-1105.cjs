@@ -573,6 +573,31 @@ const INIT = `
       await c.close();
     }
 
+    section('§12c Vera on the ward split, 2026-11-14: failed on its first commit');
+    {
+      // Two live rows for one infant: the older submitted, a newer revision a draft. The list
+      // keeps one row per infant (currentOrders), so the top must count that list, not the server's rows.
+      const log = g.sheet('Daily_Log').data;
+      // CC-1, since §7 deleted SS-1's row.
+      const extra = g.logRow('CC-1', logRowOf('CC-1')[0], { 2: 5, 3: 900, 14: 'draft', 15: 'doctor@dev.local', 27: 'doctor@dev.local', 35: 2 });
+      log.push(extra);
+      const c = await newRoom();
+      const pg = await open(c);
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await pg.locator('.counts').waitFor();
+      await pg.locator('section.ward[data-ward="NICU"] details.drafts summary').click();
+      await row(pg, 'CC-1').waitFor();
+      const num = (s, re) => Number((s.match(re) || [])[1]);
+      const top = await text(pg, '.counts');
+      const heads = await pg.locator('section.ward .ward-head').allInnerTexts();
+      const sum = (re) => heads.reduce((n, h) => n + num(h, re), 0);
+      eq('CC-1 shows once, as its newer draft', [await row(pg, 'CC-1').count(), /ฉบับร่าง รอหมอ Submit/.test(await row(pg, 'CC-1').innerText())], [1, true]);
+      eq('top counts are the sums of the ward headings', [num(top, /(\d+)\s*Submit แล้ว/), num(top, /(\d+)\s*ฉบับร่าง/)],
+        [sum(/Submit แล้ว (\d+)/), sum(/ฉบับร่าง (\d+)/)]);
+      log.splice(log.indexOf(extra), 1);
+      await c.close();
+    }
+
     section('§13 no page error, no CSP violation');
     eq('the console stayed clean', problems, []);
   } catch (e) {
