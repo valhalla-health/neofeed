@@ -7,6 +7,26 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-14 — The อื่นๆ tile becomes ทดสอบระบบ: no-bed patients never reach the backend
+
+`data.js` (`isTestSession`, `testSessionId`, `isReadOnlyOther`, `TEST_STORE_KEY`), `app.jsx` (every write
+handler, `writeGAS`, `applySnapshot`, the test store), `registry.jsx` (gate tile, `TestTag`, New session's
+bed default), `calculator.jsx` (one line on the printed form), `compiled/`, `test/verify-test-ward-1114.cjs`.
+
+- **Why.** Pp: "อันที่เป็นอื่นๆ ให้ขึ้นเป็น test ระบบ ไม่ให้มี save เข้า backend เลย เพราะไม่อยากตามแก้".
+  Her three choices the same day: no bed means a test patient; the server's existing no-bed records go
+  read-only; a test patient cannot move to a real bed.
+- **What.** Registering with no bed gives a `TEST-NF-######` id. The record, its orders, I/O and weights stay
+  in this browser's localStorage (`neofeed_test_ward_v1`), take each handler's local branch, and survive a
+  sync and a reload. `writeGAS` refuses any `TEST-` id as the last line. The tile reads ทดสอบระบบ, is always
+  shown, and has no Print order button; the patient carries a TEST tag; the printed form adds
+  "คนไข้ทดสอบ ไม่ใช่ใบสั่งจริง"; the Admin census leaves test patients out. New session opened from the tile
+  starts with no bed and says what that means; from NICU it still pre-picks the next free bed.
+- **Server records with no bed** still list under the tile. Nothing saves against them (orders, I/O,
+  weights, edits), except a move to a real bed and Delete. Pp can also delete the rows in the sheet.
+- **Not done.** The backend does not refuse `TEST-` ids itself, so a hand-made POST could still write one;
+  the client never sends one. Test patients are per browser: another device or a cleared browser shows none.
+
 ## Session 2026-11-12 (3) — The release comparison ticks the red alerts
 
 `tools/calc-compare.cjs`. Since #251 the sheet renders only once every red alert is ticked, so the

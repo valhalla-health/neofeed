@@ -172,6 +172,14 @@ function multiplesLabel(p) {
 // inline style used to paint it `var(--bg-1)`, a token that never existed, so
 // the tile had no fill at all and sat invisible on the page ground until
 // Praew asked for "พื้นขาว เพื่อให้แยกจากกันได้ชัด" (2026-09-22).
+// "TEST" beside a test patient's name (2026-11-14): nothing about this
+// infant reaches the backend, and every screen that names them says so.
+function TestTag({ p }) {
+  if (!p || !D_R.isTestSession(p.sessionId)) return null;
+  return <span className="chip warn" title="คนไข้ทดสอบ เก็บในเครื่องนี้ ไม่บันทึกเข้าระบบ"
+    style={{ marginLeft: 6, fontSize: 10.5, verticalAlign: "middle" }}>TEST</span>;
+}
+
 function WardTile({ label, sub, list, log, today, onPick }) {
   const logged = list.filter(p => D_R.hasLogOnDate(log[p.sessionId], today)).length;
   const needs  = list.length - logged;
@@ -236,8 +244,10 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
       <div className="ward-gate" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 }}>
         <WardGateCell label="NICU" sub="NICU 1–12 · iso 1–3" {...tile("NICU")} />
         <WardGateCell label="SCN"  sub="SCN 1–30"            {...tile("SCN")} />
-        {groups.other.length > 0 &&
-          <WardGateCell label="อื่นๆ" sub="ยังไม่ระบุเตียง / เตียงนอกรายการ" {...tile("other")} />}
+        {/* The test area (Pp, 2026-11-14): always shown, so anyone can try
+            the app on a made-up infant; register with no bed to land here.
+            No Print order: a test order is never a pharmacy order. */}
+        <WardGateCell label="ทดสอบระบบ" sub="ไม่มีเตียง · ไม่บันทึกเข้าระบบ" {...tile("other")} onPrintList={null} />
       </div>
     </>
   );
@@ -318,7 +328,7 @@ function printSheetBasis(p, entries) {
 // infant's record or log changed in any way since (printSheetBasis). Past the
 // day the job was made, nothing in it prints: back to the list to start again.
 function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
-  const wardName = batch.ward === "other" ? "อื่นๆ" : batch.ward;
+  const wardName = batch.ward === "other" ? "ทดสอบระบบ" : batch.ward;
   const sheetsRef = React.useRef(null);
   const today = D_R.useTodayLocal();
   const stillOrder = ({ item, basis }, day) => {
@@ -429,7 +439,7 @@ function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
 }
 
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
-  const wardName = ward === "other" ? "อื่นๆ" : ward;
+  const wardName = ward === "other" ? "ทดสอบระบบ" : ward;
   const active = patients.filter(p => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active
     .map(p => ({ p, orders: todaysOrders(log[p.sessionId], today) }))
@@ -527,7 +537,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
                  aria-label={`${action} ${D_R.patientName(p) || ""}`.trim()}>
               <div className="pr-who">
                 <BedChip p={p} />
-                <span className="pr-name">{D_R.patientName(p) || "—"}</span>
+                <span className="pr-name">{D_R.patientName(p) || "—"} <TestTag p={p} /></span>
                 {p.twinSuffix && <span className="chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
                 <span className="pr-dol">DOL {D_R.liveDol(p)}</span>
                 <span className="log-badge is-logged">✓ SUBMITTED</span>
@@ -571,7 +581,7 @@ function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 }}>
           {elsewhere.map(x => (
             <button key={x.ward} type="button" className="btn sm" onClick={() => onWardChange?.(x.ward)}>
-              พบใน {x.ward === "other" ? "อื่นๆ" : x.ward} {x.n} ราย · ไปดู →
+              พบใน {x.ward === "other" ? "ทดสอบระบบ" : x.ward} {x.n} ราย · ไปดู →
             </button>
           ))}
         </div>
@@ -640,7 +650,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
     onPrintList={onPrintOrder ? onPrintWard : undefined} />;
 
   const q = filter.trim();
-  const wardName = ward === "other" ? "อื่นๆ" : ward;
+  const wardName = ward === "other" ? "ทดสอบระบบ" : ward;
   // The ward this screen is about. Every count, badge and stat below is
   // scoped to it — except the bed-occupancy maps the modals build, which take
   // the full census (a bed is occupied by whoever is in it, ward gate or
@@ -855,7 +865,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
               {/* Row 1: name + DOL + status */}
               <div className="pmc-row pmc-head">
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span className="pmc-name">{D_R.patientName(p) || "—"}</span>
+                  <span className="pmc-name">{D_R.patientName(p) || "—"} <TestTag p={p} /></span>
                   {/* Twins share initials — without this, Twin A and Twin B
                       were two identical cards on the phones nurses use
                       (2026-09-11 review, F9; desktop table + picker had it). */}
@@ -946,7 +956,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
                    onClick={() => onSelect(p.sessionId)}>
                 <div className="pmc-row pmc-head">
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="pmc-name">{D_R.patientName(p) || "—"}</span>
+                    <span className="pmc-name">{D_R.patientName(p) || "—"} <TestTag p={p} /></span>
                     {p.twinSuffix && <span className="pmc-twin chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
                     <BedChip p={p} />
                   </div>
@@ -1048,7 +1058,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
                     onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p.sessionId); } }}>
                   <td><BedChipButton p={p} stacked onOpen={openTransfer} /></td>
                   <td>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{D_R.patientName(p) || "—"}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{D_R.patientName(p) || "—"} <TestTag p={p} /></div>
                     {p.twinSuffix && <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{multiplesLabel(p)}</div>}
                   </td>
                   <td className="num" style={{ fontWeight: 600, color: "var(--brand-2)" }}>
@@ -1115,7 +1125,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
               <tr key={p.sessionId} style={{ opacity: 0.5, cursor: "pointer" }}
                   onClick={() => onSelect(p.sessionId)}>
                 <td><BedChip p={p} stacked /></td>
-                <td style={{ fontWeight: 600, fontSize: 13 }}>{D_R.patientName(p) || "—"}</td>
+                <td style={{ fontWeight: 600, fontSize: 13 }}>{D_R.patientName(p) || "—"} <TestTag p={p} /></td>
                 <td className="num">{D_R.fmtGA(p.ga)}</td>
                 <td className="num">{D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))}</td>
                 <td className="num">{p.bw.toLocaleString()}</td>
@@ -1153,7 +1163,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
           occupied by whoever is in it, including a patient the ward gate is
           currently hiding from view. */}
       {/* Each modal closes itself once its request succeeds (useModalSubmit). */}
-      {showAdd          && <NewPatientModal patients={patients} onClose={() => setShowAdd(false)} onSubmit={p => onAdd(p)} />}
+      {showAdd          && <NewPatientModal patients={patients} ward={ward} onClose={() => setShowAdd(false)} onSubmit={p => onAdd(p)} />}
       {editPatient      && <EditPatientModal patient={editPatient} patients={patients} onClose={() => setEditPatient(null)}
         onSubmit={(p, base) => onEdit?.(p, base)} mergeBaseFor={mergeBaseFor} onDelete={onDelete}
         canDeleteHop={role === "doctor" || role === "admin"} />}
@@ -1445,7 +1455,7 @@ function PnIndicationFields({ indication, onIndication, liverDx, onLiverDx, rena
   );
 }
 
-function NewPatientModal({ patients, onClose, onSubmit }) {
+function NewPatientModal({ patients, ward, onClose, onSubmit }) {
   const today = D_R.todayLocal();   // local date, not UTC
   // ชื่อ + นามสกุล, two characters each (NameFields). Registration needs both.
   const [nameIn, setNameIn]     = React.useState({ first: "", last: "", foreign: false });
@@ -1470,7 +1480,9 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   // the save guard below would then refuse. Falls back to unassigned when
   // NICU is full — the user picks, rather than being defaulted onto a bed
   // that is someone else's.
-  const [bed, setBed]           = React.useState(() => D_R.nextFreeBed(patients, "NICU"));
+  // Opened from the test tile, no bed: that is what makes a test patient
+  // (2026-11-14), so the form must not pre-pick a real one there.
+  const [bed, setBed]           = React.useState(() => (ward === "other" ? "" : D_R.nextFreeBed(patients, "NICU")));
   // Who is in which bed right now. No exclusion: a session being registered
   // holds no bed yet, so every occupied bed belongs to somebody else.
   const occupancy = React.useMemo(() => D_R.bedOccupancy(patients), [patients]);
@@ -1623,6 +1635,11 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
             <div className="field">
               <label>Bed</label>
               <BedSelect value={bed} onChange={setBed} allowUnassigned occupancy={occupancy} />
+              {!D_R.normalizeBed(bed) && (
+                <div className="test-bed-note" style={{ fontSize: 11, color: "var(--warn)", marginTop: 4 }}>
+                  ไม่เลือกเตียง = คนไข้ทดสอบ เก็บในเครื่องนี้ ไม่บันทึกเข้าระบบ
+                </div>
+              )}
               {bedTaken && (
                 <div style={{ fontSize: 11, color: "var(--crit)", marginTop: 4 }}>
                   {D_R.bedTakenMsg(D_R.normalizeBed(bed), bedTaken)}

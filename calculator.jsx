@@ -5220,7 +5220,9 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         <tbody>
           <tr>
             <td style={{ width:"45%" }}>ชื่อ: <strong>{D.patientName(patient) || "—"}</strong>
-              {patient?.twinSuffix && <strong> (Twin {patient.twinSuffix})</strong>}</td>
+              {patient?.twinSuffix && <strong> (Twin {patient.twinSuffix})</strong>}
+              {/* The test area (2026-11-14): a test infant's sheet says so. */}
+              {D.isTestSession(patient?.sessionId) && <strong> · คนไข้ทดสอบ ไม่ใช่ใบสั่งจริง</strong>}</td>
             {/* Was labeled "AN:" — read as the hospital's real Admission Number, but this
                 is NeoFeed's own sessionId: "NF-" and six random digits since 2026-09-27,
                 initials+BW+twinSuffix before. Mislabeling it as AN gives a pharmacist a false

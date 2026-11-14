@@ -87,6 +87,18 @@ function multiplesLabel(p) {
   const term = MULTIPLES_COUNT_TERM[p.multiplesCount] || MULTIPLES_LETTER_FALLBACK[p.twinSuffix] || "Multiple";
   return `${term} ${p.twinSuffix}`;
 }
+function TestTag({ p }) {
+  if (!p || !D_R.isTestSession(p.sessionId)) return null;
+  return /* @__PURE__ */ React.createElement(
+    "span",
+    {
+      className: "chip warn",
+      title: "คนไข้ทดสอบ เก็บในเครื่องนี้ ไม่บันทึกเข้าระบบ",
+      style: { marginLeft: 6, fontSize: 10.5, verticalAlign: "middle" }
+    },
+    "TEST"
+  );
+}
 function WardTile({ label, sub, list, log, today, onPick }) {
   const logged = list.filter((p) => D_R.hasLogOnDate(log[p.sessionId], today)).length;
   const needs = list.length - logged;
@@ -132,7 +144,7 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
   const active = patients.filter(isActivePatient);
   active.forEach((p) => groups[D_R.patientWard(p)].push(p));
   const tile = (ward) => ({ ward, list: groups[ward], log, today, onPick: () => onPick(ward), onPrintList });
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, /* @__PURE__ */ React.createElement(WardGateCell, { label: "NICU", sub: "NICU 1–12 · iso 1–3", ...tile("NICU") }), /* @__PURE__ */ React.createElement(WardGateCell, { label: "SCN", sub: "SCN 1–30", ...tile("SCN") }), groups.other.length > 0 && /* @__PURE__ */ React.createElement(WardGateCell, { label: "อื่นๆ", sub: "ยังไม่ระบุเตียง / เตียงนอกรายการ", ...tile("other") })));
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, /* @__PURE__ */ React.createElement(WardGateCell, { label: "NICU", sub: "NICU 1–12 · iso 1–3", ...tile("NICU") }), /* @__PURE__ */ React.createElement(WardGateCell, { label: "SCN", sub: "SCN 1–30", ...tile("SCN") }), /* @__PURE__ */ React.createElement(WardGateCell, { label: "ทดสอบระบบ", sub: "ไม่มีเตียง · ไม่บันทึกเข้าระบบ", ...tile("other"), onPrintList: null })));
 }
 function NoTpnTag({ p, entries }) {
   if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
@@ -155,7 +167,7 @@ function printSheetBasis(p, entries) {
   }
 }
 function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
-  const wardName = batch.ward === "other" ? "อื่นๆ" : batch.ward;
+  const wardName = batch.ward === "other" ? "ทดสอบระบบ" : batch.ward;
   const sheetsRef = React.useRef(null);
   const today = D_R.useTodayLocal();
   const stillOrder = ({ item, basis }, day) => {
@@ -217,7 +229,7 @@ function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
   )), /* @__PURE__ */ React.createElement("div", { className: "card print-batch-summary", style: { padding: "12px 14px", maxWidth: 760 } }, dayOverNow ? /* @__PURE__ */ React.createElement("div", { className: "print-batch-skipped", role: "alert" }, "วันเปลี่ยนแล้ว — ชุดพิมพ์นี้เป็นใบสั่งของ ", window.NEOFEED_FMT_DATE?.(batch.day) || batch.day, " จึงไม่พิมพ์ กลับไปรายการแล้วกด Print ทั้งหมดใหม่") : /* @__PURE__ */ React.createElement(React.Fragment, null, refused === "changed" && /* @__PURE__ */ React.createElement("div", { className: "print-batch-skipped", role: "alert" }, "รายการเปลี่ยนขณะกดพิมพ์ — ตรวจสอบรายการด้านล่างแล้วกดพิมพ์อีกครั้ง"), held.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "print-batch-skipped", role: "alert" }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, marginBottom: 4 } }, "ไม่ได้อยู่ในชุดพิมพ์นี้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, held.length), " ใบ — เปิดจากรายการเพื่อตรวจสอบและพิมพ์ทีละใบ"), /* @__PURE__ */ React.createElement("ul", null, held.map(({ item, reason }) => /* @__PURE__ */ React.createElement("li", { key: item.entryId }, /* @__PURE__ */ React.createElement("strong", null, item.label || "ใบสั่ง"), " — ", reason)))), n > 0 ? /* @__PURE__ */ React.createElement("ul", { className: "print-batch-list" }, fresh.map(({ item }) => /* @__PURE__ */ React.createElement("li", { key: item.entryId }, "✓ ", item.label || "ใบสั่ง"))) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-3)" } }, "ไม่มีใบที่พิมพ์ได้ในชุดนี้"), n > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-3)", marginTop: 8 } }, "แพทย์ตรวจและลงนามในแต่ละใบก่อนส่งห้องยา"))), /* @__PURE__ */ React.createElement("div", { className: "print-batch", ref: sheetsRef }));
 }
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
-  const wardName = ward === "other" ? "อื่นๆ" : ward;
+  const wardName = ward === "other" ? "ทดสอบระบบ" : ward;
   const active = patients.filter((p) => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active.map((p) => ({ p, orders: todaysOrders(log[p.sessionId], today) })).filter((r) => r.orders.length > 0);
   const waiting = active.length - rows.length;
@@ -293,7 +305,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         ...open ? rowA11y(open) : {},
         "aria-label": `${action} ${D_R.patientName(p) || ""}`.trim()
       },
-      /* @__PURE__ */ React.createElement("div", { className: "pr-who" }, /* @__PURE__ */ React.createElement(BedChip, { p }), /* @__PURE__ */ React.createElement("span", { className: "pr-name" }, D_R.patientName(p) || "—"), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pr-dol" }, "DOL ", D_R.liveDol(p)), /* @__PURE__ */ React.createElement("span", { className: "log-badge is-logged" }, "✓ SUBMITTED")),
+      /* @__PURE__ */ React.createElement("div", { className: "pr-who" }, /* @__PURE__ */ React.createElement(BedChip, { p }), /* @__PURE__ */ React.createElement("span", { className: "pr-name" }, D_R.patientName(p) || "—", " ", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pr-dol" }, "DOL ", D_R.liveDol(p)), /* @__PURE__ */ React.createElement("span", { className: "log-badge is-logged" }, "✓ SUBMITTED")),
       /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -315,7 +327,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
   }), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`), waiting > 0 && /* @__PURE__ */ React.createElement("div", { className: "print-waiting" }, /* @__PURE__ */ React.createElement("span", null, "ยังไม่ Submit ", /* @__PURE__ */ React.createElement("span", { className: "num" }, waiting), " ราย — ไม่อยู่ในรายการพิมพ์"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: onShowNeeds }, "ดูรายชื่อ Needs entry →"))));
 }
 function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
-  return /* @__PURE__ */ React.createElement("div", { className: "search-miss" }, /* @__PURE__ */ React.createElement("div", null, "ไม่พบ “", query, "” ใน ", wardName), elsewhere.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 } }, elsewhere.map((x) => /* @__PURE__ */ React.createElement("button", { key: x.ward, type: "button", className: "btn sm", onClick: () => onWardChange?.(x.ward) }, "พบใน ", x.ward === "other" ? "อื่นๆ" : x.ward, " ", x.n, " ราย · ไปดู →"))));
+  return /* @__PURE__ */ React.createElement("div", { className: "search-miss" }, /* @__PURE__ */ React.createElement("div", null, "ไม่พบ “", query, "” ใน ", wardName), elsewhere.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 } }, elsewhere.map((x) => /* @__PURE__ */ React.createElement("button", { key: x.ward, type: "button", className: "btn sm", onClick: () => onWardChange?.(x.ward) }, "พบใน ", x.ward === "other" ? "ทดสอบระบบ" : x.ward, " ", x.n, " ราย · ไปดู →"))));
 }
 function PatientRegistry({
   patients,
@@ -388,7 +400,7 @@ function PatientRegistry({
     }
   );
   const q = filter.trim();
-  const wardName = ward === "other" ? "อื่นๆ" : ward;
+  const wardName = ward === "other" ? "ทดสอบระบบ" : ward;
   const wardPatients = patients.filter((p) => D_R.patientWard(p) === ward);
   const byBed = [...wardPatients].sort(bedSort);
   const search = q ? D_R.searchPatients(byBed, q) : null;
@@ -495,7 +507,7 @@ function PatientRegistry({
         onClick: () => onSelect(p.sessionId),
         ...rowA11y(() => onSelect(p.sessionId))
       },
-      /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—"), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pmc-dol" }, "DOL ", dol)), /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus })),
+      /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—", " ", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pmc-dol" }, "DOL ", dol)), /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus })),
       /* @__PURE__ */ React.createElement("div", { className: "pmc-row" }, /* @__PURE__ */ React.createElement(BedChipButton, { p, onOpen: openTransfer }), /* @__PURE__ */ React.createElement("span", { className: "pmc-meta" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, D_R.fmtGA(p.ga)), " wk ·", " ", /* @__PURE__ */ React.createElement("span", { className: "num" }, p.bw.toLocaleString()), " g")),
       p.diagnosis && /* @__PURE__ */ React.createElement("div", { className: "pmc-diagnosis" }, p.diagnosis),
       /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-stats" }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("span", { className: "pmc-lbl" }, "Wt"), /* @__PURE__ */ React.createElement("span", { className: "num" }, last?.w?.toLocaleString() || "—"), " g"), /* @__PURE__ */ React.createElement("span", { style: { color: last ? deltaColor : "var(--ink-3)" } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-lbl" }, "Δ"), last ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "num" }, delta >= 0 ? "+" : "", delta), " g (", D_R.displayNum(deltaPct, 1), "%)") : /* @__PURE__ */ React.createElement("span", { className: "num" }, "—")), /* @__PURE__ */ React.createElement(
@@ -545,7 +557,7 @@ function PatientRegistry({
       style: { opacity: 0.55 },
       onClick: () => onSelect(p.sessionId)
     },
-    /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—"), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement(BedChip, { p })), /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus })),
+    /* @__PURE__ */ React.createElement("div", { className: "pmc-row pmc-head" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { className: "pmc-name" }, D_R.patientName(p) || "—", " ", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "pmc-twin chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement(BedChip, { p })), /* @__PURE__ */ React.createElement(StatusChipButton, { p, onOpen: openStatus })),
     /* @__PURE__ */ React.createElement("div", { className: "pmc-row" }, /* @__PURE__ */ React.createElement("span", { className: "pmc-meta" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, D_R.fmtGA(p.ga)), " wk · ", /* @__PURE__ */ React.createElement("span", { className: "num" }, p.bw.toLocaleString()), " g")),
     p.diagnosis && /* @__PURE__ */ React.createElement("div", { className: "pmc-diagnosis" }, p.diagnosis),
     /* @__PURE__ */ React.createElement("div", { className: "pmc-actions" }, /* @__PURE__ */ React.createElement(
@@ -586,7 +598,7 @@ function PatientRegistry({
         }
       },
       /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(BedChipButton, { p, stacked: true, onOpen: openTransfer })),
-      /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 14 } }, D_R.patientName(p) || "—"), p.twinSuffix && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, multiplesLabel(p))),
+      /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 14 } }, D_R.patientName(p) || "—", " ", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--ink-3)" } }, multiplesLabel(p))),
       /* @__PURE__ */ React.createElement("td", { className: "num", style: { fontWeight: 600, color: "var(--brand-2)" } }, D_R.fmtGA(p.ga)),
       /* @__PURE__ */ React.createElement("td", { className: "num", style: { fontWeight: 600, color: "var(--ok)" } }, D_R.fmtGA(D_R.pmaShort(p.ga, dol))),
       /* @__PURE__ */ React.createElement("td", { className: "num" }, p.bw.toLocaleString()),
@@ -666,7 +678,7 @@ function PatientRegistry({
       onClick: () => onSelect(p.sessionId)
     },
     /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(BedChip, { p, stacked: true })),
-    /* @__PURE__ */ React.createElement("td", { style: { fontWeight: 600, fontSize: 13 } }, D_R.patientName(p) || "—"),
+    /* @__PURE__ */ React.createElement("td", { style: { fontWeight: 600, fontSize: 13 } }, D_R.patientName(p) || "—", " ", /* @__PURE__ */ React.createElement(TestTag, { p })),
     /* @__PURE__ */ React.createElement("td", { className: "num" }, D_R.fmtGA(p.ga)),
     /* @__PURE__ */ React.createElement("td", { className: "num" }, D_R.fmtGA(D_R.pmaShort(p.ga, D_R.liveDol(p)))),
     /* @__PURE__ */ React.createElement("td", { className: "num" }, p.bw.toLocaleString()),
@@ -677,7 +689,7 @@ function PatientRegistry({
       e.stopPropagation();
       setEditPatient(p);
     } }, "Edit"))
-  )))), (q ? activeSorted.length === 0 : sorted.length === 0) && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`), activeSorted.length > 0 && shownActive.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "32px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, "ไม่มีผู้ป่วย ", STAT_FILTER_LABEL[statFilter], q ? ` ที่ตรงกับ “${q}”` : "", " ใน ", wardName)), showAdd && /* @__PURE__ */ React.createElement(NewPatientModal, { patients, onClose: () => setShowAdd(false), onSubmit: (p) => onAdd(p) }), editPatient && /* @__PURE__ */ React.createElement(
+  )))), (q ? activeSorted.length === 0 : sorted.length === 0) && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`), activeSorted.length > 0 && shownActive.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "32px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, "ไม่มีผู้ป่วย ", STAT_FILTER_LABEL[statFilter], q ? ` ที่ตรงกับ “${q}”` : "", " ใน ", wardName)), showAdd && /* @__PURE__ */ React.createElement(NewPatientModal, { patients, ward, onClose: () => setShowAdd(false), onSubmit: (p) => onAdd(p) }), editPatient && /* @__PURE__ */ React.createElement(
     EditPatientModal,
     {
       patient: editPatient,
@@ -850,7 +862,7 @@ function NameFields({ value, onChange }) {
 function PnIndicationFields({ indication, onIndication, liverDx, onLiverDx, renalDx, onRenalDx }) {
   return /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Indication for PN"), /* @__PURE__ */ React.createElement("select", { className: "sel", value: indication, onChange: (e) => onIndication(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "— เลือก —"), D_R.PN_INDICATIONS.map((x) => /* @__PURE__ */ React.createElement("option", { key: x, value: x }, x)))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, " "), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, height: 34 } }, /* @__PURE__ */ React.createElement("label", { className: "liver-dx-chk", style: { display: "flex", alignItems: "center", gap: 5, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: liverDx, onChange: (e) => onLiverDx(e.target.checked) }), "Liver Dysfunction"), /* @__PURE__ */ React.createElement("label", { className: "renal-dx-chk", style: { display: "flex", alignItems: "center", gap: 5, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("input", { type: "checkbox", checked: renalDx, onChange: (e) => onRenalDx(e.target.checked) }), "Renal Dysfunction"))));
 }
-function NewPatientModal({ patients, onClose, onSubmit }) {
+function NewPatientModal({ patients, ward, onClose, onSubmit }) {
   const today = D_R.todayLocal();
   const [nameIn, setNameIn] = React.useState({ first: "", last: "", foreign: false });
   const nameOk = D_R.nameComplete(nameIn.first, nameIn.last, nameIn.foreign);
@@ -863,7 +875,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
   const [twin, setTwin] = React.useState("");
   const [multiplesCount, setMultiplesCount] = React.useState("");
   const [sex, setSex] = React.useState("");
-  const [bed, setBed] = React.useState(() => D_R.nextFreeBed(patients, "NICU"));
+  const [bed, setBed] = React.useState(() => ward === "other" ? "" : D_R.nextFreeBed(patients, "NICU"));
   const occupancy = React.useMemo(() => D_R.bedOccupancy(patients), [patients]);
   const bedTaken = occupancy.get(D_R.normalizeBed(bed)) || null;
   const [dx, setDx] = React.useState("");
@@ -909,7 +921,7 @@ function NewPatientModal({ patients, onClose, onSubmit }) {
         setAdmitDol(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
       }
     }
-  ), admitDol > 1 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" } }, "DOB: ", dob)))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Length at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: len || "", onChange: (e) => setLen(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "HC at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: hc || "", onChange: (e) => setHc(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" }))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy }), bedTaken && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--crit)", marginTop: 4 } }, D_R.bedTakenMsg(D_R.normalizeBed(bed), bedTaken))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), /* @__PURE__ */ React.createElement(
+  ), admitDol > 1 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap" } }, "DOB: ", dob)))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Length at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: len || "", onChange: (e) => setLen(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "HC at birth ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(cm)")), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", className: "inp", step: 0.1, value: hc || "", onChange: (e) => setHc(Math.max(0, parseFloat(e.target.value) || 0)), placeholder: "0" }))), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Bed"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, allowUnassigned: true, occupancy }), !D_R.normalizeBed(bed) && /* @__PURE__ */ React.createElement("div", { className: "test-bed-note", style: { fontSize: 11, color: "var(--warn)", marginTop: 4 } }, "ไม่เลือกเตียง = คนไข้ทดสอบ เก็บในเครื่องนี้ ไม่บันทึกเข้าระบบ"), bedTaken && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--crit)", marginTop: 4 } }, D_R.bedTakenMsg(D_R.normalizeBed(bed), bedTaken))), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Diagnosis"), /* @__PURE__ */ React.createElement("input", { className: "inp", value: dx, onChange: (e) => setDx(e.target.value), placeholder: "ELBW · RDS …" }))), /* @__PURE__ */ React.createElement(
     PnIndicationFields,
     {
       indication: pnIndication,

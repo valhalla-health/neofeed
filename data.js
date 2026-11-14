@@ -3011,6 +3011,24 @@ function newSessionId() {
   return SESSION_ID_PREFIX + String(n).padStart(6, "0");
 }
 
+// ── The "อื่นๆ" group is a test area (Pp, 2026-11-14) ──────────
+// "อันที่เป็นอื่นๆ ให้ขึ้นเป็น test ระบบ ไม่ให้มี save เข้า backend เลย": a
+// patient registered with no bed is a TEST patient. Its id carries TEST-, and
+// everything about it (record, orders, I/O, weights) lives in this browser's
+// localStorage only; app.jsx never sends a TEST- id to the backend, and its
+// writeGAS refuses one if any path ever tries. A test patient cannot move to a
+// real bed (Pp's choice the same day): a real infant gets a new session with a
+// bed. A record the SERVER already holds with no bed (or a bed typed straight
+// into the sheet) still lists under "อื่นๆ", read-only: nothing can be saved
+// against it until it is given a real bed, or deleted.
+const TEST_SESSION_PREFIX = "TEST-";
+const TEST_STORE_KEY = "neofeed_test_ward_v1";
+function isTestSession(id) { return String(id == null ? "" : id).startsWith(TEST_SESSION_PREFIX); }
+function testSessionId() { return TEST_SESSION_PREFIX + newSessionId(); }
+function isReadOnlyOther(p) {
+  return !!p && !isTestSession(p.sessionId) && patientWard(p) === "other";
+}
+
 // ── Search ────────────────────────────────────────────────────
 // What two spellings of one name have in common: for comparing, never for
 // storing. Tone marks and the other marks from U+0E47 are dropped (they are
@@ -3269,5 +3287,7 @@ window.NEOFEED_DATA = {
   // foreign infant), and the one search every search box goes through
   NAME_PART_CHARS, namePart, nameComplete, composePatientName, splitPatientName, nameInitials,
   newSessionId, patientName,
+  // The test area ("อื่นๆ", 2026-11-14)
+  TEST_SESSION_PREFIX, TEST_STORE_KEY, isTestSession, testSessionId, isReadOnlyOther,
   searchFold, qwertyToThai, patientSearchRank, searchPatients,
 };
