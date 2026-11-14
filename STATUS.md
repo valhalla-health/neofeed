@@ -1,6 +1,8 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-12 — A tick per red alert before Print, the ticks printed in the red box: PR #251, merged into `main` on Praew's instruction; release PR to follow.** `tools/calc-compare.cjs` now ticks the red alerts before reading the sheet. Frontend only; no figure moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-12 (2)).
+> ⏳ **2026-11-14 — One red line for GIR and the dextrose ceiling ("Dextrose over KCMH max" is part of "GIR critically high", which names both figures): PR #254, merged into `main` on Praew's instruction; release PR to follow.** Frontend only; no dose or limit moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-14).
+>
+> ✅ **2026-11-12 — A tick per red alert before Print, the ticks printed in the red box: PR #251, live via release #253 (`release-2026-11-12-pr253`, `e560d75`; verification on #253).** `tools/calc-compare.cjs` now ticks the red alerts before reading the sheet. Frontend only; no figure moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-12 (2)).
 >
 > ⏳ **2026-11-12 — "Previous beds" lines are deleted in Edit (doctor and admin only, Save confirms again); an admin deletes an ID with a submitted order after a second yes: PR #249, merged into `main` on Praew's instruction.**
 > Frontend **and backend**: deploy the backend (`@72`) first, then the frontend release (`CHANGELOG.md` 2026-11-12).
