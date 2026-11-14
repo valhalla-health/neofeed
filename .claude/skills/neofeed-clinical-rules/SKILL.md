@@ -286,6 +286,7 @@ Source: Mesotten R 5.4 (12 mg/kg/min = 17.3 g/kg/d); Thai CPG Table 4.1 (PDF p. 
 ```rule
 {"rule": "CR-DEX-MAX", "kind": "critical", "coded": {"MAX_DEXTROSE_G_KG": 17.3}, "where": [{"file": "data.js", "line": 921, "has": "const MAX_DEXTROSE_G_KG = 17.3;"}, {"file": "calculator.jsx", "line": 2338, "has": "const dexOverMax = calc.dexGPerKg > D.MAX_DEXTROSE_G_KG;"}]}
 {"case": "17.3 g/kg/d (1 kg, 100 mL of D17.3) is not over", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 17.3, "Amino acid": 3}, "expect": {"no_alert": "Dextrose over KCMH max", "alert": "GIR critically high", "shows": "max 17.3 g/kg/d"}}
+{"case": "17.29 g/kg/d (GIR 12.01) reads apart from the 17.3 max", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 17.29, "Amino acid": 3}, "expect": {"alert": "GIR critically high", "level": "crit", "shows": "dextrose 17.29 g/kg/d, max 17.3 g/kg/d"}}
 {"case": "17.4 g/kg/d is critical, on the GIR line alone", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 17.4, "Amino acid": 3}, "expect": {"alert": "GIR critically high", "level": "crit", "no_alert": "Dextrose over KCMH max", "submit": "asks_reason", "shows": "dextrose 17.4 g/kg/d, max 17.3 g/kg/d"}}
 ```
 

@@ -1576,7 +1576,7 @@ function Calculator({
   if (calc.totalTPN_mL > 0 && (sGir === "crit" || dexOverMax)) alerts.push({
     level: "crit",
     title: "GIR critically high",
-    body: sGir === "crit" ? `${vsLimit(calc.gir, D.GIR_HARD_HI, 1)} mg/kg/min — above ${D.GIR_HARD_HI} (dextrose ${fmt(calc.dexGPerKg, 1)} g/kg/d, max ${D.MAX_DEXTROSE_G_KG} g/kg/d). Lower dextrose % or bag volume.` : `Dextrose ${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — above the ${D.MAX_DEXTROSE_G_KG} g/kg/d max (glucose ${fmt(D.MAX_DEXTROSE_G_KG / D.girToGPerKg(1), 1)} mg/kg/min); GIR ${fmt(calc.gir, 2)} mg/kg/min. Lower dextrose % or bag volume.`,
+    body: sGir === "crit" ? `${vsLimit(calc.gir, D.GIR_HARD_HI, 1)} mg/kg/min — above ${D.GIR_HARD_HI} (dextrose ${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d, max ${D.MAX_DEXTROSE_G_KG} g/kg/d). Lower dextrose % or bag volume.` : `Dextrose ${vsLimit(calc.dexGPerKg, D.MAX_DEXTROSE_G_KG, 1)} g/kg/d — above the ${D.MAX_DEXTROSE_G_KG} g/kg/d max (glucose ${fmt(D.MAX_DEXTROSE_G_KG / D.girToGPerKg(1), 1)} mg/kg/min); GIR ${fmt(calc.gir, 2)} mg/kg/min. Lower dextrose % or bag volume.`,
     ref: "ESPGHAN 2018 (Mesotten R 5.4)"
   });
   else if (calc.totalTPN_mL > 0 && sGir === "warn") alerts.push({ level: "warn", title: "GIR off target", body: `${fmt(calc.gir, 1)} — aim ${tGir[0]}–${tGir[1]}.`, ref: "ESPGHAN" });

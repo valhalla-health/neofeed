@@ -16,6 +16,7 @@ five harnesses that named the old title.
   17.3 g/kg/d is GIR 12.01: every order over the ceiling already raised "GIR critically high", and the
   ward saw two red boxes asking for one reason (Pp's screenshot, 12.7 mg/kg/min and 18.3 g/kg/d). The GIR
   line now names both figures: "12.7 mg/kg/min — above 12 (dextrose 18.3 g/kg/d, max 17.3 g/kg/d)".
+  The dextrose figure takes extra decimals when it would round to the max (17.29, not 17.3; Vera).
   Pp, 2026-11-14: "รวมสองกล่องแดงเป็นกล่องเดียว".
 - **Kept.** `MAX_DEXTROSE_G_KG` still raises the GIR line on its own if the two constants ever part (a
   dextrose-only text that converts the max to mg/kg/min), and still shows under the dextrose field and on
