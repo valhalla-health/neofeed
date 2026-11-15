@@ -5318,7 +5318,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
               {/* The bag's own osmolarity, small, beside the route (Pp,
                   2026-11-15: "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้"). Rounded as the
                   Osmolarity tile and CR-OSM-PERIPH grade it (fmt → displayNum),
-                  so the sheet, the screen and the alert read one number. No
+                  so the sheet, the tile and the grade read one number (the
+                  alert body still uses toFixed: BACKLOG's .5-tie item). No
                   bag, or an estimate of 0 (no dextrose, AA or electrolyte), no
                   figure; a zero-volume bag cannot be submitted. */}
               {!noTpnSheet && calc.totalTPN_mL > 0 && calc.osm > 0 && (

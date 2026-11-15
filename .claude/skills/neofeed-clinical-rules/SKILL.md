@@ -303,7 +303,9 @@ ch 42 p. 10). The 850 caution and the central 1,800 warning had no source and ar
 12.5 % on a peripheral line, or with no route yet, adds a "Central only!" flag under the dextrose field
 (`DEX_PERIPHERAL_MAX_PCT`, 2026-11-10); it is not an alert and changes nothing at Submit. The printed form's
 route line prints `OSM_PERIPHERAL_MAX`, not the paper form's fixed "<900" (Pp, 2026-11-10, PR #240). Beside it, in small type, the sheet prints the bag's own estimate, "Bag osm N mOsm/L", rounded as the
-Osmolarity tile and this rule grade it, so the sheet, the screen and the alert read one number. No bag, or a
+Osmolarity tile shows and this rule grades it, so the sheet, the tile and the grade read one number. The
+alert body and Step 3's chip still round with `toFixed(0)` and can read 1 lower at a .5 tie (the rounding
+item in `BACKLOG.md`). No bag, or a
 bag whose estimate is 0 (no dextrose, amino acid or electrolyte), prints no figure (Pp, 2026-11-15).
 
 ```rule
