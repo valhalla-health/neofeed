@@ -1,5 +1,7 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-15 — Sheet backup: 14 rotating backup spreadsheets, a nightly copy and a restore drill, all in the backend: this PR, not merged, not live.** Backend only; no new scope, no doPost action, no figure. Going live needs a backend `clasp` push, then Pp's three steps in the editor (`REFERENCE.md` § Sheet backup and restore drill): `setupSheetBackups`, `sheetRestoreDrill`, and the nightly trigger. The first drill on the real Sheet is the proof the copy is faithful (`CHANGELOG.md` 2026-11-15 (3)).
+>
 > ⏳ **2026-11-15 — "I/O ใช้น้ำหนักคำนวณ TPN": a tick on the Calculator's Intake/Output card divides I/O per kg by the TPN calc. weight; the nurses' I/O card follows a ticked order; a doctor's I/O-only save keeps the order's ฉบับ: this PR, not merged.** Needs a backend `clasp` deploy first, then the frontend release; nothing printed moves (`CHANGELOG.md` 2026-11-15 (2)).
 >
 > ⏳ **2026-11-15 — A doctor can Delete session (a patient registered by mistake), not only an admin; the ward's deleted name no longer stays in "อื่นๆ": PR #262, merged into `main` by Praew (2026-11-15); not live.** Needs backend `clasp` deploy first, then the frontend release (`CHANGELOG.md` 2026-11-15).

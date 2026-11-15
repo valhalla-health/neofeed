@@ -7,6 +7,36 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-15 (3) — Sheet backup: 14 rotating backup books, a nightly copy, a restore drill
+
+`gas-backend.gs` (§ Sheet backup and restore drill: `setupSheetBackups`, `backupSheetNightly`,
+`sheetRestoreDrill`, `sheetBackupStatus`), `test/gas-vm-sandbox.cjs` (more than one book, `copyTo`, `setName`,
+`create`), `test/verify-sheet-backup-1115.cjs` (new, 103 assertions), `REFERENCE.md` (§ Sheet backup and restore
+drill, § Thai PDPA compliance posture), `BACKLOG.md`, `STATUS.md`, `test/README.md`.
+
+- **Why.** Pp's read-only survey of NeoFeed against SWEBOK v4 (2026-11-15) put this first: every record is in one
+  spreadsheet, a backend deploy runs against it with no staging, and the only way back was naming a Sheet version
+  by hand, which lives in the same file and had never been used to restore. `gas-backend.gs` had no backup code.
+- **Pp's two choices (2026-11-15).** Overwrite a fixed set of backup books (no Drive scope, and the patient data
+  held outside the live Sheet cannot grow), and keep **14 nights**.
+- **What.** 14 backup spreadsheets, made once by `setupSheetBackups()`. Each night `backupSheetNightly()` (a
+  time-driven trigger Pp adds by hand) empties any backup older than 14 days, then copies every tab of the live
+  book over an empty slot or the oldest one with `Sheet.copyTo`, under the script lock, and marks the slot good
+  only after each tab's row and column counts match. `sheetRestoreDrill()` does the same and then compares every
+  cell. `sheetBackupStatus()` reads the state. A real restore is by hand: copy a backup, point `SPREADSHEET_ID`
+  at the copy (`REFERENCE.md`).
+- **No new scope, no new doPost action, nothing in the frontend.** The logs carry slot numbers, tab names,
+  counts and times; never a book id or a cell.
+- **Erasure and backups.** An erased infant stays in older backups for up to 14 nightly runs. Written into the
+  PDPA section and the restore steps; whether 14 days stands is open with the DPO (`BACKLOG.md`).
+- **Not proven here.** The sandbox's `copyTo` is a deep copy, so the harness proves the rotation, the purge, the
+  lock, the failure paths and the logs, not that Google's `copyTo` keeps every cell. The first
+  `sheetRestoreDrill()` on the real Sheet is that proof. The switch of `SPREADSHEET_ID` to a restored copy has not
+  been rehearsed on production.
+- **Tests.** `verify-sheet-backup-1115.cjs` 103/103; red (9 failed sections) against `a7b9f6e`'s backend. Eight
+  mutations of the new block each turn it red: no blanking before the write, no purge, a 15-day purge, no lock, no
+  count check, a drill that ignores differing cells, a book id in the log line, the placeholder tab left in.
+
 ## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
 
 `data.js` (`ioDivisorG`'s `tpnWtG`, `ioTpnWeightOn`), `calculator.jsx` (the tick, `normalizeCalcInput`, the
