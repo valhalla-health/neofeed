@@ -5356,8 +5356,10 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
                 fullest order 3.8 mm onto a second page. Rounded as the
                 Osmolarity tile, its alert and CR-OSM-PERIPH read it (fmt →
                 displayNum), so all of them read one number. No bag volume,
-                or an estimate of 0 (no dextrose, AA or electrolyte), no figure. */}
-            {totalTPN_mL > 0 && calc.osm > 0 && (
+                or an estimate of 0 (no dextrose, AA or electrolyte), no figure;
+                nor with no dosing weight, where the calc returns a placeholder
+                osm of 300 that is not the bag's (Vera, PR #265). */}
+            {totalTPN_mL > 0 && wtKg > 0 && calc.osm > 0 && (
               <span className="print-osm" style={{ fontSize:9, color:"#333" }}> · Bag osm {fmt(calc.osm, 0)} mOsm/L</span>
             )}</td>
         </tr>

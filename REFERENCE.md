@@ -113,7 +113,10 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
   does not render until all are ticked) in the same red box, which an order with only such a line now prints too. The "Normal Requirement" column is NeoFeed's targets, not
   the paper's printed ranges, which disagree with the app (review F4). **A departure in words (2026-11-10):**
   the route line's "Peripheral (<900 mOsm/L)" prints `OSM_PERIPHERAL_MAX`, so it follows the app's limit if that
-  ever moves, not the paper's fixed text (Pp, PR #240: "ตามค่าในแอป").
+  ever moves, not the paper's fixed text (Pp, PR #240: "ตามค่าในแอป"). **An addition (2026-11-15):** the Total
+  Volume line ends with the bag's own osmolarity in small grey type, "· Bag osm N mOsm/L", rounded as the
+  Osmolarity tile (Pp, PR #265: "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้"). Feeds stay off the sheet: the TPN room does not
+  need them (Pp, the same day).
 - **Back: pharmacy.** The Factor, the aqueous bag stock by stock in mL with the WFI q.s., K⁺ in the bag,
   Ca·PO₄, what reaches the infant, changes since the last order, and who saved it.
 

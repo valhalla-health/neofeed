@@ -72,12 +72,13 @@ line's anchor follows the vitamin D readout's new text), the neofeed-clinical-ru
   "☑ Peripheral (<900 mOsm/L)" with no value: the front sheet, the one that prints, showed only the route's
   limit, and the bag's own figure sat on the back sheet, which never prints (`.print-back`). Pp, 2026-11-15:
   "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้".
-- **What.** At the end of the front sheet's Total Volume line, in 9 pt grey: "· Bag osm N mOsm/L". N is `fmt(calc.osm, 0)`, the rounding the
+- **What.** At the end of the front sheet's Total Volume line, in 9 px grey: "· Bag osm N mOsm/L". N is `fmt(calc.osm, 0)`, the rounding the
   Osmolarity tile shows and CR-OSM-PERIPH grades, so an 899.6 estimate prints 900 and is graded critical. Since #266
   (session (4)) the alert body, Step 3's chip and the back sheet round the same way, so all of them read one number
   (Vera's finding 1 on the first commit, closed by that merge). A No TPN
   sheet (which has no Total Volume line), a day with no bag volume, or a bag whose estimate is 0 (no dextrose, amino acid or electrolyte) prints no
-  figure.
+  figure. Nor does an order with no dosing weight, where the calc returns a placeholder osm of 300 (Vera's second
+  review).
 - **Placement.** The first commit put it beside the route boxes. In CI's wide print font (DejaVu Sans) that cell
   wrapped, and the fullest order in `verify-print-one-page-1102.cjs` grew from 277.4 to 281.2 mm, 0.2 mm past the
   page. The Total Volume line is short and has room. A local run on Windows cannot show this: Verdana measures
