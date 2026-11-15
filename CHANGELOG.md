@@ -62,11 +62,15 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   the new id check had made false. Also: setup and repair now hold the script lock; a book's time zone and locale
   are matched before each copy and no longer at creation, where a failure would have orphaned the new book; an id
   that is not a string is refused; a failed run on a dated slot has a test.
-- **That third read left two wrong sentences in `REFERENCE.md`, fixed in the next commit:** "the first run in
+- **That third read left two wrong sentences in `REFERENCE.md`, fixed in the commit after `6b77f95`:** "the first run in
   the editor shows whether [the setters] work" (setup no longer calls them, and a setter runs only when a
   setting differs), and "a new book starts in the account's zone" (only the sandbox says so). With them: the
   quiet-hour line now names setup and repair, which hold the lock too; the id-check line names setup and status;
-  the harness counts opens, so "status checks every id before it opens a book" and "setup checks ids" are pinned.
+  the sandbox records every open, which pins "status, the run and repair check every id before they open a
+  book"; setup's id check has its own assertions. A last read of that commit found one more sentence stated as
+  fact, "a date cell read from a book in another zone comes back shifted": it now says "is expected to", and
+  setup step 2 says how to tell whether the drill exercised the setters. These last wording edits were not read
+  again by another agent.
 - **Not proven here.** The sandbox's `copyTo` is a deep copy and its lock has no clock, so the harness proves the
   rotation, the purge, the failure paths and the logs. It does not prove that Google's `copyTo` keeps every cell,
   how long the copy holds the lock, or which source a trigger runs. The first `sheetRestoreDrill()` on the real

@@ -5964,7 +5964,8 @@ function _backupGuarded(fn) {
 }
 
 // A new book may not be in the live Sheet's time zone and locale, and a date
-// cell read from a book in another zone comes back shifted. Both
+// cell read from a book in another zone is expected to come back shifted
+// (neither was tested; the drill's cell compare would show it). Both
 // are matched before every copy (not when the book is made: a failure there
 // would leave a book no slot records).
 function _backupMatchSettings(src, dest) {

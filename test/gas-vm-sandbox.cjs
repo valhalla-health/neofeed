@@ -257,8 +257,8 @@ function boot(opts) {
       getId: () => id,
       getName: () => book.title,
       rename(n) { if (env.renameThrows) throw new Error(env.renameThrows); book.title = n; },
-      // A book made by create() starts in the account's zone and locale, which
-      // need not be the live Sheet's.
+      // In this double a book made by create() starts in another zone and locale
+      // than the live book (set in create() below). What Google does is not known here.
       timeZone: 'Asia/Bangkok', locale: 'en_GB',
       getSpreadsheetTimeZone: () => book.timeZone,
       setSpreadsheetTimeZone(z) { book.timeZone = z; },

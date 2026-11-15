@@ -646,7 +646,7 @@ T.section('§10 Books that are wrong, lost or in another time zone', () => {
   // Time zone and locale follow the live Sheet.
   const z = seeded();
   z.sb.setupSheetBackups();
-  T.eq('a new book starts in the account zone and locale', [book(z, 1).getSpreadsheetTimeZone(), book(z, 1).getSpreadsheetLocale()], ['America/Los_Angeles', 'en_US']);
+  T.eq('the sandbox makes a new book in another zone and locale', [book(z, 1).getSpreadsheetTimeZone(), book(z, 1).getSpreadsheetLocale()], ['America/Los_Angeles', 'en_US']);
   const zoneAtCopy = [], flushesAtSave = [];
   z.env.copyHook = (sh, dest) => zoneAtCopy.push(dest.getSpreadsheetTimeZone() + ' ' + dest.getSpreadsheetLocale());
   const zApi = z.sb.PropertiesService.getScriptProperties(), zSet = zApi.setProperty;

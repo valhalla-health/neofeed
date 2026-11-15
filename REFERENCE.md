@@ -662,7 +662,7 @@ the oldest one
   search Drive for `NeoFeed backup slot NN`.
 - **A backup book is set to the live Sheet's time zone and locale before every copy.** A new book may start
   in another zone (where Google takes it from was not looked up), and a date cell read from a book in another
-  zone would come back shifted.
+  zone is expected to come back shifted. Neither was tested here; the drill's cell compare would show a shift.
 
 **What it does not cover.**
 
@@ -679,7 +679,10 @@ and step 2 for the whole copy and compare. `repairSheetBackups` holds it too: qu
 
 1. Run ▸ `setupSheetBackups`. It creates the 14 books and logs `14 slots, 14 created now`. Running it again
    creates none.
-2. Run ▸ `sheetRestoreDrill` (below). This is also the first backup. Note how long it ran (Executions).
+2. Before the drill, open one new backup book and compare File ▸ Settings (time zone, locale) with the live
+   Sheet's: only if they differ does the drill call the setters, so only then does a clean drill show that they
+   work. Then Run ▸ `sheetRestoreDrill` (below). This is also the first backup. Note how long it ran
+   (Executions).
 3. Triggers ▸ Add trigger: function `backupSheetNightly`, event source Time-driven, Day timer, failure
    notifications "immediately". Pick the hour from step 2's duration and the ward's night: 2am to 3am is a
    starting point, not a finding, and night nurses chart then. A trigger runs under the account that created it.
