@@ -11,7 +11,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 `calculator.jsx`, `data.js` (`CONSTANTS_VERSION` `2026-11-15.1`), `compiled/`, the shells' `?v=`,
 `tools/ci_bans.js` (`raw-round-display`, new) and its fixtures, `test/verify-calc-sum.cjs` (§ 4, new; negative
-controls 7 and 8), `test/verify-stock-ml-1027.cjs` (the version it pins), the neofeed-clinical-rules skill
+controls 7 and 8), `test/verify-stock-ml-1027.cjs` (the version it pins), `test/verify-calc-compare.cjs` (a planted
+line's anchor follows the vitamin D readout's new text), the neofeed-clinical-rules skill
 (`CR-R-DISPLAY`, `CR-OSM-PERIPH`), `docs/CLINICAL_CONSTANTS.md`, `REFERENCE.md` § Numbers a person reads,
 `BACKLOG.md`, `STATUS.md`. Numbered (4) because the open PR #265 holds (3).
 
