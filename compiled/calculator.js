@@ -167,7 +167,7 @@ function diffOrderInputs(prev, cur) {
   return out;
 }
 const NURSE_SUBMIT_TEXT = "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O";
-const orderKeyWithoutIo = (inputs) => calcInputKey({ ...inputs, ioInput: 0, ioOutput: 0, drainContent: 0 });
+const orderKeyWithoutIo = (inputs) => calcInputKey({ ...inputs, ioInput: 0, ioOutput: 0, drainContent: 0, ioUseTpnWt: false });
 const PRINTED_FIGURES = [
   ["wtKg", "Weight for calculation", "kg", 2, (x) => x.wtKg],
   ["deliveredMl", "TPN delivered", "mL/day", 1, (x) => x.totalTPN_mL],
@@ -1949,7 +1949,8 @@ function Calculator({
     }
     const keyAtSave = formKey;
     const ioOnlyOnOthers = nurseIoOnly && !!savedEntryId && !!savedSaver && savedSaver !== draftOwner;
-    const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + (savedStatus === "submitted" || published ? 1 : 0);
+    const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION;
+    const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + ((savedStatus === "submitted" || published) && !ioOnlyByDoctor ? 1 : 0);
     const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;
     if (centerPoint) {
@@ -2146,7 +2147,7 @@ function Calculator({
       setSavedCalcVersion(D.CONSTANTS_VERSION);
       setSavedFiguresV(figures ? figures.v : null);
     }
-    if (!ioOnlyOnOthers) setSavedMeta({
+    if (!ioOnlyOnOthers && !ioOnlyByDoctor) setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || (/* @__PURE__ */ new Date()).toISOString(),
       revision: nextOrderRev

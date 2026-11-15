@@ -30,7 +30,23 @@ changes list), `log.jsx` (`urineRate`), `compiled/`, the neofeed-clinical-rules 
   12 mL reads 0.9 unticked, 1.1 ticked, across the 1 mL/kg/h line). (2) 🟡 A nurse could tick it and have her I/O save
   refused without being told why: the tick is disabled for a nurse account, with "แพทย์เป็นผู้ติ๊ก". (3) 🟡 Ticking a
   submitted, printed order makes a revision (ฉบับที่ N+1) and the TPN room reads it as changed, though the bag is the
-  same, as a doctor's own I/O edit already does: left for Pp.
+  same, as a doctor's own I/O edit already does: Pp answered the same day (below).
+- **A doctor's I/O-only save is not a new version** (Pp, 2026-11-15, on finding 3: "ถ้าแค่เกี่ยวกับ I/O ไม่เกี่ยวกับถุง TPN
+  ไม่ต้องปรับเป็น revision ใหม่"). On a submitted order, a doctor's save that changes only the I/O boxes or the tick, on
+  the same constants and with every figure as stored (figure columns, supplements, sticker figures:
+  `_sameStoredFigures`), is written from the stored row as a nurse's is (`_ioOnlyEntryFrom`, now taking the tick from a
+  doctor only): the order keeps its `orderRev` and `orderBy`, so the printed "ฉบับที่" and the TPN room's ฉบับ do not move.
+  The room's same-bag walk (`pharmacyOrders`) now steps back past any I/O-only revision, a doctor's too, when its
+  figures match the row before; a print of the earlier row is not "changed after print". `ioUseTpnWt` joins
+  `IO_FREE_CALC_KEYS`; a nurse's save never writes it. The client keeps the same number on the ward's copy until the next
+  sync (`ioOnlyByDoctor`). A Daily_Log row is still appended (the revision trail is kept); only the order's number holds.
+  **Needs a backend deploy** (`clasp`, Praew's go-ahead) before the frontend release; until then a doctor's I/O edit
+  numbers a revision, as today.
+  Tests: backend writes +9 (a doctor's I/O and tick save keeps ฉบับ 1 and the room's same bag; unticking; a nurse cannot
+  set the tick; a figure column changed is ฉบับ 2; a dose change ฉบับ 3 and the room no longer counts ฉบับ 1 as the same
+  bag; 6 fail on the backend before); `verify-walk-1107` +3 (the client sends ฉบับ 1 and prints no Revision box; 3 fail
+  before); the pharmacy backend harness, whose synthetic doctor revisions change figures beside the same calcInput,
+  passes 355/355 unchanged.
 - **Tests.** The new harness (21 checks) types the bed-10 case: unticked 92 mL on 560 g reads 164.3 mL/kg/d, ticked on
   460 g reads 200 mL/kg/d and urine 4.17 mL/kg/h; the tick saves, reopens, and an older row reopens unticked; the
   nurses' card reads 3.4 → 4.2 mL/kg/h only for a ticked submitted order. On `origin/main` it fails (the tick does

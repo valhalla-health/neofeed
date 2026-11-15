@@ -262,6 +262,46 @@ T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retr
   T.ok('…and the audit names the submitted count', g.audit().some(r => String(r[1] || r.action || '').indexOf('deletePatient:published=1') === 0 || JSON.stringify(r).indexOf('deletePatient:published=1') >= 0));
 });
 
+T.section('2026-11-15 · a doctor\'s I/O-only save keeps the order\'s ฉบับ (Pp: "ถ้าแค่เกี่ยวกับ I/O ไม่ต้องปรับเป็น revision ใหม่")', () => {
+  const g = ward();
+  g.addStaff('rx@kcmh.test', 'pharmacy', 'Pharmacy-Password-1');
+  const rt = g.session('rx@kcmh.test', 'pharmacy');
+  g.seedPatient(P('NF-000460', { currentBed: 'NICU 10' }));
+  const base = E({ ts: TODAY, ioInput: 90, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 90, aaPerKg: 3 } });
+  const c = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'NF-000460', entry: base });
+  const last = () => g.rows('Daily_Log')[g.rows('Daily_Log').length - 1];
+  const ci = () => JSON.parse(last()[24]);
+  T.eq('the doctor\'s Submit is ฉบับ 1', ci().orderRev, 1);
+  // The tick and the Input changed, nothing else.
+  const io = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: c.entryId, expectedLastModified: c.lastModified,
+    entry: E({ ts: TODAY, ioInput: 92, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 92, aaPerKg: 3, ioUseTpnWt: true } }) });
+  T.ok('a doctor\'s save that changes only I/O and the tick lands', io.ok === true, io);
+  T.eq('…keeps ฉบับ 1 and the doctor as whose order it is, with the tick and the new Input',
+    [ci().orderRev, ci().orderBy, ci().ioUseTpnWt, ci().ioInput, last()[28]], [1, 'doc@kcmh.test', true, 92, 92]);
+  const room = g.as(rt, { action: 'pharmacyOrders', date: TODAY });
+  const ord = (room.orders || []).find(o => o.sessionId === 'NF-000460');
+  T.eq('the TPN room keeps ฉบับ 1, and the row it printed is the same bag', [ord && ord.revision, !!ord && (ord.sameBagEntryIds || []).includes(c.entryId)], [1, true]);
+  // Unticking is I/O too.
+  const off = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: io.entryId, expectedLastModified: io.lastModified,
+    entry: E({ ts: TODAY, ioInput: 92, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 92, aaPerKg: 3 } }) });
+  T.eq('…unticking: still ฉบับ 1, the tick gone', [off.ok, ci().orderRev, ci().ioUseTpnWt], [true, 1, undefined]);
+  // A nurse cannot set the tick: her I/O save keeps the stored one.
+  const nu = g.as(g.nt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: off.entryId, expectedLastModified: off.lastModified,
+    entry: E({ ts: TODAY, ioInput: 95, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 95, aaPerKg: 3, ioUseTpnWt: true } }) });
+  T.eq('a nurse\'s I/O save takes her Input but not the tick', [nu.ok, ci().ioInput, ci().ioUseTpnWt, ci().orderRev], [true, 95, undefined, 1]);
+  // A figure beside an unchanged calcInput is not I/O: a new version, written as sent.
+  const fig = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: nu.entryId, expectedLastModified: nu.lastModified,
+    entry: E({ ts: TODAY, gir: 7, ioInput: 95, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 95, aaPerKg: 3 } }) });
+  T.eq('a doctor\'s save with a figure column changed is ฉบับ 2, written as sent', [fig.ok, ci().orderRev, last()[5]], [true, 2, 7]);
+  // A dose change is a new version.
+  const dose = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: fig.entryId, expectedLastModified: fig.lastModified,
+    entry: E({ ts: TODAY, gir: 7, ioInput: 95, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 95, aaPerKg: 3.5 } }) });
+  T.eq('a doctor\'s dose change is ฉบับ 3', [dose.ok, ci().orderRev, ci().aaPerKg], [true, 3, 3.5]);
+  const room2 = g.as(rt, { action: 'pharmacyOrders', date: TODAY });
+  const ord2 = (room2.orders || []).find(o => o.sessionId === 'NF-000460');
+  T.eq('…and the room no longer counts the ฉบับ 1 row as the same bag', [ord2 && ord2.revision, !!ord2 && (ord2.sameBagEntryIds || []).includes(c.entryId)], [3, false]);
+});
+
 T.section('UP-B7 · doPost forwards revised / entryId / revisionNumber', () => {
   const g = ward();
   g.seedPatient(P('AB-900'));

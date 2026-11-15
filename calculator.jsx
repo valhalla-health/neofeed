@@ -247,7 +247,8 @@ function diffOrderInputs(prev, cur) {
 const NURSE_SUBMIT_TEXT = "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O";
 // The fingerprint of an order without its Intake/Output: equal before and after
 // a nurse's save, or the nurse changed more than I/O.
-const orderKeyWithoutIo = (inputs) => calcInputKey({ ...inputs, ioInput: 0, ioOutput: 0, drainContent: 0 });
+// The "I/O ใช้น้ำหนักคำนวณ TPN" tick is I/O too (Pp, 2026-11-15).
+const orderKeyWithoutIo = (inputs) => calcInputKey({ ...inputs, ioInput: 0, ioOutput: 0, drainContent: 0, ioUseTpnWt: false });
 
 // Top insight 3 (stakeholder walk, 2026-11-07): an order held because NeoFeed's
 // calculation or the dosing weight moved since it was saved lists each figure
@@ -2919,7 +2920,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // orderRevNext): a submitted order is revised, a draft keeps its number. The
     // server's stamp is what is stored; this keeps the ward's copy right until the
     // next sync.
-    const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + (savedStatus === "submitted" || published ? 1 : 0);
+    // A doctor's save that changes only I/O on a submitted order keeps its number
+    // and its author too (Pp, 2026-11-15; gas-backend.gs writes it from the
+    // stored row): the same order, on the same constants.
+    const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
+      && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION;
+    const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + ((savedStatus === "submitted" || published) && !ioOnlyByDoctor ? 1 : 0);
     const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;   // what every dose on this save was computed from (UP-C2)
     // Center Point saves pass the same required-field gate and F1 stop above.
@@ -3081,7 +3087,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     }
     // A nurse's I/O save on another account's order leaves whose order it is,
     // its time and its revision as they were (the server keeps them too).
-    if (!ioOnlyOnOthers) setSavedMeta({
+    if (!ioOnlyOnOthers && !ioOnlyByDoctor) setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || new Date().toISOString(),
       revision: nextOrderRev,

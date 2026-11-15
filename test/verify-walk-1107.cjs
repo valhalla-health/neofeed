@@ -260,6 +260,16 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   setField('Amino acid', 2.5);
   await settle(submitBtn());
   eq('a doctor\'s change after it counts the order\'s revisions (2), not the rows (4)', s.calls[0]?.[3].calcInput.orderRev, 2);
+  // Pp, 2026-11-15: "ถ้าแค่เกี่ยวกับ I/O ไม่เกี่ยวกับถุง TPN ไม่ต้องปรับเป็น revision ใหม่".
+  s = rec(); mount({ ...DOCTOR, editEntry: ioRev, ...s });
+  setField('Input', 95);
+  await settle(submitBtn());
+  eq('a doctor\'s save that changes only I/O keeps the order\'s ฉบับ (1)', s.calls[0]?.[3].calcInput.orderRev, 1);
+  eq('…and the sheet after it prints no "Revision" box', !!container.querySelector('.print-revision'), false);
+  s = rec(); mount({ ...DOCTOR, editEntry: ioRev, ...s });
+  click(container.querySelector('input[name="ioUseTpnWt"]'));
+  await settle(submitBtn());
+  eq('…the "I/O ใช้น้ำหนักคำนวณ TPN" tick alone too (1), sent ticked', [s.calls[0]?.[3].calcInput.orderRev, s.calls[0]?.[3].calcInput.ioUseTpnWt], [1, true]);
   eq('app.jsx hands the Calculator the nurse role', /nurseAccount=\{role === "nurse"\}/.test(R('app.jsx')), true);
   s = rec(); mount({ ...NURSE, ordersReadOnly: true, editEntry: row(bag), ...s });
   eq('the nursing switch on (read-only orders): no Submit and no refusal line', [!!submitBtn(), nurseNote()], [false, '']);
