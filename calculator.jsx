@@ -67,6 +67,9 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     ioInput: src.ioInput ?? 0,
     ioOutput: src.ioOutput ?? 0,
     drainContent: src.drainContent ?? 0,
+    // Intake/Output per kg on the TPN calc. weight (Pp, 2026-11-15). Absent
+    // from every row saved before then, which used the usual divisor.
+    ioUseTpnWt: src.ioUseTpnWt === true,
     // null = no route chosen yet: an infant's first order starts that way and
     // cannot be submitted with a bag until Peripheral or Central is pressed
     // (Pp, 2026-10-21). Only a row saved before then has no route key at all,
@@ -164,6 +167,7 @@ function withLegacyNoTpn(entry, src) {
 const ORDER_DIFF_FIELDS = [
   ["route", "Route", ""],
   ["noTpn", "No TPN", ""],
+  ["ioUseTpnWt", "I/O on TPN calc. weight", ""],
   ["fluidTargetPerKg", "Target fluid", "mL/kg/d"],
   ["totalTPN_mL", "TPN volume", "mL/d"],
   ["deadVol_mL", "Dead space", "mL"],
@@ -1016,6 +1020,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // "No TPN" (Pp, 2026-11-01): the tick at the top right of Step 3 that
   // skips it. See tickNoTpn for what it clears, and noTpnOn for where it holds.
   const [noTpn, setNoTpn] = useState(false);
+  // "I/O ใช้น้ำหนักคำนวณ TPN" (Pp, 2026-11-15): the Intake/Output card divides
+  // by the TPN calc. weight instead of D.ioDivisorG's usual rule. Unticked by
+  // default; saved with the order and carried into the next day's.
+  const [ioUseTpnWt, setIoUseTpnWt] = useState(false);
   // What the tick cleared, so unticking it in the same visit puts it back.
   const noTpnStash = React.useRef(null);
   // Center Point's packet is a TPN order, so it offers no "No TPN": a row
@@ -1248,6 +1256,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setDrainContent(n.drainContent);
     setRoute(n.route);
     setNoTpn(n.noTpn);
+    setIoUseTpnWt(n.ioUseTpnWt);
     noTpnStash.current = null;
     setTotalTPN_mL(n.totalTPN_mL);
     setDeadVol_mL(n.deadVol_mL);
@@ -1554,7 +1563,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // The live inputs, in exactly the shape normalizeCalcInput produces.
   const currentInputs = () => normalizeCalcInput({
     curWtG, tpnWtOverrideG, fluidTargetPerKg, otherIV_mL, drug_mL,
-    ioInput, ioOutput, drainContent,
+    ioInput, ioOutput, drainContent, ioUseTpnWt,
     route, noTpn: noTpnOn, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaProduct: aaStockKey, lipidPerKg, lipidDripHours,
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
     enType, enVol, enFreq, enType2, enVol2, enFreq2, isMEN,
@@ -1964,7 +1973,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   //
   // Balance = Input − Output(urine) − Drain: both are real fluid losses now
   // that Output no longer folds drain in, so both are subtracted explicitly.
-  const ioDivisor = D.ioDivisorG(patient, dol, curWtG, entries);
+  const ioDivisor = D.ioDivisorG(patient, dol, curWtG, entries, ioUseTpnWt ? wtG : null);
   const ioDivisorGVal = ioDivisor.g;
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1000 : null;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
@@ -3352,9 +3361,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           {(ioInput > 0 || ioOutput > 0 || drainContent > 0) && (
             <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink-3)" }}>
               Balance <span className="num" style={{ fontWeight: 600, color: "var(--ink-2)" }}>{ioBalance >= 0 ? "+" : ""}{fmt(ioBalance, 0)}</span> mL/d
-              {ioDivisorGVal != null && <> · divisor <span className="num">{fmt(ioDivisorGVal, 0)}</span> g{ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)"}</>}
+              {ioDivisorGVal != null && <> · divisor <span className="num">{fmt(ioDivisorGVal, 0)}</span> g{ioDivisor.source === "tpn" ? " (TPN calc. weight)" : ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)"}</>}
             </div>
           )}
+          {/* Pp, 2026-11-15: per kg on the weight the TPN is dosed on, for an
+              infant whose weight moved fast (460 → 560 g in days). */}
+          <label className="io-tpn-wt" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8,
+            fontSize: 12.5, color: "var(--ink-2)", cursor: "pointer", minHeight: 36 }}>
+            <input type="checkbox" name="ioUseTpnWt" checked={ioUseTpnWt}
+              onChange={e => setIoUseTpnWt(e.target.checked)} style={{ width: 18, height: 18 }} />
+            I/O ใช้น้ำหนักคำนวณ TPN{wtG > 0 && <> (<span className="num">{fmt(wtG, 0)}</span> g)</>}
+          </label>
           {/* D4: the nurses' record for this order's date, one tap away —
               never filled in by itself — and, once taken, where the figures
               came from, and whether the ward has changed them since. */}

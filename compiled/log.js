@@ -525,7 +525,7 @@ const ml1 = (x) => Math.round(x * 10) / 10;
 const nursingOutMl = (r) => r?.urineMl == null || r?.drainMl == null ? null : ml1(Number(r.urineMl) + Number(r.drainMl));
 function urineRate(patient, rec, entries) {
   if (rec?.urineMl == null) return null;
-  const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null, entries);
+  const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null, entries, D_L.ioTpnWeightOn(entries, rec.ts));
   return g ? rec.urineMl / (g / 1e3) / 24 : null;
 }
 function NurseNum({ name, label, unit, value, onChange, integer = false, hint }) {

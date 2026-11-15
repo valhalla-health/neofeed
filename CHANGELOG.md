@@ -7,6 +7,29 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
+
+`data.js` (`ioDivisorG`'s `tpnWtG`, `ioTpnWeightOn`), `calculator.jsx` (the tick, `normalizeCalcInput`, the
+changes list), `log.jsx` (`urineRate`), `compiled/`, the neofeed-clinical-rules skill (CR-U-IO-DIVISOR, new),
+`test/verify-io-tpn-weight-1115.cjs` (new).
+
+- **Why.** The ward, 2026-11-15: "ช่อง i/o โปรแกรมใช้น้ำหนักปัจจุบันมาคิด ไม่ได้ใช้น้ำหนักปรับที่เราใส่ไว้คิด TPN", with
+  the case: bed 10, 460 g, then up to 560 g fast, "เลย intake ต่างกันเยอะ". Pp: "เดี๋ยวสร้างช่องติ๊กให้ละกัน".
+- **What.** The Calculator's Intake/Output card has a tick, "I/O ใช้น้ำหนักคำนวณ TPN (N g)". Ticked, Input and Drain
+  mL/kg/d and urine mL/kg/h divide by the TPN calc. weight (typed or automatic) and the divisor line reads
+  "(TPN calc. weight)"; unticked, nothing changes (previous day's weight, floored at birth weight). Pp's choices:
+  **unticked by default**, and **the nurses' I/O card follows it**: that date's urine mL/kg/h divides by that
+  date's submitted order's `calcInput.tpnWtG` when the order ticked it (a draft does not count).
+- **Saved with the order** (`calcInput.ioUseTpnWt`), restored with it, carried into the next day's order like every
+  other input, and named in the changes list. A row saved before today reads unticked, which is how it was computed.
+  It counts as a change to the order (not an I/O-only edit), so a nurse cannot flip it on a doctor's order alone and
+  the backend needs no change.
+- **Nothing printed moves**: these figures are on screen only; no dose, limit or `CONSTANTS_VERSION`.
+- **Tests.** The new harness (17 checks) types the bed-10 case: unticked 92 mL on 560 g reads 164.3 mL/kg/d, ticked on
+  460 g reads 200 mL/kg/d and urine 4.17 mL/kg/h; the tick saves, reopens, and an older row reopens unticked; the
+  nurses' card reads 3.4 → 4.2 mL/kg/h only for a ticked submitted order. On `origin/main` it fails (the tick does
+  not exist; the nurses' card stays 3.4). CR-U-IO-DIVISOR: 7 cases.
+
 ## Session 2026-11-14 (7) — The TPN room lists orders by ward; the unit count is gone
 
 `tpn-room-core.js` (`wardGroup`, `ordersByWard`), `tpn-room.jsx`, `tpn-room.css`, the shells' `?v=` tokens,

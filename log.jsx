@@ -755,10 +755,12 @@ const nursingOutMl = (r) => (r?.urineMl == null || r?.drainMl == null) ? null : 
 // floored at birth weight). Null when either is missing. `entries` is the
 // patient's Daily_Log: the divisor reads yesterday's weight from the growth
 // chart AND the orders, as the Calculator does (2026-09-24) — without it an
-// order-only ward's card and Calculator divided by different weights.
+// order-only ward's card and Calculator divided by different weights. When that
+// date's submitted order ticked "I/O ใช้น้ำหนักคำนวณ TPN", its TPN calc. weight
+// (D.ioTpnWeightOn; Pp, 2026-11-15), as its Calculator card does.
 function urineRate(patient, rec, entries) {
   if (rec?.urineMl == null) return null;
-  const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null, entries);
+  const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null, entries, D_L.ioTpnWeightOn(entries, rec.ts));
   return g ? rec.urineMl / (g / 1000) / 24 : null;
 }
 

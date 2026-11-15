@@ -32,6 +32,9 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     ioInput: src.ioInput ?? 0,
     ioOutput: src.ioOutput ?? 0,
     drainContent: src.drainContent ?? 0,
+    // Intake/Output per kg on the TPN calc. weight (Pp, 2026-11-15). Absent
+    // from every row saved before then, which used the usual divisor.
+    ioUseTpnWt: src.ioUseTpnWt === true,
     // null = no route chosen yet: an infant's first order starts that way and
     // cannot be submitted with a bag until Peripheral or Central is pressed
     // (Pp, 2026-10-21). Only a row saved before then has no route key at all,
@@ -102,6 +105,7 @@ function withLegacyNoTpn(entry, src) {
 const ORDER_DIFF_FIELDS = [
   ["route", "Route", ""],
   ["noTpn", "No TPN", ""],
+  ["ioUseTpnWt", "I/O on TPN calc. weight", ""],
   ["fluidTargetPerKg", "Target fluid", "mL/kg/d"],
   ["totalTPN_mL", "TPN volume", "mL/d"],
   ["deadVol_mL", "Dead space", "mL"],
@@ -632,6 +636,7 @@ function Calculator({
   const [drainContent, setDrainContent] = useState(0);
   const [route, setRoute] = useState("central");
   const [noTpn, setNoTpn] = useState(false);
+  const [ioUseTpnWt, setIoUseTpnWt] = useState(false);
   const noTpnStash = React.useRef(null);
   const noTpnOn = noTpn && !centerPoint;
   const [totalTPN_mL, setTotalTPN_mL] = useState(0);
@@ -767,6 +772,7 @@ function Calculator({
     setDrainContent(n.drainContent);
     setRoute(n.route);
     setNoTpn(n.noTpn);
+    setIoUseTpnWt(n.ioUseTpnWt);
     noTpnStash.current = null;
     setTotalTPN_mL(n.totalTPN_mL);
     setDeadVol_mL(n.deadVol_mL);
@@ -970,6 +976,7 @@ function Calculator({
     ioInput,
     ioOutput,
     drainContent,
+    ioUseTpnWt,
     route,
     noTpn: noTpnOn,
     totalTPN_mL,
@@ -1385,7 +1392,7 @@ function Calculator({
     if (ioInputTouchedRef.current) return;
     setIoInput(Math.round(calc.prescribedFluid) || 0);
   }, [calc.prescribedFluid, ioInputTouched]);
-  const ioDivisor = D.ioDivisorG(patient, dol, curWtG, entries);
+  const ioDivisor = D.ioDivisorG(patient, dol, curWtG, entries, ioUseTpnWt ? wtG : null);
   const ioDivisorGVal = ioDivisor.g;
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1e3 : null;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
@@ -2411,7 +2418,25 @@ function Calculator({
       onBlankChange: reportBlank,
       hint: `(${fmt(ioDrainPerKg, 1)} mL/kg/d)`
     }
-  )), (ioInput > 0 || ioOutput > 0 || drainContent > 0) && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontSize: 11.5, color: "var(--ink-3)" } }, "Balance ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, color: "var(--ink-2)" } }, ioBalance >= 0 ? "+" : "", fmt(ioBalance, 0)), " mL/d", ioDivisorGVal != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · divisor ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(ioDivisorGVal, 0)), " g", ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)")), nursingApplied && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-note", style: { marginTop: 8, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 } }, "เติมจากบันทึกพยาบาล · ยอด 24 ชม. ปิดยอดเช้า ", window.NEOFEED_FMT_DATE?.(nursingApplied.date) || nursingApplied.date, " ", "(", [nursingApplied.keys.has("ioInput") && "Input", nursingApplied.keys.has("ioOutput") && "Urine", nursingApplied.keys.has("drainContent") && "Drain"].filter(Boolean).join(" · "), ") — แก้ได้", nursingApplied.partialIntake && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", /* @__PURE__ */ React.createElement("strong", null, "Input ไม่ได้เติม: บันทึก IV หรือ นม/EN ไม่ครบ"))), nursingChanged && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-changed", role: "alert", style: {
+  )), (ioInput > 0 || ioOutput > 0 || drainContent > 0) && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, fontSize: 11.5, color: "var(--ink-3)" } }, "Balance ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, color: "var(--ink-2)" } }, ioBalance >= 0 ? "+" : "", fmt(ioBalance, 0)), " mL/d", ioDivisorGVal != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " · divisor ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(ioDivisorGVal, 0)), " g", ioDivisor.source === "tpn" ? " (TPN calc. weight)" : ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)")), /* @__PURE__ */ React.createElement("label", { className: "io-tpn-wt", style: {
+    marginTop: 10,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 12.5,
+    color: "var(--ink-2)",
+    cursor: "pointer",
+    minHeight: 36
+  } }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "checkbox",
+      name: "ioUseTpnWt",
+      checked: ioUseTpnWt,
+      onChange: (e) => setIoUseTpnWt(e.target.checked),
+      style: { width: 18, height: 18 }
+    }
+  ), "I/O ใช้น้ำหนักคำนวณ TPN", wtG > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " (", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(wtG, 0)), " g)")), nursingApplied && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-note", style: { marginTop: 8, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 } }, "เติมจากบันทึกพยาบาล · ยอด 24 ชม. ปิดยอดเช้า ", window.NEOFEED_FMT_DATE?.(nursingApplied.date) || nursingApplied.date, " ", "(", [nursingApplied.keys.has("ioInput") && "Input", nursingApplied.keys.has("ioOutput") && "Urine", nursingApplied.keys.has("drainContent") && "Drain"].filter(Boolean).join(" · "), ") — แก้ได้", nursingApplied.partialIntake && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", /* @__PURE__ */ React.createElement("strong", null, "Input ไม่ได้เติม: บันทึก IV หรือ นม/EN ไม่ครบ"))), nursingChanged && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-changed", role: "alert", style: {
     marginTop: 8,
     display: "flex",
     alignItems: "center",
