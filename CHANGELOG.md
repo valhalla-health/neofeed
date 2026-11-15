@@ -21,9 +21,13 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   the second yes for a submitted order ("ตรวจกับเภสัชก่อนลบ", counted from the Sheet), the `deletePatient:start` and
   `deletePatient` audit rows (now under the doctor's email), the Daily_Log, Nursing_Log and registry rows going.
   A nurse and pharmacy are still Forbidden. Deleting one order (Dashboard trash) and PDPA erasure stay admin only.
-- **Tests.** Backend writes 158 → 162: a doctor is asked again on a submitted order, the doctor's second yes deletes
+- **A doctor deletes only what the ward sees** (Vera's 🟠 on this PR). `deletePatient` refuses a non-admin, before any
+  audit row or delete, when the registry row is outside the ward's sync window (archived beyond `ARCHIVE_SYNC_DAYS`),
+  PDPA-erased, or missing (orphan log rows). Those stay an admin's call. Pp can widen this if she wants doctors to
+  delete archived records too.
+- **Tests.** Backend writes 158 → 165: a doctor is asked again on a submitted order, the doctor's second yes deletes
   the patient and every row and is audited under the doctor, a nurse is still Forbidden; 3 of them fail with the
-  old admin-only gate put back. Delete session 30/30, with the gate's two roles and app.jsx's wiring pinned.
+  old admin-only gate put back; Vera's two (archived record, PDPA-erased row) fail without the narrowing. Delete session 30/30, with the gate's two roles and app.jsx's wiring pinned.
 - **Deploy.** Needs a backend `clasp` deploy as well as the frontend release: until the backend is deployed a
   doctor sees the button and the server answers Forbidden (the patient comes back on screen, nothing deleted).
   Backend first, on Praew's go-ahead.

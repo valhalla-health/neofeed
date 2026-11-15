@@ -272,6 +272,21 @@ T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retr
   g.seedPatient(P('EE-5'));
   const nurseDel = g.as(g.nt, { action: 'deletePatient', sessionId: 'EE-5' });
   T.ok('a nurse is still Forbidden on a patient with no submitted order', /Forbidden/.test(nurseDel.error || '') && g.rows('Patient_Registry').some(r => r[0] === 'EE-5'), nurseDel);
+  // A doctor deletes only what the ward sees (Vera, 2026-11-15): not an
+  // archived record outside the sync window, not a PDPA-erased row.
+  g.seedPatient(P('FF-6', { status: 'Discharged', statusDate: addDays(TODAY, -60) }));
+  const fpub = g.as(g.at, { action: 'logDailyNutrition', sessionId: 'FF-6', entry: E({ ts: addDays(TODAY, -61) }) });
+  g.as(g.at, { action: 'publishLog', sessionId: 'FF-6', entryId: fpub.entryId, expectedLastModified: fpub.lastModified });
+  const ffBefore = snapshot(g), ffAudit = g.audit().length;
+  const docOld = g.as(g.dt, { action: 'deletePatient', sessionId: 'FF-6', confirmPublished: true });
+  T.ok('a doctor is refused an archived record outside the sync window, nothing deleted or audited',
+    /Forbidden/.test(docOld.error || '') && snapshot(g) === ffBefore && g.audit().length === ffAudit, docOld);
+  T.ok('…an admin deletes it', g.as(g.at, { action: 'deletePatient', sessionId: 'FF-6', confirmPublished: true }).ok === true);
+  g.seedPatient(P('GG-7'));
+  const pseudo = g.as(g.at, { action: 'pseudonymizePatient', sessionId: 'GG-7' });
+  const ggBefore = snapshot(g);
+  const docErased = g.as(g.dt, { action: 'deletePatient', sessionId: 'GG-7' });
+  T.ok('a doctor is refused a PDPA-erased row, and it is kept', pseudo.ok === true && /Forbidden/.test(docErased.error || '') && snapshot(g) === ggBefore, [pseudo, docErased]);
 });
 
 T.section('UP-B7 · doPost forwards revised / entryId / revisionNumber', () => {

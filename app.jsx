@@ -2031,8 +2031,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // from the sheet (see HANDOFF.md); the confirm dialog in EditPatientModal
   // is unchanged, so it's still one deliberate click, but that click now
   // sticks. Optimistic removal with rollback on failure, same pattern as
-  // handleDeleteEntry. Admin-only (gated where this is passed down to
-  // EditPatientModal). If the deleted patient was active, clear the
+  // handleDeleteEntry. Doctor or admin (canDeletePatient below). If the deleted patient was active, clear the
   // selection and back out of any patient-specific view so nothing keeps
   // rendering against a sessionId that's no longer in `patients`.
   // Delete session: doctor or admin (Pp, 2026-11-15). The backend's doPost
