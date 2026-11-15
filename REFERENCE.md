@@ -92,6 +92,10 @@ keep full precision, and only the display rounds.
 - **A typed dose prints as typed.** Only computed figures are rounded.
 - `test/verify-tpn-team-0922.cjs` §8 fails on any trailing zero or float tail in any text node of the
   calculator, the form, the copied order or the daily log.
+- **Whole numbers too** (2026-11-15): `fmt(v, 0)`, `f0` or `D.displayNum(v, 0)`, never `.toFixed(0)` or a
+  `{Math.round(…)}` in the text. Those read the float, so 899.5 on paper (899.4999999999999 in JS) read 899
+  in the red osmolarity line beside a 900 tile. `tools/ci_bans.js` `raw-round-display` fails the PR, and
+  `test/verify-calc-sum.cjs` § 4 checks four tie orders on screen, on the sheet and on the sticker.
 
 ## The printed order
 
