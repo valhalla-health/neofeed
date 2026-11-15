@@ -2246,7 +2246,7 @@ the heparin hint and printed line, the printed route line, the quick calc's Copy
 "Central only!" flag; then the real values print the same words as before (GIR, route line, NPE:AA, heparin hint,
 dextrose alert). 12 of its 23 checks fail on `e555695`. Needs the jsdom set above.
 
-**`verify-sheet-backup-1115.cjs`** (199 assertions; no npm dependencies, through `gas-vm-sandbox.cjs`) — the
+**`verify-sheet-backup-1115.cjs`** (208 assertions; no npm dependencies, through `gas-vm-sandbox.cjs`) — the
 Sheet backup and the restore drill. Setup makes 14 books once; a backup equals the live book cell for cell and
 holds the script lock for every tab; 14 nights rotate; a backup past 14 days has its tabs deleted and an erased
 infant is in no backup after 14 nightly runs; a failed run or a failed drill leaves its slot listed as empty; an

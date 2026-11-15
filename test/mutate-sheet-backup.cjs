@@ -1,7 +1,7 @@
 // mutate-sheet-backup.cjs — does verify-sheet-backup-1115.cjs notice wrong code?
 //
-// Each entry below breaks one line of gas-backend.gs § Sheet backup and restore
-// drill in a temp copy and runs the harness against it (NEOFEED_GAS_SRC). A
+// Each entry below makes one small change to gas-backend.gs § Sheet backup and
+// restore drill in a temp copy and runs the harness against it (NEOFEED_GAS_SRC). A
 // mutation is KILLED when the harness fails or does not finish in 60 s, and
 // SURVIVED when it still passes: a survivor is a behaviour no assertion pins.
 // Not a harness: CI runs test/verify-*.cjs only. Run it by hand after changing
@@ -72,6 +72,8 @@ const M = [
   ['an unopened book is not reported', '    if (out.unopenedSlots > 0) {', '    if (false) {'],
   ['status ok with an unopened book', ' && newestHours <= BACKUP_FRESH_HOURS && unopened === 0;', ' && newestHours <= BACKUP_FRESH_HOURS;'],
   ['status does not open the books', 'var opens = !!_backupOpenSlot(st, i);', 'var opens = true;'],
+  ['status opens the books before it checks slot ids', '    _backupCheckSlots(st);\n    var now = Date.now(), newest = NaN, good = 0, unopened = 0, slots = [];', '    var now = Date.now(), newest = NaN, good = 0, unopened = 0, slots = [];\n    for (var pre = 0; pre < st.slots.length; pre++) { if (st.slots[pre]) _backupOpenSlot(st, pre); }\n    _backupCheckSlots(st);'],
+  ['setup does not check slot ids', '      _backupCheckSlots(st);\n      var created = 0;', '      var created = 0;'],
   ['status does not check slot ids', '    _backupCheckSlots(st);\n    var now = Date.now(), newest', '    var now = Date.now(), newest'],
   ['repair replaces a good backup that did not open', '        if (st.slots[i].at) { goodButUnopened++; continue; }\n', ''],
   ['repair replaces every slot', '        if (_backupOpenSlot(st, i)) continue;\n        if (st.slots[i].at)', '        if (st.slots[i].at)'],

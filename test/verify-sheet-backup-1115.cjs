@@ -584,7 +584,26 @@ T.section('§10 Books that are wrong, lost or in another time zone', () => {
   });
   const liveSt = ready();
   const stl = state(liveSt); stl.slots[2].id = 'sheet-id'; liveSt.props.set(STATE_KEY, JSON.stringify(stl));
-  T.ok('status refuses a slot naming the live Sheet, without opening it', /slot 03 points at the live Sheet/.test(threw(() => liveSt.sb.sheetBackupStatus())));
+  liveSt.env.opened.length = 0;
+  T.ok('status refuses a slot naming the live Sheet', /slot 03 points at the live Sheet/.test(threw(() => liveSt.sb.sheetBackupStatus())));
+  T.eq('…before it opens any book', liveSt.env.opened, []);
+  liveSt.env.opened.length = 0;
+  T.ok('the run refuses it', /slot 03 points at the live Sheet/.test(threw(() => withNow(T0, () => liveSt.sb.backupSheetNightly()))));
+  T.eq('…before it opens any book, the live one included', liveSt.env.opened, []);
+  liveSt.env.opened.length = 0;
+  T.ok('repair refuses it', /slot 03 points at the live Sheet/.test(threw(() => liveSt.sb.repairSheetBackups())));
+  T.eq('…before it opens any book', liveSt.env.opened, []);
+  // Setup checks the ids of the slots it already has before it makes the missing books.
+  const half = seeded();
+  half.props.set(STATE_KEY, JSON.stringify({ slots: [{ id: 'sheet-id', at: '' }], lastDrill: null }));
+  T.ok('setup refuses a state whose slot names the live Sheet', /slot 01 points at the live Sheet/.test(threw(() => half.sb.setupSheetBackups())));
+  T.eq('…and makes no book', Object.keys(half.env.books).length, 0);
+  T.eq('…the lock is released', half.env.lockHeld, 0);
+  // A healthy status opens each backup book once and never the live Sheet.
+  const okSt = ready();
+  okSt.env.opened.length = 0;
+  okSt.sb.sheetBackupStatus();
+  T.eq('status opens the 14 backup books and nothing else', okSt.env.opened, state(okSt).slots.map(x => x.id));
 
   // Setup and repair hold the script lock, so neither can write the state under a running backup.
   const lk = seeded();

@@ -628,8 +628,9 @@ the oldest one
 
 - **No new scope.** `SpreadsheetApp.create`, `Sheet.copyTo`, `setName`, `rename` and `deleteSheet` are each listed
   by Google under the `spreadsheets` scope the manifest already has (Apps Script reference, read 2026-11-15).
-  The time-zone and locale setters and `SpreadsheetApp.flush` were not looked up: the first run in the editor
-  shows whether they work under this manifest. The backend still cannot reach Drive.
+  The time-zone and locale setters and `SpreadsheetApp.flush` were not looked up. The first drill calls
+  `flush`; a setter is called only when a backup book's time zone or locale differs from the live Sheet's, so
+  a clean drill shows nothing about a setter unless one differed. The backend still cannot reach Drive.
 - **Nothing is reachable from the web app.** The five functions run from the editor or the trigger only;
   `doPost` answers "Unknown action" to their names.
 - **A slot is good only while it carries a time.** A run blanks the slot's time before it touches the book and
@@ -638,8 +639,9 @@ the oldest one
   copy began. A tab built by hand is copied but not judged. **Listed as empty is about the list:** the book of a
   failed run or a failed drill still holds what was copied into it until it is next written. An empty slot is
   always written first, one per run. If the trigger is off, it stays.
-- **Every slot's book id is checked before any book is touched.** A slot that names the live Sheet, has no id, or
-  shares its book with another slot stops the run, the drill and the repair with nothing changed.
+- **Every slot's book id is checked before any book is touched.** A slot that names the live Sheet, has no id
+  (or one that is not text), or shares its book with another slot stops the run, the drill, the repair, the
+  setup and the status with nothing changed.
 - **The script lock is held for the whole copy**, so no patient, order or nursing save lands between two tabs.
   While it is held a save waits its own 10 s and a password sign-in 5 s, then each answers "Busy". How long the
   copy holds the lock on the real Sheet is not known until the first run. `Audit_Log` and `Usage_Log` are
@@ -658,8 +660,9 @@ the oldest one
   replaced (`goodButUnopened`); it is replaced once that backup has aged out. **The code cannot delete the book
   it replaced.** If that file still exists in Drive or its trash, with patient data in it, delete it by hand:
   search Drive for `NeoFeed backup slot NN`.
-- **A backup book is set to the live Sheet's time zone and locale before every copy**: a new book starts in
-  the account's, and a date cell read from a book in another zone would come back shifted.
+- **A backup book is set to the live Sheet's time zone and locale before every copy.** A new book may start
+  in another zone (where Google takes it from was not looked up), and a date cell read from a book in another
+  zone would come back shifted.
 
 **What it does not cover.**
 
@@ -671,7 +674,8 @@ the oldest one
   and is not addressed anywhere in this repo. See § Thai PDPA compliance posture.
 
 **Setting it up (Pp, once, from the Apps Script editor, as the account that owns the Sheet), after the backend
-code is pushed. Do steps 1 and 2 at a quiet hour: step 2 holds the lock.**
+code is pushed. Do steps 1 and 2 at a quiet hour: both hold the script lock, step 1 while it creates 14 books
+and step 2 for the whole copy and compare. `repairSheetBackups` holds it too: quiet hour as well.**
 
 1. Run ▸ `setupSheetBackups`. It creates the 14 books and logs `14 slots, 14 created now`. Running it again
    creates none.

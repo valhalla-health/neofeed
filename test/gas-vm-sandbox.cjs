@@ -285,11 +285,13 @@ function boot(opts) {
   }
   const spreadsheet = makeBook('sheet-id', 'NeoFeed (sandbox)', () => env.sheets);
   env.books = {};
+  env.opened = [];
   const sandbox = {
     SpreadsheetApp: {
       // env.deadBooks: ids that fail the way a deleted file does, with Google's
       // own sentence, which names the id.
       openById: (id) => {
+        env.opened.push(id);   // every open that was asked for, whether or not it worked
         if (env.openByIdThrows) throw new Error(env.openByIdThrows);
         if (env.deadBooks && env.deadBooks.has(id)) throw new Error('Service Spreadsheets failed while accessing document with id ' + id + '.');
         return env.books[id] || spreadsheet;

@@ -12,7 +12,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 `gas-backend.gs` (§ Sheet backup and restore drill: `setupSheetBackups`, `repairSheetBackups`,
 `backupSheetNightly`, `sheetRestoreDrill`, `sheetBackupStatus`), `test/gas-vm-sandbox.cjs` (more than one book,
 `copyTo`, `setName`, `create`, time zone and locale, `flush`, a book that will not open),
-`test/verify-sheet-backup-1115.cjs` (new, 199 assertions), `test/mutate-sheet-backup.cjs` (new),
+`test/verify-sheet-backup-1115.cjs` (new, 208 assertions), `test/mutate-sheet-backup.cjs` (new),
 `REFERENCE.md` (§ Sheet backup and restore drill,
 § Thai PDPA compliance posture), `BACKLOG.md`, `STATUS.md`, `test/README.md`.
 
@@ -44,7 +44,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   differing cells still marked its slot good. (6) "Never a book id" did not hold for a thrown message. (7) The
   lock text left out the 5 s sign-in wait and the quiet hour. Also fixed: a slot id equal to the live Sheet's
   would have deleted every live tab; an unreadable state read as "not set up" and would have orphaned 14 books;
-  one lost backup book stalled every later night; new books took the account's time zone, not the Sheet's;
+  one lost backup book stalled every later night; a backup book's time zone was never set to the Sheet's;
   hand-built tabs were judged by the count check.
 - **A second reviewer read only those fixes and found four more errors, fixed here too.** (1) The live-Sheet
   check ran slot by slot, so another book could be cleared before the bad slot was reached: every slot id is now
@@ -62,12 +62,17 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   the new id check had made false. Also: setup and repair now hold the script lock; a book's time zone and locale
   are matched before each copy and no longer at creation, where a failure would have orphaned the new book; an id
   that is not a string is refused; a failed run on a dated slot has a test.
+- **That third read left two wrong sentences in `REFERENCE.md`, fixed in the next commit:** "the first run in
+  the editor shows whether [the setters] work" (setup no longer calls them, and a setter runs only when a
+  setting differs), and "a new book starts in the account's zone" (only the sandbox says so). With them: the
+  quiet-hour line now names setup and repair, which hold the lock too; the id-check line names setup and status;
+  the harness counts opens, so "status checks every id before it opens a book" and "setup checks ids" are pinned.
 - **Not proven here.** The sandbox's `copyTo` is a deep copy and its lock has no clock, so the harness proves the
   rotation, the purge, the failure paths and the logs. It does not prove that Google's `copyTo` keeps every cell,
   how long the copy holds the lock, or which source a trigger runs. The first `sheetRestoreDrill()` on the real
   Sheet answers the first two. The restore steps have not been rehearsed on production.
-- **Tests.** `verify-sheet-backup-1115.cjs` 199/199; red against `a7b9f6e`'s backend.
-  `node test/mutate-sheet-backup.cjs` breaks the new block 55 ways and the harness turns red on each.
+- **Tests.** `verify-sheet-backup-1115.cjs` 208/208; red against `a7b9f6e`'s backend.
+  `node test/mutate-sheet-backup.cjs` breaks the new block 57 ways and the harness turns red on each.
 
 ## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
 

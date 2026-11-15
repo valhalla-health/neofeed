@@ -5963,8 +5963,8 @@ function _backupGuarded(fn) {
   try { return fn(); } catch (e) { throw new Error(_backupScrub(e && e.message)); }
 }
 
-// A new book takes the account's time zone and locale, not the live Sheet's,
-// and a date cell read from a book in another zone comes back shifted. Both
+// A new book may not be in the live Sheet's time zone and locale, and a date
+// cell read from a book in another zone comes back shifted. Both
 // are matched before every copy (not when the book is made: a failure there
 // would leave a book no slot records).
 function _backupMatchSettings(src, dest) {
