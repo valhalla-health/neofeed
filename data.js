@@ -2799,8 +2799,9 @@ function growthOnDol(p, dol) {
 }
 function weeklyGrowthDue(p, role, now) {
   if (!p || (role !== "doctor" && role !== "nurse")) return false;
-  // A discharged infant is not measured, and a test patient is saved nowhere.
-  if (!isOnUnit(p) || isTestSession(p.sessionId)) return false;
+  // A discharged infant is not measured, a test patient is saved nowhere, and
+  // a record with no bed in the system is read-only: a save would be refused.
+  if (!isOnUnit(p) || isTestSession(p.sessionId) || isReadOnlyOther(p)) return false;
   if (!isSundayBangkok(now)) return false;
   const have = growthOnDol(p, liveDol(p));
   return !(have.length && have.hc);

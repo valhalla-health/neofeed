@@ -23,8 +23,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate, printMetric, onPr
   const sex = patient?.sex;
   const sexValid = !!(sex && D_F.FENTON_WEIGHT[sex] && D_F.FENTON_LENGTH_GROWTH_LMS[sex] && D_F.FENTON_HC_GROWTH_LMS[sex]);
   const [metricState, setMetric] = React.useState("weight"); // weight | length | hc
-  // printMetric (GrowthPrintSheet below): one chart fixed on that measure, at
-  // its full design width, with no tab, zoom or entry controls.
+  // printMetric (GrowthPrintSheet below): one chart fixed on that measure,
+  // drawn at its design scale (on paper it fills the page's width, close to
+  // the 760 it was designed at), with no tab, zoom or entry controls.
   const metric = printMetric || metricState;
   const [view, setView] = React.useState(null); // {x,y,w,h} viewBox override
   const dragRef = React.useRef(null);
@@ -782,22 +783,24 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
 
 // The three charts on paper (Pp, 2026-11-16: "ให้มีปุ่ม ปริ้นท กราฟที่ plot fenton
 // ออกมาได้ด้วย เผื่อเอาออกมาดู"; all three in one go, and the header the printed
-// order carries). Hidden on screen; the print stylesheet in the two shells
-// shows it and hides the rest of the page. It adds no figure: each chart is
-// FentonChart itself, fixed on one measure.
+// order carries). One chart to a page, at the page's full width so its labels
+// stay readable, and every page starts with the patient block: three charts
+// under one header ran onto pages that named nobody (Vera, 2026-11-16).
+// Hidden on screen; the print stylesheet in the two shells shows it and hides
+// the rest of the page. It adds no figure: each chart is FentonChart itself,
+// fixed on one measure.
 function GrowthPrintSheet({ patient, entries, currentDol }) {
   if (!patient) return null;
   const sexOk = !!(patient.sex && D_F.FENTON_WEIGHT[patient.sex]);
   const cell = { padding: "1px 4px 1px 0", verticalAlign: "top" };
-  return (
-    <div className="growth-print" data-session-id={patient.sessionId || ""}
-      style={{ fontFamily: "'IBM Plex Sans','Sarabun',serif", fontSize: 10.5, color: "#000" }}>
+  // The identity block of the printed order (calculator.jsx #print-form): name,
+  // NeoFeed ID, and boxes for the HN and AN that NeoFeed does not hold.
+  const idBlock = () => (
+    <>
       <div style={{ textAlign: "center", borderBottom: "2px solid #000", paddingBottom: 4, marginBottom: 6 }}>
         <div style={{ fontWeight: 700, fontSize: 13 }}>GROWTH CHART · FENTON 2025</div>
         <div style={{ fontSize: 11 }}>Weight, length and head circumference by post-menstrual age</div>
       </div>
-      {/* The identity block of the printed order (calculator.jsx #print-form):
-          name, NeoFeed ID, and boxes for the HN and AN that NeoFeed does not hold. */}
       <table className="growth-print-id" style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6, fontSize: 10.5 }}>
         <tbody>
           <tr>
@@ -814,18 +817,32 @@ function GrowthPrintSheet({ patient, entries, currentDol }) {
             <td style={cell}>อายุ: DOL <strong>{currentDol || "—"}</strong> &nbsp; ตึก: <strong>{patient.currentBed || "—"}</strong></td>
             <td style={cell} colSpan={2}>GA แรกเกิด: <strong>{D_F.fmtGA(patient.ga)}</strong> &nbsp;
               เพศ: <strong>{patient.sex === "boys" ? "Male" : patient.sex === "girls" ? "Female" : "—"}</strong> &nbsp;
-              น้ำหนักแรกเกิด: <strong>{patient.bw ? `${patient.bw} g` : "—"}</strong></td>
+              น้ำหนักแรกเกิด: <strong>{patient.bw ? `${D_F.displayNum(patient.bw, 0)} g` : "—"}</strong></td>
           </tr>
         </tbody>
       </table>
+    </>
+  );
+  const foot = (
+    <div style={{ fontSize: 9, color: "#555", marginTop: 4 }}>
+      NeoFeed · Fenton TR et al. 2025 (PMID 40534585) · เส้น length และ HC คำนวณจาก fentongrowth.ca
+    </div>
+  );
+  return (
+    <div className="growth-print" data-session-id={patient.sessionId || ""}
+      style={{ fontFamily: "'IBM Plex Sans','Sarabun',serif", fontSize: 10.5, color: "#000" }}>
       {sexOk
         ? ["weight", "length", "hc"].map((m) => (
-            <FentonChart key={m} patient={patient} entries={entries} currentDol={currentDol} printMetric={m} />
+            <div key={m} className="growth-print-page" data-metric={m}>
+              {idBlock()}
+              <FentonChart patient={patient} entries={entries} currentDol={currentDol} printMetric={m} />
+              {foot}
+            </div>
           ))
-        : <div>เพศในทะเบียนไม่ถูกต้อง จึงพิมพ์กราฟ Fenton ไม่ได้ แก้ที่ Edit session</div>}
-      <div style={{ fontSize: 9, color: "#555", marginTop: 4 }}>
-        NeoFeed · Fenton TR et al. 2025 (PMID 40534585) · เส้น length และ HC คำนวณจาก fentongrowth.ca
-      </div>
+        : <div className="growth-print-page">
+            {idBlock()}
+            <div>เพศในทะเบียนไม่ถูกต้อง จึงพิมพ์กราฟ Fenton ไม่ได้ แก้ที่ Edit session</div>
+          </div>}
     </div>
   );
 }

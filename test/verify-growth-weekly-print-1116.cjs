@@ -8,25 +8,28 @@
 // patient is opened; all three charts print in one go, under the printed
 // order's patient block.
 //
-//   data     isSundayBangkok at the two midnights, whatever the device's zone;
+//   data     isSundayBangkok at the two midnights, and the same answers in a
+//            child process whose device zone is UTC and Los Angeles;
 //            growthOnDol reads both stores; weeklyGrowthDue by role, status,
-//            test patient, and one value or both.
+//            test patient, no bed, and one value or both.
 //   sunday   a doctor on a Sunday opens a patient and lands on the growth page
 //            with the banner; "ไว้ทีหลัง" goes to the log; opening again asks
 //            again; one value keeps it asking for the other; both end it.
+//   picker   the patient picker asks too; from the quick calc it does not.
 //   monday   the same doctor on a Monday lands on the log, with no banner.
 //   nurse    a nurse on a Sunday is asked too.
 //   admin    an admin on a Sunday is not.
-//   print    the พิมพ์กราฟ button calls window.print; the print sheet holds the
-//            patient block and three charts (weight, length, HC) with no
-//            control in them; each reads what the screen chart reads; and both
-//            shells carry the print rules.
+//   print    the พิมพ์กราฟ button calls window.print; the print sheet is three
+//            pages (weight, length, HC), each with the patient block and one
+//            chart with no control in it; and both shells carry each print
+//            rule. How the pages look on paper it cannot show.
 //
 // Made-up infants only. Same dev-only dependencies as the other jsdom
 // harnesses (test/README.md).
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { spawnSync } = require('child_process');
 const { boot, runScenarios, mkPatient, DOCTOR, DIR } = require('./review-0917-boot.cjs');
 
 const HOUR = 3600e3, DAY = 24 * HOUR;
@@ -85,7 +88,17 @@ runScenarios(__filename, 'GROWTH: SUNDAY PROMPT + PRINT (2026-11-16)', {
     const days = [0, 1, 2, 3, 4, 5, 6].map(n => D.isSundayBangkok(utc(2026, 10, 15 + n, 3, 0, 0)));
     A.eq('one day in seven', days, [true, false, false, false, false, false, false]);
 
-    const p = (over) => ({ sessionId: 'NF-1', status: 'Active', dob: D.todayLocal(), admissionDate: D.todayLocal(), weights: [], lengths: [], hcs: [], ...over });
+    // The device's own time zone must not matter: the same four instants, asked
+    // in a child process set to UTC and to Los Angeles.
+    const probe = `const vm=require('vm');const s={window:{},console,Intl,Date};vm.runInNewContext(require('fs').readFileSync(process.argv[1],'utf8'),s);`
+      + `const D=s.window.NEOFEED_DATA;const u=(...a)=>Date.UTC(...a);`
+      + `console.log(JSON.stringify([D.isSundayBangkok(u(2026,10,14,16,59,59)),D.isSundayBangkok(u(2026,10,14,17,0,0)),D.isSundayBangkok(u(2026,10,15,16,59,59)),D.isSundayBangkok(u(2026,10,15,17,0,0))]))`;
+    for (const tz of ['UTC', 'America/Los_Angeles']) {
+      const r = spawnSync(process.execPath, ['-e', probe, DIR + 'data.js'], { encoding: 'utf8', env: { ...process.env, TZ: tz } });
+      A.eq(`the two Bangkok midnights, on a device set to ${tz}`, (r.stdout || '').trim(), '[false,true,true,false]');
+    }
+
+    const p = (over) => ({ sessionId: 'NF-1', status: 'Active', currentBed: 'NICU 1', dob: D.todayLocal(), admissionDate: D.todayLocal(), weights: [], lengths: [], hcs: [], ...over });
     const dol = D.liveDol(p({}));
     A.eq('growthOnDol: nothing recorded', D.growthOnDol(p({}), dol), { length: false, hc: false });
     A.eq('growthOnDol: the separate stores', D.growthOnDol(p({ lengths: [{ dol, v: 40 }], hcs: [{ dol, v: 28 }] }), dol), { length: true, hc: true });
@@ -105,8 +118,11 @@ runScenarios(__filename, 'GROWTH: SUNDAY PROMPT + PRINT (2026-11-16)', {
     A.eq('not due: both are in', D.weeklyGrowthDue(p({ weights: [{ dol, w: 1200, l: 40, hc: 28 }] }), 'doctor', SUN), false);
     A.eq('due: both are in, but on another day', D.weeklyGrowthDue(p({ weights: [{ dol: dol + 1, l: 40, hc: 28 }] }), 'doctor', SUN), true);
     A.eq('not due: a discharged infant', D.weeklyGrowthDue(p({ status: 'Discharged' }), 'doctor', SUN), false);
-    A.eq('not due: a test patient', D.weeklyGrowthDue(p({ sessionId: D.TEST_SESSION_PREFIX ? D.TEST_SESSION_PREFIX + '1' : 'TEST-1' }), 'doctor', SUN),
-      D.TEST_SESSION_PREFIX ? false : true);
+    A.eq('(the test prefix is TEST-)', D.TEST_SESSION_PREFIX, 'TEST-');
+    A.eq('not due: a test patient', D.weeklyGrowthDue(p({ sessionId: 'TEST-NF-1' }), 'doctor', SUN), false);
+    A.eq('(an Active record with no bed is read-only)', D.isReadOnlyOther(p({ currentBed: '' })), true);
+    A.eq('not due: no bed in the system, so nothing could be saved', D.weeklyGrowthDue(p({ currentBed: '' }), 'doctor', SUN), false);
+    A.eq('due: a DOL stored as text still counts as today', D.weeklyGrowthDue(p({ weights: [{ dol: String(dol), l: 40, hc: 28 }] }), 'doctor', SUN), false);
     A.eq('not due: no patient', D.weeklyGrowthDue(null, 'doctor', SUN), false);
   },
 
@@ -141,6 +157,30 @@ runScenarios(__filename, 'GROWTH: SUNDAY PROMPT + PRINT (2026-11-16)', {
     A.ok('opening AA after both are in lands on the log', !t.onGrowth() && /Daily nutritional log/.test(t.bodyText()));
     await t.open(/BB/);
     A.ok('BB, not yet measured, is still asked', t.onGrowth() && !!t.banner());
+  },
+
+  async 'picker'(A) {
+    console.log('\n── the patient picker on a Sunday ──');
+    const t = await setup({ offset: toSunday9() });
+    const doc = t.window.document;
+    const pick = async (re) => {
+      await t.click(doc.querySelector('.switch-patient'));
+      await t.click([...doc.querySelectorAll('.picker-row')].find(r => re.test(r.textContent)));
+    };
+    await pick(/BB/);
+    A.ok('a pick from the ward list lands on the growth page with the banner', t.onGrowth() && !!t.banner());
+    await t.click(t.btn(/ไว้ทีหลัง/, t.banner()));
+    await t.rail(/Calculator/);
+    A.ok('(on the Calculator, a patient page)', !t.onGrowth());
+    await pick(/AA/);
+    A.ok('a pick from a patient page goes to the growth page too', t.onGrowth() && !!t.banner());
+
+    // The quick calc keeps its typed figures: a pick there changes nothing on screen.
+    await t.rail(/Patients/);
+    await t.click(doc.querySelector('.quick-fab'));                      // the ward gate's quick-calc button
+    A.ok('(on the quick calc)', /ไม่ผูกกับผู้ป่วย/.test(t.bodyText()));
+    await pick(/BB/);
+    A.ok('a pick from the quick calc stays on the quick calc', /ไม่ผูกกับผู้ป่วย/.test(t.bodyText()) && !t.onGrowth() && t.banner() === null);
   },
 
   async 'monday'(A) {
@@ -184,8 +224,12 @@ runScenarios(__filename, 'GROWTH: SUNDAY PROMPT + PRINT (2026-11-16)', {
 
     const sheet = doc.querySelector('.growth-print');
     A.ok('the print sheet is on the page, a direct child of the work area', !!sheet && sheet.parentElement.classList.contains('work-inner'));
+    const pages = [...sheet.querySelectorAll(':scope > .growth-print-page')];
+    A.eq('it is three pages: weight, length, HC', pages.map(pg => pg.getAttribute('data-metric')), ['weight', 'length', 'hc']);
+    A.eq('each page has one patient block and one chart', pages.map(pg => [pg.querySelectorAll('.growth-print-id').length, pg.querySelectorAll('.growth-print-chart').length]), [[1, 1], [1, 1], [1, 1]]);
+    A.eq('every page names the infant and the NeoFeed ID', pages.map(pg => /ชื่อ: AA/.test(pg.textContent) && /NeoFeed ID: NF-100001/.test(pg.textContent)), [true, true, true]);
     const charts = [...sheet.querySelectorAll('.growth-print-chart')];
-    A.eq('it holds three charts: weight, length, HC', charts.map(c => c.getAttribute('data-metric')), ['weight', 'length', 'hc']);
+    A.eq('the three charts are fixed on weight, length, HC', charts.map(c => c.getAttribute('data-metric')), ['weight', 'length', 'hc']);
     A.eq('each has a drawn chart', charts.map(c => !!c.querySelector('svg path')), [true, true, true]);
     A.eq('no chart in it is a .card (the print stylesheet hides those)', sheet.querySelectorAll('.card').length, 0);
     A.eq('no Save measurement box in it', [...sheet.querySelectorAll('button')].filter(b => /Save measurement|Update measurement/.test(b.textContent)).length, 0);
@@ -203,7 +247,8 @@ runScenarios(__filename, 'GROWTH: SUNDAY PROMPT + PRINT (2026-11-16)', {
     for (const [label, key] of [['Weight', 'weight'], ['Length', 'length'], ['HC', 'hc']]) { await tab(label); onScreen[key] = readoutOf(screenCard); }
     const onPaper = Object.fromEntries(charts.map(c => [c.getAttribute('data-metric'), readoutOf(c)]));
     A.ok('(the screen reads a percentile for length and HC)', /th|rd|st|nd/.test(onScreen.length || '') && /th|rd|st|nd/.test(onScreen.hc || ''));
-    A.eq('the printed charts read what the screen charts read', onPaper, onScreen);
+    A.eq('each printed chart shows its own measure (the readout the screen gives for it)', onPaper, onScreen);
+    A.ok('…and the three readouts are not all the same', new Set(Object.values(onPaper)).size > 1);
     A.eq('switching tabs on screen leaves the printed three as they were', charts.map(c => c.getAttribute('data-metric')), ['weight', 'length', 'hc']);
 
     // The print rules, in both shells.
@@ -212,8 +257,12 @@ runScenarios(__filename, 'GROWTH: SUNDAY PROMPT + PRINT (2026-11-16)', {
       const print = css.slice(css.indexOf('@media print {'));
       A.ok(`${shell}: the sheet is hidden on screen`, /\n  \.growth-print \{ display: none; \}/.test(css.slice(0, css.indexOf('@media print {'))));
       A.ok(`${shell}: on paper the sheet shows and the rest of the work area hides`,
-        print.includes('.work-inner > :not(#print-form):not(.print-batch):not(.growth-print)') && /\.growth-print \{ display: block !important; \}/.test(print));
+        print.includes('.work-inner > :not(#print-form):not(.print-batch):not(.growth-print)') && print.includes('.growth-print { display: block !important;'));
       A.ok(`${shell}: the tabs and zoom buttons do not print`, /\.growth-print \.fenton-ctrl, \.growth-print \.fenton-zoom \{ display: none !important; \}/.test(print));
+      A.ok(`${shell}: each chart after the first starts a new page`, print.includes('.growth-print-page + .growth-print-page { break-before: page; page-break-before: always; }'));
+      A.ok(`${shell}: a chart is not split across pages`, print.includes('.growth-print-chart { break-inside: avoid; page-break-inside: avoid; }'));
+      A.ok(`${shell}: the chart takes the page's width, its panel under it`, print.includes('.growth-print-chart svg { max-width: 100% !important; }') && print.includes('.growth-print .fenton-grid { grid-template-columns: 1fr !important; }'));
+      A.ok(`${shell}: colours print as drawn`, /\.growth-print \{ display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; \}/.test(print));
       A.ok(`${shell}: the order form's own print rules are still there`, print.includes('#print-form { display: block !important; }') && print.includes('.print-batch, .print-batch-sheet { display: block !important; }'));
     }
   },

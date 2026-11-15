@@ -12,7 +12,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 `data.js` (`isSundayBangkok`, `growthOnDol`, `weeklyGrowthDue`, new), `app.jsx` (opening a patient, the banner
 on the growth page, the print sheet), `fenton.jsx` (`FentonChart`'s `printMetric` and `onPrint`,
 `GrowthPrintSheet`, new), the two shells' print rules, `compiled/`, the shells' `?v=`,
-`test/verify-growth-weekly-print-1116.cjs` (new, 67 assertions), `STATUS.md`, `test/README.md`. This
+`test/verify-growth-weekly-print-1116.cjs` (new, 90 assertions), `STATUS.md`, `test/README.md`. This
 branch sits on top of the Fenton length and HC change above (same file, `fenton.jsx`).
 
 - **Why.** Pp, 2026-11-16: "ทุกเช้าวันอาทิตย์ตามเวลาประเทศไทย ให้เมื่อเข้าชื่อผู้ป่วย ให้เด้งหน้าไปกรอก HC and length
@@ -22,21 +22,31 @@ branch sits on top of the Fenton length and HC change above (same file, `fenton.
   the ward list or the patient picker goes to the growth page when today's DOL has no length or no head
   circumference, with a banner that names what is missing and a "ไว้ทีหลัง" button back to the log. One value
   keeps it asking for the other; with both in, the banner goes and the next opening lands on the log as before.
-  Not asked: an admin, a discharged infant, a test patient, and the quick calc (its typed figures would be lost).
+  Not asked: an admin, a discharged infant, a test patient, an infant with no bed in the system (read-only: the
+  save would be refused), and from the quick calc (its typed figures would be lost). An infant with no DOL
+  anchor is asked only until its last stored row carries both values (`liveDol` falls back to that row).
   The day is Bangkok's whatever the device's time zone (`isSundayBangkok`). "Today" is the DOL every screen
   shows (`liveDol`), which is where the growth page files a new measurement.
-- **Print.** A "พิมพ์กราฟ" button on the growth card prints weight, length and HC together (Pp: all three in one
-  go) under the printed order's patient block (name, NeoFeed ID, boxes for HN and AN, bed, DOL) with GA at
-  birth, sex, birth weight and the print date. Each printed chart is the screen's own chart fixed on one
-  measure, so it reads the same percentile; the tabs, zoom buttons and entry box do not print. The print sheet is
-  hidden on screen and is the only thing on paper (`.growth-print`, in both shells). The order form's print
-  rules are unchanged.
+- **Print.** A "พิมพ์กราฟ" button on the growth card prints weight, length and HC in one print job (Pp: all
+  three in one go), one chart to an A4 page at the page's full width, each page under the printed order's
+  patient block (name, NeoFeed ID, boxes for HN and AN, bed, DOL) with GA at birth, sex, birth weight and the
+  print date. Each printed chart is the screen's own chart fixed on one measure; the tabs, zoom buttons and
+  entry box do not print. The print sheet is hidden on screen and is the only thing on paper (`.growth-print`,
+  in both shells). For the order form and the ward print batch nothing changes on paper: the one rule that
+  hides the rest of the work area gained an exception for the growth sheet, which exists only on the growth
+  page.
 - **Nothing is calculated here.** No dose, limit, table or `CONSTANTS_VERSION` moves; the backend is not touched.
-- **For Pp to look at before it merges:** the banner's Thai wording, and the printed page itself. The harness
-  proves what the sheet holds and that both shells carry the rules; it cannot show how the three charts sit on
-  an A4 page, and no page was printed.
-- **Tests.** `verify-growth-weekly-print-1116.cjs` 67/67, six scenarios with the clock moved to
-  the next Sunday or Monday.
+- **Review by an agent that had not seen the work (Vera's procedure): NO BLOCK, and the print was wrong.** As
+  first built, the three charts sat under one header at 128 mm wide: on A4 they ran to three pages, of which
+  two named nobody, with chart labels near 5 pt (the reviewer printed a dump of the page to PDF). Now one chart
+  to a page at full width, the patient block on every page. Also from the review: an infant with no bed is no
+  longer asked; the banner no longer says "the box to the right" (it is below the chart on a phone); and the
+  harness gained what four planted mutations had slipped past (the picker, the device's time zone, the print
+  rules).
+- **For Pp to look at before it merges:** the banner's Thai wording, and a real printed page. The harness
+  proves what each page holds and that both shells carry the rules; nobody has printed from the running app.
+- **Tests.** `verify-growth-weekly-print-1116.cjs` 90/90, seven scenarios, six of them with the
+  clock moved to the next Sunday or Monday.
 
 ## Session 2026-11-16 — Length and head circumference on Fenton's own curve
 

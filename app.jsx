@@ -2744,7 +2744,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
                     <span style={{ flex: "1 1 220px" }}>
                       <strong>วันอาทิตย์: วัด Length และ HC ประจำสัปดาห์</strong>
                       <span style={{ display: "block", fontSize: 12.5 }}>
-                        วันนี้ยังไม่มี {missing} ของ DOL {dol} กรอกในช่องด้านขวาของกราฟแล้วกด Save measurement
+                        วันนี้ยังไม่มี {missing} ของ DOL {dol} กรอกในช่อง Length กับ HC ของหน้านี้ แล้วกด Save measurement
                       </span>
                     </span>
                     <button type="button" className="btn" style={{ minHeight: 44 }} onClick={() => goTo("log")}>ไว้ทีหลัง</button>
@@ -2783,7 +2783,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           nothing on screen there, so an infant found in the search could not
           be opened, nor a discharged one brought back through Edit session
           (Pp, 2026-10-22). The quick calc stays put: its typed figures live
-          only in that page, and leaving it would lose them (Vera). */}
+          only in that page, and leaving it would lose them (Vera). On a
+          Sunday a pick of an infant whose length and HC are due goes to the
+          growth page instead, from any of these but the quick calc (Pp,
+          2026-11-16: every time the patient is opened). */}
       {pickerOpen &&
       <PatientPicker patients={patients} activeId={activeId}
         onSelect={(id) => {

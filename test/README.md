@@ -2276,14 +2276,14 @@ where the reference starts. §5: each of the five drawn lines passes through its
 node test/verify-fenton-length-hc-1116.cjs
 ```
 
-**`verify-growth-weekly-print-1116.cjs`** (67 assertions; jsdom, through `review-0917-boot.cjs`, one
+**`verify-growth-weekly-print-1116.cjs`** (90 assertions; jsdom, through `review-0917-boot.cjs`, one
 child process per scenario) — Sunday's length and head circumference, and the growth charts on paper.
 `data`: the two Bangkok midnights, the two stores a measurement can be in, who is asked. `sunday`: a doctor
 opens a patient and lands on the growth page with the banner; "ไว้ทีหลัง" goes to the log; opening again asks
-again; one value keeps it asking; both end it. `monday`, `nurse`, `admin`: the log on a Monday, a nurse is
-asked, an admin is not. `print`: the button calls `window.print`, the sheet holds the patient block and three
-charts with no control in them, each reads what the screen chart reads, and both shells carry the print rules.
-It cannot show the printed page.
+again; one value keeps it asking; both end it. `picker`: the patient picker asks too, and the quick calc is
+left alone. `monday`, `nurse`, `admin`: the log on a Monday, a nurse is asked, an admin is not. `print`: the
+button calls `window.print`, the sheet is three pages, each with the patient block and one chart with no
+control in it, and both shells carry each print rule. It cannot show the printed page.
 
 ```
 node test/verify-growth-weekly-print-1116.cjs
