@@ -2433,10 +2433,11 @@ function Calculator({
       type: "checkbox",
       name: "ioUseTpnWt",
       checked: ioUseTpnWt,
+      disabled: nurseAccount,
       onChange: (e) => setIoUseTpnWt(e.target.checked),
       style: { width: 18, height: 18 }
     }
-  ), "I/O ใช้น้ำหนักคำนวณ TPN", wtG > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " (", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(wtG, 0)), " g)")), nursingApplied && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-note", style: { marginTop: 8, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 } }, "เติมจากบันทึกพยาบาล · ยอด 24 ชม. ปิดยอดเช้า ", window.NEOFEED_FMT_DATE?.(nursingApplied.date) || nursingApplied.date, " ", "(", [nursingApplied.keys.has("ioInput") && "Input", nursingApplied.keys.has("ioOutput") && "Urine", nursingApplied.keys.has("drainContent") && "Drain"].filter(Boolean).join(" · "), ") — แก้ได้", nursingApplied.partialIntake && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", /* @__PURE__ */ React.createElement("strong", null, "Input ไม่ได้เติม: บันทึก IV หรือ นม/EN ไม่ครบ"))), nursingChanged && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-changed", role: "alert", style: {
+  ), "I/O ใช้น้ำหนักคำนวณ TPN", wtG > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, " (", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(wtG, 0)), " g)"), nurseAccount && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)", fontSize: 11.5 } }, " · แพทย์เป็นผู้ติ๊ก")), nursingApplied && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-note", style: { marginTop: 8, fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 } }, "เติมจากบันทึกพยาบาล · ยอด 24 ชม. ปิดยอดเช้า ", window.NEOFEED_FMT_DATE?.(nursingApplied.date) || nursingApplied.date, " ", "(", [nursingApplied.keys.has("ioInput") && "Input", nursingApplied.keys.has("ioOutput") && "Urine", nursingApplied.keys.has("drainContent") && "Drain"].filter(Boolean).join(" · "), ") — แก้ได้", nursingApplied.partialIntake && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ", /* @__PURE__ */ React.createElement("strong", null, "Input ไม่ได้เติม: บันทึก IV หรือ นม/EN ไม่ครบ"))), nursingChanged && /* @__PURE__ */ React.createElement("div", { className: "nursing-prefill-changed", role: "alert", style: {
     marginTop: 8,
     display: "flex",
     alignItems: "center",

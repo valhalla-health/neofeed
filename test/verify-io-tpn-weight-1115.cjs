@@ -95,6 +95,14 @@ const scenarios = {
     const { ioUseTpnWt, ...older } = entry.calcInput;
     await calc({ editEntry: { ...entry, calcInput: older } });
     A.eq('1.12 an order saved before the tick existed reopens unticked', tickBox() && tickBox().checked, false);
+    // A nurse records I/O on a doctor's order; the tick is part of the order (Vera).
+    await P.render(null); localStorage.clear();
+    await calc({ editEntry: { ...entry, status: 'submitted' }, nurseAccount: true });
+    A.ok('1.13 a nurse account: the tick is shown but disabled, and says a doctor sets it',
+      !!tickBox() && tickBox().disabled === true && /แพทย์เป็นผู้ติ๊ก/.test(card().textContent), tickBox() && tickBox().disabled);
+    await P.render(null); localStorage.clear();
+    await calc({ editEntry: entry });
+    A.eq('1.14 a doctor: enabled', tickBox() && tickBox().disabled, false);
   },
 
   async nursingCard(A) {
@@ -112,7 +120,12 @@ const scenarios = {
     };
     A.eq('2.1 no order: urine on the previous day\'s 560 g = 3.4 mL/kg/h', await urine([]), 'ปัสสาวะ 46 · 3.4 mL/kg/h');
     A.eq('2.2 today\'s order unticked: the same', await urine(order({ tpnWtG: 460 })), 'ปัสสาวะ 46 · 3.4 mL/kg/h');
-    A.eq('2.3 today\'s order ticked, TPN calc. weight 460 g: 4.2 mL/kg/h', await urine(order({ tpnWtG: 460, ioUseTpnWt: true })), 'ปัสสาวะ 46 · 4.2 mL/kg/h');
+    A.eq('2.3 today\'s order ticked, TPN calc. weight 460 g: 4.2 mL/kg/h', await urine(order({ tpnWtG: 460, ioUseTpnWt: true })), 'ปัสสาวะ 46 · 4.2 mL/kg/h (น้ำหนักคำนวณ TPN 460 g)');
+    // Vera's case: 12 mL crosses the 1 mL/kg/h line on the tick, and the row says why.
+    rec.urineMl = 12;
+    A.eq('2.5 12 mL unticked: 0.9 mL/kg/h, no basis named', await urine(order({ tpnWtG: 460 })), 'ปัสสาวะ 12 · 0.9 mL/kg/h');
+    A.eq('2.6 12 mL ticked: 1.1 mL/kg/h, naming the 460 g it used', await urine(order({ tpnWtG: 460, ioUseTpnWt: true })), 'ปัสสาวะ 12 · 1.1 mL/kg/h (น้ำหนักคำนวณ TPN 460 g)');
+    rec.urineMl = 46;
     A.eq('2.4 a ticked draft is not an order yet: as before', await urine(order({ tpnWtG: 460, ioUseTpnWt: true }, 'draft')), 'ปัสสาวะ 46 · 3.4 mL/kg/h');
   },
 };

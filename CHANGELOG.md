@@ -25,7 +25,13 @@ changes list), `log.jsx` (`urineRate`), `compiled/`, the neofeed-clinical-rules 
   It counts as a change to the order (not an I/O-only edit), so a nurse cannot flip it on a doctor's order alone and
   the backend needs no change.
 - **Nothing printed moves**: these figures are on screen only; no dose, limit or `CONSTANTS_VERSION`.
-- **Tests.** The new harness (17 checks) types the bed-10 case: unticked 92 mL on 560 g reads 164.3 mL/kg/d, ticked on
+- **Vera: NO BLOCK, three findings.** (1) 🟠 The nurses' card's seven days can sit on different weights: a day divided
+  by the TPN calc. weight now says so, "(น้ำหนักคำนวณ TPN 460 g)", on the row and under the form's urine box (her case:
+  12 mL reads 0.9 unticked, 1.1 ticked, across the 1 mL/kg/h line). (2) 🟡 A nurse could tick it and have her I/O save
+  refused without being told why: the tick is disabled for a nurse account, with "แพทย์เป็นผู้ติ๊ก". (3) 🟡 Ticking a
+  submitted, printed order makes a revision (ฉบับที่ N+1) and the TPN room reads it as changed, though the bag is the
+  same, as a doctor's own I/O edit already does: left for Pp.
+- **Tests.** The new harness (21 checks) types the bed-10 case: unticked 92 mL on 560 g reads 164.3 mL/kg/d, ticked on
   460 g reads 200 mL/kg/d and urine 4.17 mL/kg/h; the tick saves, reopens, and an older row reopens unticked; the
   nurses' card reads 3.4 → 4.2 mL/kg/h only for a ticked submitted order. On `origin/main` it fails (the tick does
   not exist; the nurses' card stays 3.4). CR-U-IO-DIVISOR: 7 cases.
