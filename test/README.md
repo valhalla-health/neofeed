@@ -1587,8 +1587,8 @@ instead of GA + 0.5 (`CHANGELOG.md` 2026-10-17). **`verify-fenton-half-week-1017
 tolerance (±2 / ±3 / ±4 points) is the digitiser's ±10–15 g. §2: the weight 50th passes through each
 row at GA + 0.5, starts at 22.5 and ends at the 42-week edge between the 41 and 42 rows, and nothing lies
 past it. §3: before PMA 22+4 the readout is "—" and says where the reference starts; at 42+0 it still
-reads. §4: the same placement for length and HC, and a not-verified note on both tabs and not on
-Weight. §5: a measurement on DOL 1 reads exactly as the same measurement at the same exact PMA on a
+reads. §4 (rewritten 2026-11-16): length and HC are drawn from their LMS tables at exact ages, from
+24.0 and 23.0 weeks, with no not-verified note on any tab. §5: a measurement on DOL 1 reads exactly as the same measurement at the same exact PMA on a
 later day, with no "size at birth" label, as Fenton's own calculator reads it (Pp, 2026-10-17); before
 22+4 it is "—" like any other day. Against `main` before it, 41 fail; against `ea0abe0`, which read DOL 1
 by completed week, §5 fails 7 of 8.
@@ -2258,4 +2258,18 @@ has no clock, so Google's own copy and the lock's duration are proven only by th
 
 ```
 node test/verify-sheet-backup-1115.cjs
+```
+
+**`verify-fenton-length-hc-1116.cjs`** (56 assertions; jsdom, the same dev-only dependencies as the other
+Fenton harnesses) — length and head circumference on Fenton's own growth-monitoring curve. §1: the fixture
+`fenton-official-1116.json` is what fentongrowth.ca returned (two submissions of 75 made-up rows, 282 points,
+12 cells it did not answer named). §2: `FENTON_LENGTH_GROWTH_LMS` and `FENTON_HC_GROWTH_LMS` are the
+solver's answer on it (`tools/fenton-lms-solve.cjs`): L is 1, the knots read back within 0.001 z, the
+held-out points within 0.02 z. §3: on screen all 234 knot points read within ±1 centile point of the
+official percentile. §4: before 24.0 (length) or 23.0 (head) there is no percentile and the chart says
+where the reference starts. §5: the drawn 50th passes through M at every week. §6: the old rows are gone.
+Against `e1d99cd` it fails 15 checks.
+
+```
+node test/verify-fenton-length-hc-1116.cjs
 ```

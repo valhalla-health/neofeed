@@ -471,8 +471,8 @@ clinical judgement. Everything else is engineering sequencing.
       were left as they are until Pp decides:
       1. ✅ **Built 2026-10-19 for weight** (`CHANGELOG.md`): Pp asked for the closest match to Fenton, so
          weight from 36.5 wk now reads `FENTON_WEIGHT_GROWTH_LMS`, solved from fentongrowth.ca (70 points
-         within 0.44 centile points). Length and HC past 37 weeks are not covered: their rows are still
-         unverified (`FENTON_LENGTH` / `FENTON_HC` in § Later). What follows is the finding as it stood.
+         within 0.44 centile points). Length and HC followed on 2026-11-16: `FENTON_LENGTH_GROWTH_LMS` and
+         `FENTON_HC_GROWTH_LMS`, solved the same way (`CHANGELOG.md` 2026-11-16). What follows is the finding as it stood.
          ~~**After 37 weeks the size-at-birth rows are not the growth chart.**~~ `FENTON_WEIGHT` is the
          size-at-birth (completed-week) table. Fenton's growth-monitoring chart follows it to about 37 weeks,
          then bends to meet WHO at 50 (Fenton 2025 Table 3: the curves match the data, and assign size
@@ -668,7 +668,8 @@ clinical judgement. Everything else is engineering sequencing.
       - **The reference panels contradict the calculator** on six figures (`app.jsx:2954,2965,3013,
         3034-3036,3054,3144`): lipid 2.0 kcal/mL vs 9 kcal/g, term fluid "DOL 5+", the ELBW/term Na
         rows, the ≥17–20 growth target vs the alert at 15, Peditrace's Zn, and the DOL-2 lipid band.
-      - **`FENTON_LENGTH`'s 42-week row is ~3 cm high** (`data.js:912-933`): the 50th steps
+      - ✅ **Fixed 2026-11-16** (`CHANGELOG.md`): both tabs now draw Fenton's own curve. As it stood:
+        **`FENTON_LENGTH`'s 42-week row is ~3 cm high** (`data.js:912-933`): the 50th steps
         +1.05 cm/wk to 38, +1.45 to 42, then +0.38 — so a 49.9 cm term boy plots near the 8th
         percentile. Already unverified in `docs/CLINICAL_CONSTANTS.md`; say so on the chart until the
         LMS parameters arrive. *(Said on the chart since 2026-10-17: the Length and HC tabs carry a
@@ -863,12 +864,19 @@ clinical judgement. Everything else is engineering sequencing.
       (`codex/center-point-v2`): since 2026-09-15 it is active, paired with NICU-Center-Point PR #12, and the
       two must merge together (CP accepts only the `neofeed-tpn-v2` packet #57 builds).
 
-- [ ] 🩺 **safety · `FENTON_LENGTH` / `FENTON_HC` are unverified against any source** and sit at
-      4-week steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10 and re-checked
-      2026-09-05 against the official ucalgary.ca v2 cutoff table (which caught and fixed GA
-      36-41 boys / 36,40,41 girls drift — see `CHANGELOG.md`); the other two still have **no
-      public numeric table to check against at all** (charts only). Praew is emailing
-      tfenton@ucalgary.ca for the LMS parameters. Since 2026-10-17 the Length and HC tabs say so.
+- [ ] 🩺 **safety · Length and HC: what the 2026-11-16 curves leave open.** `FENTON_LENGTH` and
+      `FENTON_HC` (never checked against a source) are replaced by `FENTON_LENGTH_GROWTH_LMS` and
+      `FENTON_HC_GROWTH_LMS`, solved from fentongrowth.ca's z-scores (`CHANGELOG.md` 2026-11-16). Open:
+      - **The first weeks.** The calculator gives no head z-score before 23 weeks and no length z-score
+        before 23.5, and does not accept 22 weeks. The curves start at 23.0 (head) and 24.0 (length); a
+        measurement before that has no percentile. Three more points at 23.5 would bring length down to
+        23.5. That is a second round to the calculator: Pp's call.
+      - **DOL 1.** Weight on DOL 1 is read on the size-at-birth rows. Length and head circumference have
+        no checked size-at-birth table, so a DOL-1 measurement is read on the growth curve. Whether
+        Fenton's "Birth size evaluation" differs for them was not asked of the calculator.
+      - **Solved, not received.** Pp's email to tfenton@ucalgary.ca for the published LMS stands; if the
+        calculator's API version moves from 2.1.3.0, re-run `tools/fenton-lms-solve.cjs` and the harness.
+      - **No second clinician** has reviewed the change.
 - [ ] ⚖️ **PDPA · No self-service access/rectification path** for data-subject requests; handled
       manually by an admin editing the registry. Worth a real endpoint if volume grows.
 - [ ] ⚖️ **PDPA · Cross-border transfer (Sec 28) never evaluated** — data lives in Google
