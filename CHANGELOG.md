@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-15 — A doctor deletes a wrongly registered patient (Delete session), not only an admin
+
+`gas-backend.gs` (doPost `deletePatient` gate), `app.jsx` (`canDeletePatient`), `registry.jsx` (comment),
+`compiled/`, `app-walkthrough.md`; `test/verify-delete-session.cjs`, `test/verify-review-0917-backend-writes.cjs`.
+
+- **Why.** Ward feedback (Pp's screenshot, 2026-11-15) after Pp's "พี่ทำให้มันลบได้แล้ว ลองเช็คให้หน่อยว่าลบที่ลงไปผิดได้ยัง":
+  "ลบแล้วชื่อมันย้ายไปอยู่ตรงอื่นๆค่ะ ไม่หายไปแบบถาวร". A doctor removing a patient registered by mistake had only
+  the "Previous beds" ลบ (#249). With the bed cleared and its only bed line deleted, `patientWard` has no ward to
+  read, so the name dropped into "อื่นๆ" and stayed. Asked which fix, Pp chose: let doctors delete the patient.
+- **What.** Edit session's **Delete session** now shows for a doctor as well as an admin, and the backend's
+  `deletePatient` gate lets the same two roles through. Everything else is unchanged: the confirm naming the patient,
+  the second yes for a submitted order ("ตรวจกับเภสัชก่อนลบ", counted from the Sheet), the `deletePatient:start` and
+  `deletePatient` audit rows (now under the doctor's email), the Daily_Log, Nursing_Log and registry rows going.
+  A nurse and pharmacy are still Forbidden. Deleting one order (Dashboard trash) and PDPA erasure stay admin only.
+- **Tests.** Backend writes 158 → 162: a doctor is asked again on a submitted order, the doctor's second yes deletes
+  the patient and every row and is audited under the doctor, a nurse is still Forbidden; 3 of them fail with the
+  old admin-only gate put back. Delete session 30/30, with the gate's two roles and app.jsx's wiring pinned.
+- **Deploy.** Needs a backend `clasp` deploy as well as the frontend release: until the backend is deployed a
+  doctor sees the button and the server answers Forbidden (the patient comes back on screen, nothing deleted).
+  Backend first, on Praew's go-ahead.
+
 ## Session 2026-11-14 (7) — The TPN room lists orders by ward; the unit count is gone
 
 `tpn-room-core.js` (`wardGroup`, `ordersByWard`), `tpn-room.jsx`, `tpn-room.css`, the shells' `?v=` tokens,

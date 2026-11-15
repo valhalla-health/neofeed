@@ -1623,7 +1623,11 @@ function doPost(e) {
       return jsonOut({ ok: true });
     }
     if (action === "deletePatient") {
-      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      // Doctor or admin (Pp, 2026-11-15): a doctor deleting a patient the ward
+      // registered by mistake had only the Previous beds lines to remove, and
+      // the patient then dropped into "อื่นๆ" instead of going. A nurse still
+      // cannot; a submitted order still needs the second yes below.
+      if (user.role !== "admin" && user.role !== "doctor") return jsonOut({ error: "Forbidden" });
       // deletePatient writes its own "deletePatient:start" audit row before
       // it destroys anything; this row records that it finished.
       var delPatResult = deletePatient(body.sessionId, user.email, body.confirmPublished === true);
@@ -3592,7 +3596,7 @@ function deleteNursingEntry(sessionId, entryId, actorEmail) {
   }
 }
 
-// ── deletePatient (admin-only, permanent) ───────────────────────
+// ── deletePatient (doctor or admin, permanent) ──────────────────
 // Removes the Patient_Registry row AND every Daily_Log row for that
 // sessionId. Previously the "Delete session" button in the UI was
 // deliberately local-only (see HANDOFF.md) — it only hid the patient in the
@@ -3643,7 +3647,7 @@ function deletePatient(sessionId, actorEmail, confirmPublished) {
     }
     if (!patRows.length && !logRows.length) return { error: "ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว" };
     // Submitted orders used to block the delete outright. Since 2026-11-12
-    // (Pp) an admin may delete after a second yes: the first call returns
+    // (Pp) an admin, and since 2026-11-15 a doctor, may delete after a second yes: the first call returns
     // needsConfirm with the count, and only a call carrying
     // confirmPublished === true goes ahead. The count comes from the Sheet,
     // not the client's log, so an infant outside the sync window still asks.
