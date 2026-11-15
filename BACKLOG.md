@@ -33,16 +33,19 @@ clinical judgement. Everything else is engineering sequencing.
 ## 🔥 Now — this cycle
 
 - [ ] 🔐 **ops/PDPA · Sheet backup: switch it on, and what it leaves open** (2026-11-15, `CHANGELOG.md` (3)).
-      The code is in `main` once this PR merges; nothing runs until Pp does the three editor steps in
+      The code is in `main` once this PR merges; nothing runs until Pp does the four editor steps in
       `REFERENCE.md` § Sheet backup and restore drill. Open:
-      - **First `sheetRestoreDrill()` on the real Sheet**: the only proof that `Sheet.copyTo` keeps every cell,
-        and the first measure of how long the copy holds the script lock (a save waits 10 s, then "Busy").
+      - **First `sheetRestoreDrill()` on the real Sheet**, at a quiet hour: the only proof that `Sheet.copyTo`
+        keeps every cell, and the first measure of how long the copy holds the script lock (a save waits 10 s,
+        a password sign-in 5 s, then "Busy"). Pick the trigger's hour from it.
       - **Rehearse the real restore** (copy a backup, point `SPREADSHEET_ID` at it, set it back) on a quiet
-        night. Never done on production. Pp's call.
-      - **DPO: is 14 days in backups acceptable for an erased infant?** And name the backups in the retention
-        answer the PDPA items below still owe.
+        night. Never done on production, so the nine steps are untested. Pp's call.
+      - **DPO: is 14 days in backups acceptable for an erased infant, and what about version history?** Each
+        backup book, and the live Sheet, keeps erased names in File ▸ Version history, which the backend cannot
+        clear. Name the backups in the retention answer the PDPA items below still owe.
       - **Same account.** The backups do not survive losing the Google account that owns the Sheet. A copy
         outside it needs a decision on where patient data may go.
+      - **Moving restored data back into the bound Sheet** has no written procedure (restore step 8).
       - **Nobody is told when the trigger stops** except by the failure mail and `sheetBackupStatus`. A line on
         the Admin page ("last backup: N h ago") would show it to the ward.
 - [x] **Center Point: sync the new feed keys before PR #247 is released** (Vera, 2026-11-11): done in #247 and its NICU-Center-Point PR.

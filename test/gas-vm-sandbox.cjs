@@ -257,6 +257,13 @@ function boot(opts) {
       getId: () => id,
       getName: () => book.title,
       rename(n) { if (env.renameThrows) throw new Error(env.renameThrows); book.title = n; },
+      // A book made by create() starts in the account's zone and locale, which
+      // need not be the live Sheet's.
+      timeZone: 'Asia/Bangkok', locale: 'en_GB',
+      getSpreadsheetTimeZone: () => book.timeZone,
+      setSpreadsheetTimeZone(z) { book.timeZone = z; },
+      getSpreadsheetLocale: () => book.locale,
+      setSpreadsheetLocale(l) { book.locale = l; },
       getSheetByName: (n) => sheetsOf()[n] || null,
       insertSheet(n) {
         const sheets = sheetsOf();
@@ -280,13 +287,21 @@ function boot(opts) {
   env.books = {};
   const sandbox = {
     SpreadsheetApp: {
-      openById: (id) => { if (env.openByIdThrows) throw new Error(env.openByIdThrows); return env.books[id] || spreadsheet; },
+      // env.deadBooks: ids that fail the way a deleted file does, with Google's
+      // own sentence, which names the id.
+      openById: (id) => {
+        if (env.openByIdThrows) throw new Error(env.openByIdThrows);
+        if (env.deadBooks && env.deadBooks.has(id)) throw new Error('Service Spreadsheets failed while accessing document with id ' + id + '.');
+        return env.books[id] || spreadsheet;
+      },
+      flush: () => { env.flushes = (env.flushes || 0) + 1; },
       create: (title) => {
         if (env.createThrows) throw new Error(env.createThrows);
         const id = 'backup-book-' + (Object.keys(env.books).length + 1);
         const map = {};
         const book = makeBook(id, title, () => map);
         book.insertSheet('Sheet1');
+        book.timeZone = 'America/Los_Angeles'; book.locale = 'en_US';
         return (env.books[id] = book);
       },
     },
