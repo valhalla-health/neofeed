@@ -7,6 +7,29 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-15 (3) — "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้": the bag's osmolarity on the front sheet
+
+`calculator.jsx` (`PrintOrderForm`'s Route of Delivery cell), `compiled/`, the neofeed-clinical-rules skill
+(CR-OSM-PERIPH: prose and three `prints` cases), `test/verify-calc-sum.cjs` (an on-screen check, NF-17).
+
+- **Why.** The stakeholder walk of 2026-11-07 (insight 2) found a 1,104 mOsm/L peripheral bag printed as
+  "☑ Peripheral (<900 mOsm/L)" with no value: the front sheet, the one that prints, showed only the route's
+  limit, and the bag's own figure sat on the back sheet, which never prints (`.print-back`). Pp, 2026-11-15:
+  "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้".
+- **What.** Beside the route boxes, in 9 pt grey: "· Bag osm N mOsm/L". N is `fmt(calc.osm, 0)`, the rounding the
+  Osmolarity tile shows and CR-OSM-PERIPH grades, so an 899.6 estimate prints 900, as the alert reads it. A No TPN
+  sheet, a day with no bag volume, or a bag whose estimate is 0 (no dextrose, amino acid or electrolyte) prints no
+  figure. The back sheet's own two osmolarity lines still use `toFixed(0)`; they do not print, and the .5-tie
+  rounding item in `BACKLOG.md` stays open for them.
+- **Feeds stay off the sheet** on purpose (Pp, 2026-11-15: the TPN room does not need them), which closes the walk's
+  other print question about feeds. The aqueous pump rate is still a question for pharmacy.
+- **Tests.** CR-OSM-PERIPH gains three `prints` cases: 899 prints 899, an 899.6 estimate prints 900 and asks for a
+  reason, and a central bag prints 800. `verify-calc-sum.cjs` checks on every saved order that the printed figure
+  equals the Osmolarity tile, or is absent when the tile reads 0.
+- **`CONSTANTS_VERSION` stays `2026-11-11.1`.** No constant and no printed figure moves; one figure is new, read from
+  the same `calc.osm` the order is graded on. A bump would make the ward re-save every order for a figure that adds
+  information and changes no dose. Pp to confirm in the PR.
+
 ## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
 
 `data.js` (`ioDivisorG`'s `tpnWtG`, `ioTpnWeightOn`), `calculator.jsx` (the tick, `normalizeCalcInput`, the

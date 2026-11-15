@@ -370,7 +370,11 @@ const screenFigures = () => ({
   overGiven: grabT(/· 24 ชม\. ได้ ([\d.]+) mL เกิน/),
   pumpRate: (() => { const v = [...container.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith('Rate'))?.querySelector('input')?.value; return v ? Number(v) : null; })(),
   cannotOnScreen: /cannot be compounded/.test(bodyText()),
+  // The Osmolarity tile's value, as the doctor reads it (2026-11-15: the front sheet prints it too).
+  osm: (() => { const m = [...container.querySelectorAll('.metric')].find(d => d.querySelector('.lbl')?.textContent.trim() === 'Osmolarity'); return m ? numOrDash(m.querySelector('.val')?.firstChild?.textContent) : null; })(),
 });
+// The front sheet's small "Bag osm N mOsm/L" beside the route (null when it is not printed).
+const printedOsm = () => { const t = __printFormTicked(container)?.querySelector('.print-osm')?.textContent; const m = t && t.match(/Bag osm (-?[\d.]+) mOsm\/L/); return m ? Number(m[1]) : null; };
 
 // The pharmacy back page's "Aqueous bag — stock" table, line by line.
 function readPrintBag() {
@@ -515,6 +519,9 @@ function sumCheck(sc, label, Vd) {
     ok(sc, `${label}: Σ(printed stock mL) = on-screen Components (±${TOL > EPS ? '0.05' : '0'})`, scr.components !== null && Math.abs(sr - scr.components) <= TOL, detail);
     ok(sc, `${label}: on-screen Components = printed Components`, scr.components === make.components, detail);
     ok(sc, `${label}: on-screen Bag total = printed prepared`, scr.bagTotal === make.prepared, detail);
+    // A bag with no dextrose, amino acid or electrolyte estimates 0: the sheet prints no figure for it.
+    ok(sc, `${label}: front sheet's Bag osm = on-screen Osmolarity tile (none when it reads 0)`,
+      scr.osm !== null && (scr.osm === 0 ? printedOsm() === null : printedOsm() === scr.osm), { ...detail, printedOsm: printedOsm() });
     const given = scr.pumpRate === null ? null : Number((scr.pumpRate * 24).toFixed(1));
     const overPct = given === null ? 0 : Math.round(Number((given - Vd).toFixed(1)) / Vd * 100);
     ok(sc, `${label}: the over-delivery note is the Rate box × 24 h, from 5 % up`, overPct >= 5 ? scr.overGiven === given : scr.overGiven === null, { ...detail, given, overGiven: scr.overGiven });

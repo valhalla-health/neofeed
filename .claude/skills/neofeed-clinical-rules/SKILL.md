@@ -302,7 +302,9 @@ and Fanaroff give no mOsm figure, only dextrose above 12.5 % on a central line (
 ch 42 p. 10). The 850 caution and the central 1,800 warning had no source and are gone. Dextrose above
 12.5 % on a peripheral line, or with no route yet, adds a "Central only!" flag under the dextrose field
 (`DEX_PERIPHERAL_MAX_PCT`, 2026-11-10); it is not an alert and changes nothing at Submit. The printed form's
-route line prints `OSM_PERIPHERAL_MAX`, not the paper form's fixed "<900" (Pp, 2026-11-10, PR #240).
+route line prints `OSM_PERIPHERAL_MAX`, not the paper form's fixed "<900" (Pp, 2026-11-10, PR #240). Beside it, in small type, the sheet prints the bag's own estimate, "Bag osm N mOsm/L", rounded as the
+Osmolarity tile and this rule grade it, so the sheet, the screen and the alert read one number. No bag, or a
+bag whose estimate is 0 (no dextrose, amino acid or electrolyte), prints no figure (Pp, 2026-11-15).
 
 ```rule
 {"rule": "CR-OSM-PERIPH", "kind": "critical", "coded": {"OSM_PERIPHERAL_MAX": 900, "DEX_PERIPHERAL_MAX_PCT": 12.5}, "where": [{"file": "calculator.jsx", "line": 3718, "has": "route!==\"central\" && dexPct > D.DEX_PERIPHERAL_MAX_PCT && ("}, {"file": "data.js", "line": 1206, "has": "const OSM_PERIPHERAL_MAX = 900;"}, {"file": "calculator.jsx", "line": 2150, "has": "? (Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? \"crit\" : \"ok\")"}, {"file": "calculator.jsx", "line": 2460, "has": "if (bagOrdered && sOsm === \"crit\") alerts.push"}]}
@@ -313,6 +315,9 @@ route line prints `OSM_PERIPHERAL_MAX`, not the paper form's fixed "<900" (Pp, 2
 {"case": "central D12.6: no flag", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12.6, "Amino acid": 2}, "expect": {"hides": "Central only!"}}
 {"case": "the same bag on a central line: no limit", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"no_alert": "Osmolarity > peripheral limit"}}
 {"case": "no route yet is graded as peripheral", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"alert": "Osmolarity > peripheral limit", "level": "crit"}}
+{"case": "the front sheet prints the bag's 899", "side": "inside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.49}, "expect": {"prints": "Bag osm 899 mOsm/L"}}
+{"case": "899.6 prints 900 on the sheet, as the alert grades it", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"submit": "asks_reason", "prints": "Bag osm 900 mOsm/L"}}
+{"case": "a central bag prints its osmolarity too", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Bag osm 800 mOsm/L"}}
 ```
 
 ### CR-K-BAG-RED · K⁺ in the bag, amber and red

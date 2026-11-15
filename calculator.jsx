@@ -5314,7 +5314,16 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td>Route of Delivery: {noTpnSheet ? <>— (No TPN)</>
               : route === "central" ? <>☐ Peripheral (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;<strong>☑ Central</strong></>
               : route === "peripheral" ? <><strong>☑ Peripheral</strong> (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;☐ Central</>
-              : <>☐ Peripheral (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;☐ Central</>}</td>
+              : <>☐ Peripheral (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;☐ Central</>}
+              {/* The bag's own osmolarity, small, beside the route (Pp,
+                  2026-11-15: "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้"). Rounded as the
+                  Osmolarity tile and CR-OSM-PERIPH grade it (fmt → displayNum),
+                  so the sheet, the screen and the alert read one number. No
+                  bag, or an estimate of 0 (no dextrose, AA or electrolyte), no
+                  figure; a zero-volume bag cannot be submitted. */}
+              {!noTpnSheet && calc.totalTPN_mL > 0 && calc.osm > 0 && (
+                <span className="print-osm" style={{ fontSize:9, color:"#333" }}> · Bag osm {fmt(calc.osm, 0)} mOsm/L</span>
+              )}</td>
             <td colSpan={2}>Weight for calculation: <strong>{f(wtKg, 2)}</strong> Kg
               {usingBirthWeight && <span style={{ fontSize:9, color:"#555" }}> (birth weight — current {curWtG}g not yet regained)</span>}
               {/* A dosing weight that is neither the scale reading nor the
