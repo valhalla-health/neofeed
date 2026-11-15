@@ -7,6 +7,65 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
+
+`data.js` (`ioDivisorG`'s `tpnWtG`, `ioTpnWeightOn`), `calculator.jsx` (the tick, `normalizeCalcInput`, the
+changes list), `log.jsx` (`urineRate`), `compiled/`, the neofeed-clinical-rules skill (CR-U-IO-DIVISOR, new),
+`test/verify-io-tpn-weight-1115.cjs` (new).
+
+- **Why.** The ward, 2026-11-15: "ช่อง i/o โปรแกรมใช้น้ำหนักปัจจุบันมาคิด ไม่ได้ใช้น้ำหนักปรับที่เราใส่ไว้คิด TPN", with
+  the case: bed 10, 460 g, then up to 560 g fast, "เลย intake ต่างกันเยอะ". Pp: "เดี๋ยวสร้างช่องติ๊กให้ละกัน".
+- **What.** The Calculator's Intake/Output card has a tick, "I/O ใช้น้ำหนักคำนวณ TPN (N g)". Ticked, Input and Drain
+  mL/kg/d and urine mL/kg/h divide by the TPN calc. weight (typed or automatic) and the divisor line reads
+  "(TPN calc. weight)"; unticked, nothing changes (previous day's weight, floored at birth weight). Pp's choices:
+  **unticked by default**, and **the nurses' I/O card follows it**: that date's urine mL/kg/h divides by that
+  date's submitted order's `calcInput.tpnWtG` when the order ticked it (a draft does not count).
+- **Saved with the order** (`calcInput.ioUseTpnWt`), restored with it, carried into the next day's order like every
+  other input, and named in the changes list. A row saved before today reads unticked, which is how it was computed.
+  It is I/O, not the order (see the revision bullet below), and **a nurse sets it as a doctor does** (Pp, 2026-11-15:
+  "ทั้งของ doctor และ nurse ทำให้เหมือนกัน"): her I/O save on a doctor's order carries it (`storedOrderWithIo`), and the
+  server writes it from either (`_ioOnlyEntryFrom`). Vera's finding 2 (below) had disabled it for a nurse; that is undone.
+- **Nothing printed moves**: these figures are on screen only; no dose, limit or `CONSTANTS_VERSION`.
+- **Vera: NO BLOCK, three findings.** (1) 🟠 The nurses' card's seven days can sit on different weights: a day divided
+  by the TPN calc. weight now says so, "(น้ำหนักคำนวณ TPN 460 g)", on the row and under the form's urine box (her case:
+  12 mL reads 0.9 unticked, 1.1 ticked, across the 1 mL/kg/h line). (2) 🟡 A nurse could tick it and have her I/O save
+  refused without being told why: the tick is disabled for a nurse account, with "แพทย์เป็นผู้ติ๊ก". (3) 🟡 Ticking a
+  submitted, printed order makes a revision (ฉบับที่ N+1) and the TPN room reads it as changed, though the bag is the
+  same, as a doctor's own I/O edit already does: Pp answered the same day (below).
+- **A doctor's I/O-only save is not a new version** (Pp, 2026-11-15, on finding 3: "ถ้าแค่เกี่ยวกับ I/O ไม่เกี่ยวกับถุง TPN
+  ไม่ต้องปรับเป็น revision ใหม่"). On a submitted order, a doctor's save that changes only the I/O boxes or the tick, on
+  the same constants and with every figure as stored (figure columns, supplements, sticker figures:
+  `_sameStoredFigures`), is written from the stored row as a nurse's is (`_ioOnlyEntryFrom`, now taking the tick from a
+  doctor only): the order keeps its `orderRev` and `orderBy`, so the printed "ฉบับที่" and the TPN room's ฉบับ do not move.
+  The room's same-bag walk (`pharmacyOrders`) now steps back past any I/O-only revision, a doctor's too, when its
+  figures match the row before; a print of the earlier row is not "changed after print". `ioUseTpnWt` joins
+  `IO_FREE_CALC_KEYS`, and either role's I/O save writes it. The client keeps the same number on the ward's copy until the next
+  sync (`ioOnlyByDoctor`). A Daily_Log row is still appended (the revision trail is kept); only the order's number holds.
+  **Needs a backend deploy** (`clasp`, Praew's go-ahead) before the frontend release; until then a doctor's I/O edit
+  numbers a revision, as today.
+  **Vera's second review: NO BLOCK, two findings, both fixed.** (1) 🟠 The client guessed "I/O only" from the form while
+  the server compares the whole calcInput: on an order with a confirmed critical value Submit asked for the reason again,
+  the new confirmation made the server store ฉบับ 2, and the sheet printed none. Now a doctor's I/O-only Submit whose
+  critical values are all confirmed keeps the stored confirmation without asking, as a nurse's does; and the server answers
+  with the `orderRev` it stored, which the ward's copy prints (an older backend: the guess, as before). (2) 🟡 The doctor
+  branch took a draft someone locked (AH) as submitted: it now goes by column O alone, as the nurse branch, so submitting
+  a locked draft is a signed new version. `updateDailyNutrition`'s answer gains `orderRev`. Not checked here: whether real
+  Sheets hands figure columns back as exactly the double sent (`_sameStoredFigures` compares with `!==`); if not, a doctor's
+  I/O save is a new version, as before this PR. To check on the sheet after the deploy.
+  **CI on the merge commit** (`verify-backend-stops-1028`, 2 of 45): a revision that reports a stop was taken as I/O only,
+  since `stops` is not part of the order's fingerprint, written from the stored row, and so never refused. The column-O
+  gate above hid it for that test's locked draft; on a submitted row it held. The doctor branch now also needs the stop
+  list as stored (`_sameStoredStops`); a new backend check on a submitted row fails without it. `verify-usage-log` pinned the
+  promotion's reply keys; it now expects `orderRev` beside `ok` and `lastModified` (and still no usage field).
+  Tests: backend writes +9 (a doctor's I/O and tick save keeps ฉบับ 1 and the room's same bag; unticking; a nurse cannot
+  set the tick; a figure column changed is ฉบับ 2; a dose change ฉบับ 3 and the room no longer counts ฉบับ 1 as the same
+  bag; 6 fail on the backend before; a nurse's save takes the tick, still ฉบับ 1); `verify-walk-1107` +4 (the client
+  sends ฉบับ 1 and prints no Revision box; a nurse's save sends the tick on the doctor's ฉบับ 1); the pharmacy backend harness, whose synthetic doctor revisions change figures beside the same calcInput,
+  passes 355/355 unchanged.
+- **Tests.** The new harness (21 checks) types the bed-10 case: unticked 92 mL on 560 g reads 164.3 mL/kg/d, ticked on
+  460 g reads 200 mL/kg/d and urine 4.17 mL/kg/h; the tick saves, reopens, and an older row reopens unticked; the
+  nurses' card reads 3.4 → 4.2 mL/kg/h only for a ticked submitted order. On `origin/main` it fails (the tick does
+  not exist; the nurses' card stays 3.4). CR-U-IO-DIVISOR: 7 cases.
 ## Session 2026-11-15 — A doctor deletes a wrongly registered patient (Delete session), not only an admin
 
 `gas-backend.gs` (doPost `deletePatient` gate), `app.jsx` (`canDeletePatient`), `registry.jsx` (comment),

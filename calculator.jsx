@@ -67,6 +67,9 @@ function normalizeCalcInput(src, fallbackWeight, fallbackFluid) {
     ioInput: src.ioInput ?? 0,
     ioOutput: src.ioOutput ?? 0,
     drainContent: src.drainContent ?? 0,
+    // Intake/Output per kg on the TPN calc. weight (Pp, 2026-11-15). Absent
+    // from every row saved before then, which used the usual divisor.
+    ioUseTpnWt: src.ioUseTpnWt === true,
     // null = no route chosen yet: an infant's first order starts that way and
     // cannot be submitted with a bag until Peripheral or Central is pressed
     // (Pp, 2026-10-21). Only a row saved before then has no route key at all,
@@ -164,6 +167,7 @@ function withLegacyNoTpn(entry, src) {
 const ORDER_DIFF_FIELDS = [
   ["route", "Route", ""],
   ["noTpn", "No TPN", ""],
+  ["ioUseTpnWt", "I/O on TPN calc. weight", ""],
   ["fluidTargetPerKg", "Target fluid", "mL/kg/d"],
   ["totalTPN_mL", "TPN volume", "mL/d"],
   ["deadVol_mL", "Dead space", "mL"],
@@ -243,7 +247,8 @@ function diffOrderInputs(prev, cur) {
 const NURSE_SUBMIT_TEXT = "ใบสั่งนี้ต้องให้แพทย์ตรวจและกด Submit ใหม่ พยาบาลบันทึกได้เฉพาะ I/O";
 // The fingerprint of an order without its Intake/Output: equal before and after
 // a nurse's save, or the nurse changed more than I/O.
-const orderKeyWithoutIo = (inputs) => calcInputKey({ ...inputs, ioInput: 0, ioOutput: 0, drainContent: 0 });
+// The "I/O ใช้น้ำหนักคำนวณ TPN" tick is I/O too (Pp, 2026-11-15).
+const orderKeyWithoutIo = (inputs) => calcInputKey({ ...inputs, ioInput: 0, ioOutput: 0, drainContent: 0, ioUseTpnWt: false });
 
 // Top insight 3 (stakeholder walk, 2026-11-07): an order held because NeoFeed's
 // calculation or the dosing weight moved since it was saved lists each figure
@@ -342,6 +347,7 @@ function storedOrderWithIo(saved, e) {
   for (const k of STORED_ORDER_FIELDS) out[k] = saved?.[k] !== undefined ? saved[k] : e[k];
   const ci = e.calcInput || {};
   out.calcInput = { ...(saved?.calcInput || {}), ioInput: ci.ioInput, ioOutput: ci.ioOutput, drainContent: ci.drainContent,
+    ioUseTpnWt: ci.ioUseTpnWt === true ? true : undefined,
     savedAt: ci.savedAt, orderBy: ci.orderBy, orderRev: ci.orderRev, orderAt: ci.orderAt };
   out.constantsVersion = saved?.calcInput?.constantsVersion || saved?.constantsVersion || "";
   out.appVersion = saved?.appVersion || "";
@@ -1016,6 +1022,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // "No TPN" (Pp, 2026-11-01): the tick at the top right of Step 3 that
   // skips it. See tickNoTpn for what it clears, and noTpnOn for where it holds.
   const [noTpn, setNoTpn] = useState(false);
+  // "I/O ใช้น้ำหนักคำนวณ TPN" (Pp, 2026-11-15): the Intake/Output card divides
+  // by the TPN calc. weight instead of D.ioDivisorG's usual rule. Unticked by
+  // default; saved with the order and carried into the next day's.
+  const [ioUseTpnWt, setIoUseTpnWt] = useState(false);
   // What the tick cleared, so unticking it in the same visit puts it back.
   const noTpnStash = React.useRef(null);
   // Center Point's packet is a TPN order, so it offers no "No TPN": a row
@@ -1248,6 +1258,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setDrainContent(n.drainContent);
     setRoute(n.route);
     setNoTpn(n.noTpn);
+    setIoUseTpnWt(n.ioUseTpnWt);
     noTpnStash.current = null;
     setTotalTPN_mL(n.totalTPN_mL);
     setDeadVol_mL(n.deadVol_mL);
@@ -1554,7 +1565,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // The live inputs, in exactly the shape normalizeCalcInput produces.
   const currentInputs = () => normalizeCalcInput({
     curWtG, tpnWtOverrideG, fluidTargetPerKg, otherIV_mL, drug_mL,
-    ioInput, ioOutput, drainContent,
+    ioInput, ioOutput, drainContent, ioUseTpnWt,
     route, noTpn: noTpnOn, totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaProduct: aaStockKey, lipidPerKg, lipidDripHours,
     naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
     enType, enVol, enFreq, enType2, enVol2, enFreq2, isMEN,
@@ -1964,7 +1975,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   //
   // Balance = Input − Output(urine) − Drain: both are real fluid losses now
   // that Output no longer folds drain in, so both are subtracted explicitly.
-  const ioDivisor = D.ioDivisorG(patient, dol, curWtG, entries);
+  const ioDivisor = D.ioDivisorG(patient, dol, curWtG, entries, ioUseTpnWt ? wtG : null);
   const ioDivisorGVal = ioDivisor.g;
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1000 : null;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
@@ -2886,8 +2897,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A nurse never answers the critical-value prompt: her I/O save keeps the
     // doctor's confirmation as saved, and nurseSubmitRefused holds an order
     // with a critical value nobody confirmed (N1).
-    const critical = asDraft || nurseIoOnly ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
-    let override = nurseIoOnly && !asDraft ? critOverride : null;
+    // A doctor's save that changes only I/O on a submitted order keeps its number
+    // and its author too (Pp, 2026-11-15; gas-backend.gs writes it from the
+    // stored row): the same order, on the same constants. Its critical values
+    // were confirmed when it was ordered, so the stored confirmation stands, as
+    // on a nurse's I/O save; asking again would make it a new version (Vera).
+    const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
+      && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
+      && uncoveredCritical.length === 0;
+    const critical = asDraft || nurseIoOnly || ioOnlyByDoctor ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+    let override = (nurseIoOnly || ioOnlyByDoctor) && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
       // into an order packet that deliberately carries no identity), so both
@@ -2910,7 +2929,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // orderRevNext): a submitted order is revised, a draft keeps its number. The
     // server's stamp is what is stored; this keeps the ward's copy right until the
     // next sync.
-    const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + (savedStatus === "submitted" || published ? 1 : 0);
+    const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + ((savedStatus === "submitted" || published) && !ioOnlyByDoctor ? 1 : 0);
     const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;   // what every dose on this save was computed from (UP-C2)
     // Center Point saves pass the same required-field gate and F1 stop above.
@@ -3072,10 +3091,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     }
     // A nurse's I/O save on another account's order leaves whose order it is,
     // its time and its revision as they were (the server keeps them too).
-    if (!ioOnlyOnOthers) setSavedMeta({
+    // The server says which number it stored (orderRev); an older backend does
+    // not, and then the guess above stands. A number that moved is a new
+    // version, whoever's save it was meant to be (Vera, 2026-11-15).
+    const storedRev = Number(res.orderRev) > 0 ? Number(res.orderRev) : null;
+    const keptRev = storedRev != null ? storedRev === (savedMeta?.revision || 1) && !!savedEntryId : (ioOnlyOnOthers || ioOnlyByDoctor);
+    if (!keptRev) setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || new Date().toISOString(),
-      revision: nextOrderRev,
+      revision: storedRev ?? nextOrderRev,
     });
     clearDraft();
     setDraftOffer(null);
@@ -3352,9 +3376,19 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           {(ioInput > 0 || ioOutput > 0 || drainContent > 0) && (
             <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink-3)" }}>
               Balance <span className="num" style={{ fontWeight: 600, color: "var(--ink-2)" }}>{ioBalance >= 0 ? "+" : ""}{fmt(ioBalance, 0)}</span> mL/d
-              {ioDivisorGVal != null && <> · divisor <span className="num">{fmt(ioDivisorGVal, 0)}</span> g{ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)"}</>}
+              {ioDivisorGVal != null && <> · divisor <span className="num">{fmt(ioDivisorGVal, 0)}</span> g{ioDivisor.source === "tpn" ? " (TPN calc. weight)" : ioDivisor.source === "birth" ? " (birth weight)" : ioDivisor.source === "today" ? " (today)" : " (previous day)"}</>}
             </div>
           )}
+          {/* Pp, 2026-11-15: per kg on the weight the TPN is dosed on, for an
+              infant whose weight moved fast (460 → 560 g in days). */}
+          <label className="io-tpn-wt" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8,
+            fontSize: 12.5, color: "var(--ink-2)", cursor: "pointer", minHeight: 36 }}>
+            {/* I/O, not the order: a doctor and a nurse both set it (Pp,
+                2026-11-15: "ทั้งของ doctor และ nurse ทำให้เหมือนกัน"). */}
+            <input type="checkbox" name="ioUseTpnWt" checked={ioUseTpnWt}
+              onChange={e => setIoUseTpnWt(e.target.checked)} style={{ width: 18, height: 18 }} />
+            I/O ใช้น้ำหนักคำนวณ TPN{wtG > 0 && <> (<span className="num">{fmt(wtG, 0)}</span> g)</>}
+          </label>
           {/* D4: the nurses' record for this order's date, one tap away —
               never filled in by itself — and, once taken, where the figures
               came from, and whether the ward has changed them since. */}

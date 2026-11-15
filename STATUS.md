@@ -1,6 +1,8 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-15 — A doctor can Delete session (a patient registered by mistake), not only an admin; the ward's deleted name no longer stays in "อื่นๆ": this PR, not merged.** Needs backend `clasp` deploy first, then the frontend release (`CHANGELOG.md` 2026-11-15).
+> ⏳ **2026-11-15 — "I/O ใช้น้ำหนักคำนวณ TPN": a tick on the Calculator's Intake/Output card divides I/O per kg by the TPN calc. weight; the nurses' I/O card follows a ticked order; a doctor's I/O-only save keeps the order's ฉบับ: this PR, not merged.** Needs a backend `clasp` deploy first, then the frontend release; nothing printed moves (`CHANGELOG.md` 2026-11-15 (2)).
+>
+> ⏳ **2026-11-15 — A doctor can Delete session (a patient registered by mistake), not only an admin; the ward's deleted name no longer stays in "อื่นๆ": PR #262, merged into `main` by Praew (2026-11-15); not live.** Needs backend `clasp` deploy first, then the frontend release (`CHANGELOG.md` 2026-11-15).
 >
 > ⏳ **2026-11-14 — The TPN room's page lists orders by ward (NICU with its iso rooms, then SCN), each with its own Submit and draft counts; "ผู้ป่วยในหน่วย" is gone: PR #259, merged into `main` on Praew's instruction.**
 > Frontend only, the TPN room's page alone; no figure or rule changes (`CHANGELOG.md` 2026-11-14 (7)).

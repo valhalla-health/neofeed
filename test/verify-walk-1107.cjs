@@ -260,6 +260,44 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   setField('Amino acid', 2.5);
   await settle(submitBtn());
   eq('a doctor\'s change after it counts the order\'s revisions (2), not the rows (4)', s.calls[0]?.[3].calcInput.orderRev, 2);
+  // Pp, 2026-11-15: "ถ้าแค่เกี่ยวกับ I/O ไม่เกี่ยวกับถุง TPN ไม่ต้องปรับเป็น revision ใหม่".
+  s = rec(); mount({ ...DOCTOR, editEntry: ioRev, ...s });
+  setField('Input', 95);
+  await settle(submitBtn());
+  eq('a doctor\'s save that changes only I/O keeps the order\'s ฉบับ (1)', s.calls[0]?.[3].calcInput.orderRev, 1);
+  eq('…and the sheet after it prints no "Revision" box', !!container.querySelector('.print-revision'), false);
+  s = rec(); mount({ ...DOCTOR, editEntry: ioRev, ...s });
+  click(container.querySelector('input[name="ioUseTpnWt"]'));
+  await settle(submitBtn());
+  eq('…the "I/O ใช้น้ำหนักคำนวณ TPN" tick alone too (1), sent ticked', [s.calls[0]?.[3].calcInput.orderRev, s.calls[0]?.[3].calcInput.ioUseTpnWt], [1, true]);
+  // "ทั้งของ doctor และ nurse ทำให้เหมือนกัน": a nurse's I/O save sends the tick too, as I/O, on the doctor's order.
+  s = rec(); mount({ ...NURSE, editEntry: ioRev, ...s });
+  click(container.querySelector('input[name="ioUseTpnWt"]'));
+  await settle(submitBtn());
+  eq('a nurse ticks it too: her I/O save sends it, the order still the doctor\'s ฉบับ 1',
+    [s.calls[0]?.[3].calcInput.ioUseTpnWt, s.calls[0]?.[3].calcInput.orderBy, s.calls[0]?.[3].calcInput.orderRev, nurseNote()], [true, 'doc@kcmh.test', 1, '']);
+  // Vera, second review: a confirmed critical order. Asking again made a new confirmation, so the server stored ฉบับ 2
+  // while the sheet printed none. The stored confirmation stands, as on a nurse's I/O save.
+  const confirmedRev = row({ ...confirmed, calcInput: { ...confirmed.calcInput, orderBy: 'doc@kcmh.test', orderRev: 1, orderAt: TODAY + 'T02:00:00.000Z' } });
+  s = rec(); mount({ ...DOCTOR, editEntry: confirmedRev, ...s });
+  setField('Input', 91);
+  asked = 0;
+  await settle(submitBtn());
+  eq('a confirmed critical order, Input changed: the doctor is not asked again, ฉบับ 1, the stored confirmation sent',
+    [asked, s.calls[0]?.[3].calcInput.orderRev, JSON.stringify(s.calls[0]?.[3].calcInput.critOverride)], [0, 1, JSON.stringify(critOverride)]);
+  s = rec(); mount({ ...DOCTOR, editEntry: byDoc(unconfirmed), ...s });
+  setField('Input', 91);
+  asked = 0;
+  await settle(submitBtn());
+  eq('…a critical value nobody confirmed still asks the doctor (and with no reason, nothing saves)', [asked, s.calls.length], [1, 0]);
+  // The ward's copy prints the number the server stored, not the guess.
+  s = rec(); s.onUpdate = (id, lm, e) => { s.all.push(['update', id, lm, e]);
+    return Promise.resolve({ ok: true, revised: true, entryId: 'e-rev', lastModified: 'lm-u', revisionNumber: 2, orderRev: 2 }); };
+  mount({ ...DOCTOR, editEntry: ioRev, ...s });
+  setField('Input', 96);
+  await settle(submitBtn());
+  eq('…and when the server stores ฉบับ 2 for it after all, the sheet prints "Revision · ฉบับที่ 2"',
+    (container.querySelector('.print-revision')?.textContent || '').includes('2'), true);
   eq('app.jsx hands the Calculator the nurse role', /nurseAccount=\{role === "nurse"\}/.test(R('app.jsx')), true);
   s = rec(); mount({ ...NURSE, ordersReadOnly: true, editEntry: row(bag), ...s });
   eq('the nursing switch on (read-only orders): no Submit and no refusal line', [!!submitBtn(), nurseNote()], [false, '']);
