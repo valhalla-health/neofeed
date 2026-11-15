@@ -43,8 +43,13 @@ branch sits on top of the Fenton length and HC change above (same file, `fenton.
   longer asked; the banner no longer says "the box to the right" (it is below the chart on a phone); and the
   harness gained what four planted mutations had slipped past (the picker, the device's time zone, the print
   rules).
-- **For Pp to look at before it merges:** the banner's Thai wording, and a real printed page. The harness
-  proves what each page holds and that both shells carry the rules; nobody has printed from the running app.
+- **Printed to PDF from dev local** (Chromium through Playwright, made-up infant AA with a length and a head
+  circumference): three A4 pages, weight, length, HC; each page carries the patient block and its chart at the
+  page's width with the readout under it; the smallest text is 6.5 pt; the legend's colours print; no console
+  error.
+- **For Pp to look at before it merges:** the banner's Thai wording, and a page from the ward's own printer.
+  The harness proves what each page holds and that both shells carry the rules; the PDF shows the layout in
+  Chromium, not what the ward's printer and browser do with it.
 - **Tests.** `verify-growth-weekly-print-1116.cjs` 90/90, seven scenarios, six of them with the
   clock moved to the next Sunday or Monday.
 
