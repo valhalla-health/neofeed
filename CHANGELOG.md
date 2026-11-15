@@ -31,8 +31,8 @@ branch sits on top of the Fenton length and HC change above (same file, `fenton.
   three in one go), one chart to an A4 page as wide as the printable area, each page under the printed order's
   patient block (name, NeoFeed ID, boxes for HN and AN, bed, DOL) with GA at birth, sex, birth weight and the
   print date. Each printed chart is the screen's own chart fixed on one measure; the tabs, zoom buttons and
-  entry box do not print, and neither does the legend (each centile line is labelled at its right edge). A page
-  is one unbreakable unit. The print sheet is hidden on screen and is the only thing on paper (`.growth-print`,
+  entry box do not print, and the legend prints as one row. A page is one unbreakable unit. The print sheet
+  is hidden on screen and is the only thing on paper (`.growth-print`,
   in both shells). For the order form and the ward print batch nothing changes on paper: the one rule that
   hides the rest of the work area gained an exception for the growth sheet, which exists only on the growth
   page.
@@ -47,15 +47,25 @@ branch sits on top of the Fenton length and HC change above (same file, `fenton.
 - **Printed to PDF from dev local** (Chromium through Playwright, made-up infant AA with a length and a head
   circumference): three A4 pages, weight, length, HC; each page carries the patient block and its chart at the
   page's width with the readout under it; the smallest text is 6.5 pt; no console error.
-- **Second reading by a new agent: one wrong number, one page-fit risk.** The shells' comment gave the chart as
-  190 mm wide; in the PDF it is about 183 by 111 mm, and the comment now says so. A page ended at 267 mm of the
-  289 mm a page holds, and 285 mm for an infant past 42 weeks, so a printer with wider margins could have sent
-  the chart to the next sheet without its patient block. Now a page is one unbreakable unit and the legend does
-  not print. Printed again: the weight page ends at 240 mm and the other two at 235 mm, and with 15 mm margins
-  all round it is still three pages (238 mm of 282 mm), the patient block on each. An infant past 42 weeks was
-  not printed (dev local seeds none); its extra note was 18 mm in the reviewer's measure. Also from that
-  reading: the birth weight prints as typed when it is not a number, and the harness reads the print block
-  alone, checks that nothing in it hides a page, and covers an infant with no DOL anchor.
+- **Second and third readings by new agents.** The second found the shells' comment wrong (it gave the chart as
+  190 mm wide; in the PDF it is about 183 by 111 mm) and a page that ended at 267 mm from the top of the sheet,
+  where the printable area ends at 289 mm. It estimated 285 mm for an infant past 42 weeks, whose side panel
+  carries an extra note; nobody printed that infant. A printer with wider margins could then have sent the chart
+  to the next sheet without its patient block. Now a page is one unbreakable unit and the legend prints as one
+  row. The third reading caught the first fix's evidence: the "15 mm margin" PDF had been printed at the shells'
+  own margins, because their `@page` rule overrides the print option. Printed again with the `@page` margin
+  itself changed:
+
+  | Margins | Printable area ends at | Weight page ends at | Length and HC pages end at |
+  |---|---|---|---|
+  | the shells' 8 mm top and bottom | 289 mm | 249 mm | 243 mm |
+  | 15 mm all round | 282 mm | 250 mm | 244 mm |
+  | 20 mm all round | 277 mm | 249 mm | 243 mm |
+
+  Three pages every time, each with the patient block and the legend. **Not printed:** an infant past 42 weeks
+  (dev local seeds none). Also from these readings: a birth weight that is not a number prints as typed, and a
+  blank one as a dash; the harness reads the print block alone, checks that no rule naming a page hides it, and
+  covers an infant with no DOL anchor.
 - **For Pp to look at before it merges:** the banner's Thai wording, and a page from the ward's own printer.
   The harness proves what each page holds and that both shells carry the rules; the PDF shows the layout in
   Chromium, not what the ward's printer and browser do with it.

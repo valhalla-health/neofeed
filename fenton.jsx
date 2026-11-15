@@ -817,7 +817,7 @@ function GrowthPrintSheet({ patient, entries, currentDol }) {
             <td style={cell}>อายุ: DOL <strong>{currentDol || "—"}</strong> &nbsp; ตึก: <strong>{patient.currentBed || "—"}</strong></td>
             <td style={cell} colSpan={2}>GA แรกเกิด: <strong>{D_F.fmtGA(patient.ga)}</strong> &nbsp;
               เพศ: <strong>{patient.sex === "boys" ? "Male" : patient.sex === "girls" ? "Female" : "—"}</strong> &nbsp;
-              น้ำหนักแรกเกิด: <strong>{!patient.bw ? "—" : Number.isFinite(Number(patient.bw)) ? `${D_F.displayNum(patient.bw, 0)} g` : String(patient.bw)}</strong></td>
+              น้ำหนักแรกเกิด: <strong>{!String(patient.bw == null ? "" : patient.bw).trim() || Number(patient.bw) === 0 ? "—" : Number.isFinite(Number(patient.bw)) ? `${D_F.displayNum(patient.bw, 0)} g` : String(patient.bw)}</strong></td>
           </tr>
         </tbody>
       </table>

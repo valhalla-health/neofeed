@@ -271,7 +271,7 @@ runScenarios(__filename, 'GROWTH: SUNDAY PROMPT + PRINT (2026-11-16)', {
       A.ok(`${shell}: the tabs and zoom buttons do not print`, /\.growth-print \.fenton-ctrl, \.growth-print \.fenton-zoom \{ display: none !important; \}/.test(print));
       A.ok(`${shell}: each chart after the first starts a new page`, print.includes('.growth-print-page + .growth-print-page { break-before: page; page-break-before: always; }'));
       A.ok(`${shell}: a page, and the chart in it, is not split`, print.includes('.growth-print-page, .growth-print-chart { break-inside: avoid; page-break-inside: avoid; }'));
-      A.ok(`${shell}: the legend does not print`, print.includes('.growth-print .legend { display: none !important; }'));
+      A.ok(`${shell}: the legend prints as one row`, print.includes('.growth-print .legend { flex-direction: row !important; flex-wrap: wrap; justify-content: flex-end; gap: 4px 14px !important; }'));
       A.ok(`${shell}: the chart takes the page's width, its panel under it`, print.includes('.growth-print-chart svg { max-width: 100% !important; }') && print.includes('.growth-print .fenton-grid { grid-template-columns: 1fr !important; }'));
       A.ok(`${shell}: colours print as drawn`, /\.growth-print \{ display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; \}/.test(print));
       A.ok(`${shell}: the order form's own print rules are still there`, print.includes('#print-form { display: block !important; }') && print.includes('.print-batch, .print-batch-sheet { display: block !important; }'));

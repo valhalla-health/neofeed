@@ -2153,14 +2153,14 @@
        patient block. Each chart is the screen's own, without its tabs, zoom
        buttons or print button, as wide as the page's printable area (about
        183 mm wide and 111 mm tall in a Chromium PDF), with its readout panel
-       under it. The legend does not print: every centile line is labelled at
-       its right edge, and the room keeps a page from running over. A page is
-       one unbreakable unit, so a wider printer margin cannot part the patient
-       block from its chart. Colours print as drawn. */
+       under it. The legend prints as one row, not a column of four, so its
+       "Patient" marker stays explained and a page keeps room to spare. A page
+       is one unbreakable unit, so a wider printer margin cannot part the
+       patient block from its chart. Colours print as drawn. */
     .growth-print { display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .growth-print-page + .growth-print-page { break-before: page; page-break-before: always; }
     .growth-print-page, .growth-print-chart { break-inside: avoid; page-break-inside: avoid; }
-    .growth-print .legend { display: none !important; }
+    .growth-print .legend { flex-direction: row !important; flex-wrap: wrap; justify-content: flex-end; gap: 4px 14px !important; }
     .growth-print .fenton-grid { grid-template-columns: 1fr !important; }
     .growth-print-chart svg { max-width: 100% !important; }
     .growth-print .fenton-ctrl, .growth-print .fenton-zoom { display: none !important; }
@@ -2212,7 +2212,7 @@
   <script src="data.js?v=e69701bc75"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
   <script src="compiled/calculator.js?v=8c7a281b1a"></script>
-  <script src="compiled/fenton.js?v=327c7a9b0a"></script>
+  <script src="compiled/fenton.js?v=e19cf17755"></script>
   <script src="compiled/registry.js?v=e6f54efdb0"></script>
   <script src="compiled/log.js?v=dfd0cae3e3"></script>
   <script src="compiled/app.js?v=a254e8865b"></script>
