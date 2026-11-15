@@ -373,7 +373,7 @@ const screenFigures = () => ({
   // The Osmolarity tile's value, as the doctor reads it (2026-11-15: the front sheet prints it too).
   osm: (() => { const m = [...container.querySelectorAll('.metric')].find(d => d.querySelector('.lbl')?.textContent.trim() === 'Osmolarity'); return m ? numOrDash(m.querySelector('.val')?.firstChild?.textContent) : null; })(),
 });
-// The front sheet's small "Bag osm N mOsm/L" beside the route (null when it is not printed).
+// The front sheet's small "Bag osm N mOsm/L" on the Total Volume line (null when it is not printed).
 const printedOsm = () => { const t = __printFormTicked(container)?.querySelector('.print-osm')?.textContent; const m = t && t.match(/Bag osm (-?[\d.]+) mOsm\/L/); return m ? Number(m[1]) : null; };
 
 // The pharmacy back page's "Aqueous bag — stock" table, line by line.

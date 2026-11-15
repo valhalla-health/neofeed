@@ -5314,17 +5314,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td>Route of Delivery: {noTpnSheet ? <>— (No TPN)</>
               : route === "central" ? <>☐ Peripheral (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;<strong>☑ Central</strong></>
               : route === "peripheral" ? <><strong>☑ Peripheral</strong> (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;☐ Central</>
-              : <>☐ Peripheral (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;☐ Central</>}
-              {/* The bag's own osmolarity, small, beside the route (Pp,
-                  2026-11-15: "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้"). Rounded as the
-                  Osmolarity tile and CR-OSM-PERIPH grade it (fmt → displayNum),
-                  so the sheet, the tile and the grade read one number (the
-                  alert body still uses toFixed: BACKLOG's .5-tie item). No
-                  bag, or an estimate of 0 (no dextrose, AA or electrolyte), no
-                  figure; a zero-volume bag cannot be submitted. */}
-              {!noTpnSheet && calc.totalTPN_mL > 0 && calc.osm > 0 && (
-                <span className="print-osm" style={{ fontSize:9, color:"#333" }}> · Bag osm {fmt(calc.osm, 0)} mOsm/L</span>
-              )}</td>
+              : <>☐ Peripheral (&lt;{D.OSM_PERIPHERAL_MAX} mOsm/L) &nbsp;☐ Central</>}</td>
             <td colSpan={2}>Weight for calculation: <strong>{f(wtKg, 2)}</strong> Kg
               {usingBirthWeight && <span style={{ fontSize:9, color:"#555" }}> (birth weight — current {curWtG}g not yet regained)</span>}
               {/* A dosing weight that is neither the scale reading nor the
@@ -5359,7 +5349,18 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
       <table style={{ width:"100%", marginBottom:4, fontSize:10.5 }}><tbody>
         <tr>
           <td>Total Volume</td>
-          <td><strong>{f(totalTPN_mL, 1)}</strong> mL (Delivered Vol.) / <strong>{f(calc.preparedVol,1)}</strong> mL (Prepared Vol.) / Day</td>
+          <td><strong>{f(totalTPN_mL, 1)}</strong> mL (Delivered Vol.) / <strong>{f(calc.preparedVol,1)}</strong> mL (Prepared Vol.) / Day
+            {/* The bag's own osmolarity, small, on the front sheet (Pp,
+                2026-11-15: "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้"). On this line, not
+                the Route cell: there it wrapped in CI's wide font and pushed the
+                fullest order 3.8 mm onto a second page. Rounded as the
+                Osmolarity tile and CR-OSM-PERIPH grade it (fmt → displayNum), so
+                the sheet, the tile and the grade read one number (the alert
+                body still uses toFixed: BACKLOG's .5-tie item). No bag volume,
+                or an estimate of 0 (no dextrose, AA or electrolyte), no figure. */}
+            {totalTPN_mL > 0 && calc.osm > 0 && (
+              <span className="print-osm" style={{ fontSize:9, color:"#333" }}> · Bag osm {fmt(calc.osm, 0)} mOsm/L</span>
+            )}</td>
         </tr>
         <tr>
           <td>Dextrose</td>

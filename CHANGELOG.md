@@ -16,13 +16,17 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   "☑ Peripheral (<900 mOsm/L)" with no value: the front sheet, the one that prints, showed only the route's
   limit, and the bag's own figure sat on the back sheet, which never prints (`.print-back`). Pp, 2026-11-15:
   "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้".
-- **What.** Beside the route boxes, in 9 pt grey: "· Bag osm N mOsm/L". N is `fmt(calc.osm, 0)`, the rounding the
+- **What.** At the end of the front sheet's Total Volume line, in 9 pt grey: "· Bag osm N mOsm/L". N is `fmt(calc.osm, 0)`, the rounding the
   Osmolarity tile shows and CR-OSM-PERIPH grades, so an 899.6 estimate prints 900 and is graded critical. The alert
   body and Step 3's chip still round with `toFixed(0)` and can read 1 lower at a .5 tie (Vera, finding 1): that is
   the open rounding item in `BACKLOG.md`, its own PR. A No TPN
-  sheet, a day with no bag volume, or a bag whose estimate is 0 (no dextrose, amino acid or electrolyte) prints no
+  sheet (which has no Total Volume line), a day with no bag volume, or a bag whose estimate is 0 (no dextrose, amino acid or electrolyte) prints no
   figure. The back sheet's own two osmolarity lines still use `toFixed(0)`; they do not print, and the .5-tie
   rounding item in `BACKLOG.md` stays open for them.
+- **Placement.** The first commit put it beside the route boxes. In CI's wide print font (DejaVu Sans) that cell
+  wrapped, and the fullest order in `verify-print-one-page-1102.cjs` grew from 277.4 to 281.2 mm, 0.2 mm past the
+  page. The Total Volume line is short and has room. A local run on Windows cannot show this: Verdana measures
+  281.3 mm on `main`'s own code, so only CI's figure counts here.
 - **Feeds stay off the sheet** on purpose (Pp, 2026-11-15: the TPN room does not need them), which closes the walk's
   other print question about feeds. The aqueous pump rate is still a question for pharmacy.
 - **Tests.** CR-OSM-PERIPH gains three `prints` cases: 899 prints 899, an 899.6 estimate prints 900 and asks for a
