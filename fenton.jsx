@@ -783,7 +783,7 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
 
 // The three charts on paper (Pp, 2026-11-16: "ให้มีปุ่ม ปริ้นท กราฟที่ plot fenton
 // ออกมาได้ด้วย เผื่อเอาออกมาดู"; all three in one go, and the header the printed
-// order carries). One chart to a page, at the page's full width so its labels
+// order carries). One chart to a page, as wide as the printable area so its labels
 // stay readable, and every page starts with the patient block: three charts
 // under one header ran onto pages that named nobody (Vera, 2026-11-16).
 // Hidden on screen; the print stylesheet in the two shells shows it and hides
@@ -817,7 +817,7 @@ function GrowthPrintSheet({ patient, entries, currentDol }) {
             <td style={cell}>อายุ: DOL <strong>{currentDol || "—"}</strong> &nbsp; ตึก: <strong>{patient.currentBed || "—"}</strong></td>
             <td style={cell} colSpan={2}>GA แรกเกิด: <strong>{D_F.fmtGA(patient.ga)}</strong> &nbsp;
               เพศ: <strong>{patient.sex === "boys" ? "Male" : patient.sex === "girls" ? "Female" : "—"}</strong> &nbsp;
-              น้ำหนักแรกเกิด: <strong>{patient.bw ? `${D_F.displayNum(patient.bw, 0)} g` : "—"}</strong></td>
+              น้ำหนักแรกเกิด: <strong>{!patient.bw ? "—" : Number.isFinite(Number(patient.bw)) ? `${D_F.displayNum(patient.bw, 0)} g` : String(patient.bw)}</strong></td>
           </tr>
         </tbody>
       </table>

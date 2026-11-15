@@ -122,8 +122,14 @@ runScenarios(__filename, 'GROWTH: SUNDAY PROMPT + PRINT (2026-11-16)', {
     A.eq('not due: a test patient', D.weeklyGrowthDue(p({ sessionId: 'TEST-NF-1' }), 'doctor', SUN), false);
     A.eq('(an Active record with no bed is read-only)', D.isReadOnlyOther(p({ currentBed: '' })), true);
     A.eq('not due: no bed in the system, so nothing could be saved', D.weeklyGrowthDue(p({ currentBed: '' }), 'doctor', SUN), false);
-    A.eq('due: a DOL stored as text still counts as today', D.weeklyGrowthDue(p({ weights: [{ dol: String(dol), l: 40, hc: 28 }] }), 'doctor', SUN), false);
+    A.eq('not due: both are in on a DOL stored as text, which still counts as today', D.weeklyGrowthDue(p({ weights: [{ dol: String(dol), l: 40, hc: 28 }] }), 'doctor', SUN), false);
     A.eq('not due: no patient', D.weeklyGrowthDue(null, 'doctor', SUN), false);
+    // No DOL anchor: liveDol falls back to the last stored row, where the growth
+    // page files too, so the prompt stops once that row carries both values.
+    const noAnchor = (rows) => p({ dob: '', admissionDate: '', weights: rows });
+    A.eq('(with no anchor, today is the last stored row)', D.liveDol(noAnchor([{ dol: 5, w: 1200 }])), 5);
+    A.eq('no DOL anchor, the last row lacks a head circumference: due', D.weeklyGrowthDue(noAnchor([{ dol: 5, l: 40 }]), 'doctor', SUN), true);
+    A.eq('no DOL anchor, the last row has both: not due', D.weeklyGrowthDue(noAnchor([{ dol: 5, l: 40, hc: 28 }]), 'doctor', SUN), false);
   },
 
   async 'sunday'(A) {
@@ -254,13 +260,18 @@ runScenarios(__filename, 'GROWTH: SUNDAY PROMPT + PRINT (2026-11-16)', {
     // The print rules, in both shells.
     for (const shell of ['index.html', 'NeoFeed.html']) {
       const css = fs.readFileSync(path.join(DIR, shell), 'utf8');
-      const print = css.slice(css.indexOf('@media print {'));
+      // The print block alone: from its opening to its closing brace.
+      const from = css.indexOf('@media print {');
+      const print = css.slice(from, css.indexOf('\n  }', from));
+      A.ok(`${shell}: (the print block was found, and it ends)`, from > 0 && print.length > 500 && print.length < 20000);
+      A.ok(`${shell}: nothing in the print block hides a page of the sheet`, !/\.growth-print-page[^{}]*\{[^}]*display:\s*none/.test(print));
       A.ok(`${shell}: the sheet is hidden on screen`, /\n  \.growth-print \{ display: none; \}/.test(css.slice(0, css.indexOf('@media print {'))));
       A.ok(`${shell}: on paper the sheet shows and the rest of the work area hides`,
         print.includes('.work-inner > :not(#print-form):not(.print-batch):not(.growth-print)') && print.includes('.growth-print { display: block !important;'));
       A.ok(`${shell}: the tabs and zoom buttons do not print`, /\.growth-print \.fenton-ctrl, \.growth-print \.fenton-zoom \{ display: none !important; \}/.test(print));
       A.ok(`${shell}: each chart after the first starts a new page`, print.includes('.growth-print-page + .growth-print-page { break-before: page; page-break-before: always; }'));
-      A.ok(`${shell}: a chart is not split across pages`, print.includes('.growth-print-chart { break-inside: avoid; page-break-inside: avoid; }'));
+      A.ok(`${shell}: a page, and the chart in it, is not split`, print.includes('.growth-print-page, .growth-print-chart { break-inside: avoid; page-break-inside: avoid; }'));
+      A.ok(`${shell}: the legend does not print`, print.includes('.growth-print .legend { display: none !important; }'));
       A.ok(`${shell}: the chart takes the page's width, its panel under it`, print.includes('.growth-print-chart svg { max-width: 100% !important; }') && print.includes('.growth-print .fenton-grid { grid-template-columns: 1fr !important; }'));
       A.ok(`${shell}: colours print as drawn`, /\.growth-print \{ display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; \}/.test(print));
       A.ok(`${shell}: the order form's own print rules are still there`, print.includes('#print-form { display: block !important; }') && print.includes('.print-batch, .print-batch-sheet { display: block !important; }'));
