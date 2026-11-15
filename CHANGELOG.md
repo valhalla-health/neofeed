@@ -43,6 +43,15 @@ changes list), `log.jsx` (`urineRate`), `compiled/`, the neofeed-clinical-rules 
   sync (`ioOnlyByDoctor`). A Daily_Log row is still appended (the revision trail is kept); only the order's number holds.
   **Needs a backend deploy** (`clasp`, Praew's go-ahead) before the frontend release; until then a doctor's I/O edit
   numbers a revision, as today.
+  **Vera's second review: NO BLOCK, two findings, both fixed.** (1) 🟠 The client guessed "I/O only" from the form while
+  the server compares the whole calcInput: on an order with a confirmed critical value Submit asked for the reason again,
+  the new confirmation made the server store ฉบับ 2, and the sheet printed none. Now a doctor's I/O-only Submit whose
+  critical values are all confirmed keeps the stored confirmation without asking, as a nurse's does; and the server answers
+  with the `orderRev` it stored, which the ward's copy prints (an older backend: the guess, as before). (2) 🟡 The doctor
+  branch took a draft someone locked (AH) as submitted: it now goes by column O alone, as the nurse branch, so submitting
+  a locked draft is a signed new version. `updateDailyNutrition`'s answer gains `orderRev`. Not checked here: whether real
+  Sheets hands figure columns back as exactly the double sent (`_sameStoredFigures` compares with `!==`); if not, a doctor's
+  I/O save is a new version, as before this PR. To check on the sheet after the deploy.
   Tests: backend writes +9 (a doctor's I/O and tick save keeps ฉบับ 1 and the room's same bag; unticking; a nurse cannot
   set the tick; a figure column changed is ฉบับ 2; a dose change ฉบับ 3 and the room no longer counts ฉบับ 1 as the same
   bag; 6 fail on the backend before; a nurse's save takes the tick, still ฉบับ 1); `verify-walk-1107` +4 (the client

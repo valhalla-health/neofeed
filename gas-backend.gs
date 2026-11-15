@@ -1517,6 +1517,7 @@ function doPost(e) {
       // looked like an in-place edit until the next sync (2026-09-17 review,
       // UP-B7 / UP-S16).
       var updOut = { ok: true, lastModified: updResult.lastModified };
+      if (updResult.orderRev) updOut.orderRev = updResult.orderRev;
       if (updResult.revised) {
         updOut.revised = true;
         updOut.entryId = updResult.entryId;
@@ -3043,8 +3044,10 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       if (curSubmitted) entry = _ioOnlyEntryFrom(cur, entry, "submitted");
       else if (othersDraft) entry = _ioOnlyEntryFrom(cur, entry, "draft");
       else entry = _withOrderBy(entry, editedBy, orderRevNext);
-    } else if ((cur[33] || String(cur[14] || "").trim().toLowerCase() !== "draft") && _ioOnlyRevision(cur, entry)
+    } else if (String(cur[14] || "").trim().toLowerCase() !== "draft" && _ioOnlyRevision(cur, entry)
         && _sameStoredFigures(cur, entry)) {
+      // By column O alone, as the nurse branch: submitting a draft someone locked
+      // (AH) is a signed new version, not I/O (Vera, 2026-11-15).
       // A doctor's save on a submitted order that changes only I/O (the three
       // boxes, the tick) is not a new version of the order (Pp, 2026-11-15): it
       // is written from the stored row, as a nurse's is, keeping its orderBy and
@@ -3121,6 +3124,9 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
         ok: true, revised: true,
         entryId: newEntryId, lastModified: newLastModified,
         revisionNumber: nextRevisionNumber,
+        // The order's own number as stored, so the ward's copy prints what the
+        // record holds rather than a guess (Vera, 2026-11-15).
+        orderRev: _numSafe((entry.calcInput || {}).orderRev, 0),
       };
     }
 
@@ -3154,7 +3160,8 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     // an order already submitted is the same calculation again, and so is a
     // second request for this promotion: it finds the row submitted.
     var wasDraft = String(cur[14] == null ? "" : cur[14]).trim() === "draft";
-    return { ok: true, lastModified: newLastModified, completed: wasDraft && entry.status !== "draft" };
+    return { ok: true, lastModified: newLastModified, completed: wasDraft && entry.status !== "draft",
+      orderRev: _numSafe((entry.calcInput || {}).orderRev, 0) };
   } finally {
     _bumpDataVersion();
     lock.releaseLock();

@@ -2897,8 +2897,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A nurse never answers the critical-value prompt: her I/O save keeps the
     // doctor's confirmation as saved, and nurseSubmitRefused holds an order
     // with a critical value nobody confirmed (N1).
-    const critical = asDraft || nurseIoOnly ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
-    let override = nurseIoOnly && !asDraft ? critOverride : null;
+    // A doctor's save that changes only I/O on a submitted order keeps its number
+    // and its author too (Pp, 2026-11-15; gas-backend.gs writes it from the
+    // stored row): the same order, on the same constants. Its critical values
+    // were confirmed when it was ordered, so the stored confirmation stands, as
+    // on a nurse's I/O save; asking again would make it a new version (Vera).
+    const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
+      && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
+      && uncoveredCritical.length === 0;
+    const critical = asDraft || nurseIoOnly || ioOnlyByDoctor ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+    let override = (nurseIoOnly || ioOnlyByDoctor) && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
       // into an order packet that deliberately carries no identity), so both
@@ -2921,11 +2929,6 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // orderRevNext): a submitted order is revised, a draft keeps its number. The
     // server's stamp is what is stored; this keeps the ward's copy right until the
     // next sync.
-    // A doctor's save that changes only I/O on a submitted order keeps its number
-    // and its author too (Pp, 2026-11-15; gas-backend.gs writes it from the
-    // stored row): the same order, on the same constants.
-    const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
-      && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION;
     const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + ((savedStatus === "submitted" || published) && !ioOnlyByDoctor ? 1 : 0);
     const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;   // what every dose on this save was computed from (UP-C2)
@@ -3088,10 +3091,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     }
     // A nurse's I/O save on another account's order leaves whose order it is,
     // its time and its revision as they were (the server keeps them too).
-    if (!ioOnlyOnOthers && !ioOnlyByDoctor) setSavedMeta({
+    // The server says which number it stored (orderRev); an older backend does
+    // not, and then the guess above stands. A number that moved is a new
+    // version, whoever's save it was meant to be (Vera, 2026-11-15).
+    const storedRev = Number(res.orderRev) > 0 ? Number(res.orderRev) : null;
+    const keptRev = storedRev != null ? storedRev === (savedMeta?.revision || 1) && !!savedEntryId : (ioOnlyOnOthers || ioOnlyByDoctor);
+    if (!keptRev) setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || new Date().toISOString(),
-      revision: nextOrderRev,
+      revision: storedRev ?? nextOrderRev,
     });
     clearDraft();
     setDraftOffer(null);

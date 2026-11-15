@@ -1932,8 +1932,9 @@ function Calculator({
       showToast(feedUnknownText, "error");
       return;
     }
-    const critical = asDraft || nurseIoOnly ? [] : sortClinicalAlerts(alerts).filter((a) => a.level === "crit" && !a.noReason);
-    let override = nurseIoOnly && !asDraft ? critOverride : null;
+    const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION && uncoveredCritical.length === 0;
+    const critical = asDraft || nurseIoOnly || ioOnlyByDoctor ? [] : sortClinicalAlerts(alerts).filter((a) => a.level === "crit" && !a.noReason);
+    let override = (nurseIoOnly || ioOnlyByDoctor) && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       const reason = window.prompt(
         `มีค่าวิกฤต ${critical.length} รายการ:
@@ -1950,7 +1951,6 @@ function Calculator({
     }
     const keyAtSave = formKey;
     const ioOnlyOnOthers = nurseIoOnly && !!savedEntryId && !!savedSaver && savedSaver !== draftOwner;
-    const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION;
     const nextOrderRev = !savedEntryId ? 1 : (savedMeta?.revision || 1) + ((savedStatus === "submitted" || published) && !ioOnlyByDoctor ? 1 : 0);
     const orderKeyAtSave = orderKeyWithoutIo(liveInputs);
     const dosingWtAtSave = wtG;
@@ -2148,10 +2148,12 @@ function Calculator({
       setSavedCalcVersion(D.CONSTANTS_VERSION);
       setSavedFiguresV(figures ? figures.v : null);
     }
-    if (!ioOnlyOnOthers && !ioOnlyByDoctor) setSavedMeta({
+    const storedRev = Number(res.orderRev) > 0 ? Number(res.orderRev) : null;
+    const keptRev = storedRev != null ? storedRev === (savedMeta?.revision || 1) && !!savedEntryId : ioOnlyOnOthers || ioOnlyByDoctor;
+    if (!keptRev) setSavedMeta({
       by: userLabel || "",
       at: res.lastModified || (/* @__PURE__ */ new Date()).toISOString(),
-      revision: nextOrderRev
+      revision: storedRev ?? nextOrderRev
     });
     clearDraft();
     setDraftOffer(null);

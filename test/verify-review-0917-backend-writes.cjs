@@ -327,6 +327,17 @@ T.section('2026-11-15 · a doctor\'s I/O-only save keeps the order\'s ฉบั�
   const room2 = g.as(rt, { action: 'pharmacyOrders', date: TODAY });
   const ord2 = (room2.orders || []).find(o => o.sessionId === 'NF-000460');
   T.eq('…and the room no longer counts the ฉบับ 1 row as the same bag', [ord2 && ord2.revision, !!ord2 && (ord2.sameBagEntryIds || []).includes(c.entryId)], [3, false]);
+  T.eq('…and each answer names the number it stored', [io.orderRev, fig.orderRev, dose.orderRev], [1, 2, 3]);
+  // Vera, second review: a draft another account saved and someone locked (AH) is still a draft (column O).
+  g.seedPatient(P('NF-000461', { currentBed: 'NICU 11' }));
+  const dr = g.as(g.at, { action: 'logDailyNutrition', sessionId: 'NF-000461',
+    entry: E({ ts: TODAY, status: 'draft', ioInput: 90, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 90, aaPerKg: 3 } }) });
+  const drRow = g.rows('Daily_Log').find(r => r[25] === dr.entryId);
+  drRow[33] = TODAY + 'T02:00:00.000Z';
+  const sub = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000461', entryId: dr.entryId, expectedLastModified: dr.lastModified,
+    entry: E({ ts: TODAY, ioInput: 91, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 91, aaPerKg: 3 } }) });
+  T.eq('a doctor submitting a locked draft with only Input changed: a signed new version, hers, ฉบับ 2',
+    [sub.ok, ci().orderBy, ci().orderRev, last()[14]], [true, 'doc@kcmh.test', 2, 'submitted']);
 });
 
 T.section('UP-B7 · doPost forwards revised / entryId / revisionNumber', () => {
@@ -337,13 +348,14 @@ T.section('UP-B7 · doPost forwards revised / entryId / revisionNumber', () => {
   const lm = g.rows('Daily_Log')[0][26];
   const rev = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'AB-900', entryId: c.entryId, expectedLastModified: lm, entry: E({ pro: 3.6 }) });
   T.ok('publish ok', p.ok === true, p);
-  T.eq('the response carries the revision fields the client branches on', Object.keys(rev).sort(), ['entryId', 'lastModified', 'ok', 'revised', 'revisionNumber']);
+  T.eq('the response carries the revision fields the client branches on', Object.keys(rev).sort(), ['entryId', 'lastModified', 'ok', 'orderRev', 'revised', 'revisionNumber']);
   T.ok('…with the NEW entryId and revision 2', rev.revised === true && rev.entryId !== c.entryId && rev.revisionNumber === 2 && rev.entryId === g.rows('Daily_Log')[1][25], rev);
   // Stored as a draft: since 2026-10-29 a submitted row is revised even when
   // unpublished (Pp), so only a draft is edited in place.
   const draft = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-11', status: 'draft' }) });
   const upd = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'AB-900', entryId: draft.entryId, expectedLastModified: draft.lastModified, entry: E({ pro: 3.1 }) });
-  T.eq('a draft edit still answers { ok, lastModified } only', Object.keys(upd).sort(), ['lastModified', 'ok']);
+  // orderRev since 2026-11-15: the order's number as stored, which the ward's copy prints (Vera).
+  T.eq('a draft edit answers { ok, lastModified, orderRev }', Object.keys(upd).sort(), ['lastModified', 'ok', 'orderRev']);
 });
 
 T.section('UP-B8 · a failed supersede never leaves two current rows for one day', () => {
