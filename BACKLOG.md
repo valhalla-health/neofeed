@@ -817,10 +817,12 @@ clinical judgement. Everything else is engineering sequencing.
       order. The read-only part is built, not live (`openspec/changes/tpn-room-stickers`, PR A: role
       `pharmacy`, `pharmacyOrders`). The printed form now carries HN/AN boxes, saved-by/time/revision and
       changes-vs-previous (2026-09-11); the status loop is not built.
-- [ ] 🩺 **safety · Osmolarity, energy, Ca and P round .5 ties wrongly on the doctor's screen and sheet**
+- [x] 🩺 **safety · Osmolarity, energy, Ca and P round .5 ties wrongly on the doctor's screen and sheet**
       (`toFixed(0)`, `Math.round`; found by the sticker calc check, 2026-10-30, its own PR). 899.5 mOsm/L graded red at
       900 while the alert text says 899, about 1 order in 2,000. In a 2026-11-02 probe one order shows 639 on screen and
-      640 on its sticker, whose figure is the right one.
+      640 on its sticker, whose figure is the right one. **Built 2026-11-15** (`CHANGELOG.md` 2026-11-15 (4)): every whole
+      number goes through `displayNum`, the printed front's Ca gluconate mg and oral supplements included;
+      `verify-calc-sum.cjs` § 4 and `tools/ci_bans.js` `raw-round-display` hold it.
 - [ ] 🧹 **chore · `verify-review-0917-session` §10 flakes across midnight.** It takes TODAY at module load while the
       app reads the real clock, so a run across 00:00 ICT gives a DOL off by one. Re-run it alone; it needs a pinned
       jsdom clock.

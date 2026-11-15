@@ -1959,7 +1959,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // rest of this form uses for smart prefills.
   React.useEffect(() => {
     if (ioInputTouchedRef.current) return;   // ref, not state — see markIoInputTouched
-    setIoInput(Math.round(calc.prescribedFluid) || 0);
+    setIoInput(Number(D.displayNum(calc.prescribedFluid, 0)) || 0);
   }, [calc.prescribedFluid, ioInputTouched]);
 
   // ── Intake / Output card ─────────────────────────────────────────
@@ -1979,7 +1979,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const ioDivisorGVal = ioDivisor.g;
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1000 : null;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
-  const ioOutputPerKgH = ioDivisorKg ? Math.round((ioOutput / ioDivisorKg / 24) * 100) / 100 : null;
+  const ioOutputPerKgH = ioDivisorKg ? ioOutput / ioDivisorKg / 24 : null;
   const ioDrainPerKg = ioDivisorKg ? drainContent / ioDivisorKg : null;
   const ioBalance = ioInput - ioOutput - drainContent;
   // The nurses' record for this order's date, when there is one to offer (a
@@ -2250,7 +2250,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Each feed's own hint: alone, its interval; beside another, its share of
   // the one schedule, since 6 + 2 is not q4h beside q12h (they would meet at
   // 0 h and 12 h) but 6 and 2 of eight q3h feeds (Vera, 2026-10-28).
-  const feedFreqHint = (n) => !twoFeeds ? `q${Math.round(24 / Math.max(n, 1))}h`
+  const feedFreqHint = (n) => !twoFeeds ? `q${fmt(24 / Math.max(n, 1), 0)}h`
     : feedsIrregular || feedsOverMax ? "" : `${fmt(n, 1)} of ${fmt(feedsPerDay, 1)} feeds · q${fmt(24 / feedsPerDay, 1)}h`;
   // A feed given from a key EN_DB does not hold has no composition, so the
   // order cannot be submitted or printed until another milk is picked.
@@ -2457,7 +2457,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       + `${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""}`
       + ` — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
     ref: "Pp, 2026-11-01" });
-  if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
+  if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${fmt(calc.osm, 0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
   // CR-NO-TPN-PLAN (Pp, 2026-11-01): a day ticked "No TPN" whose counted feed is
   // more than 20 mL/kg/d below Step 1's plan is amber, in case the TPN was
   // forgotten ("เผื่อลืมสั่ง TPN"). Quiet when CR-NO-TPN-EN's red line already
@@ -2472,7 +2472,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Also on a day ticked "No TPN", whose feeds may reach CR-NO-TPN-EN's bar
   // and still be far from the day's plan (Vera, 2026-11-01); there, a shortfall
   // already said in red or amber above is not said again.
-  if ((calc.totalTPN_mL > 0 || (noTpnOn && !noTpnEnLow && !noTpnPlanLow)) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
+  if ((calc.totalTPN_mL > 0 || (noTpnOn && !noTpnEnLow && !noTpnPlanLow)) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${fmt(calc.totalFluidPerKg, 0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   // The TPN pump runs 24 h with no volume limit, so a rate rounded up gives more (Q21).
   if (tpnOver) alerts.push({ level: "info", title: "TPN rate gives more than ordered", body: `${fmt(tpnPump.rate, 1)} mL/hr for 24 h gives ${fmt(tpnOver.givenMl, 1)} mL, ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct} %) more than the ${fmt(totalTPN_mL, 1)} mL ordered, from the bag's dead space. Glucose and every additive run ${tpnOver.pct} % above the figures shown.`, ref: "Pp, 2026-11-10" });
   // ── KCMH worksheet hard ceilings (G25) + compoundability ──────────────────
@@ -2952,8 +2952,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
     const _suppPayload = {
       suppMTV:       suppMTV ? 1 : 0,
-      suppVitD_IU:   suppVitD > 0 && wtKg > 0 ? Math.round(suppVitD * wtKg) : 0,
-      suppCa_mg:     suppCa   > 0 && wtKg > 0 ? Math.round(suppCa   * wtKg) : 0,
+      suppVitD_IU:   suppVitD > 0 && wtKg > 0 ? Number(D.displayNum(suppVitD * wtKg, 0)) : 0,
+      suppCa_mg:     suppCa   > 0 && wtKg > 0 ? Number(D.displayNum(suppCa   * wtKg, 0)) : 0,
       suppCaType:    suppCa   > 0 ? suppCaType   : "",
       suppPO4_mmol:  suppPO4  > 0 && wtKg > 0 ? parseFloat((suppPO4  * wtKg / 31).toFixed(2)) : 0,
       suppPO4Type:   suppPO4  > 0 ? suppPO4Type  : "",
@@ -3424,7 +3424,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           Step 2 · Enteral feeding
           {!openSteps.has(5) && calc.enVolPerKg > 0 && (
             <div className="step-summary">
-              <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
+              <span className="step-summary-chip">{fmt(calc.enVolPerKg, 0)} mL/kg/d</span>
               {enFeeds.filter(f => f.mlPerDay > 0).map((f, i) => <span key={i} className="step-summary-chip">{D.EN_DB[f.key]?.label?.split(" — ")[0]}</span>)}
               {calc.en?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>LF <Icon name="check" size={12} stroke={2.4} /></span>}
               {calc.useEnteralTargets && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>Full EN <Icon name="check" size={12} stroke={2.4} /></span>}
@@ -3593,7 +3593,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                  that needs none. warn/crit keep their status colours. */
               background: sOsm==="crit" ? "var(--crit-bg)" : sOsm==="warn" ? "var(--warn-bg)" : "var(--bg-2)",
               color:       sOsm==="crit" ? "var(--crit)"   : sOsm==="warn" ? "var(--warn)"   : "var(--ink-2)" }}>
-              Osm {calc.osm.toFixed(0)} mOsm/L{sOsm === "crit" && (
+              Osm {fmt(calc.osm, 0)} mOsm/L{sOsm === "crit" && (
                 <span title={`${D.OSM_PERIPHERAL_MAX} mOsm/L or more on a peripheral line`}
                   style={{ display:"inline-flex", verticalAlign:"-2px", marginLeft:4 }}>
                   <Icon name="warn" size={13} stroke={2.2} />
@@ -3656,7 +3656,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <NumField label="Volume" unit="mL/day"
                   value={totalTPN_mL}
                   onChange={setTotalTPN_mL} step={1}
-                  hint={totalTPN_mL > 0 ? `= ${(totalTPN_mL/wtKg).toFixed(0)} mL/kg/d` : ""} />
+                  hint={totalTPN_mL > 0 ? `= ${fmt(totalTPN_mL/wtKg, 0)} mL/kg/d` : ""} />
                 <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"center" }}>
                   <div style={{ fontSize:12, visibility:"hidden" }}>&nbsp;</div>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:44,
@@ -3670,7 +3670,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <NumField label="Rate" unit="mL/hr"
                   value={tpnPump ? tpnPump.rate : 0}
                   onChange={(r) => setTotalTPN_mL(parseFloat((r * 24).toFixed(2)))} step={0.1}
-                  hint={totalTPN_mL > 0 ? `= ${tpnOver ? fmt(totalTPN_mL, 1) : totalTPN_mL.toFixed(0)} mL/day${tpnOver ? ` · 24 ชม. ได้ ${fmt(tpnOver.givenMl, 1)} mL เกิน ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct}%)` : ""}` : "ใส่ rate pump"} />
+                  hint={totalTPN_mL > 0 ? `= ${tpnOver ? fmt(totalTPN_mL, 1) : fmt(totalTPN_mL, 0)} mL/day${tpnOver ? ` · 24 ชม. ได้ ${fmt(tpnOver.givenMl, 1)} mL เกิน ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct}%)` : ""}` : "ใส่ rate pump"} />
               </div>
 
               {/* ── Overfill: dead space → prepared volume ──────────────────
@@ -4218,7 +4218,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   const totalMg = suppCa * wtKg;
                   const tabs = prod && totalMg > 0 ? totalMg / prod.ca_mg_per_unit : 0;
                   return suppCa > 0 && wtKg > 0
-                    ? `= ${Math.round(totalMg)} mg/day · ${fmt(tabs, 2)} tab/day (${prod?.label})`
+                    ? `= ${fmt(totalMg, 0)} mg/day · ${fmt(tabs, 2)} tab/day (${prod?.label})`
                     : `ESPGHAN 2022 target: ${D.ENTERAL_TARGETS.ca().join("–")} mg/kg/day · ${D.SUPP_DB[suppCaType]?.note || ""}`;
                 })()} />
               <PresetChips values={[50, 80, 100, 120]} current={suppCa} onSelect={setSuppCa} />
@@ -4229,7 +4229,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <label>ผลิตภัณฑ์</label>
                 <select className="sel" style={{ height: 38 }} value={suppPO4Type} onChange={e => setSuppPO4Type(e.target.value)}>
                   {Object.entries(D.SUPP_DB).filter(([,v]) => v.category === "po4").map(([k,v]) =>
-                    <option key={k} value={k}>{v.label} · {v.unitVol} mL = {(v.po4_mg_per_ml * v.unitVol).toFixed(0)} mg P</option>
+                    <option key={k} value={k}>{v.label} · {v.unitVol} mL = {fmt(v.po4_mg_per_ml * v.unitVol, 0)} mg P</option>
                   )}
                 </select>
               </div>
@@ -4256,7 +4256,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="sub-h" style={{ marginTop: 14 }}>Vitamin D drops</div>
               <NumField label="Vitamin D" unit="IU/kg/day" value={suppVitD} onChange={setSuppVitD} step={100}
                 hint={suppVitD > 0 && wtKg > 0
-                  ? `= ${Math.round(suppVitD * wtKg)} IU/day · ESPGHAN 2022: ${D.ESPGHAN_TARGETS.en.vitD.range.join("–")} IU/kg`
+                  ? `= ${fmt(suppVitD * wtKg, 0)} IU/day · ESPGHAN 2022: ${D.ESPGHAN_TARGETS.en.vitD.range.join("–")} IU/kg`
                   : `ESPGHAN 2022: ${D.ESPGHAN_TARGETS.en.vitD.range.join("–")} IU/kg/day`} />
               <PresetChips values={[400, 500, 600, 700]} current={suppVitD} onSelect={setSuppVitD} suffix=" IU/kg" />
               {/* Munti-vim is a fixed 1 mL/day, so its D3 is 400 IU/DAY — not
@@ -4269,7 +4269,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {suppMTV && suppVitD > 0 && (
                 <div className="vitd-total" style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3, display: "flex", alignItems: "flex-start", gap: 4 }}>
                   <span style={{ display: "inline-flex", marginTop: 1 }}><Icon name="warn" size={12} stroke={2.2} /></span>
-                  Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น {Math.round(suppVitD * wtKg + 400)} IU/day
+                  Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น {fmt(suppVitD * wtKg + 400, 0)} IU/day
                 </div>
               )}
 
@@ -4285,13 +4285,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     <MiniReadout label="Munti-vim Drop" value="1" unit="mL/day" color="var(--brand-2)" />
                   )}
                   {suppVitD > 0 && wtKg > 0 && (
-                    <MiniReadout label="Vitamin D" value={`${Math.round(suppVitD * wtKg)} IU`} unit="/day" color="var(--brand-2)" />
+                    <MiniReadout label="Vitamin D" value={`${fmt(suppVitD * wtKg, 0)} IU`} unit="/day" color="var(--brand-2)" />
                   )}
                   {suppCa > 0 && wtKg > 0 && (() => {
                     const prod = D.SUPP_DB[suppCaType];
                     const tabs = prod ? (suppCa * wtKg) / prod.ca_mg_per_unit : 0;
                     return <MiniReadout label={`Ca · ${prod?.label}`}
-                      value={`${Math.round(suppCa * wtKg)} mg`}
+                      value={`${fmt(suppCa * wtKg, 0)} mg`}
                       unit={`→ ${fmt(tabs, 2)} tab/day`} color="var(--brand-2)" />;
                   })()}
                   {suppPO4 > 0 && wtKg > 0 && (() => {
@@ -4377,7 +4377,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           <div className="card-h">
             <Icon name="info" size={14} color="var(--brand)" />
             Energy distribution
-            <span className="h-meta">{calc.kcalKg.toFixed(0)} kcal/kg/d</span>
+            <span className="h-meta">{fmt(calc.kcalKg, 0)} kcal/kg/d</span>
           </div>
           <div className="card-b">
             <KcalBar cho={calc.kcalChoPct} pro={calc.kcalProtPct} fat={calc.kcalFatPct} />
@@ -4387,10 +4387,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <KcalLegend color="oklch(60% 0.11 25)" label="Fat" pct={calc.kcalFatPct} target="35–45%" />
             </div>
             <div style={{ marginTop: 12, borderTop: "1px solid var(--line-2)", paddingTop: 10, display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--ink-3)" }}>
-              <span>TPN <span className="num" style={{ color: "var(--ink)" }}>{calc.tpnKcal.toFixed(0)}</span></span>
-              <span>EN <span className="num" style={{ color: "var(--ink)" }}>{calc.enKcal.toFixed(0)}</span>
+              <span>TPN <span className="num" style={{ color: "var(--ink)" }}>{fmt(calc.tpnKcal, 0)}</span></span>
+              <span>EN <span className="num" style={{ color: "var(--ink)" }}>{fmt(calc.enKcal, 0)}</span>
                 {isMEN && calc.enVolTotal > 0 && <span style={{ marginLeft: 4 }}>(MEN — not counted)</span>}</span>
-              <span>EN share <span className="num" style={{ color: "var(--ink)" }}>{calc.totalKcal > 0 ? (calc.enKcal / calc.totalKcal * 100).toFixed(0) : 0}%</span></span>
+              <span>EN share <span className="num" style={{ color: "var(--ink)" }}>{calc.totalKcal > 0 ? fmt(calc.enKcal / calc.totalKcal * 100, 0) : 0}%</span></span>
             </div>
           </div>
         </div>
@@ -4633,8 +4633,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `──────────────────────────────`,
                 (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) ? `ENTERAL SUPPLEMENTS:` : `SUPPLEMENTS: None`,
                 suppMTV    ? `  Munti-vim Drop: 1 mL/day  (D3 400 IU · Vit A 2000 IU)` : "",
-                suppVitD > 0 && wtKg > 0 ? `  Vit D: ${suppVitD} IU/kg/d = ${Math.round(suppVitD * wtKg)} IU/day` : "",
-                suppCa > 0 && wtKg > 0 ? `  Ca oral (${D.SUPP_DB[suppCaType]?.label}): ${suppCa} mg/kg/d = ${Math.round(suppCa * wtKg)} mg/day → ${fmt(suppCa * wtKg / (D.SUPP_DB[suppCaType]?.ca_mg_per_unit || 1), 2)} tab/day` : "",
+                suppVitD > 0 && wtKg > 0 ? `  Vit D: ${suppVitD} IU/kg/d = ${fmt(suppVitD * wtKg, 0)} IU/day` : "",
+                suppCa > 0 && wtKg > 0 ? `  Ca oral (${D.SUPP_DB[suppCaType]?.label}): ${suppCa} mg/kg/d = ${fmt(suppCa * wtKg, 0)} mg/day → ${fmt(suppCa * wtKg / (D.SUPP_DB[suppCaType]?.ca_mg_per_unit || 1), 2)} tab/day` : "",
                 suppPO4 > 0 && wtKg > 0 ? `  PO₄ oral (${D.SUPP_DB[suppPO4Type]?.label}): ${suppPO4} mg/kg/d = ${fmt(suppPO4 * wtKg, 1)} mg/day → ${fmt(suppPO4 * wtKg / (D.SUPP_DB[suppPO4Type]?.po4_mg_per_ml || 1), 1)} mL/day` : "",
                 suppFerdek > 0 && wtKg > 0 ? `  Fe oral (${D.SUPP_DB[suppFeType]?.label}): ${suppFerdek} mg/kg/d = ${fmt(suppFerdek * wtKg, 1)} mg/day → ${fmt(suppFerdek * wtKg / (D.SUPP_DB[suppFeType]?.fe_mg_per_ml || 1), 2)} mL/day` : "",
                 (mineral.hasOral || mineral.hasIV) ? `──────────────────────────────` : "",
@@ -4941,7 +4941,7 @@ function KcalLegend({ color, label, pct, target }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-3)" }}>
         <span style={{ width: 10, height: 10, background: color, borderRadius: 2 }} />{label}
       </div>
-      <div style={{ fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, fontSize: 16, marginTop: 2 }}>{pct.toFixed(0)}%</div>
+      <div style={{ fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, fontSize: 16, marginTop: 2 }}>{fmt(pct, 0)}%</div>
       <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{target}</div>
     </div>);
 
@@ -5180,7 +5180,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   // Never a trailing zero on the pharmacy form (D.displayNum, 2026-09-22).
   const f  = (n, d=1) => (isFinite(n) && n > 0) ? D.displayNum(n, d) : "—";
   const printLipidPump = D.pumpRate(calc.lipidBagVol, lipidDripHours || 24);
-  const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";
+  const f0 = (n)      => f(n, 0);
   // WFI q.s. can legitimately be 0 or negative (over-filled bag) — must not print "—"
   const fSigned = (n, d=1) => D.displayNum(n, d);
   const normalizedOrderDate = D.normalizeDateStr(orderDate) || D.todayLocal();
@@ -5201,7 +5201,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   const aaKey = calc.aaStockKey || "aminoven10";
   const orals = [
     suppMTV && <span key="mtv">{chk(true)} Munti-vim Drop <strong>1</strong> mL/day</span>,
-    suppVitD > 0 && <span key="vd">{chk(true)} Vitamin D drops <strong>{suppVitD}</strong> IU/kg/d = <strong>{Math.round(suppVitD * (wtKg||0))}</strong> IU/day</span>,
+    suppVitD > 0 && <span key="vd">{chk(true)} Vitamin D drops <strong>{suppVitD}</strong> IU/kg/d = <strong>{f0(suppVitD * (wtKg||0))}</strong> IU/day</span>,
     suppCa > 0 && <span key="ca">{chk(true)} Ca oral ({D.SUPP_DB[suppCaType]?.label}) <strong>{suppCa}</strong> mg/kg/d = <strong>{f0(suppCa*(wtKg||0))}</strong> mg → {f(suppCa*(wtKg||0)/(D.SUPP_DB[suppCaType]?.ca_mg_per_unit||1),2)} tab/day</span>,
     suppPO4 > 0 && <span key="po4">{chk(true)} PO₄ oral ({D.SUPP_DB[suppPO4Type]?.label}) <strong>{suppPO4}</strong> mg/kg/d = <strong>{f0(suppPO4*(wtKg||0))}</strong> mg → {f(suppPO4*(wtKg||0)/(D.SUPP_DB[suppPO4Type]?.po4_mg_per_ml||1),1)} mL/day</span>,
     suppFerdek > 0 && <span key="fe">{chk(true)} Fe oral ({D.SUPP_DB[suppFeType]?.label}) <strong>{suppFerdek}</strong> mg/kg/d = <strong>{f(suppFerdek*(wtKg||0),1)}</strong> mg → {f(suppFerdek*(wtKg||0)/(D.SUPP_DB[suppFeType]?.fe_mg_per_ml||1),2)} mL/day</span>,
@@ -5697,14 +5697,14 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           <tr>
             <td style={td}>Ca²⁺ <strong>{f0(caPerKg*(wtKg||0))}</strong> mg = <strong>{f0(caPerKg)}</strong> mg/kg</td>
             <td style={td}>Phosphate <strong>{f0(calc.pTotal_mg)}</strong> mg</td>
-            <td style={td}>Osmolarity <strong>{calc.osm ? calc.osm.toFixed(0) : "—"}</strong> mOsm/L</td>
+            <td style={td}>Osmolarity <strong>{f0(calc.osm)}</strong> mOsm/L</td>
           </tr>
         </tbody></table>
 
         {/* Summary bar */}
         <div style={{ marginTop:6, padding:"4px 8px", border:"1px solid #ccc", fontSize:10, background:"#fafafa" }}>
           GIR {f(calc.gir,1)} mg/kg/min · Protein {f(calc.proteinKg,2)} g/kg/d · Energy {f0(calc.kcalKg)} kcal/kg/d ·
-          Na {f(calc.naKg,2)} mEq/kg · Ca:P {f(calc.caP,2)}:1 (TPN+EN) · Osm {calc.osm ? calc.osm.toFixed(0) : "—"} mOsm/L
+          Na {f(calc.naKg,2)} mEq/kg · Ca:P {f(calc.caP,2)}:1 (TPN+EN) · Osm {f0(calc.osm)} mOsm/L
         </div>
 
         {/* Changes vs the previous order — the pharmacist's fastest cross-check */}

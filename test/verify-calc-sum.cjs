@@ -83,6 +83,18 @@
 //     A feeds-only order without its feeds is an empty day, which cannot be
 //     submitted; its row is then all zeros.
 //
+// 4 · ONE FIGURE, ONE NUMBER (BACKLOG: osmolarity, energy, Ca and P .5 ties;
+//     2026-11-15). Four orders whose figure is a half on paper and a float
+//     just under it in JS: osmolarity 899.5 on a peripheral line (computed
+//     899.4999999999999), energy 43.5 kcal/kg/d, P 15.5 mg/kg/d and a bag's
+//     Ca gluconate 76.5 mg. Each must read the same whole number, rounded half
+//     up from the paper figure, everywhere it is shown: the tile, Step 3's
+//     chip, the alert line, the energy card, the printed sheet (front and back),
+//     the front's saved printedFigures and the TPN room's sticker figures.
+//     toFixed(0) and Math.round read the float, so before this check the alert
+//     said "899 mOsm/L" beside a red 900 tile. The wanted figures are the
+//     paper arithmetic, written into each order, not the app's formula.
+//
 // Orders: the oracle's 12 scenarios (copied, not imported), eight written for
 // this check — a 900 g infant on day 3 of TPN, a term infant, a bag a few mL
 // short of its prepared volume, one that overflows it, K₂HPO₄ and MgSO₄ under
@@ -103,6 +115,8 @@
 //   5  both feeds costed as feed 1's milk
 //   6  enVol2 dropped from the feeds' useMemo dependencies, so feed 2's
 //      volume typed changes the input but not the figures on screen
+//   7  the peripheral osmolarity alert back on toFixed(0) (899 beside a red 900)
+//   8  the printed sheet's f0 back on Math.round (Ca gluconate 76 mg, not 77)
 // The patched text is transformed under another file name, so the compiled
 // loader cannot swap compiled/calculator.js in for it (and says nothing was
 // swapped for calculator).
@@ -179,6 +193,12 @@ const PATCHES = {
   6: ['], [enType, enVol, enFreq, enType2, enVol2, enFreq2, !centerPoint]);',
       '], [enType, enVol, enFreq, enType2, enFreq2, !centerPoint]);',
       'enVol2 dropped from the feeds\' useMemo dependencies'],
+  7: ['body: `${fmt(calc.osm, 0)} mOsm/L — a peripheral',
+      'body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral',
+      'the peripheral osmolarity alert reads the float with toFixed(0)'],
+  8: ['const f0 = (n)      => f(n, 0);',
+      'const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";',
+      'the printed sheet\'s whole numbers from Math.round'],
 };
 const transform = (code, filename) => babel.transformSync(code, {
   presets: [[require('@babel/preset-react'), { runtime: 'classic' }]], filename, configFile: false, babelrc: false }).code;
@@ -865,6 +885,85 @@ async function runTwoFeeds(sc) {
   return null;
 }
 
+// ── 4 · one figure, one number: the .5 ties ─────────────────────────────────
+// `want` is the paper figure rounded half up, from the inputs alone.
+const TIES = [
+  { name: 'T1 1 kg, peripheral, 80 mL D9.04 AA 3.58: osm 452 + 447.5 = 899.5 → 900, red',
+    route: 'peripheral', tpn: 80, dex: 9.04, aa: 3.58, want: { osm: 900 } },
+  { name: 'T2 1 kg, 100 mL D10.5 AA 1.95: energy 35.7 + 7.8 = 43.5 → 44 kcal/kg/d',
+    tpn: 100, dex: 10.5, aa: 1.95, want: { kcal: 44 } },
+  { name: 'T3 760 g, Glycophos 1 mEq Na (0.5 mmol P): P 15.5 → 16 mg/kg/d',
+    bw: 760, cur: 760, tpn: 100, dex: 10, aa: 3, glyNa: 1, want: { p: 16 } },
+  { name: 'T4 1.5 kg, 150 + 30 mL, Ca 42.5 mg/kg: Ca gluconate 42.5 × 1.8 = 76.5 → 77 mg in the bag',
+    bw: 1500, cur: 1500, tpn: 150, dex: 10, aa: 3, ca: 42.5, glyNa: 2, want: { caMg: 77 } },
+];
+function alertBody(title) {
+  const row = [...container.querySelectorAll('.alert-row')].find(r => r.querySelector('.title')?.textContent === title);
+  return row ? row.querySelector('.body')?.textContent.replace(/\s+/g, ' ') : null;
+}
+const allNums = (text, re) => [...text.matchAll(re)].map(m => numOrDash(m[1]));
+function findKey(obj, key) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  if (key in obj) return obj[key];
+  for (const v of Object.values(obj)) { const r = findKey(v, key); if (r !== undefined) return r; }
+  return undefined;
+}
+async function runTie(scIn) {
+  const sc = { ...BASE, ...scIn };
+  const calls = mount(sc);
+  await fill(sc);
+  const w = sc.want;
+  const btn = btnExact('Submit');
+  ok(sc, 'Submit enabled', !!btn && !btn.disabled);
+  if (!btn || btn.disabled) return 'not orderable';
+  await clickAsync(btn);
+  const row = calls.rows[0];
+  const form = __printFormTicked(container);
+  ok(sc, 'saved, and the sheet renders', !!row && !!form);
+  if (!row || !form) return 'no print';
+  const screen = bodyText();
+  const sheet = form.textContent.replace(/\s+/g, ' ');
+  if (w.osm != null) {
+    ok(sc, `Osmolarity tile reads ${w.osm}`, tileVal('Osmolarity') === w.osm, tileVal('Osmolarity'));
+    const body = alertBody('Osmolarity > peripheral limit');
+    ok(sc, `the red alert is raised, and its line reads ${w.osm} mOsm/L`, !!body && numOrDash(body.split(' mOsm/L')[0]) === w.osm, body);
+    const shown = allNums(screen, /Osm (\d[\d.,]*) mOsm\/L/g);
+    ok(sc, `every "Osm … mOsm/L" (Step 3's chip and the sheet) reads ${w.osm}`, shown.length >= 2 && shown.every(v => v === w.osm), shown);
+    const printed = allNums(sheet, /Osmolarity (\d[\d.,]*) mOsm\/L/g);
+    ok(sc, `the sheet's Osmolarity line reads ${w.osm}`, printed.length === 1 && printed[0] === w.osm, printed);
+    const working = allNums(screen, /Osmolarity = (\d[\d.,]*) mOsm\/L/g);
+    ok(sc, `Step 3's working reads ${w.osm}`, working.every(v => v === w.osm), working);
+    ok(sc, `the sticker figure reads ${w.osm}`, findKey(row.printJson, 'osmolarity') === String(w.osm), findKey(row.printJson, 'osmolarity'));
+  }
+  if (w.kcal != null) {
+    ok(sc, `Energy (total) tile reads ${w.kcal}`, tileVal('Energy (total)') === w.kcal, tileVal('Energy (total)'));
+    const body = alertBody('Energy off target');
+    ok(sc, `the Energy line reads ${w.kcal} kcal/kg/d`, !!body && numOrDash(body.split(' kcal/kg/d')[0]) === w.kcal, body);
+    const card = screen.match(/Energy distribution ?(\d[\d.,]*) kcal\/kg\/d/);
+    ok(sc, `the energy card reads ${w.kcal} kcal/kg/d`, !!card && numOrDash(card[1]) === w.kcal, card && card[0]);
+    const tpn = screen.match(/TPN (\d[\d.,]*) ?EN (\d[\d.,]*)/);
+    ok(sc, `the energy card's TPN kcal reads ${w.kcal} (1 kg)`, !!tpn && numOrDash(tpn[1]) === w.kcal, tpn && tpn[0]);
+    const p = printedFigures();
+    ok(sc, `the sheet's energy line and summary read ${w.kcal}`, !!p && p.tpnKcalKg === w.kcal && p.summaryKcalKg === w.kcal, p);
+    ok(sc, `the sticker's kcal reads ${w.kcal} (1 kg)`, findKey(row.printJson, 'kcal') === String(w.kcal), findKey(row.printJson, 'kcal'));
+  }
+  if (w.p != null) {
+    ok(sc, `Phosphorus tile reads ${w.p}`, tileVal('Phosphorus') === w.p, tileVal('Phosphorus'));
+    const body = alertBody('Phosphorus off target');
+    ok(sc, `the Phosphorus line reads ${w.p} mg/kg/d`, !!body && numOrDash(body.split(' mg/kg/d')[0]) === w.p, body);
+    const po4 = allNums(sheet, /PO₄ (\d[\d.,]*)/g);
+    ok(sc, `the sheet's TPN and total PO₄ read ${w.p}`, po4.length >= 2 && po4[0] === w.p && po4[po4.length - 1] === w.p, po4);
+  }
+  if (w.caMg != null) {
+    const front = sheet.match(/☑ Ca Gluconate ?(\d[\d.,]*) mg ?(\d[\d.,]*) mg = /);
+    ok(sc, `the front prints Ca gluconate ${w.caMg} mg in the bag`, !!front && numOrDash(front[2]) === w.caMg, front && front[0]);
+    const back = sheet.match(/10% Ca Gluconate ?(\d[\d.,]*) mg/);
+    ok(sc, `the back sheet reads ${w.caMg} mg`, !!back && numOrDash(back[1]) === w.caMg, back && back[0]);
+    ok(sc, `the saved printedFigures (the changes list) read ${w.caMg}`, row.calcInput?.printedFigures?.caMg === String(w.caMg), row.calcInput?.printedFigures?.caMg);
+  }
+  return null;
+}
+
 (async () => {
   const ORDERS = [...ORACLE, ...OWN];
   for (let i = 0; i < COUNT; i++) ORDERS.push(randomOrder(i));
@@ -888,12 +987,21 @@ async function runTwoFeeds(sc) {
     const bad = failures.length - f0;
     console.log(`  ${bad ? 'FAIL' : 'PASS'}  ${sc.name.slice(0, 80).padEnd(80)} ${String(checks - c0).padStart(3)} checks${note ? `  (${note})` : ''}${bad ? `  ${bad} failed` : ''}`);
   }
+  console.log(`\n── ${TIES.length} orders on a .5 tie: one figure reads one number on screen, on the sheet and on the sticker ──`);
+  for (const sc of TIES) {
+    const f0 = failures.length, c0 = checks;
+    let note = null;
+    try { note = await runTie(sc); }
+    catch (err) { failures.push({ sc: sc.name, what: 'order threw', detail: String(err && err.stack || err).split('\n').slice(0, 3).join(' | ') }); }
+    const bad = failures.length - f0;
+    console.log(`  ${bad ? 'FAIL' : 'PASS'}  ${sc.name.slice(0, 96).padEnd(96)} ${String(checks - c0).padStart(3)} checks${note ? `  (${note})` : ''}${bad ? `  ${bad} failed` : ''}`);
+  }
   for (const f of failures.slice(0, 40)) {
     console.log(`  FAILED · ${f.sc} · ${f.what}\n         ${JSON.stringify(f.detail)}${f.order ? `\n         order ${JSON.stringify(f.order)}` : ''}`);
   }
   if (failures.length > 40) console.log(`  … and ${failures.length - 40} more`);
   console.log(failures.length === 0
-    ? `\nCALC SUM: ALL PASS (${ORDERS.length} orders and ${TWO.length} two-feed orders, ${checks} checks)`
+    ? `\nCALC SUM: ALL PASS (${ORDERS.length} orders, ${TWO.length} two-feed orders and ${TIES.length} tie orders, ${checks} checks)`
     : `\nCALC SUM: ${failures.length} FAILED of ${checks} checks`);
   process.exit(failures.length === 0 ? 0 : 1);
 })();
