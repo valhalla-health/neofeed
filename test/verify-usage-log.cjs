@@ -168,7 +168,8 @@ T.section('§3 Not a completed calculation, and a request fired twice', () => {
   T.eq('a draft edited and kept a draft: still no row', [d2.ok, usage(g).length], [true, 0]);
   const s = step(() => g.update('NF-100001', { entryId: d.entryId, lastModified: d2.lastModified }, { status: 'submitted' }));
   T.eq('the draft saved as submitted: one row', [s.ok, usage(g).length], [true, 1]);
-  T.eq('the promotion\'s reply to the ward is unchanged', Object.keys(s).sort(), ['lastModified', 'ok']);
+  // NF-02 adds nothing to it; orderRev (2026-11-15) is the order's number as stored, which the ward prints.
+  T.eq('the promotion\'s reply to the ward carries no usage field', Object.keys(s).sort(), ['lastModified', 'ok', 'orderRev']);
   const again = step(() => g.update('NF-100001', { entryId: d.entryId, lastModified: s.lastModified }, { status: 'submitted' }));
   T.eq('the same promotion fired twice: the second finds it submitted, no second row', [again.ok, usage(g).length], [true, 1]);
   const stale = step(() => g.update('NF-100001', { entryId: d.entryId, lastModified: d2.lastModified }, { status: 'submitted' }));

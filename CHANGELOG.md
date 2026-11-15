@@ -55,7 +55,8 @@ changes list), `log.jsx` (`urineRate`), `compiled/`, the neofeed-clinical-rules 
   **CI on the merge commit** (`verify-backend-stops-1028`, 2 of 45): a revision that reports a stop was taken as I/O only,
   since `stops` is not part of the order's fingerprint, written from the stored row, and so never refused. The column-O
   gate above hid it for that test's locked draft; on a submitted row it held. The doctor branch now also needs the stop
-  list as stored (`_sameStoredStops`); a new backend check on a submitted row fails without it.
+  list as stored (`_sameStoredStops`); a new backend check on a submitted row fails without it. `verify-usage-log` pinned the
+  promotion's reply keys; it now expects `orderRev` beside `ok` and `lastModified` (and still no usage field).
   Tests: backend writes +9 (a doctor's I/O and tick save keeps ฉบับ 1 and the room's same bag; unticking; a nurse cannot
   set the tick; a figure column changed is ฉบับ 2; a dose change ฉบับ 3 and the room no longer counts ฉบับ 1 as the same
   bag; 6 fail on the backend before; a nurse's save takes the tick, still ฉบับ 1); `verify-walk-1107` +4 (the client
