@@ -257,9 +257,92 @@ T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retr
   T.eq('…nothing deleted, and no start row written', [snapshot(g) === rowsBefore, g.audit().length], [true, auditBefore]);
   const nurseTry = g.as(g.nt, { action: 'deletePatient', sessionId: 'BB-2', confirmPublished: true });
   T.ok('…a nurse with confirmPublished is still Forbidden', /Forbidden/.test(nurseTry.error || '') && snapshot(g) === rowsBefore, nurseTry);
+  // Pp, 2026-11-15: a doctor may delete a patient too, with the same second yes.
+  const docFirst = g.as(g.dt, { action: 'deletePatient', sessionId: 'BB-2' });
+  T.eq('…a doctor is asked again too, nothing deleted', [docFirst.needsConfirm, docFirst.code, !!docFirst.error, snapshot(g) === rowsBefore], [true, 'HasPublished', false, true]);
   const confirmed = g.as(g.at, { action: 'deletePatient', sessionId: 'BB-2', confirmPublished: true });
   T.eq('…the second yes deletes it', [!!confirmed.ok, g.synced('BB-2', g.at)], [true, undefined]);
   T.ok('…and the audit names the submitted count', g.audit().some(r => String(r[1] || r.action || '').indexOf('deletePatient:published=1') === 0 || JSON.stringify(r).indexOf('deletePatient:published=1') >= 0));
+  g.seedPatient(P('DD-4'));
+  const dpub = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'DD-4', entry: E({ ts: '2026-09-11' }) });
+  g.as(g.dt, { action: 'publishLog', sessionId: 'DD-4', entryId: dpub.entryId, expectedLastModified: dpub.lastModified });
+  const docDel = g.as(g.dt, { action: 'deletePatient', sessionId: 'DD-4', confirmPublished: true });
+  T.eq('a doctor\'s second yes deletes the patient and every row', [!!docDel.ok, g.synced('DD-4', g.at), g.rows('Daily_Log').some(r => r[1] === 'DD-4')], [true, undefined, false]);
+  T.ok('…audited under the doctor', g.audit().some(r => JSON.stringify(r).indexOf('deletePatient') >= 0 && JSON.stringify(r).indexOf('doc@kcmh.test') >= 0));
+  g.seedPatient(P('EE-5'));
+  const nurseDel = g.as(g.nt, { action: 'deletePatient', sessionId: 'EE-5' });
+  T.ok('a nurse is still Forbidden on a patient with no submitted order', /Forbidden/.test(nurseDel.error || '') && g.rows('Patient_Registry').some(r => r[0] === 'EE-5'), nurseDel);
+  // A doctor deletes only what the ward sees (Vera, 2026-11-15): not an
+  // archived record outside the sync window, not a PDPA-erased row.
+  g.seedPatient(P('FF-6', { status: 'Discharged', statusDate: addDays(TODAY, -60) }));
+  const fpub = g.as(g.at, { action: 'logDailyNutrition', sessionId: 'FF-6', entry: E({ ts: addDays(TODAY, -61) }) });
+  g.as(g.at, { action: 'publishLog', sessionId: 'FF-6', entryId: fpub.entryId, expectedLastModified: fpub.lastModified });
+  const ffBefore = snapshot(g), ffAudit = g.audit().length;
+  const docOld = g.as(g.dt, { action: 'deletePatient', sessionId: 'FF-6', confirmPublished: true });
+  T.ok('a doctor is refused an archived record outside the sync window, nothing deleted or audited',
+    /Forbidden/.test(docOld.error || '') && snapshot(g) === ffBefore && g.audit().length === ffAudit, docOld);
+  T.ok('…an admin deletes it', g.as(g.at, { action: 'deletePatient', sessionId: 'FF-6', confirmPublished: true }).ok === true);
+  g.seedPatient(P('GG-7'));
+  const pseudo = g.as(g.at, { action: 'pseudonymizePatient', sessionId: 'GG-7' });
+  const ggBefore = snapshot(g);
+  const docErased = g.as(g.dt, { action: 'deletePatient', sessionId: 'GG-7' });
+  T.ok('a doctor is refused a PDPA-erased row, and it is kept', pseudo.ok === true && /Forbidden/.test(docErased.error || '') && snapshot(g) === ggBefore, [pseudo, docErased]);
+});
+
+T.section('2026-11-15 · a doctor\'s I/O-only save keeps the order\'s ฉบับ (Pp: "ถ้าแค่เกี่ยวกับ I/O ไม่ต้องปรับเป็น revision ใหม่")', () => {
+  const g = ward();
+  g.addStaff('rx@kcmh.test', 'pharmacy', 'Pharmacy-Password-1');
+  const rt = g.session('rx@kcmh.test', 'pharmacy');
+  g.seedPatient(P('NF-000460', { currentBed: 'NICU 10' }));
+  const base = E({ ts: TODAY, ioInput: 90, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 90, aaPerKg: 3 } });
+  const c = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'NF-000460', entry: base });
+  const last = () => g.rows('Daily_Log')[g.rows('Daily_Log').length - 1];
+  const ci = () => JSON.parse(last()[24]);
+  T.eq('the doctor\'s Submit is ฉบับ 1', ci().orderRev, 1);
+  // The tick and the Input changed, nothing else.
+  const io = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: c.entryId, expectedLastModified: c.lastModified,
+    entry: E({ ts: TODAY, ioInput: 92, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 92, aaPerKg: 3, ioUseTpnWt: true } }) });
+  T.ok('a doctor\'s save that changes only I/O and the tick lands', io.ok === true, io);
+  T.eq('…keeps ฉบับ 1 and the doctor as whose order it is, with the tick and the new Input',
+    [ci().orderRev, ci().orderBy, ci().ioUseTpnWt, ci().ioInput, last()[28]], [1, 'doc@kcmh.test', true, 92, 92]);
+  const room = g.as(rt, { action: 'pharmacyOrders', date: TODAY });
+  const ord = (room.orders || []).find(o => o.sessionId === 'NF-000460');
+  T.eq('the TPN room keeps ฉบับ 1, and the row it printed is the same bag', [ord && ord.revision, !!ord && (ord.sameBagEntryIds || []).includes(c.entryId)], [1, true]);
+  // Unticking is I/O too.
+  const off = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: io.entryId, expectedLastModified: io.lastModified,
+    entry: E({ ts: TODAY, ioInput: 92, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 92, aaPerKg: 3 } }) });
+  T.eq('…unticking: still ฉบับ 1, the tick gone', [off.ok, ci().orderRev, ci().ioUseTpnWt], [true, 1, undefined]);
+  // A nurse sets the tick as a doctor does (Pp, 2026-11-15), and it is still ฉบับ 1.
+  const nu = g.as(g.nt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: off.entryId, expectedLastModified: off.lastModified,
+    entry: E({ ts: TODAY, ioInput: 95, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 95, aaPerKg: 3, ioUseTpnWt: true } }) });
+  T.eq('a nurse\'s I/O save takes her Input and the tick, still ฉบับ 1', [nu.ok, ci().ioInput, ci().ioUseTpnWt, ci().orderRev], [true, 95, true, 1]);
+  // A figure beside an unchanged calcInput is not I/O: a new version, written as sent.
+  const fig = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: nu.entryId, expectedLastModified: nu.lastModified,
+    entry: E({ ts: TODAY, gir: 7, ioInput: 95, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 95, aaPerKg: 3 } }) });
+  T.eq('a doctor\'s save with a figure column changed is ฉบับ 2, written as sent', [fig.ok, ci().orderRev, last()[5]], [true, 2, 7]);
+  // A dose change is a new version.
+  const dose = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: fig.entryId, expectedLastModified: fig.lastModified,
+    entry: E({ ts: TODAY, gir: 7, ioInput: 95, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 95, aaPerKg: 3.5 } }) });
+  T.eq('a doctor\'s dose change is ฉบับ 3', [dose.ok, ci().orderRev, ci().aaPerKg], [true, 3, 3.5]);
+  const room2 = g.as(rt, { action: 'pharmacyOrders', date: TODAY });
+  const ord2 = (room2.orders || []).find(o => o.sessionId === 'NF-000460');
+  T.eq('…and the room no longer counts the ฉบับ 1 row as the same bag', [ord2 && ord2.revision, !!ord2 && (ord2.sameBagEntryIds || []).includes(c.entryId)], [3, false]);
+  T.eq('…and each answer names the number it stored', [io.orderRev, fig.orderRev, dose.orderRev], [1, 2, 3]);
+  // A stop the save reports is never "I/O only": it goes through the stop refusal (verify-backend-stops-1028).
+  const rowsBefore = g.rows('Daily_Log').length;
+  const stopped = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: dose.entryId, expectedLastModified: dose.lastModified,
+    entry: E({ ts: TODAY, gir: 7, ioInput: 96, calcInput: { wtG: 1250, tpnWtG: 1250, stops: ['CR-STOCK-ZERO'], ioInput: 96, aaPerKg: 3.5 } }) });
+  T.eq('a submitted order: an I/O-only save that reports a stop is refused, nothing appended', [!!stopped.error, g.rows('Daily_Log').length], [true, rowsBefore]);
+  // Vera, second review: a draft another account saved and someone locked (AH) is still a draft (column O).
+  g.seedPatient(P('NF-000461', { currentBed: 'NICU 11' }));
+  const dr = g.as(g.at, { action: 'logDailyNutrition', sessionId: 'NF-000461',
+    entry: E({ ts: TODAY, status: 'draft', ioInput: 90, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 90, aaPerKg: 3 } }) });
+  const drRow = g.rows('Daily_Log').find(r => r[25] === dr.entryId);
+  drRow[33] = TODAY + 'T02:00:00.000Z';
+  const sub = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000461', entryId: dr.entryId, expectedLastModified: dr.lastModified,
+    entry: E({ ts: TODAY, ioInput: 91, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 91, aaPerKg: 3 } }) });
+  T.eq('a doctor submitting a locked draft with only Input changed: a signed new version, hers, ฉบับ 2',
+    [sub.ok, ci().orderBy, ci().orderRev, last()[14]], [true, 'doc@kcmh.test', 2, 'submitted']);
 });
 
 T.section('UP-B7 · doPost forwards revised / entryId / revisionNumber', () => {
@@ -270,13 +353,14 @@ T.section('UP-B7 · doPost forwards revised / entryId / revisionNumber', () => {
   const lm = g.rows('Daily_Log')[0][26];
   const rev = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'AB-900', entryId: c.entryId, expectedLastModified: lm, entry: E({ pro: 3.6 }) });
   T.ok('publish ok', p.ok === true, p);
-  T.eq('the response carries the revision fields the client branches on', Object.keys(rev).sort(), ['entryId', 'lastModified', 'ok', 'revised', 'revisionNumber']);
+  T.eq('the response carries the revision fields the client branches on', Object.keys(rev).sort(), ['entryId', 'lastModified', 'ok', 'orderRev', 'revised', 'revisionNumber']);
   T.ok('…with the NEW entryId and revision 2', rev.revised === true && rev.entryId !== c.entryId && rev.revisionNumber === 2 && rev.entryId === g.rows('Daily_Log')[1][25], rev);
   // Stored as a draft: since 2026-10-29 a submitted row is revised even when
   // unpublished (Pp), so only a draft is edited in place.
   const draft = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'AB-900', entry: E({ ts: '2026-09-11', status: 'draft' }) });
   const upd = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'AB-900', entryId: draft.entryId, expectedLastModified: draft.lastModified, entry: E({ pro: 3.1 }) });
-  T.eq('a draft edit still answers { ok, lastModified } only', Object.keys(upd).sort(), ['lastModified', 'ok']);
+  // orderRev since 2026-11-15: the order's number as stored, which the ward's copy prints (Vera).
+  T.eq('a draft edit answers { ok, lastModified, orderRev }', Object.keys(upd).sort(), ['lastModified', 'ok', 'orderRev']);
 });
 
 T.section('UP-B8 · a failed supersede never leaves two current rows for one day', () => {

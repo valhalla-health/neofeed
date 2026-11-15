@@ -2337,13 +2337,35 @@ function growthVelocity(patient, entries) {
 // that weighs in the order had its urine mL/kg/h divided by the birth weight
 // or a weeks-old measurement (Praew's decision, 2026-09-24). The floor rules
 // above are unchanged.
-function ioDivisorG(patient, dol, todayWeightG, entries) {
+//
+// `tpnWtG` (optional): the order's TPN calc. weight, passed only when the order
+// ticks "I/O ใช้น้ำหนักคำนวณ TPN" (Pp, 2026-11-15: an infant on bed 10 went from
+// 460 to 560 g in days, and the ward wanted intake per kg on the weight the TPN
+// was dosed on). It replaces every rule above; source "tpn".
+function ioDivisorG(patient, dol, todayWeightG, entries, tpnWtG) {
+  if (Number(tpnWtG) > 0) return { g: Number(tpnWtG), source: "tpn" };
   const bw = patient?.bw || 0;
   const prevW = currentWeight(patient, entries, (dol || 1) - 1)?.w ?? null;
   const base = prevW != null ? prevW : bw;
   const divisor = base ? (base < bw ? bw : base) : (bw || null);
   if (divisor === bw && todayWeightG > bw) return { g: todayWeightG, source: "today" };
   return { g: divisor, source: divisor === bw ? "birth" : "prevDay" };
+}
+
+// The TPN calc. weight (g) the I/O of one date divides by, or null for the
+// usual divisor: the submitted order of that date, when it ticked
+// ioUseTpnWt and recorded its dosing weight (calcInput.tpnWtG). The nurses'
+// I/O card reads this, so its urine mL/kg/h matches that order's card. The
+// newest submitted row of the date wins (a revision replaces the order);
+// drafts are not orders yet.
+function ioTpnWeightOn(entries, date) {
+  const d = normalizeDateStr(date);
+  if (!d) return null;
+  const rows = finalEntries(entries).filter(e => normalizeDateStr(e?.ts) === d);
+  const e = rows[rows.length - 1];
+  const ci = e?.calcInput || {};
+  const g = Number(ci.tpnWtG);
+  return ci.ioUseTpnWt === true && isFinite(g) && g > 0 ? g : null;
 }
 
 // Whole days between two "YYYY-MM-DD" strings, or null if either is unusable.
@@ -3318,7 +3340,7 @@ window.NEOFEED_DATA = {
   upsertWeight, nursingIntakeMl, nursingRecordOn, normalizeNursingMap,
   // The birth-weight-floor divisor for intake/output mL/kg/day math (see
   // calculator.jsx Step 1); its previous-day weight is currentWeight's
-  ioDivisorG,
+  ioDivisorG, ioTpnWeightOn,
   // GA / PMA helpers (WW.D shorthand)
   gaTotalDays, daysToGA, fmtGA, pmaShort, gaToDecimalWeeks, parseGAInput,
   // Corrected age in days (negative = still preterm)

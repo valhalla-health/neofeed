@@ -712,7 +712,7 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    page pushed from without a tap. Reaching the gate any way clears the
    ward's search and filter.
    Add/edit patient here (admit date, DOL at admit, GA, bed, diagnosis).
-   `EditPatientModal`'s Delete button (admin-only, `window.confirm`-gated,
+   `EditPatientModal`'s Delete button (doctor or admin since 2026-11-15, `window.confirm`-gated,
    wording spells out that it's permanent and irreversible) calls
    `handleDeletePatient` in `app.jsx`, which optimistically drops the
    patient from `patients`/`log` state and then `gasPost`s the

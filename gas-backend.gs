@@ -1517,6 +1517,7 @@ function doPost(e) {
       // looked like an in-place edit until the next sync (2026-09-17 review,
       // UP-B7 / UP-S16).
       var updOut = { ok: true, lastModified: updResult.lastModified };
+      if (updResult.orderRev) updOut.orderRev = updResult.orderRev;
       if (updResult.revised) {
         updOut.revised = true;
         updOut.entryId = updResult.entryId;
@@ -1623,10 +1624,14 @@ function doPost(e) {
       return jsonOut({ ok: true });
     }
     if (action === "deletePatient") {
-      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      // Doctor or admin (Pp, 2026-11-15): a doctor deleting a patient the ward
+      // registered by mistake had only the Previous beds lines to remove, and
+      // the patient then dropped into "อื่นๆ" instead of going. A nurse still
+      // cannot; a submitted order still needs the second yes below.
+      if (user.role !== "admin" && user.role !== "doctor") return jsonOut({ error: "Forbidden" });
       // deletePatient writes its own "deletePatient:start" audit row before
       // it destroys anything; this row records that it finished.
-      var delPatResult = deletePatient(body.sessionId, user.email, body.confirmPublished === true);
+      var delPatResult = deletePatient(body.sessionId, user.email, body.confirmPublished === true, user.role === "admin");
       if (delPatResult.error) return jsonOut(_errorBody(delPatResult));
       if (delPatResult.needsConfirm) {
         return jsonOut({ needsConfirm: true, code: delPatResult.code, publishedCount: delPatResult.publishedCount });
@@ -2829,7 +2834,10 @@ var NURSE_SUBMIT_REFUSAL = {
 // without being part of the order: the three I/O boxes, the save's time and
 // saver label, and figures derived from the order (stops, the sticker marker,
 // replacesTpn, printedFigures, a draft's blank-box list).
-var IO_FREE_CALC_KEYS = { ioInput: 1, ioOutput: 1, drainContent: 1, savedAt: 1, savedByLabel: 1,
+// ioUseTpnWt, the "I/O ใช้น้ำหนักคำนวณ TPN" tick, is I/O too (Pp, 2026-11-15: "ถ้าแค่
+// เกี่ยวกับ I/O ไม่เกี่ยวกับถุง TPN ไม่ต้องปรับเป็น revision ใหม่"), and a nurse sets it as a
+// doctor does ("ทั้งของ doctor และ nurse ทำให้เหมือนกัน").
+var IO_FREE_CALC_KEYS = { ioInput: 1, ioOutput: 1, drainContent: 1, ioUseTpnWt: 1, savedAt: 1, savedByLabel: 1,
   stops: 1, replacesTpn: 1, printJsonV: 1, printedFigures: 1, blankFields: 1, orderBy: 1, orderRev: 1, orderAt: 1 };
 // Whose order a row is: calcInput.orderBy, the account that last changed it
 // beyond I/O, with that save's revision number (orderRev) and time (orderAt).
@@ -2907,9 +2915,48 @@ function _ioOnlyChange(cur, entry) {
   return _orderWithoutIo(was) === _orderWithoutIo(now);
 }
 
+// True when a doctor's entry carries exactly the figures `cur` stores: the
+// figure columns (C–M), the route, the oral supplements (Q–X) and the sticker
+// figures (AM). With the same order and constants they always are; anything
+// else is a new version, written as sent. A nurse's save is never asked: hers
+// is written from the stored row whatever it carries.
+function _sameStoredFigures(cur, entry) {
+  entry = entry || {};
+  var nums = [["dol", 2], ["weight", 3], ["fluid", 4], ["gir", 5], ["pro", 6], ["kcal", 7], ["na", 8], ["k", 9],
+    ["ca", 10], ["p", 11], ["enVolPerKg", 12], ["suppMTV", 16], ["suppVitD_IU", 17], ["suppCa_mg", 18],
+    ["suppPO4_mmol", 20], ["suppFe_mg", 22]];
+  for (var i = 0; i < nums.length; i++) {
+    if (_numSafe(entry[nums[i][0]], 0) !== _numSafe(cur[nums[i][1]], 0)) return false;
+  }
+  var strs = [["route", 13], ["suppCaType", 19], ["suppPO4Type", 21], ["suppFeType", 23]];
+  for (var j = 0; j < strs.length; j++) {
+    if (String(entry[strs[j][0]] == null ? "" : entry[strs[j][0]]).trim() !== String(cur[strs[j][1]] == null ? "" : cur[strs[j][1]]).trim()) return false;
+  }
+  var sentPj = entry.printJson === "" || entry.printJson === undefined ? null : entry.printJson;
+  return _canonicalJson(sentPj) === _canonicalJson(_parseJson(cur[38], null));
+}
+
+// The stop list a doctor's entry carries is the stored one. `stops` is not part of
+// the order's fingerprint (IO_FREE_CALC_KEYS), so without this an I/O-only save
+// that reports a stop would be written from the stored row and the stop
+// refusal (_validateLogEntry) never asked (CI, verify-backend-stops-1028).
+function _sameStoredStops(cur, entry) {
+  var was = _parseJson(cur[24], {}) || {};
+  var now = (entry && entry.calcInput) || {};
+  return _canonicalJson(was.stops === undefined ? null : was.stops) === _canonicalJson(now.stops === undefined ? null : now.stops);
+}
+// A stored row's figures in the shape _sameStoredFigures reads from an entry.
+function _figuresOfRow(row) {
+  return { dol: row[2], weight: row[3], fluid: row[4], gir: row[5], pro: row[6], kcal: row[7], na: row[8], k: row[9],
+    ca: row[10], p: row[11], enVolPerKg: row[12], route: row[13], suppMTV: row[16], suppVitD_IU: row[17],
+    suppCa_mg: row[18], suppCaType: row[19], suppPO4_mmol: row[20], suppPO4Type: row[21], suppFe_mg: row[22],
+    suppFeType: row[23], printJson: _parseJson(row[38], null) };
+}
+
 // The entry a nurse's I/O save writes over the submitted row `cur`: every
 // column as stored, the I/O figures from her calcInput (cells AC–AE too) and
-// its save time. Keeps the date updateDailyNutrition set.
+// its save time, and the ioUseTpnWt tick (Pp, 2026-11-15: the same for a doctor
+// and a nurse). Keeps the date updateDailyNutrition set.
 function _ioOnlyEntryFrom(cur, entry, status) {
   var sent = (entry && entry.calcInput) || {};
   var ci = _parseJson(cur[24], {}) || {};
@@ -2918,6 +2965,8 @@ function _ioOnlyEntryFrom(cur, entry, status) {
   ci.orderRev = _orderRevOf(cur);
   ci.orderAt = typeof stored.orderAt === "string" && stored.orderAt ? stored.orderAt : String(cur[26] || "");
   ci.ioInput = sent.ioInput; ci.ioOutput = sent.ioOutput; ci.drainContent = sent.drainContent;
+  if (sent.ioUseTpnWt === true) ci.ioUseTpnWt = true;
+  else delete ci.ioUseTpnWt;
   if (sent.savedAt) ci.savedAt = sent.savedAt;
   // Plain text: _buildLogRow and _provenanceFields escape it on the way in.
   var str = function (v) { return String(v == null ? "" : v); };
@@ -3004,6 +3053,15 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       if (curSubmitted) entry = _ioOnlyEntryFrom(cur, entry, "submitted");
       else if (othersDraft) entry = _ioOnlyEntryFrom(cur, entry, "draft");
       else entry = _withOrderBy(entry, editedBy, orderRevNext);
+    } else if (String(cur[14] || "").trim().toLowerCase() !== "draft" && _ioOnlyRevision(cur, entry)
+        && _sameStoredFigures(cur, entry) && _sameStoredStops(cur, entry)) {
+      // By column O alone, as the nurse branch: submitting a draft someone locked
+      // (AH) is a signed new version, not I/O (Vera, 2026-11-15).
+      // A doctor's save on a submitted order that changes only I/O (the three
+      // boxes, the tick) is not a new version of the order (Pp, 2026-11-15): it
+      // is written from the stored row, as a nurse's is, keeping its orderBy and
+      // orderRev, so the printed "ฉบับที่" and the TPN room do not move.
+      entry = _ioOnlyEntryFrom(cur, entry, "submitted");
     } else {
       entry = _withOrderBy(entry, editedBy, orderRevNext);
     }
@@ -3075,6 +3133,9 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
         ok: true, revised: true,
         entryId: newEntryId, lastModified: newLastModified,
         revisionNumber: nextRevisionNumber,
+        // The order's own number as stored, so the ward's copy prints what the
+        // record holds rather than a guess (Vera, 2026-11-15).
+        orderRev: _numSafe((entry.calcInput || {}).orderRev, 0),
       };
     }
 
@@ -3108,7 +3169,8 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
     // an order already submitted is the same calculation again, and so is a
     // second request for this promotion: it finds the row submitted.
     var wasDraft = String(cur[14] == null ? "" : cur[14]).trim() === "draft";
-    return { ok: true, lastModified: newLastModified, completed: wasDraft && entry.status !== "draft" };
+    return { ok: true, lastModified: newLastModified, completed: wasDraft && entry.status !== "draft",
+      orderRev: _numSafe((entry.calcInput || {}).orderRev, 0) };
   } finally {
     _bumpDataVersion();
     lock.releaseLock();
@@ -3309,16 +3371,18 @@ function pharmacyOrders(dateKey) {
   for (var b = 0; b < rows.length; b++) byEntryId[String(rows[b][25] || "")] = rows[b];
   // AB (lastModifiedBy), else P (submittedBy) for a row from before AB.
   var saverOf = function (row) { return String(row[27] || row[15] || "").trim().toLowerCase(); };
-  // Who submitted a submitted order (P1, stakeholder walk 2026-11-07): a revision a
-  // nurse saved with only its I/O changed (_ioOnlyRevision) names the account that
-  // submitted the order before it. Any other row names its own saver. `ids` are the
+  // Who submitted a submitted order (P1, stakeholder walk 2026-11-07): a revision
+  // saved with only its I/O changed (_ioOnlyRevision), by a nurse or, since
+  // 2026-11-15, a doctor (Pp: an I/O-only save is not a new version), names the
+  // account that submitted the order before it. Any other row names its own saver. `ids` are the
   // entryIds walked, the current row's first: every one of them carries the same bag,
   // so a print of any of them is not "changed after print" (tpn-room-core.js).
   var submitterRow = function (row) {
     var ids = [String(row[25] || "")];
-    for (var hops = 0; hops < 50 && staffIsNurse[saverOf(row)]; hops++) {
+    for (var hops = 0; hops < 50; hops++) {
       var prev = byEntryId[String(row[36] || "")];
-      if (!prev || !_ioOnlyRevision(prev, { constantsVersion: String(row[31] || ""), calcInput: _parseJson(row[24], null) })) break;
+      if (!prev || !_ioOnlyRevision(prev, { constantsVersion: String(row[31] || ""), calcInput: _parseJson(row[24], null) })
+        || !_sameStoredFigures(prev, _figuresOfRow(row))) break;
       row = prev;
       ids.push(String(row[25] || ""));
     }
@@ -3592,7 +3656,7 @@ function deleteNursingEntry(sessionId, entryId, actorEmail) {
   }
 }
 
-// ── deletePatient (admin-only, permanent) ───────────────────────
+// ── deletePatient (doctor or admin, permanent) ──────────────────
 // Removes the Patient_Registry row AND every Daily_Log row for that
 // sessionId. Previously the "Delete session" button in the UI was
 // deliberately local-only (see HANDOFF.md) — it only hid the patient in the
@@ -3605,11 +3669,11 @@ function deleteNursingEntry(sessionId, entryId, actorEmail) {
 // admission would silently attach one patient's clinical history to another.
 //
 // Since 2026-09-17 (review UP-B6, SEC-B14, SEC-B15), in this order:
-//   1. refuse if ANY of the patient's Daily_Log rows is published — a
-//      submitted order is part of the permanent record. deleteDailyNutrition
-//      applied the same rule to a single row until 2026-10-29, when Pp let an
-//      admin delete a submitted order (one saved on the wrong infant); this
-//      whole-patient delete still refuses;
+//   1. a submitted order asks for a second yes (needsConfirm, since
+//      2026-11-12; it used to refuse outright), and a caller who does not see
+//      the archive (a doctor, 2026-11-15) is refused a record outside the ward's
+//      sync window or a PDPA-erased one: Delete session is for the patients the
+//      ward sees, and an erased row is kept for the medical-record duty;
 //   2. write the "deletePatient:start" audit row, and stop if that fails;
 //   3. delete the Daily_Log rows, bottom-up, re-checking each row first;
 //   4. delete the registry row LAST;
@@ -3618,7 +3682,7 @@ function deleteNursingEntry(sessionId, entryId, actorEmail) {
 // under an id nobody could see or delete — the retry answered "ไม่พบ session".
 // Log-first means a partial failure leaves the patient visible, and a retry
 // (registry row present or already gone) simply finishes the cleanup.
-function deletePatient(sessionId, actorEmail, confirmPublished) {
+function deletePatient(sessionId, actorEmail, confirmPublished, seesArchive) {
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
   var lock = LockService.getScriptLock();
   _waitLockOrBusy(lock, 10000);
@@ -3642,8 +3706,19 @@ function deletePatient(sessionId, actorEmail, confirmPublished) {
       if (logData[j][33]) publishedCount++;
     }
     if (!patRows.length && !logRows.length) return { error: "ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว" };
+    // A doctor deletes only what the ward sees (Vera, 2026-11-15): a registry
+    // row inside the sync window and not PDPA-erased. Orphan log rows with no
+    // registry row, archived records and erased rows stay an admin's call.
+    if (seesArchive !== true) {
+      var todayKey = _wardDateKey();
+      var visible = patRows.length > 0 && patRows.every(function (r) {
+        var row = patData[r - 1];
+        return !_isPdpaErased(row) && _patientInSyncWindow(row[9], row[16], todayKey);
+      });
+      if (!visible) return { error: "Forbidden — ผู้ป่วยรายนี้อยู่นอกรายชื่อของวอร์ด ให้ admin เป็นผู้ลบ" };
+    }
     // Submitted orders used to block the delete outright. Since 2026-11-12
-    // (Pp) an admin may delete after a second yes: the first call returns
+    // (Pp) an admin, and since 2026-11-15 a doctor, may delete after a second yes: the first call returns
     // needsConfirm with the count, and only a call carrying
     // confirmPublished === true goes ahead. The count comes from the Sheet,
     // not the client's log, so an infant outside the sync window still asks.

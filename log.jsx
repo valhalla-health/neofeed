@@ -755,10 +755,18 @@ const nursingOutMl = (r) => (r?.urineMl == null || r?.drainMl == null) ? null : 
 // floored at birth weight). Null when either is missing. `entries` is the
 // patient's Daily_Log: the divisor reads yesterday's weight from the growth
 // chart AND the orders, as the Calculator does (2026-09-24) — without it an
-// order-only ward's card and Calculator divided by different weights.
+// order-only ward's card and Calculator divided by different weights. When that
+// date's submitted order ticked "I/O ใช้น้ำหนักคำนวณ TPN", its TPN calc. weight
+// (D.ioTpnWeightOn; Pp, 2026-11-15), as its Calculator card does.
+// What the rate says beside it when that weight is the order's TPN calc.
+// weight (Vera, 2026-11-15): the card's seven days can sit on different bases.
+function urineBasis(entries, ts) {
+  const g = D_L.ioTpnWeightOn(entries, ts);
+  return g ? ` (น้ำหนักคำนวณ TPN ${D_L.displayNum(g, 0)} g)` : "";
+}
 function urineRate(patient, rec, entries) {
   if (rec?.urineMl == null) return null;
-  const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null, entries);
+  const { g } = D_L.ioDivisorG(patient, D_L.dolAtDate(patient, rec.ts), null, entries, D_L.ioTpnWeightOn(entries, rec.ts));
   return g ? rec.urineMl / (g / 1000) / 24 : null;
 }
 
@@ -890,7 +898,7 @@ function NursingEntryModal({ patient, record, entries, onClose, onSubmit }) {
               </select>
             </div>
             <NurseNum name="urineMl" label="ปัสสาวะ" unit="mL/24 ชม." value={f.urineMl} onChange={set("urineMl")}
-              hint={rate != null ? `${D_L.displayNum(rate, 1)} mL/kg/h` : null} />
+              hint={rate != null ? `${D_L.displayNum(rate, 1)} mL/kg/h${urineBasis(entries, date)}` : null} />
             <NurseNum name="drainMl" label="Drain" unit="mL/24 ชม." value={f.drainMl} onChange={set("drainMl")} />
             <NurseNum name="stoolCount" label="อุจจาระ" unit="ครั้ง" value={f.stoolCount} onChange={set("stoolCount")} integer />
           </div>
@@ -964,7 +972,7 @@ function NursingIOCard({ patient, records, entries, onOpen, onDelete }) {
                     </div>
                     <div className="nio-vals num">
                       <span>เข้า {inText}{r.enInMl != null && r.feedType ? ` (${nursingFeedLabel(r.feedType)})` : ""}</span>
-                      <span>ปัสสาวะ {v(r.urineMl)}{rate != null ? ` · ${D_L.displayNum(rate, 1)} mL/kg/h` : ""}</span>
+                      <span>ปัสสาวะ {v(r.urineMl)}{rate != null ? ` · ${D_L.displayNum(rate, 1)} mL/kg/h${urineBasis(entries, r.ts)}` : ""}</span>
                       <span>Drain {v(r.drainMl)}</span>
                       <span>Bal {bal == null ? "—" : `${bal >= 0 ? "+" : ""}${bal}`}</span>
                       <span>อุจจาระ {v(r.stoolCount)}</span>
