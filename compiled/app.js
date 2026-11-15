@@ -1281,6 +1281,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       return res;
     });
   };
+  const canDeletePatient = role === "doctor" || role === "admin";
   const handleDeletePatient = (patient) => {
     const id = patient.sessionId;
     const blocked = blockedByUnknownWrite();
@@ -1698,7 +1699,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       onClose: () => setEditingPatient(null),
       onSubmit: handleEditPatient,
       mergeBaseFor,
-      onDelete: role === "admin" ? handleDeletePatient : void 0,
+      onDelete: canDeletePatient ? handleDeletePatient : void 0,
       canDeleteHop: role === "doctor" || role === "admin"
     }
   ), view === "registry" && printBatch && printWard === printBatch.ward && /* @__PURE__ */ React.createElement(WardPrintBatch, { batch: printBatch, patients, log, onBack: () => setPrintBatch(null) }), view === "registry" && !(printBatch && printWard === printBatch.ward) && /* @__PURE__ */ React.createElement(
@@ -1722,7 +1723,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       onAdd: handleAddPatient,
       onEdit: handleEditPatient,
       mergeBaseFor,
-      onDelete: role === "admin" ? handleDeletePatient : void 0
+      onDelete: canDeletePatient ? handleDeletePatient : void 0
     }
   ), view === "admin" && role === "admin" && /* @__PURE__ */ React.createElement(
     AdminDashboard,
