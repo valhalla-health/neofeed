@@ -134,7 +134,7 @@ ok('missing sessionId is rejected up front',   !!result.error);
 // output), but the two things that matter for a destructive, admin-only
 // action are pinned structurally: the branch checks role before calling
 // deletePatient, and a successful call is audited.
-console.log('\n── Part B: doPost gates deletePatient on role === "admin" and audits it ──');
+console.log('\n── Part B: doPost gates deletePatient on doctor or admin and audits it ──');
 const gasSrc = fs.readFileSync(DIR + 'gas-backend.gs', 'utf8');
 const deleteBranch = gasSrc.slice(
   gasSrc.indexOf('if (action === "deletePatient")'),
@@ -142,6 +142,14 @@ const deleteBranch = gasSrc.slice(
 );
 ok('branch exists',                            deleteBranch.length > 0);
 ok('checks role !== "admin" before deleting',  /user\.role\s*!==\s*"admin"/.test(deleteBranch));
+// Pp, 2026-11-15: a doctor deletes a wrongly registered patient too; a nurse
+// does not. The gate names exactly those two roles.
+ok('…and lets a doctor through, nobody else', /user\.role\s*!==\s*"admin"\s*&&\s*user\.role\s*!==\s*"doctor"\s*\)\s*return jsonOut\(\{\s*error:\s*"Forbidden"/.test(deleteBranch));
+const appSrc = fs.readFileSync(DIR + 'app.jsx', 'utf8');
+ok('app.jsx: Delete session is offered to doctor and admin',
+  /const canDeletePatient = role === "doctor" \|\| role === "admin";/.test(appSrc)
+  && (appSrc.match(/onDelete=\{canDeletePatient \? handleDeletePatient : undefined\}/g) || []).length === 2
+  && !/onDelete=\{role === "admin" \? handleDeletePatient/.test(appSrc));
 ok('the admin check runs before deletePatient is called',
   deleteBranch.indexOf('user.role') < deleteBranch.indexOf('deletePatient('));
 ok('audits on success',                        /logAudit\(\s*"deletePatient"/.test(deleteBranch));

@@ -1980,8 +1980,8 @@ function EditPatientModal({ patient, patients, onClose, onSubmit, onDelete, merg
   // the next reload/sync just pulled the same row back in), so the confirm
   // below is now the only thing standing between a click and an
   // unrecoverable deletion — worded accordingly. onDelete is only ever
-  // passed in for admins (gated at the call site in app.jsx), same as the
-  // Dashboard's per-entry trash icon.
+  // passed in for a doctor or an admin (gated at the call site in app.jsx,
+  // Pp 2026-11-15); the Dashboard's per-entry trash icon stays admin only.
   const handleDelete = () => {
     if (!onDelete) return;
     const label = D_R.patientName(patient) || patient.sessionId;

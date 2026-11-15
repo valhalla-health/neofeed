@@ -257,9 +257,36 @@ T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retr
   T.eq('…nothing deleted, and no start row written', [snapshot(g) === rowsBefore, g.audit().length], [true, auditBefore]);
   const nurseTry = g.as(g.nt, { action: 'deletePatient', sessionId: 'BB-2', confirmPublished: true });
   T.ok('…a nurse with confirmPublished is still Forbidden', /Forbidden/.test(nurseTry.error || '') && snapshot(g) === rowsBefore, nurseTry);
+  // Pp, 2026-11-15: a doctor may delete a patient too, with the same second yes.
+  const docFirst = g.as(g.dt, { action: 'deletePatient', sessionId: 'BB-2' });
+  T.eq('…a doctor is asked again too, nothing deleted', [docFirst.needsConfirm, docFirst.code, !!docFirst.error, snapshot(g) === rowsBefore], [true, 'HasPublished', false, true]);
   const confirmed = g.as(g.at, { action: 'deletePatient', sessionId: 'BB-2', confirmPublished: true });
   T.eq('…the second yes deletes it', [!!confirmed.ok, g.synced('BB-2', g.at)], [true, undefined]);
   T.ok('…and the audit names the submitted count', g.audit().some(r => String(r[1] || r.action || '').indexOf('deletePatient:published=1') === 0 || JSON.stringify(r).indexOf('deletePatient:published=1') >= 0));
+  g.seedPatient(P('DD-4'));
+  const dpub = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'DD-4', entry: E({ ts: '2026-09-11' }) });
+  g.as(g.dt, { action: 'publishLog', sessionId: 'DD-4', entryId: dpub.entryId, expectedLastModified: dpub.lastModified });
+  const docDel = g.as(g.dt, { action: 'deletePatient', sessionId: 'DD-4', confirmPublished: true });
+  T.eq('a doctor\'s second yes deletes the patient and every row', [!!docDel.ok, g.synced('DD-4', g.at), g.rows('Daily_Log').some(r => r[1] === 'DD-4')], [true, undefined, false]);
+  T.ok('…audited under the doctor', g.audit().some(r => JSON.stringify(r).indexOf('deletePatient') >= 0 && JSON.stringify(r).indexOf('doc@kcmh.test') >= 0));
+  g.seedPatient(P('EE-5'));
+  const nurseDel = g.as(g.nt, { action: 'deletePatient', sessionId: 'EE-5' });
+  T.ok('a nurse is still Forbidden on a patient with no submitted order', /Forbidden/.test(nurseDel.error || '') && g.rows('Patient_Registry').some(r => r[0] === 'EE-5'), nurseDel);
+  // A doctor deletes only what the ward sees (Vera, 2026-11-15): not an
+  // archived record outside the sync window, not a PDPA-erased row.
+  g.seedPatient(P('FF-6', { status: 'Discharged', statusDate: addDays(TODAY, -60) }));
+  const fpub = g.as(g.at, { action: 'logDailyNutrition', sessionId: 'FF-6', entry: E({ ts: addDays(TODAY, -61) }) });
+  g.as(g.at, { action: 'publishLog', sessionId: 'FF-6', entryId: fpub.entryId, expectedLastModified: fpub.lastModified });
+  const ffBefore = snapshot(g), ffAudit = g.audit().length;
+  const docOld = g.as(g.dt, { action: 'deletePatient', sessionId: 'FF-6', confirmPublished: true });
+  T.ok('a doctor is refused an archived record outside the sync window, nothing deleted or audited',
+    /Forbidden/.test(docOld.error || '') && snapshot(g) === ffBefore && g.audit().length === ffAudit, docOld);
+  T.ok('…an admin deletes it', g.as(g.at, { action: 'deletePatient', sessionId: 'FF-6', confirmPublished: true }).ok === true);
+  g.seedPatient(P('GG-7'));
+  const pseudo = g.as(g.at, { action: 'pseudonymizePatient', sessionId: 'GG-7' });
+  const ggBefore = snapshot(g);
+  const docErased = g.as(g.dt, { action: 'deletePatient', sessionId: 'GG-7' });
+  T.ok('a doctor is refused a PDPA-erased row, and it is kept', pseudo.ok === true && /Forbidden/.test(docErased.error || '') && snapshot(g) === ggBefore, [pseudo, docErased]);
 });
 
 T.section('2026-11-15 · a doctor\'s I/O-only save keeps the order\'s ฉบับ (Pp: "ถ้าแค่เกี่ยวกับ I/O ไม่ต้องปรับเป็น revision ใหม่")', () => {

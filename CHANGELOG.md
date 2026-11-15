@@ -51,6 +51,30 @@ changes list), `log.jsx` (`urineRate`), `compiled/`, the neofeed-clinical-rules 
   460 g reads 200 mL/kg/d and urine 4.17 mL/kg/h; the tick saves, reopens, and an older row reopens unticked; the
   nurses' card reads 3.4 → 4.2 mL/kg/h only for a ticked submitted order. On `origin/main` it fails (the tick does
   not exist; the nurses' card stays 3.4). CR-U-IO-DIVISOR: 7 cases.
+## Session 2026-11-15 — A doctor deletes a wrongly registered patient (Delete session), not only an admin
+
+`gas-backend.gs` (doPost `deletePatient` gate), `app.jsx` (`canDeletePatient`), `registry.jsx` (comment),
+`compiled/`, `app-walkthrough.md`; `test/verify-delete-session.cjs`, `test/verify-review-0917-backend-writes.cjs`.
+
+- **Why.** Ward feedback (Pp's screenshot, 2026-11-15) after Pp's "พี่ทำให้มันลบได้แล้ว ลองเช็คให้หน่อยว่าลบที่ลงไปผิดได้ยัง":
+  "ลบแล้วชื่อมันย้ายไปอยู่ตรงอื่นๆค่ะ ไม่หายไปแบบถาวร". A doctor removing a patient registered by mistake had only
+  the "Previous beds" ลบ (#249). With the bed cleared and its only bed line deleted, `patientWard` has no ward to
+  read, so the name dropped into "อื่นๆ" and stayed. Asked which fix, Pp chose: let doctors delete the patient.
+- **What.** Edit session's **Delete session** now shows for a doctor as well as an admin, and the backend's
+  `deletePatient` gate lets the same two roles through. Everything else is unchanged: the confirm naming the patient,
+  the second yes for a submitted order ("ตรวจกับเภสัชก่อนลบ", counted from the Sheet), the `deletePatient:start` and
+  `deletePatient` audit rows (now under the doctor's email), the Daily_Log, Nursing_Log and registry rows going.
+  A nurse and pharmacy are still Forbidden. Deleting one order (Dashboard trash) and PDPA erasure stay admin only.
+- **A doctor deletes only what the ward sees** (Vera's 🟠 on this PR). `deletePatient` refuses a non-admin, before any
+  audit row or delete, when the registry row is outside the ward's sync window (archived beyond `ARCHIVE_SYNC_DAYS`),
+  PDPA-erased, or missing (orphan log rows). Those stay an admin's call. Pp can widen this if she wants doctors to
+  delete archived records too.
+- **Tests.** Backend writes 158 → 165: a doctor is asked again on a submitted order, the doctor's second yes deletes
+  the patient and every row and is audited under the doctor, a nurse is still Forbidden; 3 of them fail with the
+  old admin-only gate put back; Vera's two (archived record, PDPA-erased row) fail without the narrowing. Delete session 30/30, with the gate's two roles and app.jsx's wiring pinned.
+- **Deploy.** Needs a backend `clasp` deploy as well as the frontend release: until the backend is deployed a
+  doctor sees the button and the server answers Forbidden (the patient comes back on screen, nothing deleted).
+  Backend first, on Praew's go-ahead.
 
 ## Session 2026-11-14 (7) — The TPN room lists orders by ward; the unit count is gone
 

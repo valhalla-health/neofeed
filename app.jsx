@@ -2031,10 +2031,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // from the sheet (see HANDOFF.md); the confirm dialog in EditPatientModal
   // is unchanged, so it's still one deliberate click, but that click now
   // sticks. Optimistic removal with rollback on failure, same pattern as
-  // handleDeleteEntry. Admin-only (gated where this is passed down to
-  // EditPatientModal). If the deleted patient was active, clear the
+  // handleDeleteEntry. Doctor or admin (canDeletePatient below). If the deleted patient was active, clear the
   // selection and back out of any patient-specific view so nothing keeps
   // rendering against a sessionId that's no longer in `patients`.
+  // Delete session: doctor or admin (Pp, 2026-11-15). The backend's doPost
+  // gate is the same two roles; a nurse never sees the button.
+  const canDeletePatient = role === "doctor" || role === "admin";
   const handleDeletePatient = (patient) => {
     const id = patient.sessionId;
     const blocked = blockedByUnknownWrite();
@@ -2680,7 +2682,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           {/* The modal waits for the server and closes itself on success (UP-S9). */}
           {editingPatient && <EditPatientModal patient={editingPatient} patients={patients} onClose={() => setEditingPatient(null)}
             onSubmit={handleEditPatient} mergeBaseFor={mergeBaseFor}
-            onDelete={role === "admin" ? handleDeletePatient : undefined}
+            onDelete={canDeletePatient ? handleDeletePatient : undefined}
             canDeleteHop={role === "doctor" || role === "admin"} />}
 
           {/* Print ทั้งหมด's one print job, in place of the list it came from. */}
@@ -2688,7 +2690,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             <WardPrintBatch batch={printBatch} patients={patients} log={log} onBack={() => setPrintBatch(null)} />}
           {view === "registry" && !(printBatch && printWard === printBatch.ward) && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard}
             printWard={printWard} onPrintWard={setPrintWard} onPrintOrder={openOrderToPrint} onPrintAll={startPrintAll}
-            onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={role === "admin" ? handleDeletePatient : undefined} />}
+            onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={canDeletePatient ? handleDeletePatient : undefined} />}
           {/* Role-checked here as well as in the rail: `view` is plain state,
               and before sessions remounted App an admin's "admin" view was
               still selected for the next user of the tab (SEC-F2). */}

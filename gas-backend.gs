@@ -1623,10 +1623,14 @@ function doPost(e) {
       return jsonOut({ ok: true });
     }
     if (action === "deletePatient") {
-      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      // Doctor or admin (Pp, 2026-11-15): a doctor deleting a patient the ward
+      // registered by mistake had only the Previous beds lines to remove, and
+      // the patient then dropped into "อื่นๆ" instead of going. A nurse still
+      // cannot; a submitted order still needs the second yes below.
+      if (user.role !== "admin" && user.role !== "doctor") return jsonOut({ error: "Forbidden" });
       // deletePatient writes its own "deletePatient:start" audit row before
       // it destroys anything; this row records that it finished.
-      var delPatResult = deletePatient(body.sessionId, user.email, body.confirmPublished === true);
+      var delPatResult = deletePatient(body.sessionId, user.email, body.confirmPublished === true, user.role === "admin");
       if (delPatResult.error) return jsonOut(_errorBody(delPatResult));
       if (delPatResult.needsConfirm) {
         return jsonOut({ needsConfirm: true, code: delPatResult.code, publishedCount: delPatResult.publishedCount });
@@ -3639,7 +3643,7 @@ function deleteNursingEntry(sessionId, entryId, actorEmail) {
   }
 }
 
-// ── deletePatient (admin-only, permanent) ───────────────────────
+// ── deletePatient (doctor or admin, permanent) ──────────────────
 // Removes the Patient_Registry row AND every Daily_Log row for that
 // sessionId. Previously the "Delete session" button in the UI was
 // deliberately local-only (see HANDOFF.md) — it only hid the patient in the
@@ -3652,11 +3656,11 @@ function deleteNursingEntry(sessionId, entryId, actorEmail) {
 // admission would silently attach one patient's clinical history to another.
 //
 // Since 2026-09-17 (review UP-B6, SEC-B14, SEC-B15), in this order:
-//   1. refuse if ANY of the patient's Daily_Log rows is published — a
-//      submitted order is part of the permanent record. deleteDailyNutrition
-//      applied the same rule to a single row until 2026-10-29, when Pp let an
-//      admin delete a submitted order (one saved on the wrong infant); this
-//      whole-patient delete still refuses;
+//   1. a submitted order asks for a second yes (needsConfirm, since
+//      2026-11-12; it used to refuse outright), and a caller who does not see
+//      the archive (a doctor, 2026-11-15) is refused a record outside the ward's
+//      sync window or a PDPA-erased one: Delete session is for the patients the
+//      ward sees, and an erased row is kept for the medical-record duty;
 //   2. write the "deletePatient:start" audit row, and stop if that fails;
 //   3. delete the Daily_Log rows, bottom-up, re-checking each row first;
 //   4. delete the registry row LAST;
@@ -3665,7 +3669,7 @@ function deleteNursingEntry(sessionId, entryId, actorEmail) {
 // under an id nobody could see or delete — the retry answered "ไม่พบ session".
 // Log-first means a partial failure leaves the patient visible, and a retry
 // (registry row present or already gone) simply finishes the cleanup.
-function deletePatient(sessionId, actorEmail, confirmPublished) {
+function deletePatient(sessionId, actorEmail, confirmPublished, seesArchive) {
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
   var lock = LockService.getScriptLock();
   _waitLockOrBusy(lock, 10000);
@@ -3689,8 +3693,19 @@ function deletePatient(sessionId, actorEmail, confirmPublished) {
       if (logData[j][33]) publishedCount++;
     }
     if (!patRows.length && !logRows.length) return { error: "ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว" };
+    // A doctor deletes only what the ward sees (Vera, 2026-11-15): a registry
+    // row inside the sync window and not PDPA-erased. Orphan log rows with no
+    // registry row, archived records and erased rows stay an admin's call.
+    if (seesArchive !== true) {
+      var todayKey = _wardDateKey();
+      var visible = patRows.length > 0 && patRows.every(function (r) {
+        var row = patData[r - 1];
+        return !_isPdpaErased(row) && _patientInSyncWindow(row[9], row[16], todayKey);
+      });
+      if (!visible) return { error: "Forbidden — ผู้ป่วยรายนี้อยู่นอกรายชื่อของวอร์ด ให้ admin เป็นผู้ลบ" };
+    }
     // Submitted orders used to block the delete outright. Since 2026-11-12
-    // (Pp) an admin may delete after a second yes: the first call returns
+    // (Pp) an admin, and since 2026-11-15 a doctor, may delete after a second yes: the first call returns
     // needsConfirm with the count, and only a call carrying
     // confirmPublished === true goes ahead. The count comes from the Sheet,
     // not the client's log, so an infant outside the sync window still asks.
