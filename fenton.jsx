@@ -125,7 +125,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // week (FENTON_LENGTH_GROWTH_LMS from 24.0, FENTON_HC_GROWTH_LMS from 23.0,
   // both to 42.0), solved from the same calculator on 2026-11-16. They replace
   // five-centile rows every 4 weeks that were never checked against a source:
-  // their 50th was right at its rows up to 38.5 weeks, and past that length
+  // their 50th was right at their rows up to 38.5 weeks, and past that length
   // was drawn too high and head too low.
   const growthLms = (
     metric === "weight" ? D_F.FENTON_WEIGHT_GROWTH_LMS?.[sex]

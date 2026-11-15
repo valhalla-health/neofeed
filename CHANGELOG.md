@@ -52,7 +52,7 @@ rewritten), `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `AI_SDLC.md`, `STATUS.md
 - **Review by an agent that had not seen the work (Vera's procedure, and its own re-fit of the fixture without
   the repo's solver): NO BLOCK.** No wrong number in `data.js`, no behaviour bug, the weight tab identical to
   before on 54 made-up patients. Fixed from it: five statements that said more than the evidence (the old rows
-  "right to 38.5 weeks" was true of the 50th only, and only at its rows; "not asked" about DOL 1 ignored the 2026-10-17 points; "within
+  "right to 38.5 weeks" was true only at the rows, and for length of the 50th only; "not asked" about DOL 1 ignored the 2026-10-17 points; "within
   0.0005 z" is 0.0007 with the rows as stored; "69 rows" is 72 for head; what was asked below 23.5), and three
   holes in the harness (only the 50th line was checked; nothing read on screen between whole weeks; two
   assertions passed on a blank readout).

@@ -878,8 +878,8 @@ clinical judgement. Everything else is engineering sequencing.
         weeks it was not asked. For weight the two curves do differ near term: the two birth-mode weights
         asked from 36.5 weeks read 0.7 and 5.5 centile points away from the monitoring curve (39+2 and
         40+5), and the app's size-at-birth rows read a monitoring weight up to 10.2 points off it from 37
-        weeks (`CHANGELOG.md` 2026-10-19). Pp decides: a one-line caveat on a DOL-1 reading from 36 weeks, or a round of birth-mode points at
-        37–42 weeks (Vera, 2026-11-16).
+        weeks (`CHANGELOG.md` 2026-10-19). Pp decides: a one-line caveat on a DOL-1 reading from 36
+        weeks, or a round of birth-mode points at 37–42 weeks (Vera, 2026-11-16).
       - **Solved, not received.** Pp's email to tfenton@ucalgary.ca for the published LMS stands; if the
         calculator's API version moves from 2.1.3.0, re-run `tools/fenton-lms-solve.cjs` and the harness.
       - **No second clinician** has reviewed the change.
