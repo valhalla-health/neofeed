@@ -48,6 +48,18 @@ const RULES = [
     find: findRawToFixed,
   },
   {
+    id: "raw-round-display",
+    why:
+      "A whole number a person reads goes through D.displayNum(value, 0) (or fmt / f0), never " +
+      ".toFixed(0) or {Math.round(...)} in the text: those round a float tie the other way. " +
+      "639.4999999999999 (639.5 on paper) reads 639 there and 640 on the tile and the sticker, and " +
+      "an osmolarity graded red at 900 read \"899 mOsm/L\" in its own alert. Saved figures keep full " +
+      "precision; round with Number(D.displayNum(v, 0)) when a whole number must be stored.",
+    source: "BACKLOG.md (osmolarity, energy, Ca and P .5 ties; sticker calc check 2026-10-30, probe 2026-11-02)",
+    allow: [],
+    find: findRawRoundDisplay,
+  },
+  {
     id: "log-identifier",
     why:
       "A log must not name a patient identifier (HN, AN, name, initials, date of birth, phone, " +
@@ -102,6 +114,16 @@ function findRawToFixed(text) {
     hits.push(m.index);
   }
   return hits;
+}
+
+// .toFixed(0) anywhere (wrapping it in Number() keeps the wrong tie), and a
+// Math.round( that opens a JSX or template expression: text a person reads.
+// Math.round inside a calculation is not text and is not matched.
+function findRawRoundDisplay(text) {
+  const hits = [];
+  for (const m of text.matchAll(/\.toFixed\(\s*0\s*\)/g)) hits.push(m.index);
+  for (const m of text.matchAll(/\{\s*Math\.round\(/g)) hits.push(m.index);
+  return hits.sort((a, b) => a - b);
 }
 
 // True when the call sits inside parseFloat(...) or Number(...), which turns

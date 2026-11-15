@@ -74,7 +74,7 @@ const planted = tree('planted', (f, s) => {
   s = plant(s, 'border:`1.5px solid ${sGir===', 'border:`2px solid ${sGir===');
   s = plant(s, '"PEDIATRIC PARENTERAL NUTRITION ORD', '"PLANTED PEDIATRIC PARENTERAL NUTRITION ORD');
   s = plant(s, 'calcInput: { ...captureState(),', 'calcInput: { plantedCi: 1, ...captureState(),');
-  s = plant(s, '`${Math.round(suppVitD * wtKg)} IU`', '`${Math.round(suppVitD * wtKg * 2)} IU`');
+  s = plant(s, '`${fmt(suppVitD * wtKg, 0)} IU`', '`${fmt(suppVitD * wtKg * 2, 0)} IU`');
   s = plant(s, 'printJson: figures,', 'printJson: figures, plantedNote: "x", plantedEmpty: {}, plantedList: [],');
   return s;
 });

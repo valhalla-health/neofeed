@@ -32,6 +32,25 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🔐 **ops/PDPA · Sheet backup: switch it on, and what it leaves open** (2026-11-15, `CHANGELOG.md` (5)).
+      The code is in `main` once this PR merges; nothing runs until Pp does the four editor steps in
+      `REFERENCE.md` § Sheet backup and restore drill. Open:
+      - **First `sheetRestoreDrill()` on the real Sheet**, at a quiet hour: the only proof that `Sheet.copyTo`
+        keeps every cell, and the first measure of how long the copy holds the script lock (a save waits 10 s,
+        a password sign-in 5 s, then "Busy"). Pick the trigger's hour from it.
+      - **Rehearse the real restore** (copy a backup, point `SPREADSHEET_ID` at it, set it back) on a quiet
+        night. Never done on production, so the nine steps are untested. Pp's call.
+      - **DPO: is 14 days in backups acceptable for an erased infant, and what about version history?** Each
+        backup book, and the live Sheet, keeps erased names in File ▸ Version history, which the backend cannot
+        clear. Name the backups in the retention answer the PDPA items below still owe.
+      - **Same account.** The backups do not survive losing the Google account that owns the Sheet. A copy
+        outside it needs a decision on where patient data may go.
+      - **Moving restored data back into the bound Sheet** has no written procedure (restore step 8).
+      - **A deleted `SHEET_BACKUP_STATE` property reads as a first run**: `setupSheetBackups` would then make
+        14 new books and leave the old 14, with their data, outside the rotation. The code cannot tell the two
+        apart without Drive. Never delete that property; never run setup to "fix" a backup problem.
+      - **Nobody is told when the trigger stops** except by the failure mail and `sheetBackupStatus`. A line on
+        the Admin page ("last backup: N h ago") would show it to the ward.
 - [x] **Center Point: sync the new feed keys before PR #247 is released** (Vera, 2026-11-11): done in #247 and its NICU-Center-Point PR.
 - [ ] **FBM with PF: Step 2's breast-milk line does not explain the concentrate** (Vera, 2026-11-11, finding 3). The recipe is the milk room's chart (Pp, 2026-11-11); a 26 kcal/oz row needs the chart's share first.
 - [ ] 🩺 **safety/product · What the nutrition team's meeting of 2026-10-28 left open.** Built for the
@@ -817,10 +836,12 @@ clinical judgement. Everything else is engineering sequencing.
       order. The read-only part is built, not live (`openspec/changes/tpn-room-stickers`, PR A: role
       `pharmacy`, `pharmacyOrders`). The printed form now carries HN/AN boxes, saved-by/time/revision and
       changes-vs-previous (2026-09-11); the status loop is not built.
-- [ ] 🩺 **safety · Osmolarity, energy, Ca and P round .5 ties wrongly on the doctor's screen and sheet**
+- [x] 🩺 **safety · Osmolarity, energy, Ca and P round .5 ties wrongly on the doctor's screen and sheet**
       (`toFixed(0)`, `Math.round`; found by the sticker calc check, 2026-10-30, its own PR). 899.5 mOsm/L graded red at
       900 while the alert text says 899, about 1 order in 2,000. In a 2026-11-02 probe one order shows 639 on screen and
-      640 on its sticker, whose figure is the right one.
+      640 on its sticker, whose figure is the right one. **Built 2026-11-15** (`CHANGELOG.md` 2026-11-15 (4)): every whole
+      number goes through `displayNum`, the printed front's Ca gluconate mg and oral supplements included;
+      `verify-calc-sum.cjs` § 4 and `tools/ci_bans.js` `raw-round-display` hold it.
 - [ ] 🧹 **chore · `verify-review-0917-session` §10 flakes across midnight.** It takes TODAY at module load while the
       app reads the real clock, so a run across 00:00 ICT gives a DOL off by one. Re-run it alone; it needs a pinned
       jsdom clock.
