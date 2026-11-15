@@ -32,6 +32,25 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🔐 **ops/PDPA · Sheet backup: switch it on, and what it leaves open** (2026-11-15, `CHANGELOG.md` (5)).
+      The code is in `main` once this PR merges; nothing runs until Pp does the four editor steps in
+      `REFERENCE.md` § Sheet backup and restore drill. Open:
+      - **First `sheetRestoreDrill()` on the real Sheet**, at a quiet hour: the only proof that `Sheet.copyTo`
+        keeps every cell, and the first measure of how long the copy holds the script lock (a save waits 10 s,
+        a password sign-in 5 s, then "Busy"). Pick the trigger's hour from it.
+      - **Rehearse the real restore** (copy a backup, point `SPREADSHEET_ID` at it, set it back) on a quiet
+        night. Never done on production, so the nine steps are untested. Pp's call.
+      - **DPO: is 14 days in backups acceptable for an erased infant, and what about version history?** Each
+        backup book, and the live Sheet, keeps erased names in File ▸ Version history, which the backend cannot
+        clear. Name the backups in the retention answer the PDPA items below still owe.
+      - **Same account.** The backups do not survive losing the Google account that owns the Sheet. A copy
+        outside it needs a decision on where patient data may go.
+      - **Moving restored data back into the bound Sheet** has no written procedure (restore step 8).
+      - **A deleted `SHEET_BACKUP_STATE` property reads as a first run**: `setupSheetBackups` would then make
+        14 new books and leave the old 14, with their data, outside the rotation. The code cannot tell the two
+        apart without Drive. Never delete that property; never run setup to "fix" a backup problem.
+      - **Nobody is told when the trigger stops** except by the failure mail and `sheetBackupStatus`. A line on
+        the Admin page ("last backup: N h ago") would show it to the ward.
 - [x] **Center Point: sync the new feed keys before PR #247 is released** (Vera, 2026-11-11): done in #247 and its NICU-Center-Point PR.
 - [ ] **FBM with PF: Step 2's breast-milk line does not explain the concentrate** (Vera, 2026-11-11, finding 3). The recipe is the milk room's chart (Pp, 2026-11-11); a 26 kcal/oz row needs the chart's share first.
 - [ ] 🩺 **safety/product · What the nutrition team's meeting of 2026-10-28 left open.** Built for the

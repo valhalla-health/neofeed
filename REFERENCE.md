@@ -622,6 +622,133 @@ characters on the live `Daily_Log`, for example `=SUMPRODUCT(--(LEN(Daily_Log!Y2
 that sends such a `calcInput` back is refused: the registry's unchanged-value pass has no twin there. Real saves are
 about 1,500 characters, so expect 0; if it is not 0, hold the push and tell Pp.
 
+### Sheet backup and restore drill (2026-11-15, not live)
+
+Every record is in one spreadsheet, and a backend deploy runs against it with no staging. The backend keeps
+**14 backup spreadsheets** and a nightly trigger copies every tab of the live book over an empty slot, or else
+the oldest one
+(`gas-backend.gs` § Sheet backup and restore drill; `test/verify-sheet-backup-1115.cjs`). Pp's choices,
+2026-11-15: overwrite a fixed set of books, and keep 14 nights.
+
+- **No new scope.** `SpreadsheetApp.create`, `Sheet.copyTo`, `setName`, `rename` and `deleteSheet` are each listed
+  by Google under the `spreadsheets` scope the manifest already has (Apps Script reference, read 2026-11-15).
+  The time-zone and locale setters and `SpreadsheetApp.flush` were not looked up. The first drill calls
+  `flush`; a setter is called only when a backup book's time zone or locale differs from the live Sheet's, so
+  a clean drill shows nothing about a setter unless one differed. The backend still cannot reach Drive.
+- **Nothing is reachable from the web app.** The five functions run from the editor or the trigger only;
+  `doPost` answers "Unknown action" to their names.
+- **A slot is good only while it carries a time.** A run blanks the slot's time before it touches the book and
+  writes it back after the check, so a run that dies half-way leaves a slot listed as empty. The check: every tab
+  is there, and each tab the backend writes (`BACKUP_DATA_TABS`) has the row and column counts it had when its
+  copy began. A tab built by hand is copied but not judged. **Listed as empty is about the list:** the book of a
+  failed run or a failed drill still holds what was copied into it until it is next written. An empty slot is
+  always written first, one per run. If the trigger is off, it stays.
+- **Every slot's book id is checked before any book is touched.** A slot that names the live Sheet, has no id
+  (or one that is not text), or shares its book with another slot stops the run, the drill, the repair, the
+  setup and the status with nothing changed.
+- **The script lock is held for the whole copy**, so no patient, order or nursing save lands between two tabs.
+  While it is held a save waits its own 10 s and a password sign-in 5 s, then each answers "Busy". How long the
+  copy holds the lock on the real Sheet is not known until the first run. `Audit_Log` and `Usage_Log` are
+  appended without the lock (every sync writes an audit row), so they may gain rows during the copy: the copy
+  must hold at least the rows the tab had when its copy began. A hand edit in the Sheets UI is not locked either.
+  Setup and repair take the same lock, so neither can write the backup state while a backup runs.
+- **The state is the truth, not the title.** Titles in Drive read `NeoFeed backup slot 03 · 2026-11-16` (the
+  ward date of the copy), `(empty)`, `(writing)` or `(failed drill)`, and help find a book; a run that failed
+  between two steps can leave a title behind. `sheetBackupStatus` is what says which slots are good.
+- **A backup book that will not open does not stop the night.** It is skipped, the backup is written to the
+  next slot, and the run then fails on purpose so the trigger's owner is mailed: "Tonight's backup is good (slot
+  N), but K backup book(s) could not be opened." Nothing is remembered against the book: an open may fail once and
+  work the next night, and then the book is used. A run reports only the books it tried; `sheetBackupStatus` tries
+  to open every book itself, shows `unopenedSlots`, and is not `ok` while that is above 0. If the mail repeats, Run ▸ `repairSheetBackups`: a slot whose book will not
+  open **and** that holds no listed backup gets a new empty book. A slot that holds a listed backup is never
+  replaced (`goodButUnopened`); it is replaced once that backup has aged out. **The code cannot delete the book
+  it replaced.** If that file still exists in Drive or its trash, with patient data in it, delete it by hand:
+  search Drive for `NeoFeed backup slot NN`.
+- **A backup book is set to the live Sheet's time zone and locale before every copy.** A new book may start
+  in another zone (where Google takes it from was not looked up), and a date cell read from a book in another
+  zone is expected to come back shifted. Neither was tested here; the drill's cell compare would show a shift.
+
+**What it does not cover.**
+
+- The backup books are owned by the same Google account as the live Sheet. Losing that account loses both.
+  They are private to that account; do not share them.
+- **Each backup book has its own version history** (File ▸ Version history), which the backend cannot reach.
+  Deleting a backup's tabs after 14 days removes them from the book as it stands; the book's owner can still bring
+  them back from its history, for as long as Google keeps it. The live Sheet's own history has the same property
+  and is not addressed anywhere in this repo. See § Thai PDPA compliance posture.
+
+**Setting it up (Pp, once, from the Apps Script editor, as the account that owns the Sheet), after the backend
+code is pushed. Do steps 1 and 2 at a quiet hour: both hold the script lock, step 1 while it creates 14 books
+and step 2 for the whole copy and compare. `repairSheetBackups` holds it too: quiet hour as well.**
+
+1. Run ▸ `setupSheetBackups`. It creates the 14 books and logs `14 slots, 14 created now`. Running it again
+   creates none.
+2. Before the drill, open one new backup book and compare File ▸ Settings (time zone, locale) with the live
+   Sheet's: only if they differ does the drill call the setters, so only then does a clean drill show that they
+   work. Then Run ▸ `sheetRestoreDrill` (below). This is also the first backup. Note how long it ran
+   (Executions).
+3. Triggers ▸ Add trigger: function `backupSheetNightly`, event source Time-driven, Day timer, failure
+   notifications "immediately". Pick the hour from step 2's duration and the ward's night: 2am to 3am is a
+   starting point, not a finding, and night nurses chart then. A trigger runs under the account that created it.
+4. The next morning, Run ▸ `sheetBackupStatus`: `ok: true`, `newestAgeHours` 36 or less,
+   `unopenedSlots: 0`.
+
+A trigger is not pinned to the web app's deployed version, so it is expected to run whatever `clasp push` last
+put in the project (`clasp push` changes HEAD only). Google's trigger guide does not say so in words: on the
+first morning, confirm it ran from the Executions list. A push of a broken `gas-backend.gs` would then break
+the backup the same night; the failure mail and `sheetBackupStatus` are how that shows.
+
+**The restore drill (every 90 days, and before a backend deploy that changes how a tab is written), at a quiet
+hour.** Run ▸ `sheetRestoreDrill`. Under the script lock it takes a backup and compares every cell of the copy
+with the live book. It writes one backup slot and nothing in the live book. Read:
+
+- `restorable: true`: every tab the backend writes matches cell for cell (for `Audit_Log` and `Usage_Log`, every
+  row the copy holds), `Patient_Registry` and `Daily_Log` are in the copy, and their headers, with
+  `Nursing_Log`'s when that tab exists, are the ones the column-drift guard accepts.
+- `differingCellsInOtherTabs`: a tab built by hand (a chart with formulas) may differ while it recalculates.
+  Reported, not judged.
+- `restorable: false`: that copy is **not** kept as a backup (its slot stays empty, titled `(failed drill)`).
+  Read `tabs[].differingCells` and `schema`, and tell Pp. One known harmless cause: a sign-in that upgrades an
+  old password hash writes one `Staff` cell without the lock; run the drill again.
+
+`sheetBackupStatus` reports `drillDue: true` once no drill has passed in 90 days.
+
+**What the drill does not prove.** It proves the copy is faithful and readable by the backend's own header check.
+It does not switch the app to a backup. That switch (below) has never been rehearsed on production; rehearsing
+it on a quiet night is Pp's call (`BACKLOG.md`), and the steps below are untested until then.
+
+**A real restore (Pp's decision, never an agent's).** Use it when the live Sheet's data is damaged past a
+hand fix, and the Sheet's own version history (File ▸ Version history) cannot take it back. Try that history
+first: it keeps the Sheet the script is bound to.
+
+1. Tell the wards to stop saving. **Delete the `backupSheetNightly` trigger now and run no drill**: every run
+   copies the damaged Sheet into a backup slot, and once no slot is empty that is the oldest good backup. Add
+   it back after step 5. Run ▸
+   `sheetBackupStatus` and pick the newest good slot from before the damage.
+2. In Drive, open that backup by its title and **File ▸ Make a copy**. Never point the app at a slot itself:
+   every backup run would then refuse to start. Check the copy's File ▸ Settings: time zone and locale as the live Sheet's.
+3. Share the copy as the live Sheet is shared. Check its protected ranges against the live Sheet's and set
+   again any that are missing (whether `copyTo` carries them has not been tested here).
+4. Project Settings ▸ Script Properties: note the current `SPREADSHEET_ID`, then set it to the copy's ID. The
+   damaged Sheet is left as it is, as the record of what happened. Setting the old ID back undoes the switch.
+5. Run ▸ `sheetHealthReport` and read `schema` first: both tabs `ok: true`.
+6. **Wait 5 minutes, then have every ward device reload.** The sync payload is cached for up to 300 s
+   (`SYNC_CACHE_TTL_SECONDS`) and the switch does not drop it, so until then a device can be shown the damaged
+   Sheet's data. Then sign in as a doctor and open one infant per ward.
+7. **Everything after the backup's time is gone from the copy, and everything removed since is back.** From the
+   damaged Sheet's `Audit_Log`, which lists each of these:
+   - re-enter the orders, nursing entries and registrations saved after the backup, from the printed orders and
+     the ward's paper;
+   - **repeat every erasure** (`pseudonymizePatient`, from the Admin page): the copy holds the erased infant's
+     name again;
+   - **repeat every deletion** of a patient, an order or a nursing entry: a deleted order is a live order again;
+   - **Staff:** an account disabled since the backup can sign in again, a password changed since is the old one
+     again, and a `temp_password` cleared since is back in the tab. Disable, and reset, again.
+8. **The script stays bound to the damaged Sheet.** `onEdit` (the temp password for a Staff row typed by hand,
+   and the cache drop after a hand edit) fires only there, never on the copy. Until the data is moved back into
+   the bound Sheet, add staff from the Admin page, not by hand. Moving it back is a second, planned step.
+9. Write what happened, and why, in `CHANGELOG.md`.
+
 ### The TPN room's page: `tpn-room.html`
 
 PR B of `openspec/changes/tpn-room-stickers`. Not live: `STATUS.md` says what holds it.
@@ -725,6 +852,18 @@ one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with 
 0.2):** `pseudonymizePatient()` cannot reach that PC, so an erasure leaves the name there until the 30-day purge, and
 an edit keeps the old name in the history until then; and a `.replaced-*` file left by "start a new file" has no end date,
 because the purge runs on the open file only. No retention rule or manual erasure step exists yet.
+
+**Backups of the Sheet (since 2026-11-15, not live):** 14 backup spreadsheets in the same Google account, one
+overwritten each night, hold everything the live Sheet holds, names included (§ Sheet backup and restore drill).
+A backup older than 14 days has its tabs deleted by the next nightly run. So **an erasure reaches the backups by
+rotation, not at once**: while the trigger runs every night and each run succeeds, an infant erased with
+`pseudonymizePatient()` is out of every listed backup in about 15 days (14 days and the wait for the next run). Three things keep a name
+longer: the trigger stopped (until its next run); a book left by a failed run or a failed drill, which is cleared
+only when next written; and a book that would not open, or one `repairSheetBackups` replaced, which the code
+cannot reach at all. **Past that, the name is still in each backup book's version history**, which the backend cannot clear and whose length Google sets; the live
+Sheet's own version history holds erased names the same way and always has. A restore from a backup brings back
+every infant erased, and every record deleted, after the backup's time, until each is repeated (restore step 7).
+Open with Pp and the DPO (`BACKLOG.md`): whether 14 days is acceptable, and what to do about version history.
 
 **Accountability (Sec 39):** `Audit_Log` sheet (auto-created by
 `getSheetAudit()`) records registry reads and erasures with actor email +
