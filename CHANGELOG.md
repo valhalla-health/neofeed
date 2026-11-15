@@ -7,6 +7,37 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (2) — Sunday asks for length and HC; the growth charts print
+
+`data.js` (`isSundayBangkok`, `growthOnDol`, `weeklyGrowthDue`, new), `app.jsx` (opening a patient, the banner
+on the growth page, the print sheet), `fenton.jsx` (`FentonChart`'s `printMetric` and `onPrint`,
+`GrowthPrintSheet`, new), the two shells' print rules, `compiled/`, the shells' `?v=`,
+`test/verify-growth-weekly-print-1116.cjs` (new, 67 assertions), `STATUS.md`, `test/README.md`. This
+branch sits on top of the Fenton length and HC change above (same file, `fenton.jsx`).
+
+- **Why.** Pp, 2026-11-16: "ทุกเช้าวันอาทิตย์ตามเวลาประเทศไทย ให้เมื่อเข้าชื่อผู้ป่วย ให้เด้งหน้าไปกรอก HC and length
+  weekly ด้วยเลย", and "ให้มีปุ่ม ปริ้นท กราฟที่ plot fenton ออกมาได้ด้วย เผื่อเอาออกมาดู".
+- **Sunday.** Her answers: doctors and nurses both; all of Sunday in Bangkok from 00:00, not the morning only;
+  it can be put off, and then asks again each time the patient is opened. So on a Sunday, opening a patient from
+  the ward list or the patient picker goes to the growth page when today's DOL has no length or no head
+  circumference, with a banner that names what is missing and a "ไว้ทีหลัง" button back to the log. One value
+  keeps it asking for the other; with both in, the banner goes and the next opening lands on the log as before.
+  Not asked: an admin, a discharged infant, a test patient, and the quick calc (its typed figures would be lost).
+  The day is Bangkok's whatever the device's time zone (`isSundayBangkok`). "Today" is the DOL every screen
+  shows (`liveDol`), which is where the growth page files a new measurement.
+- **Print.** A "พิมพ์กราฟ" button on the growth card prints weight, length and HC together (Pp: all three in one
+  go) under the printed order's patient block (name, NeoFeed ID, boxes for HN and AN, bed, DOL) with GA at
+  birth, sex, birth weight and the print date. Each printed chart is the screen's own chart fixed on one
+  measure, so it reads the same percentile; the tabs, zoom buttons and entry box do not print. The print sheet is
+  hidden on screen and is the only thing on paper (`.growth-print`, in both shells). The order form's print
+  rules are unchanged.
+- **Nothing is calculated here.** No dose, limit, table or `CONSTANTS_VERSION` moves; the backend is not touched.
+- **For Pp to look at before it merges:** the banner's Thai wording, and the printed page itself. The harness
+  proves what the sheet holds and that both shells carry the rules; it cannot show how the three charts sit on
+  an A4 page, and no page was printed.
+- **Tests.** `verify-growth-weekly-print-1116.cjs` 67/67, six scenarios with the clock moved to
+  the next Sunday or Monday.
+
 ## Session 2026-11-16 — Length and head circumference on Fenton's own curve
 
 `data.js` (`FENTON_LENGTH_GROWTH_LMS`, `FENTON_HC_GROWTH_LMS`, new; `FENTON_LENGTH`, `FENTON_HC` removed),

@@ -2135,6 +2135,9 @@
   }
 
   /* ============ PRINT STYLES ============ */
+  /* The growth charts' print sheet exists only on paper (@media print below). */
+  .growth-print { display: none; }
+
   @media print {
     /* Hide all UI — show only Ramathibodi print form */
     .topbar, .rail, #toast-host, .picker-backdrop,
@@ -2143,7 +2146,15 @@
     /* Everything in the workspace except the order form itself — the edit/
        back-fill/prefill/lock/draft banners and the staleness banner sit
        outside .card and used to print above the pharmacy form. */
-    .work-inner > :not(#print-form):not(.print-batch), .bottom-nav, .quick-fab, .app > [role="status"] { display: none !important; }
+    .work-inner > :not(#print-form):not(.print-batch):not(.growth-print), .bottom-nav, .quick-fab, .app > [role="status"] { display: none !important; }
+
+    /* พิมพ์กราฟ (fenton.jsx GrowthPrintSheet): the three Fenton charts and the
+       patient block, in place of the growth page. Each chart is the screen's
+       own, without its tabs, zoom buttons or print button. */
+    .growth-print { display: block !important; }
+    .growth-print-chart { break-inside: avoid; page-break-inside: avoid; margin-bottom: 4mm; }
+    .growth-print-chart svg { max-width: 128mm !important; }
+    .growth-print .fenton-ctrl, .growth-print .fenton-zoom { display: none !important; }
 
     html, body { height: auto; background: #fff; }
     .app { display: block; height: auto; min-height: auto; overflow: visible; }
@@ -2189,13 +2200,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=4b7663e3e3"></script>
+  <script src="data.js?v=0e43b54585"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
   <script src="compiled/calculator.js?v=8c7a281b1a"></script>
-  <script src="compiled/fenton.js?v=811f6ae818"></script>
+  <script src="compiled/fenton.js?v=f0cee78b4f"></script>
   <script src="compiled/registry.js?v=e6f54efdb0"></script>
   <script src="compiled/log.js?v=dfd0cae3e3"></script>
-  <script src="compiled/app.js?v=4d78694aa4"></script>
+  <script src="compiled/app.js?v=09ad077aa4"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only
