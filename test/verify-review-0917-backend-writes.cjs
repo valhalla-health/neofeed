@@ -312,10 +312,10 @@ T.section('2026-11-15 · a doctor\'s I/O-only save keeps the order\'s ฉบั�
   const off = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: io.entryId, expectedLastModified: io.lastModified,
     entry: E({ ts: TODAY, ioInput: 92, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 92, aaPerKg: 3 } }) });
   T.eq('…unticking: still ฉบับ 1, the tick gone', [off.ok, ci().orderRev, ci().ioUseTpnWt], [true, 1, undefined]);
-  // A nurse cannot set the tick: her I/O save keeps the stored one.
+  // A nurse sets the tick as a doctor does (Pp, 2026-11-15), and it is still ฉบับ 1.
   const nu = g.as(g.nt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: off.entryId, expectedLastModified: off.lastModified,
     entry: E({ ts: TODAY, ioInput: 95, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 95, aaPerKg: 3, ioUseTpnWt: true } }) });
-  T.eq('a nurse\'s I/O save takes her Input but not the tick', [nu.ok, ci().ioInput, ci().ioUseTpnWt, ci().orderRev], [true, 95, undefined, 1]);
+  T.eq('a nurse\'s I/O save takes her Input and the tick, still ฉบับ 1', [nu.ok, ci().ioInput, ci().ioUseTpnWt, ci().orderRev], [true, 95, true, 1]);
   // A figure beside an unchanged calcInput is not I/O: a new version, written as sent.
   const fig = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: nu.entryId, expectedLastModified: nu.lastModified,
     entry: E({ ts: TODAY, gir: 7, ioInput: 95, calcInput: { wtG: 1250, tpnWtG: 1250, stops: [], ioInput: 95, aaPerKg: 3 } }) });

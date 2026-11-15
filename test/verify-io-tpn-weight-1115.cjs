@@ -98,8 +98,8 @@ const scenarios = {
     // A nurse records I/O on a doctor's order; the tick is part of the order (Vera).
     await P.render(null); localStorage.clear();
     await calc({ editEntry: { ...entry, status: 'submitted' }, nurseAccount: true });
-    A.ok('1.13 a nurse account: the tick is shown but disabled, and says a doctor sets it',
-      !!tickBox() && tickBox().disabled === true && /แพทย์เป็นผู้ติ๊ก/.test(card().textContent), tickBox() && tickBox().disabled);
+    A.ok('1.13 a nurse account: the tick is enabled, as for a doctor (Pp: "ทั้งของ doctor และ nurse ทำให้เหมือนกัน")',
+      !!tickBox() && tickBox().disabled === false, tickBox() && tickBox().disabled);
     await P.render(null); localStorage.clear();
     await calc({ editEntry: entry });
     A.eq('1.14 a doctor: enabled', tickBox() && tickBox().disabled, false);

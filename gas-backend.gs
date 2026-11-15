@@ -2834,8 +2834,8 @@ var NURSE_SUBMIT_REFUSAL = {
 // saver label, and figures derived from the order (stops, the sticker marker,
 // replacesTpn, printedFigures, a draft's blank-box list).
 // ioUseTpnWt, the "I/O ใช้น้ำหนักคำนวณ TPN" tick, is I/O too (Pp, 2026-11-15: "ถ้าแค่
-// เกี่ยวกับ I/O ไม่เกี่ยวกับถุง TPN ไม่ต้องปรับเป็น revision ใหม่"); only a doctor's save
-// writes it (_ioOnlyEntryFrom).
+// เกี่ยวกับ I/O ไม่เกี่ยวกับถุง TPN ไม่ต้องปรับเป็น revision ใหม่"), and a nurse sets it as a
+// doctor does ("ทั้งของ doctor และ nurse ทำให้เหมือนกัน").
 var IO_FREE_CALC_KEYS = { ioInput: 1, ioOutput: 1, drainContent: 1, ioUseTpnWt: 1, savedAt: 1, savedByLabel: 1,
   stops: 1, replacesTpn: 1, printJsonV: 1, printedFigures: 1, blankFields: 1, orderBy: 1, orderRev: 1, orderAt: 1 };
 // Whose order a row is: calcInput.orderBy, the account that last changed it
@@ -2945,10 +2945,9 @@ function _figuresOfRow(row) {
 
 // The entry a nurse's I/O save writes over the submitted row `cur`: every
 // column as stored, the I/O figures from her calcInput (cells AC–AE too) and
-// its save time. Keeps the date updateDailyNutrition set. `withTick`: a doctor's
-// I/O-only save (Pp, 2026-11-15) also writes the ioUseTpnWt tick; a nurse's
-// never does, so the stored tick stands whatever her client sends.
-function _ioOnlyEntryFrom(cur, entry, status, withTick) {
+// its save time, and the ioUseTpnWt tick (Pp, 2026-11-15: the same for a doctor
+// and a nurse). Keeps the date updateDailyNutrition set.
+function _ioOnlyEntryFrom(cur, entry, status) {
   var sent = (entry && entry.calcInput) || {};
   var ci = _parseJson(cur[24], {}) || {};
   var stored = _parseJson(cur[24], {}) || {};
@@ -2956,10 +2955,8 @@ function _ioOnlyEntryFrom(cur, entry, status, withTick) {
   ci.orderRev = _orderRevOf(cur);
   ci.orderAt = typeof stored.orderAt === "string" && stored.orderAt ? stored.orderAt : String(cur[26] || "");
   ci.ioInput = sent.ioInput; ci.ioOutput = sent.ioOutput; ci.drainContent = sent.drainContent;
-  if (withTick === true) {
-    if (sent.ioUseTpnWt === true) ci.ioUseTpnWt = true;
-    else delete ci.ioUseTpnWt;
-  }
+  if (sent.ioUseTpnWt === true) ci.ioUseTpnWt = true;
+  else delete ci.ioUseTpnWt;
   if (sent.savedAt) ci.savedAt = sent.savedAt;
   // Plain text: _buildLogRow and _provenanceFields escape it on the way in.
   var str = function (v) { return String(v == null ? "" : v); };
@@ -3052,7 +3049,7 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       // boxes, the tick) is not a new version of the order (Pp, 2026-11-15): it
       // is written from the stored row, as a nurse's is, keeping its orderBy and
       // orderRev, so the printed "ฉบับที่" and the TPN room do not move.
-      entry = _ioOnlyEntryFrom(cur, entry, "submitted", true);
+      entry = _ioOnlyEntryFrom(cur, entry, "submitted");
     } else {
       entry = _withOrderBy(entry, editedBy, orderRevNext);
     }

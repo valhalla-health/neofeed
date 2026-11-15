@@ -347,6 +347,7 @@ function storedOrderWithIo(saved, e) {
   for (const k of STORED_ORDER_FIELDS) out[k] = saved?.[k] !== undefined ? saved[k] : e[k];
   const ci = e.calcInput || {};
   out.calcInput = { ...(saved?.calcInput || {}), ioInput: ci.ioInput, ioOutput: ci.ioOutput, drainContent: ci.drainContent,
+    ioUseTpnWt: ci.ioUseTpnWt === true ? true : undefined,
     savedAt: ci.savedAt, orderBy: ci.orderBy, orderRev: ci.orderRev, orderAt: ci.orderAt };
   out.constantsVersion = saved?.calcInput?.constantsVersion || saved?.constantsVersion || "";
   out.appVersion = saved?.appVersion || "";
@@ -3374,12 +3375,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               infant whose weight moved fast (460 → 560 g in days). */}
           <label className="io-tpn-wt" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8,
             fontSize: 12.5, color: "var(--ink-2)", cursor: "pointer", minHeight: 36 }}>
-            {/* A doctor's choice: it is part of the order, so a nurse's I/O-only
-                save would be refused over it (Vera, 2026-11-15). */}
-            <input type="checkbox" name="ioUseTpnWt" checked={ioUseTpnWt} disabled={nurseAccount}
+            {/* I/O, not the order: a doctor and a nurse both set it (Pp,
+                2026-11-15: "ทั้งของ doctor และ nurse ทำให้เหมือนกัน"). */}
+            <input type="checkbox" name="ioUseTpnWt" checked={ioUseTpnWt}
               onChange={e => setIoUseTpnWt(e.target.checked)} style={{ width: 18, height: 18 }} />
             I/O ใช้น้ำหนักคำนวณ TPN{wtG > 0 && <> (<span className="num">{fmt(wtG, 0)}</span> g)</>}
-            {nurseAccount && <span style={{ color: "var(--ink-3)", fontSize: 11.5 }}> · แพทย์เป็นผู้ติ๊ก</span>}
           </label>
           {/* D4: the nurses' record for this order's date, one tap away —
               never filled in by itself — and, once taken, where the figures

@@ -270,6 +270,12 @@ const oldVersion = (e) => ({ ...e, constantsVersion: OLD_VERSION, calcInput: { .
   click(container.querySelector('input[name="ioUseTpnWt"]'));
   await settle(submitBtn());
   eq('…the "I/O ใช้น้ำหนักคำนวณ TPN" tick alone too (1), sent ticked', [s.calls[0]?.[3].calcInput.orderRev, s.calls[0]?.[3].calcInput.ioUseTpnWt], [1, true]);
+  // "ทั้งของ doctor และ nurse ทำให้เหมือนกัน": a nurse's I/O save sends the tick too, as I/O, on the doctor's order.
+  s = rec(); mount({ ...NURSE, editEntry: ioRev, ...s });
+  click(container.querySelector('input[name="ioUseTpnWt"]'));
+  await settle(submitBtn());
+  eq('a nurse ticks it too: her I/O save sends it, the order still the doctor\'s ฉบับ 1',
+    [s.calls[0]?.[3].calcInput.ioUseTpnWt, s.calls[0]?.[3].calcInput.orderBy, s.calls[0]?.[3].calcInput.orderRev, nurseNote()], [true, 'doc@kcmh.test', 1, '']);
   eq('app.jsx hands the Calculator the nurse role', /nurseAccount=\{role === "nurse"\}/.test(R('app.jsx')), true);
   s = rec(); mount({ ...NURSE, ordersReadOnly: true, editEntry: row(bag), ...s });
   eq('the nursing switch on (read-only orders): no Submit and no refusal line', [!!submitBtn(), nurseNote()], [false, '']);
