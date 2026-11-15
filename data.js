@@ -1256,7 +1256,7 @@ function tpnOverDelivery(volMl) {
   if (!pump) return null;
   const givenMl = Number((pump.rate * 24).toFixed(1));
   const extraMl = Number((givenMl - volMl).toFixed(1));
-  const pct = Math.round(extraMl / volMl * 100);
+  const pct = Number(displayNum(extraMl / volMl * 100, 0));   // as every whole number a person reads
   return pct >= TPN_OVER_NOTE_PCT ? { givenMl, extraMl, pct } : null;
 }
 // The 20% lipid syringe to a whole mL/day (Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ

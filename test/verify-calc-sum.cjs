@@ -90,7 +90,9 @@
 //     Ca gluconate 76.5 mg. Each must read the same whole number, rounded half
 //     up from the paper figure, everywhere it is shown: the tile, Step 3's
 //     chip, the alert line, the energy card, the printed sheet (front and back),
-//     the front's saved printedFigures and the TPN room's sticker figures.
+//     the front's saved printedFigures and the TPN room's sticker figures. Two
+//     more (Vera) put oral vitamin D (502.5 IU/day) and oral Ca (56.5 mg/day) on
+//     a tie: Step 6, the front sheet and the saved suppVitD_IU / suppCa_mg.
 //     toFixed(0) and Math.round read the float, so before this check the alert
 //     said "899 mOsm/L" beside a red 900 tile. The wanted figures are the
 //     paper arithmetic, written into each order, not the app's formula.
@@ -482,6 +484,8 @@ async function fill(sc, scratch = false) {
   setCheck('Peditrace', sc.pedi);
   setField('ZnSO₄', sc.zn);
   setField('Heparin(U/mL)', sc.hep);
+  if (sc.vitD) setField('Vitamin D', sc.vitD);          // Step 6 (§ 4's tie orders only)
+  if (sc.oralCa) setField('ปริมาณ elem Ca', sc.oralCa);
   // An order with no bag and no lipid is submitted with "No TPN" ticked
   // (CR-NO-TPN-TICK, Pp 2026-11-01). It holds nothing to clear here.
   if (!['tpn', 'useRate', 'dex', 'aa', 'lip', 'naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn'].some(k => sc[k] > 0)) setCheck('No TPN', true);
@@ -896,6 +900,10 @@ const TIES = [
     bw: 760, cur: 760, tpn: 100, dex: 10, aa: 3, glyNa: 1, want: { p: 16 } },
   { name: 'T4 1.5 kg, 150 + 30 mL, Ca 42.5 mg/kg: Ca gluconate 42.5 × 1.8 = 76.5 → 77 mg in the bag',
     bw: 1500, cur: 1500, tpn: 150, dex: 10, aa: 3, ca: 42.5, glyNa: 2, want: { caMg: 77 } },
+  { name: 'T5 1,005 g, oral vitamin D 500 IU/kg: 502.5 → 503 IU/day, saved as 503 (Vera)',
+    bw: 1005, cur: 1005, tpn: 100, dex: 10, aa: 3, vitD: 500, want: { vitD: 503 } },
+  { name: 'T6 1,130 g, oral Ca 50 mg/kg: 56.5 → 57 mg/day, saved as 57 (Vera)',
+    bw: 1130, cur: 1130, tpn: 100, dex: 10, aa: 3, glyNa: 2, oralCa: 50, want: { oralCa: 57 } },
 ];
 function alertBody(title) {
   const row = [...container.querySelectorAll('.alert-row')].find(r => r.querySelector('.title')?.textContent === title);
@@ -960,6 +968,22 @@ async function runTie(scIn) {
     const back = sheet.match(/10% Ca Gluconate ?(\d[\d.,]*) mg/);
     ok(sc, `the back sheet reads ${w.caMg} mg`, !!back && numOrDash(back[1]) === w.caMg, back && back[0]);
     ok(sc, `the saved printedFigures (the changes list) read ${w.caMg}`, row.calcInput?.printedFigures?.caMg === String(w.caMg), row.calcInput?.printedFigures?.caMg);
+  }
+  if (w.vitD != null) {
+    const hint = screen.match(/= (\d[\d.,]*) IU\/day · ESPGHAN/);
+    ok(sc, `Step 6's hint reads ${w.vitD} IU/day`, !!hint && numOrDash(hint[1]) === w.vitD, hint && hint[0]);
+    const readout = screen.match(/Vitamin D ?(\d[\d.,]*) IU ?\/day/);
+    ok(sc, `Step 6's readout reads ${w.vitD} IU`, !!readout && numOrDash(readout[1]) === w.vitD, readout && readout[0]);
+    const front = sheet.match(/IU\/kg\/d = ?(\d[\d.,]*) ?IU\/day/);
+    ok(sc, `the front prints ${w.vitD} IU/day`, !!front && numOrDash(front[1]) === w.vitD, front && front[0]);
+    ok(sc, `the saved suppVitD_IU is ${w.vitD}`, row.suppVitD_IU === w.vitD, row.suppVitD_IU);
+  }
+  if (w.oralCa != null) {
+    const hint = screen.match(/= (\d[\d.,]*) mg\/day · [\d.,]+ tab\/day/);
+    ok(sc, `Step 6's Ca hint reads ${w.oralCa} mg/day`, !!hint && numOrDash(hint[1]) === w.oralCa, hint && hint[0]);
+    const front = sheet.match(/Ca oral \([^)]*\) ?[\d.,]+ ?mg\/kg\/d = ?(\d[\d.,]*) ?mg/);
+    ok(sc, `the front prints oral Ca ${w.oralCa} mg`, !!front && numOrDash(front[1]) === w.oralCa, front && front[0]);
+    ok(sc, `the saved suppCa_mg is ${w.oralCa}`, row.suppCa_mg === w.oralCa, row.suppCa_mg);
   }
   return null;
 }
