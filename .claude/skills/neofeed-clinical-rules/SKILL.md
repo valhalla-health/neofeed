@@ -303,15 +303,14 @@ ch 42 p. 10). The 850 caution and the central 1,800 warning had no source and ar
 12.5 % on a peripheral line, or with no route yet, adds a "Central only!" flag under the dextrose field
 (`DEX_PERIPHERAL_MAX_PCT`, 2026-11-10); it is not an alert and changes nothing at Submit. The printed form's
 route line prints `OSM_PERIPHERAL_MAX`, not the paper form's fixed "<900" (Pp, 2026-11-10, PR #240). On the Total Volume line, in small type, the front sheet prints the bag's own estimate, "Bag osm N mOsm/L", rounded as the
-Osmolarity tile shows and this rule grades it, so the sheet, the tile and the grade read one number. The
-alert body and Step 3's chip still round with `toFixed(0)` and can read 1 lower at a .5 tie (the rounding
-item in `BACKLOG.md`). No bag, or a
+Osmolarity tile shows and this rule grades it, so the sheet, the tile, the alert and the grade read one number. No bag volume, or a
 bag whose estimate is 0 (no dextrose, amino acid or electrolyte), prints no figure (Pp, 2026-11-15).
 
 ```rule
 {"rule": "CR-OSM-PERIPH", "kind": "critical", "coded": {"OSM_PERIPHERAL_MAX": 900, "DEX_PERIPHERAL_MAX_PCT": 12.5}, "where": [{"file": "calculator.jsx", "line": 3718, "has": "route!==\"central\" && dexPct > D.DEX_PERIPHERAL_MAX_PCT && ("}, {"file": "data.js", "line": 1206, "has": "const OSM_PERIPHERAL_MAX = 900;"}, {"file": "calculator.jsx", "line": 2150, "has": "? (Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? \"crit\" : \"ok\")"}, {"file": "calculator.jsx", "line": 2460, "has": "if (bagOrdered && sOsm === \"crit\") alerts.push"}]}
 {"case": "peripheral, prints 899: no alert", "side": "inside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.49}, "expect": {"no_alert": "Osmolarity > peripheral limit", "shows": "Osm 899 mOsm/L"}}
 {"case": "peripheral, 899.6 prints 900: critical", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"alert": "Osmolarity > peripheral limit", "level": "crit", "submit": "asks_reason"}}
+{"case": "peripheral, 899.5 on paper (899.4999999999999 in JS, 80 mL of D9.04 with AA 3.58): critical, and its line and chip read 900", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 80, "Dextrose final": 9.04, "Amino acid": 3.58}, "expect": {"alert": "Osmolarity > peripheral limit", "level": "crit", "shows": ["900 mOsm/L — a peripheral line takes under 900 mOsm/L", "Osm 900 mOsm/L"], "hides": "899 mOsm/L"}}
 {"case": "peripheral D12.5: no Central only! flag", "side": "inside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 12.5, "Amino acid": 2}, "expect": {"hides": "Central only!"}}
 {"case": "peripheral D12.6: Central only!", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 12.6, "Amino acid": 2}, "expect": {"shows": "Central only!"}}
 {"case": "central D12.6: no flag", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12.6, "Amino acid": 2}, "expect": {"hides": "Central only!"}}
@@ -1272,8 +1271,17 @@ limit gets the decimals it needs to read differently from the limit (`vsLimit`, 
 
 At most 2 decimals (or the count given), never a trailing zero ("18.0" can be read as 180), half away
 from zero after clearing the float tail at 6 decimals (1.5 × 0.7 is 1.0499999999999998 and prints 1.1),
-never "-0"; blank, NaN and Infinity print "—".
-Source: Pp, 2026-09-22: "ห้ามมี .0 เช่น 18.0 คือ 18"; the ISMP rule. The float tail: Vera on PR #171.
+never "-0"; blank, NaN and Infinity print "—". Whole numbers too: every tile, alert line, chip, card, the
+sheet (front and back, `f0`) and the copied order show a figure through `displayNum(v, 0)` (`fmt`, `f0`), so
+a figure that is a half on paper and just under it in JS reads one number everywhere: osmolarity 899.5
+(899.4999999999999) is 900 on the tile, in its red line, on the chip, on the sheet and on the sticker. Until
+2026-11-15 the alert line, the chip, the energy card and the sheet used `toFixed(0)` or `Math.round`, which
+read the float (899 beside a red 900). `tools/ci_bans.js` `raw-round-display` fails a `.toFixed(0)` or a
+`{Math.round(` in the sources; `verify-calc-sum.cjs` § 4 checks four such orders on screen and on paper.
+Two whole numbers stored with the order round the same way: oral vitamin D IU/day and Ca mg/day.
+Source: Pp, 2026-09-22: "ห้ามมี .0 เช่น 18.0 คือ 18"; the ISMP rule. The float tail: Vera on PR #171. Whole
+numbers everywhere: the BACKLOG item found by the sticker calc check (2026-10-30); Pp, 2026-11-15:
+"ปรับทุกอย่างให้ตรงกัน และปลอดภัยกับผู้ป่วย".
 
 ```rule
 {"rule": "CR-R-DISPLAY", "kind": "round", "where": [{"file": "data.js", "line": 1028, "has": "function displayNum(value, maxDecimals = 2) {"}]}
@@ -1282,6 +1290,8 @@ Source: Pp, 2026-09-22: "ห้ามมี .0 เช่น 18.0 คือ 18"; 
 {"case": "1.25 at 1 decimal prints 1.3", "fn": "displayNum", "args": [1.25, 1], "want": "1.3"}
 {"case": "1.5 × 0.7 (1.0499999999999998) at 1 decimal prints 1.1", "fn": "displayNum", "args": [1.0499999999999998, 1], "want": "1.1"}
 {"case": "899.6 at 0 decimals prints 900", "fn": "displayNum", "args": [899.6, 0], "want": "900"}
+{"case": "899.4999999999999 (899.5 on paper) at 0 decimals prints 900", "fn": "displayNum", "args": [899.4999999999999, 0], "want": "900"}
+{"case": "43.49999999999999 (43.5 kcal/kg/d on paper) prints 44", "fn": "displayNum", "args": [43.49999999999999, 0], "want": "44"}
 {"case": "-0.004 prints 0", "fn": "displayNum", "args": [-0.004], "want": "0"}
 {"case": "blank prints —", "fn": "displayNum", "args": [null], "want": "—"}
 ```
