@@ -328,6 +328,11 @@ T.section('2026-11-15 · a doctor\'s I/O-only save keeps the order\'s ฉบั�
   const ord2 = (room2.orders || []).find(o => o.sessionId === 'NF-000460');
   T.eq('…and the room no longer counts the ฉบับ 1 row as the same bag', [ord2 && ord2.revision, !!ord2 && (ord2.sameBagEntryIds || []).includes(c.entryId)], [3, false]);
   T.eq('…and each answer names the number it stored', [io.orderRev, fig.orderRev, dose.orderRev], [1, 2, 3]);
+  // A stop the save reports is never "I/O only": it goes through the stop refusal (verify-backend-stops-1028).
+  const rowsBefore = g.rows('Daily_Log').length;
+  const stopped = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'NF-000460', entryId: dose.entryId, expectedLastModified: dose.lastModified,
+    entry: E({ ts: TODAY, gir: 7, ioInput: 96, calcInput: { wtG: 1250, tpnWtG: 1250, stops: ['CR-STOCK-ZERO'], ioInput: 96, aaPerKg: 3.5 } }) });
+  T.eq('a submitted order: an I/O-only save that reports a stop is refused, nothing appended', [!!stopped.error, g.rows('Daily_Log').length], [true, rowsBefore]);
   // Vera, second review: a draft another account saved and someone locked (AH) is still a draft (column O).
   g.seedPatient(P('NF-000461', { currentBed: 'NICU 11' }));
   const dr = g.as(g.at, { action: 'logDailyNutrition', sessionId: 'NF-000461',

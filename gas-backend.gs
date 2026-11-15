@@ -2936,6 +2936,15 @@ function _sameStoredFigures(cur, entry) {
   return _canonicalJson(sentPj) === _canonicalJson(_parseJson(cur[38], null));
 }
 
+// The stop list a doctor's entry carries is the stored one. `stops` is not part of
+// the order's fingerprint (IO_FREE_CALC_KEYS), so without this an I/O-only save
+// that reports a stop would be written from the stored row and the stop
+// refusal (_validateLogEntry) never asked (CI, verify-backend-stops-1028).
+function _sameStoredStops(cur, entry) {
+  var was = _parseJson(cur[24], {}) || {};
+  var now = (entry && entry.calcInput) || {};
+  return _canonicalJson(was.stops === undefined ? null : was.stops) === _canonicalJson(now.stops === undefined ? null : now.stops);
+}
 // A stored row's figures in the shape _sameStoredFigures reads from an entry.
 function _figuresOfRow(row) {
   return { dol: row[2], weight: row[3], fluid: row[4], gir: row[5], pro: row[6], kcal: row[7], na: row[8], k: row[9],
@@ -3045,7 +3054,7 @@ function updateDailyNutrition(sessionId, entryId, expectedLastModified, entry, e
       else if (othersDraft) entry = _ioOnlyEntryFrom(cur, entry, "draft");
       else entry = _withOrderBy(entry, editedBy, orderRevNext);
     } else if (String(cur[14] || "").trim().toLowerCase() !== "draft" && _ioOnlyRevision(cur, entry)
-        && _sameStoredFigures(cur, entry)) {
+        && _sameStoredFigures(cur, entry) && _sameStoredStops(cur, entry)) {
       // By column O alone, as the nurse branch: submitting a draft someone locked
       // (AH) is a signed new version, not I/O (Vera, 2026-11-15).
       // A doctor's save on a submitted order that changes only I/O (the three
