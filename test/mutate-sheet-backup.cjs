@@ -27,11 +27,12 @@ const src = fs.readFileSync(SRC, 'utf8');
 const M = [
   // The slot is good only after the check.
   ['slot not blanked before the write', '    var label = _backupSlotLabel(slot);\n    st.slots[slot].at = "";\n    _saveBackupState(st);\n', '    var label = _backupSlotLabel(slot);\n'],
+  ['slot not blanked, state still saved', '    var label = _backupSlotLabel(slot);\n    st.slots[slot].at = "";\n', '    var label = _backupSlotLabel(slot);\n'],
   ['count check off', '    if (bad > 0) {', '    if (false) {'],
   ['column count not checked', ': (copyRows === row.rows && copyCols === row.columns);', ': (copyRows === row.rows);'],
   ['tab count not checked', '    if (dest.getSheets().length !== srcSheets.length) bad++;\n', ''],
   ['placeholder tab left in', '    dest.deleteSheet(holder);\n', '\n'],
-  ['flush after the slot is saved as good', '    dest.deleteSheet(holder);\n    SpreadsheetApp.flush();\n', '    dest.deleteSheet(holder);\n'],
+  ['no flush before the slot is saved as good', '    dest.deleteSheet(holder);\n    SpreadsheetApp.flush();\n', '    dest.deleteSheet(holder);\n'],
   ['failed drill kept as a good backup', '      if (!out.restorable) {', '      if (false) {'],
   ['failed drill not recorded', '      st.lastDrill = { at: doneAt, ok: out.restorable };', '      st.lastDrill = { at: doneAt, ok: true };'],
   // Retention.
@@ -43,7 +44,7 @@ const M = [
   ['newest slot overwritten first', "      while (pos > 0 && Date.parse(st.slots[dated[pos - 1]].at) > Date.parse(st.slots[k2].at)) pos--;", "      while (pos > 0 && Date.parse(st.slots[dated[pos - 1]].at) < Date.parse(st.slots[k2].at)) pos--;"],
   ['empty slots not used first', '    order = order.concat(dated);', '    order = dated.concat(order);'],
   // The lock.
-  ['no lock', '  lock.waitLock(BACKUP_LOCK_WAIT_MS);\n', '\n'],
+  ['no lock', '  var lock = LockService.getScriptLock();\n  lock.waitLock(BACKUP_LOCK_WAIT_MS);\n  try {\n    var st = _backupState();\n    if (st.slots.length', '  var lock = LockService.getScriptLock();\n  try {\n    var st = _backupState();\n    if (st.slots.length'],
   // Tabs appended outside the lock.
   ['append tab must equal its count', ': appendOnly ? (copyRows >= row.rows && copyCols >= row.columns)\n', ': appendOnly ? (copyRows === row.rows && copyCols >= row.columns)\n'],
   ['append tab rows not checked', ': appendOnly ? (copyRows >= row.rows && copyCols >= row.columns)\n', ': appendOnly ? (copyCols >= row.columns)\n'],
@@ -59,29 +60,32 @@ const M = [
   ['a Date equals any Date', 'if (aDate || bDate) return aDate && bDate && a.getTime() === b.getTime();', 'if (aDate || bDate) return aDate && bDate;'],
   // Slot ids.
   ['live-id slot not refused', ': id === live ? "points at the live Sheet"', ': false ? "points at the live Sheet"'],
-  ['missing id not refused', 'var what = !id ? "has no book id"', 'var what = false ? "has no book id"'],
+  ['missing id not refused', 'var what = (typeof id !== "string" || !id) ? "has no book id"', 'var what = false ? "has no book id"'],
+  ['an id that is not a string accepted', 'var what = (typeof id !== "string" || !id) ? "has no book id"', 'var what = (!id) ? "has no book id"'],
   ['shared book not refused', ': seen[id] ? "shares its book with another slot" : "";', ': "";'],
   ['slot ids not checked before the run', '    _backupCheckSlots(st);\n    var now = Date.now();', '    var now = Date.now();'],
-  ['slot ids not checked before a repair', '    _backupCheckSlots(st);\n    var replaced = 0, goodButUnopened = 0;', '    var replaced = 0, goodButUnopened = 0;'],
+  ['slot ids not checked before a repair', '      _backupCheckSlots(st);\n      var replaced = 0, goodButUnopened = 0;', '      var replaced = 0, goodButUnopened = 0;'],
   // The stored state.
   ['unreadable state read as empty', '    throw new Error("The Script Property SHEET_BACKUP_STATE cannot be read.', '    return { slots: [], lastDrill: null }; throw new Error("The Script Property SHEET_BACKUP_STATE cannot be read.'],
   ['blank state read as a first run', '  if (raw === null || raw === undefined) return { slots: [], lastDrill: null };', '  if (!raw) return { slots: [], lastDrill: null };'],
   // Books that will not open.
   ['an unopened book is not reported', '    if (out.unopenedSlots > 0) {', '    if (false) {'],
   ['status ok with an unopened book', ' && newestHours <= BACKUP_FRESH_HOURS && unopened === 0;', ' && newestHours <= BACKUP_FRESH_HOURS;'],
-  ['repair replaces a good backup that did not open', '      if (st.slots[i].at) { goodButUnopened++; continue; }\n', ''],
-  ['repair replaces every slot', '      if (_backupOpenSlot(st, i)) continue;\n      if (st.slots[i].at)', '      if (st.slots[i].at)'],
-  ['repair does not save its count', '    st.unopened = goodButUnopened;\n', ''],
+  ['status does not open the books', 'var opens = !!_backupOpenSlot(st, i);', 'var opens = true;'],
+  ['status does not check slot ids', '    _backupCheckSlots(st);\n    var now = Date.now(), newest', '    var now = Date.now(), newest'],
+  ['repair replaces a good backup that did not open', '        if (st.slots[i].at) { goodButUnopened++; continue; }\n', ''],
+  ['repair replaces every slot', '        if (_backupOpenSlot(st, i)) continue;\n        if (st.slots[i].at)', '        if (st.slots[i].at)'],
+  ['repair without the lock', '    lock.waitLock(BACKUP_LOCK_WAIT_MS);\n    try {\n      var st = _backupState();\n      _backupCheckSlots(st);\n      var replaced', '    try {\n      var st = _backupState();\n      _backupCheckSlots(st);\n      var replaced'],
+  ['setup without the lock', '    lock.waitLock(BACKUP_LOCK_WAIT_MS);\n    try {\n      var st = _backupState();\n      _backupCheckSlots(st);\n      var created', '    try {\n      var st = _backupState();\n      _backupCheckSlots(st);\n      var created'],
   // Ids and logs.
   ['book id in the run log line', 'return "sheet " + kind + ": slot " + out.slot', 'return "sheet " + kind + ": slot " + out.slot + _backupState().slots[0].id'],
-  ['drill time in the status log line', '+ " book(s) not opened last run, drill due " + drillDue);', '+ " book(s) not opened last run, drill due " + drillDue + " " + (st.lastDrill ? st.lastDrill.at : ""));'],
+  ['drill time in the status log line', '+ " book(s) not opening, drill due " + drillDue);', '+ " book(s) not opening, drill due " + drillDue + " " + (st.lastDrill ? st.lastDrill.at : ""));'],
   ['thrown message not scrubbed', '  ids.forEach(function (id) { msg = msg.split(id).join("(book)"); });', ''],
-  ['only the first id scrubbed', '  ids.forEach(function (id) { msg = msg.split(id).join("(book)"); });', '  ids.slice(0, 2).forEach(function (id) { msg = msg.split(id).join("(book)"); });'],
+  ['only the first two ids scrubbed', '  ids.forEach(function (id) { msg = msg.split(id).join("(book)"); });', '  ids.slice(0, 2).forEach(function (id) { msg = msg.split(id).join("(book)"); });'],
   ['scrub shortest id first', '  ids.sort(function (x, y) { return y.length - x.length; });', '  ids.sort(function (x, y) { return x.length - y.length; });'],
   ['setup errors not scrubbed', 'function setupSheetBackups() {\n  return _backupGuarded(function () {', 'function setupSheetBackups() {\n  return (function (f) { return f(); })(function () {'],
   ['repair errors not scrubbed', 'function repairSheetBackups() {\n  return _backupGuarded(function () {', 'function repairSheetBackups() {\n  return (function (f) { return f(); })(function () {'],
   // Time zone and locale.
-  ['new book keeps the account time zone', '  _backupMatchSettings(_book(), book);\n  return book;', '  return book;'],
   ['time zone not matched before the copy', '    _backupMatchSettings(src, dest);\n    var holder = _clearBackupBook(dest);\n', '    var holder = _clearBackupBook(dest);\n'],
   ['locale not matched', '  if (dest.getSpreadsheetLocale() !== src.getSpreadsheetLocale()) dest.setSpreadsheetLocale(src.getSpreadsheetLocale());', ''],
   // Status.

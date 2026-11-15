@@ -2,7 +2,8 @@
 // (gas-backend.gs § Sheet backup and restore drill, 2026-11-15).
 //
 // Every NeoFeed record is in one spreadsheet. The backend now keeps 14 backup
-// books and, once a night, copies every tab of the live book over the oldest
+// books and, once a night, copies every tab of the live book over an empty
+// one, or else the oldest
 // (Pp, 2026-11-15: overwrite a fixed set of books, keep 14 nights).
 //
 //   §1  Setup makes exactly 14 books, once; a second run makes none; a run that
@@ -31,9 +32,10 @@
 //   §10 Every slot id is checked before any book is touched (the live Sheet's
 //       id, a missing id, a shared book); an unreadable state is an error,
 //       never "not set up"; a backup book that will not open is skipped, the
-//       run reports it after the backup is safe, and repairSheetBackups()
-//       replaces it only when it holds no listed backup; a thrown message
-//       carries no book id; new books take the live Sheet's time zone.
+//       run reports it after the backup is safe, status finds it by opening
+//       the books, and repairSheetBackups() replaces it only when it holds no
+//       listed backup; setup and repair hold the script lock; a thrown message
+//       carries no book id; the time zone and locale are matched before a copy.
 //
 // What this cannot show: that Google's own Sheet.copyTo keeps every cell, how
 // long the copy holds the lock, or a date shifted by a book's time zone. The
@@ -235,6 +237,15 @@ T.section('§5 A run that fails', () => {
   T.eq('the next run takes the same slot', retry.slot, 2);
   T.eq('…and leaves it whole', tabNames(book(g, 2)), ['Staff', 'Patient_Registry', 'Daily_Log', 'Audit_Log', 'Chart']);
 
+  // After night 14 the slot being written is a dated one: a run that dies there must delist it.
+  const full = ready();
+  for (let n = 0; n < 14; n++) withNow(T0 + n * DAY, () => full.sb.backupSheetNightly());
+  T.eq('before the failed night slot 1 is listed', state(full).slots[0].at, new Date(T0).toISOString());
+  full.sheet('Daily_Log').throwOn.copyTo = { once: true };
+  T.ok('night 15 fails in the copy', threw(() => withNow(T0 + 14 * DAY - 60000, () => full.sb.backupSheetNightly())) !== '');
+  T.eq('…and the oldest slot, half-written, is no longer listed', state(full).slots[0].at, '');
+  T.eq('…13 good backups are left', withNow(T0 + 14 * DAY - 60000, () => full.sb.sheetBackupStatus().goodBackups), 13);
+
   // The lock is not free: nothing is read or written.
   const before = g.props.get(STATE_KEY), titles = Object.values(g.env.books).map(b => b.getName()).join('|');
   g.env.lockTimeout = true;
@@ -323,7 +334,7 @@ T.section('§7 Status', () => {
   T.eq('90 days later it is still not due', withNow(T0 + 91 * DAY, () => g.sb.sheetBackupStatus().drillDue), false);
   T.eq('a day after that it is', withNow(T0 + 91 * DAY + 60000, () => g.sb.sheetBackupStatus().drillDue), true);
   const s = withNow(T0 + DAY, () => g.sb.sheetBackupStatus());
-  T.eq('status lists 14 slots with no id', [s.slots.length, Object.keys(s.slots[0]).sort()], [14, ['ageHours', 'at', 'slot']]);
+  T.eq('status lists 14 slots with no id', [s.slots.length, Object.keys(s.slots[0]).sort()], [14, ['ageHours', 'at', 'opens', 'slot']]);
 });
 
 T.section('§8 Logs', () => {
@@ -492,12 +503,12 @@ T.section('§10 Books that are wrong, lost or in another time zone', () => {
   T.eq('…the backup is in slot 2 and listed as good', [state(d).slots[1].at, tabNames(book(d, 2)).length], [new Date(T0).toISOString(), 5]);
   T.eq('…the lock is released', d.env.lockHeld, 0);
   const sd = withNow(T0, () => d.sb.sheetBackupStatus());
-  T.eq('status is not ok while a book went unopened', [sd.ok, sd.unopenedSlotsLastRun, sd.goodBackups], [false, 1, 1]);
-  // The book opens again the next night (Sheets fails an open now and then): nothing was remembered against it.
+  T.eq('status is not ok while a book will not open', [sd.ok, sd.unopenedSlots, sd.goodBackups, sd.slots[0].opens, sd.slots[1].opens], [false, 1, 1, false, true]);
+  // The book opens again the next night (an open may fail once): nothing was remembered against it.
   d.env.deadBooks = new Set();
   const second = withNow(T0 + DAY, () => d.sb.backupSheetNightly());
   T.eq('a book that opens again is simply used', [second.slot, second.unopenedSlots], [1, 0]);
-  T.eq('…and status is ok again', withNow(T0 + DAY, () => [d.sb.sheetBackupStatus().ok, d.sb.sheetBackupStatus().unopenedSlotsLastRun]), [true, 0]);
+  T.eq('…and status is ok again', withNow(T0 + DAY, () => [d.sb.sheetBackupStatus().ok, d.sb.sheetBackupStatus().unopenedSlots]), [true, 0]);
 
   // Repair: only a slot that will not open AND holds no listed backup gets a new book.
   const r = ready();
@@ -508,11 +519,11 @@ T.section('§10 Books that are wrong, lost or in another time zone', () => {
   T.eq('…slot 1 keeps its book and its backup', [state(r).slots[0].id, state(r).slots[0].at], [rids[0], new Date(T0).toISOString()]);
   T.eq('…slot 5 has a new book, the other twelve are kept', [state(r).slots[4].id !== rids[4], state(r).slots.filter((x, i) => i !== 4).map(x => x.id)], [true, rids.filter((x, i) => i !== 4)]);
   T.eq('…one book was made', Object.keys(r.env.books).length, 15);
-  T.eq('…status still shows the good backup that did not open', withNow(T0, () => r.sb.sheetBackupStatus().unopenedSlotsLastRun), 1);
+  T.eq('…status still shows the good backup whose book will not open', withNow(T0, () => [r.sb.sheetBackupStatus().unopenedSlots, r.sb.sheetBackupStatus().ok]), [1, false]);
   r.env.deadBooks = new Set();
   T.eq('a repair with every book opening replaces none', r.sb.repairSheetBackups(), { replaced: 0, goodButUnopened: 0 });
   T.eq('…and makes no book', Object.keys(r.env.books).length, 15);
-  T.eq('…and clears the count', withNow(T0, () => r.sb.sheetBackupStatus().unopenedSlotsLastRun), 0);
+  T.eq('…and status counts none', withNow(T0, () => r.sb.sheetBackupStatus().unopenedSlots), 0);
 
   // A lost book whose backup has aged out: delisted by the purge, the backup still runs, the run then reports it.
   const p = ready();
@@ -534,6 +545,62 @@ T.section('§10 Books that are wrong, lost or in another time zone', () => {
   o.env.deadBooks = new Set([state(o).slots[0].id, state(o).slots[1].id]);
   const third = threw(() => withNow(T0 + 14 * DAY, () => o.sb.backupSheetNightly()));
   T.ok('with the two oldest lost, the third oldest is overwritten and two are reported', /good \(slot 3\), but 2 backup book/.test(third), third);
+
+  // Status looks at the books itself, so a run that threw before it could report still shows.
+  const sa = ready();
+  withNow(T0, () => sa.sb.backupSheetNightly());
+  sa.env.deadBooks = new Set([state(sa).slots[1].id]);
+  sa.sheet('Daily_Log').throwOn.copyTo = { once: true };
+  const saMsg = threw(() => withNow(T0 + DAY, () => sa.sb.backupSheetNightly()));
+  T.ok('a night with an unopened book AND a failed copy throws the copy error', /Service Spreadsheets failed/.test(saMsg), saMsg);
+  T.eq('…and status still shows the book that will not open', withNow(T0 + DAY, () => [sa.sb.sheetBackupStatus().ok, sa.sb.sheetBackupStatus().unopenedSlots]), [false, 1]);
+  const sb2 = ready();
+  withNow(T0, () => sb2.sb.backupSheetNightly());
+  sb2.env.deadBooks = new Set(state(sb2).slots.map(x => x.id));
+  threw(() => withNow(T0 + DAY, () => sb2.sb.backupSheetNightly()));
+  T.eq('with every book lost, status is not ok and counts 14', withNow(T0 + DAY, () => [sb2.sb.sheetBackupStatus().ok, sb2.sb.sheetBackupStatus().unopenedSlots]), [false, 14]);
+  // A lost book that tonight's run never tried (another slot was empty) still shows in status.
+  const se = ready();
+  for (let n3 = 0; n3 < 13; n3++) withNow(T0 + n3 * DAY, () => se.sb.backupSheetNightly());   // slots 1–13 dated, 14 empty
+  se.env.deadBooks = new Set([state(se).slots[0].id]);
+  const seNight = withNow(T0 + 13 * DAY, () => se.sb.backupSheetNightly());
+  T.eq('the run that did not need the lost book reports none', [seNight.slot, seNight.unopenedSlots], [14, 0]);
+  T.eq('…but status does', withNow(T0 + 13 * DAY, () => [se.sb.sheetBackupStatus().ok, se.sb.sheetBackupStatus().unopenedSlots, se.sb.sheetBackupStatus().goodBackups]), [false, 1, 14]);
+  const stBefore = se.props.get(STATE_KEY);
+  withNow(T0 + 13 * DAY, () => se.sb.sheetBackupStatus());
+  T.eq('status writes nothing, lost book or not', se.props.get(STATE_KEY), stBefore);
+  // A drill reports an unopened book in its result and does not throw.
+  const sdr = ready();
+  sdr.env.deadBooks = new Set([state(sdr).slots[0].id]);
+  const drillOut = withNow(T0, () => sdr.sb.sheetRestoreDrill());
+  T.eq('a drill with one book lost: written to slot 2, restorable, one reported', [drillOut.slot, drillOut.restorable, drillOut.unopenedSlots], [2, true, 1]);
+
+  // A malformed slot entry is named, by the run and by status alike.
+  [[null, 'a null entry'], [{ id: 12345, at: '' }, 'an id that is a number'], [{ at: '' }, 'an entry with no id']].forEach(([entry, what]) => {
+    const mal = ready();
+    const stm = state(mal); stm.slots[3] = entry; mal.props.set(STATE_KEY, JSON.stringify(stm));
+    T.ok('the run names ' + what, /slot 04 has no book id/.test(threw(() => withNow(T0, () => mal.sb.backupSheetNightly()))));
+    T.ok('status names ' + what, /slot 04 has no book id/.test(threw(() => mal.sb.sheetBackupStatus())));
+  });
+  const liveSt = ready();
+  const stl = state(liveSt); stl.slots[2].id = 'sheet-id'; liveSt.props.set(STATE_KEY, JSON.stringify(stl));
+  T.ok('status refuses a slot naming the live Sheet, without opening it', /slot 03 points at the live Sheet/.test(threw(() => liveSt.sb.sheetBackupStatus())));
+
+  // Setup and repair hold the script lock, so neither can write the state under a running backup.
+  const lk = seeded();
+  lk.env.lockTimeout = true;
+  T.ok('setup waits for the lock', /Lock timeout/.test(threw(() => lk.sb.setupSheetBackups())));
+  T.eq('…and makes no book without it', Object.keys(lk.env.books).length, 0);
+  lk.env.lockTimeout = false;
+  lk.sb.setupSheetBackups();
+  lk.env.deadBooks = new Set([state(lk).slots[0].id]);
+  lk.env.lockTimeout = true;
+  T.ok('repair waits for the lock', /Lock timeout/.test(threw(() => lk.sb.repairSheetBackups())));
+  T.eq('…and replaces nothing without it', Object.keys(lk.env.books).length, 14);
+  lk.env.lockTimeout = false;
+  const waits = lk.env.lockWaits, releases = lk.env.lockReleases;
+  lk.sb.repairSheetBackups();
+  T.eq('a repair takes and releases the lock once', [lk.env.lockWaits - waits, lk.env.lockReleases - releases, lk.env.lockHeld], [1, 1, 0]);
 
   // A thrown message never carries a book id, though Google's own text does.
   const s = ready();
@@ -560,16 +627,14 @@ T.section('§10 Books that are wrong, lost or in another time zone', () => {
   // Time zone and locale follow the live Sheet.
   const z = seeded();
   z.sb.setupSheetBackups();
-  const zones = Object.values(z.env.books).map(b => b.getSpreadsheetTimeZone() + ' ' + b.getSpreadsheetLocale());
-  T.eq('every new book takes the zone and locale of the live Sheet', [...new Set(zones)], ['Asia/Bangkok en_GB']);
-  book(z, 1).setSpreadsheetTimeZone('America/Los_Angeles');
+  T.eq('a new book starts in the account zone and locale', [book(z, 1).getSpreadsheetTimeZone(), book(z, 1).getSpreadsheetLocale()], ['America/Los_Angeles', 'en_US']);
   const zoneAtCopy = [], flushesAtSave = [];
-  z.env.copyHook = (sh, dest) => zoneAtCopy.push(dest.getSpreadsheetTimeZone());
+  z.env.copyHook = (sh, dest) => zoneAtCopy.push(dest.getSpreadsheetTimeZone() + ' ' + dest.getSpreadsheetLocale());
   const zApi = z.sb.PropertiesService.getScriptProperties(), zSet = zApi.setProperty;
   zApi.setProperty = (k, v) => { if (k === STATE_KEY && JSON.parse(v).slots[0].at) flushesAtSave.push(z.env.flushes || 0); return zSet(k, v); };
   withNow(T0, () => z.sb.backupSheetNightly());
   zApi.setProperty = zSet; z.env.copyHook = null;
-  T.eq('a book whose zone was changed is set back before the first tab is copied', zoneAtCopy, new Array(5).fill('Asia/Bangkok'));
+  T.eq('zone and locale are the live Sheet\u2019s before the first tab is copied', zoneAtCopy, new Array(5).fill('Asia/Bangkok en_GB'));
   T.eq('the copy is flushed before the slot is saved as good', flushesAtSave, [1]);
 
   // The purge blanks and saves the slot before it deletes a tab.
@@ -586,7 +651,7 @@ T.section('§10 Books that are wrong, lost or in another time zone', () => {
   withNow(T0, () => l.sb.sheetRestoreDrill());
   l.env.logs.length = 0;
   withNow(T0 + 3600e3, () => l.sb.sheetBackupStatus());
-  T.eq('the status line', l.env.logs, ['sheet backup status: ok true, 1 good backup(s), newest 1 h old, 0 book(s) not opened last run, drill due false']);
+  T.eq('the status line', l.env.logs, ['sheet backup status: ok true, 1 good backup(s), newest 1 h old, 0 book(s) not opening, drill due false']);
 });
 
 T.done();

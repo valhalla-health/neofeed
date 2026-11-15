@@ -2246,14 +2246,14 @@ the heparin hint and printed line, the printed route line, the quick calc's Copy
 "Central only!" flag; then the real values print the same words as before (GIR, route line, NPE:AA, heparin hint,
 dextrose alert). 12 of its 23 checks fail on `e555695`. Needs the jsdom set above.
 
-**`verify-sheet-backup-1115.cjs`** (176 assertions; no npm dependencies, through `gas-vm-sandbox.cjs`) — the
+**`verify-sheet-backup-1115.cjs`** (199 assertions; no npm dependencies, through `gas-vm-sandbox.cjs`) — the
 Sheet backup and the restore drill. Setup makes 14 books once; a backup equals the live book cell for cell and
 holds the script lock for every tab; 14 nights rotate; a backup past 14 days has its tabs deleted and an erased
 infant is in no backup after 14 nightly runs; a failed run or a failed drill leaves its slot listed as empty; an
 audit row landing mid-copy fails nothing; every slot id is checked before any book is touched; a book that will
-not open is skipped and reported; no id, sessionId or name in a log line or a thrown message.
-`node test/mutate-sheet-backup.cjs` (by hand, not in CI) breaks the backend block one line at a time and expects
-this harness to turn red each time. The sandbox's `copyTo` is a deep copy and its lock
+not open is skipped and reported; no id, sessionId or name in a log line, and no book id in a thrown message.
+`node test/mutate-sheet-backup.cjs` (by hand, not in CI) breaks the backend block one small change at a time and
+expects this harness to turn red each time. The sandbox's `copyTo` is a deep copy and its lock
 has no clock, so Google's own copy and the lock's duration are proven only by the first drill on the real Sheet.
 
 ```
