@@ -2793,7 +2793,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           setActiveId(id);
           // Sunday's length and head circumference come first (growthDueFor),
           // from any page but the quick calc, whose typed figures would be lost.
-          if (view !== "quickcalc" && growthDueFor(id)) goTo("fenton");
+          if (!["quickcalc"].includes(view) && growthDueFor(id)) goTo("fenton");
           else if (![...PATIENT_VIEWS, "quickcalc"].includes(view)) goTo("log");
         }}
         onClose={() => setPickerOpen(false)} />

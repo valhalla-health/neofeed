@@ -1803,7 +1803,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       activeId,
       onSelect: (id) => {
         setActiveId(id);
-        if (view !== "quickcalc" && growthDueFor(id)) goTo("fenton");
+        if (!["quickcalc"].includes(view) && growthDueFor(id)) goTo("fenton");
         else if (![...PATIENT_VIEWS, "quickcalc"].includes(view)) goTo("log");
       },
       onClose: () => setPickerOpen(false)
