@@ -7,6 +7,62 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-15 (4) — one figure, one number: every whole number through `displayNum`
+
+`calculator.jsx`, `data.js` (`CONSTANTS_VERSION` `2026-11-15.1`), `compiled/`, the shells' `?v=`,
+`tools/ci_bans.js` (`raw-round-display`, new) and its fixtures, `test/verify-calc-sum.cjs` (§ 4, new; negative
+controls 7 and 8), `test/verify-stock-ml-1027.cjs` (the version it pins), `test/verify-calc-compare.cjs` (a planted
+line's anchor follows the vitamin D readout's new text), the neofeed-clinical-rules skill
+(`CR-R-DISPLAY`, `CR-OSM-PERIPH`), `docs/CLINICAL_CONSTANTS.md`, `REFERENCE.md` § Numbers a person reads,
+`BACKLOG.md`, `STATUS.md`. Numbered (4) because the open PR #265 holds (3).
+
+- **Why.** The BACKLOG item from the sticker calc check (2026-10-30): osmolarity, energy, Ca and P could read
+  one lower at a .5 tie than the tile and the sticker. The tile, the grading and the sticker already used
+  `displayNum`; the alert line, Step 3's Osm chip, the energy card and the printed sheet used `toFixed(0)` or
+  `Math.round`, which read the float. A figure that is a half on paper is often a float just under it:
+  1 kg, 80 mL of D9.04 with AA 3.58 on a peripheral line is 452 + 447.5 = 899.5 mOsm/L, 899.4999999999999 in
+  JS. The tile read 900 and red, and the red line read "899 mOsm/L — a peripheral line takes under 900". Pp,
+  2026-11-15: "ปรับทุกอย่างให้ตรงกัน และปลอดภัยกับผู้ป่วย".
+- **What.** Every whole number a person reads goes through `displayNum(v, 0)` (`fmt`, or `f0` on the sheet,
+  which is now `f(n, 0)`): the peripheral osmolarity alert, the fluid info line, Step 2's EN chip, Step 3's Osm
+  chip and TPN volume hints, the oral phosphate product list, the energy card (kcal/kg/d, TPN and EN kcal, EN share,
+  the three % legends), the oral phosphate, vitamin D and Ca lines on screen and in the copied order, the
+  single-feed interval hint, and the whole printed sheet: front (Ca gluconate mg in the bag, oral vitamin D
+  IU/day, oral Ca and PO₄ mg/day) and back (Energy, Ca²⁺, phosphate, the mineral table, both osmolarity lines).
+  The I/O card's Input prefill and its Output mL/kg/h hint round the same way, and so does the TPN pump's
+  over-delivery percent (`tpnOverDelivery`), the figure its info line prints and gates on (Vera, finding 3). The saved oral vitamin D IU/day and
+  Ca mg/day (Daily_Log R, S) are `Number(displayNum(v, 0))`, so the row holds what the sheet prints.
+- **Grading moved nowhere.** Osmolarity was already graded on `displayNum(osm, 0)` (`CR-OSM-PERIPH`, Pp
+  2026-10-27); every other band reads the unrounded figure as before. No constant changed.
+- **`CONSTANTS_VERSION` `2026-11-11.1` → `2026-11-15.1`**, because calculator logic moves printed figures (the
+  bump rule since 2026-09-18): the front sheet's Ca gluconate mg (1.5 kg, 150 + 30 mL, Ca 42.5 mg/kg: 76.5 mg
+  printed 76, now 77, which the saved `printedFigures` already said) and the oral vitamin D / Ca / PO₄ per day,
+  each only at a tie. The cost falls on every order saved on `2026-11-11.1`, not only those at a tie: the
+  doctor's sheet prints only after the order is saved again (`calcMoved`), and the TPN room's sticker page
+  refuses it until a doctor submits it again ("NeoFeed ปรับการคำนวณหลัง order นี้ ให้หมอเปิดแล้วกด Submit อีกครั้ง",
+  `tpn-room-core.js`), though no sticker figure moves (Vera, finding 4). When to release is Pp's call. The back
+  sheet renders but has not printed since 2026-10-28.
+- **Held by.** `verify-calc-sum.cjs` § 4: six tie orders (osmolarity 899.5 peripheral, energy 43.5 kcal/kg/d,
+  P 15.5 mg/kg/d at 760 g, Ca gluconate 76.5 mg), each read on the tile, the alert line, the chip or card, the
+  sheet front and back, the saved `printedFigures` and the sticker figures, with the wanted number from the
+  paper arithmetic; then oral vitamin D 502.5 IU/day (1,005 g) and oral Ca 56.5 mg/day (1,130 g) on Step 6, the
+  front sheet and the saved `suppVitD_IU` / `suppCa_mg` (Vera, finding 2). Against `main`'s `calculator.jsx` it
+  fails 16 checks; here it passes. Negative controls 7
+  (the alert back on `toFixed(0)`) and 8 (`f0` back on `Math.round`) fail as they must. `tools/ci_bans.js`
+  `raw-round-display` fails any `.toFixed(0)`, wrapped in `Number()` or not, and any `{Math.round(` in the
+  sources (none left); `CR-OSM-PERIPH` and `CR-R-DISPLAY` have the tie as cases.
+- **Not changed.** `Math.round` inside calculations (the bag sum's hundredths, weight comparisons, Vitalipid,
+  the fluid band's midpoint), the Growth tab's centiles, and log.jsx's whole-gram weights.
+- **Review.** No second clinician has reviewed this change; Pp's request only (change protocol step 3).
+- **Vera: NO BLOCK, four findings, all fixed.** (1) 🟠 no second-clinician line: added above. (2) 🟡 the saved oral
+  vitamin D and Ca had no tie test, and `raw-round-display` cannot see a `Math.round` outside `{`: T5 and T6. Her
+  proposed fixture (a bare `? Math.round(suppCa * wtKg)` failing the rule) is not added: a rule that matches a
+  bare `Math.round(` cannot tell a stored figure from the calculations above, and T5/T6 fail on the old code. (3)
+  🟡 `tpnOverDelivery`'s percent was `Math.round`: now `displayNum`. (4) 🟡 the TPN room's refusal of every
+  pre-release order: in the cost bullet above and the STATUS line. Left for Pp, from her not-reviewed list: a
+  band graded on the unrounded figure can read its own limit at a tie (energy 89.5 on paper shows 90, Low,
+  beside 90–120). That was so before this change, on the tile; only osmolarity is graded on the printed figure.
+
 ## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
 
 `data.js` (`ioDivisorG`'s `tpnWtG`, `ioTpnWeightOn`), `calculator.jsx` (the tick, `normalizeCalcInput`, the

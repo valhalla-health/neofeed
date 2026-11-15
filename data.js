@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-11-11.1";
+const CONSTANTS_VERSION = "2026-11-15.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -1256,7 +1256,7 @@ function tpnOverDelivery(volMl) {
   if (!pump) return null;
   const givenMl = Number((pump.rate * 24).toFixed(1));
   const extraMl = Number((givenMl - volMl).toFixed(1));
-  const pct = Math.round(extraMl / volMl * 100);
+  const pct = Number(displayNum(extraMl / volMl * 100, 0));   // as every whole number a person reads
   return pct >= TPN_OVER_NOTE_PCT ? { givenMl, extraMl, pct } : null;
 }
 // The 20% lipid syringe to a whole mL/day (Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ
