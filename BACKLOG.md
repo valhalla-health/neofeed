@@ -46,6 +46,9 @@ clinical judgement. Everything else is engineering sequencing.
       - **Same account.** The backups do not survive losing the Google account that owns the Sheet. A copy
         outside it needs a decision on where patient data may go.
       - **Moving restored data back into the bound Sheet** has no written procedure (restore step 8).
+      - **A deleted `SHEET_BACKUP_STATE` property reads as a first run**: `setupSheetBackups` would then make
+        14 new books and leave the old 14, with their data, outside the rotation. The code cannot tell the two
+        apart without Drive. Never delete that property; never run setup to "fix" a backup problem.
       - **Nobody is told when the trigger stops** except by the failure mail and `sheetBackupStatus`. A line on
         the Admin page ("last backup: N h ago") would show it to the ward.
 - [x] **Center Point: sync the new feed keys before PR #247 is released** (Vera, 2026-11-11): done in #247 and its NICU-Center-Point PR.

@@ -12,7 +12,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 `gas-backend.gs` (§ Sheet backup and restore drill: `setupSheetBackups`, `repairSheetBackups`,
 `backupSheetNightly`, `sheetRestoreDrill`, `sheetBackupStatus`), `test/gas-vm-sandbox.cjs` (more than one book,
 `copyTo`, `setName`, `create`, time zone and locale, `flush`, a book that will not open),
-`test/verify-sheet-backup-1115.cjs` (new, 154 assertions), `REFERENCE.md` (§ Sheet backup and restore drill,
+`test/verify-sheet-backup-1115.cjs` (new, 176 assertions), `test/mutate-sheet-backup.cjs` (new),
+`REFERENCE.md` (§ Sheet backup and restore drill,
 § Thai PDPA compliance posture), `BACKLOG.md`, `STATUS.md`, `test/README.md`.
 
 - **Why.** Pp's read-only survey of NeoFeed against SWEBOK v4 (2026-11-15) put this first: every record is in one
@@ -25,31 +26,39 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   the live book over an empty slot or the oldest one with `Sheet.copyTo`, under the script lock, and marks the
   slot good only after the check. `sheetRestoreDrill()` does the same and then compares every cell; a drill that
   finds a difference is not kept as a backup. `sheetBackupStatus()` reads the state. `repairSheetBackups()`
-  replaces a backup book that no longer opens. A real restore is by hand: copy a backup, point `SPREADSHEET_ID`
+  gives a new book to a slot whose book no longer opens and that holds no listed backup. A real restore is by hand: copy a backup, point `SPREADSHEET_ID`
   at the copy (`REFERENCE.md`, nine steps).
 - **No new scope, no new doPost action, nothing in the frontend.** The log lines carry slot numbers, counts and
   ages. A thrown message has every book id cut out first, because Google's failure text names the document id.
-- **Erasure and backups.** An erased infant stays in older backups' tabs for up to 14 nightly runs, and in each
-  backup book's version history after that, which the backend cannot clear. Both are in the PDPA section and
+- **Erasure and backups.** While the trigger runs nightly, an erased infant is out of every listed backup within
+  15 days, and stays in each backup book's version history after that, which the backend cannot clear. Both are in the PDPA section and
   open with the DPO (`BACKLOG.md`).
 - **Review by an agent that had not seen the work (Vera's procedure plus Pp's requirements): NO BLOCK, and
   seven errors, all fixed in this entry's code and text.** (1) `Audit_Log` and `Usage_Log` are appended outside
-  the script lock, so a sync's audit row landing mid-copy failed the count check and would have failed most
-  nights: those two tabs are now checked as "at least the rows they had when their copy began". (2) The text
+  the script lock, so a sync's audit row landing mid-copy failed the count check, on any night a sync landed
+  during the copy: those two tabs are now checked as "at least the rows they had when their copy began". (2) The text
   said a backup past 14 days is emptied and left out each backup book's version history. (3) The restore steps
   named only erasures; deletions, disabled accounts and old passwords come back too. (4) The restore left the
   app half-switched: the 300 s sync cache, and `onEdit`, which stays with the bound Sheet. (5) A drill that found
   differing cells still marked its slot good. (6) "Never a book id" did not hold for a thrown message. (7) The
   lock text left out the 5 s sign-in wait and the quiet hour. Also fixed: a slot id equal to the live Sheet's
-  would have deleted every live tab (now refused before anything is touched); an unreadable state read as "not
-  set up" and would have orphaned 14 books; one lost backup book stalled every later night; new books took the
-  account's time zone, not the Sheet's; hand-built tabs were judged by the count check.
+  would have deleted every live tab; an unreadable state read as "not set up" and would have orphaned 14 books;
+  one lost backup book stalled every later night; new books took the account's time zone, not the Sheet's;
+  hand-built tabs were judged by the count check.
+- **A second reviewer read only those fixes and found four more errors, fixed here too.** (1) The live-Sheet
+  check ran slot by slot, so another book could be cleared before the bad slot was reached: every slot id is now
+  checked before any book is touched. (2) A slot marked broken after one failed open stayed out of the rotation
+  for good, in silence, with its old tabs: nothing is remembered now, and a run that could not open a book fails
+  after its backup is written, so a mail goes out. (3) `repairSheetBackups()` could replace a slot holding a good
+  backup after one failed open and orphan that book: it now replaces only a slot with no listed backup, and the
+  text says the replaced file must be deleted by hand. (4) Eight wrong versions of the code still passed the
+  harness: each has an assertion now, and the mutations are in `test/mutate-sheet-backup.cjs`.
 - **Not proven here.** The sandbox's `copyTo` is a deep copy and its lock has no clock, so the harness proves the
   rotation, the purge, the failure paths and the logs. It does not prove that Google's `copyTo` keeps every cell,
   how long the copy holds the lock, or which source a trigger runs. The first `sheetRestoreDrill()` on the real
   Sheet answers the first two. The restore steps have not been rehearsed on production.
-- **Tests.** `verify-sheet-backup-1115.cjs` 154/154; red against `a7b9f6e`'s backend. 33 mutations of the new block each
-  turn it red (one, a lost book that is not skipped, by never finishing).
+- **Tests.** `verify-sheet-backup-1115.cjs` 176/176; red against `a7b9f6e`'s backend.
+  `node test/mutate-sheet-backup.cjs` breaks the new block 51 ways and the harness turns red on each.
 
 ## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
 

@@ -5896,7 +5896,9 @@ function _fmtDate(val) {
 // that BEFORE it touches the book, and writes the time back only after the copy
 // has been checked, so a run that dies half-way leaves a slot that is listed as
 // empty, never one that looks whole. A drill that finds a difference leaves its
-// slot empty too.
+// slot listed as empty too. "Listed as empty" is about the list: such a book
+// still holds what was copied into it until it is next written, and an empty
+// slot is always written first.
 //
 // The copy holds the script lock, so no patient, order or nursing save can land
 // between two tabs. Audit_Log and Usage_Log are appended WITHOUT that lock
@@ -5931,7 +5933,7 @@ function _backupSlotLabel(i) { return (i + 1 < 10 ? "0" : "") + (i + 1); }
 // 14 that hold data.
 function _backupState() {
   var raw = PropertiesService.getScriptProperties().getProperty(BACKUP_STATE_KEY);
-  if (!raw) return { slots: [], lastDrill: null };
+  if (raw === null || raw === undefined) return { slots: [], lastDrill: null };
   var st = null;
   try { st = JSON.parse(raw); } catch (_) { st = null; }
   if (!st || Object.prototype.toString.call(st.slots) !== "[object Array]") {
@@ -5950,7 +5952,10 @@ function _backupScrub(message) {
   var ids = [];
   try { ids.push(PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID")); } catch (_) { /* nothing to cut */ }
   try { _backupState().slots.forEach(function (s) { ids.push(s.id); }); } catch (_) { /* nothing to cut */ }
-  ids.forEach(function (id) { if (id) msg = msg.split(String(id)).join("(book)"); });
+  // Longest first, so an id that begins with another id is cut whole.
+  ids = ids.filter(function (id) { return !!id; }).map(String);
+  ids.sort(function (x, y) { return y.length - x.length; });
+  ids.forEach(function (id) { msg = msg.split(id).join("(book)"); });
   return msg;
 }
 function _backupGuarded(fn) {
@@ -5970,14 +5975,28 @@ function _backupNewBook(i) {
   return book;
 }
 
-// The slot's book, or null when it cannot be opened. A slot whose id is the
-// live Sheet's is refused outright: clearing it would delete every live tab.
-function _backupOpenSlot(st, i) {
-  var id = st.slots[i].id;
-  if (!id || id === SPREADSHEET_ID_()) {
-    throw new Error("Sheet backup slot " + _backupSlotLabel(i) + " points at the live Sheet. Nothing was written. Tell Pp.");
+// Every slot id is checked before any book is opened or cleared: a slot that
+// names the live Sheet would have every live tab deleted, and two slots that
+// share a book would overwrite each other. One bad slot stops the whole run
+// with nothing touched.
+function _backupCheckSlots(st) {
+  var live = SPREADSHEET_ID_(), seen = {};
+  for (var i = 0; i < st.slots.length; i++) {
+    var id = st.slots[i] && st.slots[i].id;
+    var what = !id ? "has no book id" : id === live ? "points at the live Sheet"
+      : seen[id] ? "shares its book with another slot" : "";
+    if (what) {
+      throw new Error("Sheet backup slot " + _backupSlotLabel(i) + " " + what + ". No backup book was touched. Tell Pp.");
+    }
+    seen[id] = true;
   }
-  try { return SpreadsheetApp.openById(id); } catch (_) { return null; }
+}
+
+// The slot's book, or null when it cannot be opened tonight. Nothing is
+// remembered about a failure: Sheets fails an open now and then, and a book
+// that opens tomorrow is used tomorrow.
+function _backupOpenSlot(st, i) {
+  try { return SpreadsheetApp.openById(st.slots[i].id); } catch (_) { return null; }
 }
 
 // One-time setup (Run ▸ setupSheetBackups), safe to run again: it creates only
@@ -5998,25 +6017,29 @@ function setupSheetBackups() {
   });
 }
 
-// Run ▸ repairSheetBackups when sheetBackupStatus() reports brokenSlots: a
-// backup book that can no longer be opened (deleted in Drive) is replaced by a
-// new empty one. A book that opens is never touched.
+// Run ▸ repairSheetBackups when a nightly run reports a backup book it could
+// not open. A slot is given a new empty book only when its book will not open
+// AND it is not listed as holding a good backup: a good backup whose book
+// failed to open once is left alone and counted in `goodButUnopened` (run it
+// again later). The code cannot delete the book it replaced: if that file
+// still exists in Drive or its trash, delete it there by hand (REFERENCE.md).
 function repairSheetBackups() {
   return _backupGuarded(function () {
     var st = _backupState();
-    var replaced = 0;
+    _backupCheckSlots(st);
+    var replaced = 0, goodButUnopened = 0;
     for (var i = 0; i < st.slots.length; i++) {
-      if (_backupOpenSlot(st, i)) {
-        if (st.slots[i].broken) { delete st.slots[i].broken; _saveBackupState(st); }
-        continue;
-      }
+      if (_backupOpenSlot(st, i)) continue;
+      if (st.slots[i].at) { goodButUnopened++; continue; }
       var book = _backupNewBook(i);
       st.slots[i] = { id: book.getId(), at: "" };
       _saveBackupState(st);
       replaced++;
     }
-    Logger.log("sheet backup repair: " + replaced + " slot(s) replaced");
-    return { replaced: replaced };
+    st.unopened = goodButUnopened;
+    _saveBackupState(st);
+    Logger.log("sheet backup repair: " + replaced + " slot(s) replaced, " + goodButUnopened + " good backup(s) not opened");
+    return { replaced: replaced, goodButUnopened: goodButUnopened };
   });
 }
 
@@ -6090,21 +6113,22 @@ function _runSheetBackup(drill) {
     if (st.slots.length < BACKUP_SLOTS) {
       throw new Error("Sheet backup is not set up: run setupSheetBackups() from the Apps Script editor first.");
     }
+    _backupCheckSlots(st);
     var now = Date.now();
     var keepMs = BACKUP_KEEP_DAYS * 24 * 60 * 60 * 1000;
 
     // 1. Empty every slot past its 14 days. Its `at` is blanked and saved
     //    first, so a failure here still stops the slot being offered for a
-    //    restore. A book that will not open is marked broken and the run goes on:
+    //    restore. A book that will not open is counted and the run goes on:
     //    one lost book must not stop the night's backup.
-    var purged = 0;
+    var purged = 0, failedOpen = {};   // slot index → true, for a book that would not open tonight
     for (var i = 0; i < st.slots.length; i++) {
       var slotTime = st.slots[i].at ? Date.parse(st.slots[i].at) : NaN;
       if (st.slots[i].at && (isNaN(slotTime) || now - slotTime > keepMs)) {
         st.slots[i].at = "";
         _saveBackupState(st);
         var stale = _backupOpenSlot(st, i);
-        if (!stale) { st.slots[i].broken = true; _saveBackupState(st); continue; }
+        if (!stale) { failedOpen[i] = true; continue; }
         _clearBackupBook(stale);
         stale.rename("NeoFeed backup slot " + _backupSlotLabel(i) + " (empty)");
         purged++;
@@ -6112,24 +6136,28 @@ function _runSheetBackup(drill) {
     }
 
     // 2. The slot to write: the first empty one whose book opens, or else the
-    //    oldest. A slot marked broken waits for repairSheetBackups().
+    //    oldest. An empty slot goes first, so a book left half-written by a
+    //    failed run, or kept from a failed drill, is the next one cleared.
+    var order = [];
+    for (var j = 0; j < st.slots.length; j++) if (!st.slots[j].at) order.push(j);
+    var dated = [];   // slots that hold a backup, oldest first (insertion, no callback)
+    for (var k2 = 0; k2 < st.slots.length; k2++) {
+      if (!st.slots[k2].at) continue;
+      var pos = dated.length;
+      while (pos > 0 && Date.parse(st.slots[dated[pos - 1]].at) > Date.parse(st.slots[k2].at)) pos--;
+      dated.splice(pos, 0, k2);
+    }
+    order = order.concat(dated);
     var slot = -1, dest = null;
-    while (slot < 0) {
-      var pick = -1, oldest = Infinity;
-      for (var j = 0; j < st.slots.length; j++) {
-        if (st.slots[j].broken) continue;
-        if (!st.slots[j].at) { pick = j; break; }
-        var t = Date.parse(st.slots[j].at);
-        if (t < oldest) { oldest = t; pick = j; }
-      }
-      if (pick < 0) {
-        throw new Error("No backup book can be opened. Run repairSheetBackups() from the Apps Script editor.");
-      }
-      dest = _backupOpenSlot(st, pick);
-      if (dest) { slot = pick; break; }
-      st.slots[pick].broken = true;
-      st.slots[pick].at = "";
-      _saveBackupState(st);
+    for (var o = 0; o < order.length && slot < 0; o++) {
+      if (failedOpen[order[o]]) continue;           // already failed in the purge: not tried twice
+      dest = _backupOpenSlot(st, order[o]);
+      if (dest) slot = order[o]; else failedOpen[order[o]] = true;
+    }
+    var unopened = 0;
+    for (var u = 0; u < st.slots.length; u++) if (failedOpen[u]) unopened++;
+    if (slot < 0) {
+      throw new Error("No backup book can be opened. Run repairSheetBackups() from the Apps Script editor.");
     }
     var label = _backupSlotLabel(slot);
     st.slots[slot].at = "";
@@ -6159,7 +6187,7 @@ function _runSheetBackup(drill) {
       var copy = dest.getSheetByName(row.name);
       var isData = BACKUP_DATA_TABS.indexOf(row.name) >= 0;
       var appendOnly = BACKUP_APPEND_TABS.indexOf(row.name) >= 0;
-      if (!copy) { bad++; return; }
+      if (!copy) { bad++; return; }   // a missing tab: counted here and by the tab count below
       var copyRows = copy.getLastRow(), copyCols = copy.getLastColumn();
       row.copied = !isData ? true
         : appendOnly ? (copyRows >= row.rows && copyCols >= row.columns)
@@ -6177,7 +6205,8 @@ function _runSheetBackup(drill) {
     }
 
     var doneAt = new Date().toISOString();
-    var out = { slot: slot + 1, at: doneAt, tabs: tabs, purgedSlots: purged };
+    var out = { slot: slot + 1, at: doneAt, tabs: tabs, purgedSlots: purged, unopenedSlots: unopened };
+    st.unopened = unopened;
     if (drill) {
       out.schema = _backupSchemaCheck(dest);
       out.differingCellsInDataTabs = judgedDiff;
@@ -6204,7 +6233,7 @@ function _backupRunLine(kind, out) {
   var rows = 0;
   out.tabs.forEach(function (t) { rows += t.rows; });
   return "sheet " + kind + ": slot " + out.slot + ", " + out.tabs.length + " tabs, " + rows + " rows, "
-    + out.purgedSlots + " old slot(s) emptied";
+    + out.purgedSlots + " old slot(s) emptied, " + out.unopenedSlots + " book(s) not opened";
 }
 
 // The nightly trigger's function.
@@ -6212,6 +6241,12 @@ function backupSheetNightly() {
   return _backupGuarded(function () {
     var out = _runSheetBackup(false);
     Logger.log(_backupRunLine("backup", out));
+    if (out.unopenedSlots > 0) {
+      // The backup above is written and good. Throwing is how the trigger's
+      // owner gets a mail: nobody reads this log every morning.
+      throw new Error("Tonight's backup is good (slot " + out.slot + "), but " + out.unopenedSlots
+        + " backup book(s) could not be opened. If this repeats, run repairSheetBackups() from the Apps Script editor.");
+    }
     return out;
   });
 }
@@ -6231,40 +6266,39 @@ function sheetRestoreDrill() {
   });
 }
 
-// Run ▸ sheetBackupStatus: reads the state only. `ok` is false when the newest
-// backup is older than BACKUP_FRESH_HOURS (the trigger has stopped) or setup
-// has not been run; `drillDue` when no drill has passed in BACKUP_DRILL_DAYS;
-// `brokenSlots` counts books that would not open (repairSheetBackups).
+// Run ▸ sheetBackupStatus: reads the state only, opens no book. `ok` is false
+// when the newest backup is older than BACKUP_FRESH_HOURS (the trigger has
+// stopped), when setup has not been run, or when the last run could not open a
+// backup book (`unopenedSlotsLastRun`, see repairSheetBackups); `drillDue` when
+// no drill has passed in BACKUP_DRILL_DAYS.
 function sheetBackupStatus() {
-  return _backupGuarded(function () {
-    var st = _backupState();
-    var now = Date.now(), newest = NaN, good = 0, broken = 0, slots = [];
-    for (var i = 0; i < st.slots.length; i++) {
-      var t = st.slots[i].at ? Date.parse(st.slots[i].at) : NaN;
-      var hours = isNaN(t) ? null : Math.round((now - t) / 360000) / 10;
-      if (hours !== null) { good++; if (isNaN(newest) || t > newest) newest = t; }
-      if (st.slots[i].broken) broken++;
-      slots.push({ slot: i + 1, at: st.slots[i].at || "", ageHours: hours, broken: !!st.slots[i].broken });
-    }
-    var newestHours = isNaN(newest) ? null : Math.round((now - newest) / 360000) / 10;
-    var setUp = slots.length >= BACKUP_SLOTS;
-    var fresh = setUp && newestHours !== null && newestHours <= BACKUP_FRESH_HOURS;
-    // The time of the last drill that passed; NaN when there is none.
-    var passedDrill = Date.parse(st.lastDrill && st.lastDrill.ok ? st.lastDrill.at : "");
-    var drillDue = isNaN(passedDrill) || now - passedDrill > BACKUP_DRILL_DAYS * 24 * 60 * 60 * 1000;
-    // The log line is built from the counts and ages worked out above, never
-    // from the stored state itself, which holds the backup books' ids.
-    Logger.log("sheet backup status: ok " + fresh + ", " + good + " good backup(s), newest "
-      + (newestHours === null ? "none" : newestHours + " h old") + ", " + broken + " broken slot(s), drill due " + drillDue);
-    return {
-      setUp: setUp,
-      goodBackups: good,
-      newestAgeHours: newestHours,
-      ok: fresh,
-      brokenSlots: broken,
-      lastDrill: st.lastDrill ? { at: st.lastDrill.at, ok: !!st.lastDrill.ok } : null,
-      drillDue: drillDue,
-      slots: slots
-    };
-  });
+  var st = _backupState();
+  var now = Date.now(), newest = NaN, good = 0, slots = [];
+  for (var i = 0; i < st.slots.length; i++) {
+    var t = st.slots[i].at ? Date.parse(st.slots[i].at) : NaN;
+    var hours = isNaN(t) ? null : Math.round((now - t) / 360000) / 10;
+    if (hours !== null) { good++; if (isNaN(newest) || t > newest) newest = t; }
+    slots.push({ slot: i + 1, at: st.slots[i].at || "", ageHours: hours });
+  }
+  var newestHours = isNaN(newest) ? null : Math.round((now - newest) / 360000) / 10;
+  var setUp = slots.length >= BACKUP_SLOTS;
+  var unopened = Math.max(0, Math.round(Number(st.unopened) || 0));
+  var fresh = setUp && newestHours !== null && newestHours <= BACKUP_FRESH_HOURS && unopened === 0;
+  // The time of the last drill that passed; NaN when there is none.
+  var passedDrill = Date.parse(st.lastDrill && st.lastDrill.ok ? st.lastDrill.at : "");
+  var drillDue = isNaN(passedDrill) || now - passedDrill > BACKUP_DRILL_DAYS * 24 * 60 * 60 * 1000;
+  // The log line is built from the counts and ages worked out above, never
+  // from the stored state itself, which holds the backup books' ids.
+  Logger.log("sheet backup status: ok " + fresh + ", " + good + " good backup(s), newest "
+    + (newestHours === null ? "none" : newestHours + " h old") + ", " + unopened + " book(s) not opened last run, drill due " + drillDue);
+  return {
+    setUp: setUp,
+    goodBackups: good,
+    newestAgeHours: newestHours,
+    ok: fresh,
+    unopenedSlotsLastRun: unopened,
+    lastDrill: st.lastDrill ? { at: st.lastDrill.at, ok: !!st.lastDrill.ok } : null,
+    drillDue: drillDue,
+    slots: slots
+  };
 }
