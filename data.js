@@ -1608,20 +1608,24 @@ const FENTON_WEIGHT_GROWTH_LMS = {
 // tools/fenton-lms-solve.cjs). L is 1: solved freely it came out 0.97–1.04 at
 // every week, the noise of a 3-decimal z, so both sizes are normal at a given
 // age in Fenton's model, and with L fixed at 1 the three points of each week
-// read back within 0.0005 z. The half-week points no row was built from read
-// back within 0.02 z (under one centile point).
+// read back within 0.001 z. The half-week points no row was built from read
+// back within 0.02 z (under one centile point), and so do the 24 length and
+// head points of 2026-10-17 (test/fenton-official-1017.json), at day-level
+// ages and on DOL 1 up to 35+4.
 //
-// The calculator gives no head z-score before 23 weeks and no length z-score
-// before 23.5, and it does not accept 22 weeks at all, so head starts at 23.0
+// What was asked of the calculator: 22 weeks (not accepted), 23.0 (a head
+// z-score, none for length), 23.5 and later (both). So head starts at 23.0
 // and length at 24.0, the first week with three points. fenton.jsx reads a
 // measurement before the first row as having no reference, and says so.
 //
 // These replace FENTON_LENGTH and FENTON_HC (five centiles every 4 weeks, never
-// checked against a source). Those rows matched this curve up to 38.5 weeks and
-// then ran straight to a 42-week row that was wrong in both tables: at 42 weeks
-// the old length "50th" is this curve's 82nd centile (boys) and 79th (girls),
-// and the old head "50th" is its 26th (boys) and 32nd (girls), with the old
-// head "3rd" below the 1st (2026-11-16).
+// checked against a source). Their 50th matched this curve up to 38.5 weeks;
+// length's outer lines were already too narrow from about 33 weeks (at 38.5
+// the old boys' 3rd/10th/90th/97th read 7/16/84/94). Past 38.5 both ran
+// straight to a 42-week row that was wrong: at 42 weeks the old length "50th"
+// is this curve's 82nd centile (boys) and 79th (girls), and the old head
+// "50th" is its 26th (boys) and 32nd (girls), with the old head "3rd" below
+// the 1st (2026-11-16).
 const FENTON_LENGTH_GROWTH_LMS = {
   boys: [
     [24.0, +1.000, 30.792, 0.07768],

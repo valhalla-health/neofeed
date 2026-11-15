@@ -12,7 +12,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 `data.js` (`FENTON_LENGTH_GROWTH_LMS`, `FENTON_HC_GROWTH_LMS`, new; `FENTON_LENGTH`, `FENTON_HC` removed),
 `fenton.jsx` (`FentonChart`: both tabs drawn and read from the LMS tables; the not-verified note removed),
 `compiled/`, the shells' `?v=`, `tools/fenton-lms-solve.cjs` (new), `test/fenton-official-1116.json` (new),
-`test/verify-fenton-length-hc-1116.cjs` (new, 56 assertions), `test/verify-fenton-half-week-1017.cjs` (§4
+`test/verify-fenton-length-hc-1116.cjs` (new, 57 assertions), `test/verify-fenton-half-week-1017.cjs` (§4
 rewritten), `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `AI_SDLC.md`, `STATUS.md`, `test/README.md`.
 
 - **Why.** `BACKLOG.md` carried the two tables as a safety item: five centiles every 4 weeks, never checked
@@ -20,16 +20,19 @@ rewritten), `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `AI_SDLC.md`, `STATUS.md
   fenton ต่อให้หน่อย", and for the scope "ทำครบจนเปิด PR".
 - **From Fenton's calculator.** One round to fentongrowth.ca that Pp approved ("ส่งได้ ทั้งสองเพศ"): two
   submissions, sex and data type Growth Monitoring, 75 made-up rows each of GA, head and length, typed into the
-  page's grid. No name, number, date of birth, GA at birth or weight. It returned z-scores for 69 rows a sex: it
-  does not accept 22 weeks, and gives no length z-score at 23.0. `test/fenton-official-1116.json` holds what was
+  page's grid. No name, number, date of birth, GA at birth or weight. It returned a head z-score for 72 rows a
+  sex and a length z-score for 69: it did not accept 22 weeks, and gave no length z-score at 23.0. `test/fenton-official-1116.json` holds what was
   returned, taken from the result table the page showed (the browser tool returned no response body).
 - **L is 1.** Solved freely at each week (three points near the old rows' 10th, 50th and 90th), L came out
   0.97–1.04, the noise of a z printed to three decimals. So length and head circumference are normal at a given
   age in Fenton's model. The tables store L = 1 and the least-squares M and S; the three points of each week read
-  back within 0.0005 z and the half-week points no row was built from within 0.017 z, under one centile point.
-- **What the old rows were.** Read on the new curve as the app drew them (row GA + 0.5): right up to 38.5
-  weeks (the 3rd/10th/50th/90th/97th lines read 3/10/50/90/97 almost everywhere), then straight to a 42-week row
-  that was wrong in both tables, in opposite directions. **Length too high:** at 42 weeks the old "50th" is the
+  back within 0.001 z and the half-week points no row was built from within 0.017 z, under one centile point. The
+  24 length and head points of 2026-10-17 (`test/fenton-official-1017.json`: day-level ages, 8 of them on DOL 1)
+  read within 0.4 centile points.
+- **What the old rows were.** Read on the new curve as the app drew them (row GA + 0.5): the 50th was right up
+  to 38.5 weeks. Head's other lines were right at its rows too; length's outer lines were already too narrow
+  from about 33 weeks (boys at 38.5 weeks: the old 3rd/10th/90th/97th read 7/16/84/94). Past 38.5 both ran
+  straight to a 42-week row that was wrong, in opposite directions. **Length too high:** at 42 weeks the old "50th" is the
   82nd centile for boys and the 79th for girls, so a term infant read short. **Head too low:** at 42 weeks the
   old "50th" is the 26th centile for boys and the 32nd for girls, and the old "3rd" line is below the 1st, so a
   small head near term could read as normal. `BACKLOG.md` had named only length.
@@ -37,15 +40,23 @@ rewritten), `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `AI_SDLC.md`, `STATUS.md
   measurement as an LMS z-score, as weight has been read from 36.5 weeks since 2026-10-19. The curves start at
   24.0 weeks (length) and 23.0 (head); before that there is no percentile and the panel says where the
   reference starts, as it already did for weight before 22.5. The "not verified" note is gone. A DOL-1 length or
-  head circumference is read on the same curve: there is no checked size-at-birth table for them.
+  head circumference is read on the same curve: Fenton's Birth size evaluation agrees with it for the 8 DOL-1
+  points asked on 2026-10-17, up to 35+4, and has not been asked from 36 weeks.
 - **Nothing printed or saved moves, and no dose.** Only `fenton.jsx` reads these tables, so
   `CONSTANTS_VERSION` stays (`docs/CLINICAL_CONSTANTS.md`, When to bump).
 - **No second clinician has reviewed this change;** Pp's request only. The numbers are the calculator's, and the
   harness holds them to it.
-- **Open** (`BACKLOG.md`): the first weeks (a second round of three points at 23.5 would bring length down to
-  23.5), DOL-1 measurements, and Fenton's own LMS by email.
-- **Tests.** `verify-fenton-length-hc-1116.cjs` 56/56, and 15 failed against `e1d99cd`. The three older Fenton
-  harnesses pass (65, 93, 81).
+- **Open** (`BACKLOG.md`): the first weeks, a DOL-1 reading from 36 weeks (Vera: a caveat on screen or a round
+  of birth-mode points, Pp's call), and Fenton's own LMS by email.
+- **Review by an agent that had not seen the work (Vera's procedure, and its own re-fit of the fixture without
+  the repo's solver): NO BLOCK.** No wrong number in `data.js`, no behaviour bug, the weight tab identical to
+  before on 54 made-up patients. Fixed from it: five statements that said more than the evidence (the old rows
+  "right to 38.5 weeks" was true of the 50th only; "not asked" about DOL 1 ignored the 2026-10-17 points; "within
+  0.0005 z" is 0.0007 with the rows as stored; "69 rows" is 72 for head; what was asked below 23.5), and three
+  holes in the harness (only the 50th line was checked; nothing read on screen between whole weeks; two DOL-1
+  assertions passed on "—").
+- **Tests.** `verify-fenton-length-hc-1116.cjs` 57/57, and 16 failed against `e1d99cd`. The
+  three older Fenton harnesses pass (65, 93, 81).
 - **`STATUS.md` catches up:** #266 and #267 are live (release #268, `release-2026-11-16-pr268`, `00eb15d`;
   backend `@75`).
 

@@ -98,7 +98,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const REF_AGE_OFFSET = 0.5;
   // Only weight has size-at-birth rows. Length and head circumference are
   // read and drawn on Fenton's growth-monitoring curve alone (below), a DOL-1
-  // measurement included: no size-at-birth table for them has been checked.
+  // measurement included. Fenton's Birth size evaluation agrees with that
+  // curve for the 8 DOL-1 points asked on 2026-10-17, up to 35+4; from 36
+  // weeks it has not been asked (BACKLOG.md).
   const table = metric === "weight" ? D_F.FENTON_WEIGHT[sex] : [];
   const sizeAtBirthRows = (() => {
     const rows = table.map(r => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
@@ -122,8 +124,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // Length and head circumference: the whole curve is L, M, S, at each whole
   // week (FENTON_LENGTH_GROWTH_LMS from 24.0, FENTON_HC_GROWTH_LMS from 23.0,
   // both to 42.0), solved from the same calculator on 2026-11-16. They replace
-  // five-centile rows every 4 weeks that were never checked against a source
-  // and, past 38.5 weeks, drew length too high and head too low.
+  // five-centile rows every 4 weeks that were never checked against a source:
+  // their 50th was right to 38.5 weeks, and past it length was drawn too high
+  // and head too low.
   const growthLms = (
     metric === "weight" ? D_F.FENTON_WEIGHT_GROWTH_LMS?.[sex]
   : metric === "length" ? D_F.FENTON_LENGTH_GROWTH_LMS?.[sex]
@@ -341,8 +344,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
     const vals = rowAt(dataset, last.pma);
     return vals ? centileAmong(vals, last.value) : null;
   })();
-  // The curves start half a week after the axis does, so a measurement in
-  // between has no reference to be read against. Say where it begins, rather
+  // The curves start after the axis does (weight at 22.5 weeks, head at 23.0,
+  // length at 24.0), so a measurement in between has no reference to be read
+  // against. Say where it begins, rather
   // than a bare "—" or a value extrapolated past the first row.
   const referenceStart = dataset.length ? D_F.fmtGA(D_F.daysToGA(Math.ceil(dataset[0][0] * 7))) : null;
   const beforeReference = points.length > 0 && dataset.length > 0 && points[points.length - 1].pma < dataset[0][0];

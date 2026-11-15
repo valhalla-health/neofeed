@@ -3,7 +3,7 @@
  "source": {
   "calculator": "Fenton 2025 Growth Plotter, Tanis Fenton, University of Calgary",
   "url": "https://fentongrowth.ca/",
-  "request": "The page's \"Calculate z-scores\" button (POST /api/Fenton/DownloadCsv, 200 OK); one request per sex, rows typed into the page's grid. The text under \"raw\" is the result table the page showed, cell by cell, tab-joined: the browser tool returned no response body. Each saved text matched a SHA-256 computed in the page over the same table.",
+  "request": "The page's \"Calculate z-scores\" button (POST /api/Fenton/DownloadCsv, 200 OK); one request per sex, rows typed into the page's grid. The text under \"raw\" is the result table the page showed, cell by cell, tab-joined: the browser tool returned no response body. When it was saved, each text matched a SHA-256 computed in the page over the same table; the hashes were not kept.",
   "version": "2.1.3.0",
   "versionSource": "The page footer, \"API Software Version\"",
   "retrieved": "2026-11-16",

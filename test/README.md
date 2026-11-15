@@ -1604,7 +1604,8 @@ is a cell of the returned table at the GA it was sent with, and a point carries 
 (10 points): linear reading between the p10, p50 and p90 curves strays at most 4.0 points from the
 normal curve, plus 0.5 for rounding. DOL 1 is read at exact GA, as the official Birth size evaluation
 reads it (Pp, 2026-10-17). §3 records, without failing, the gaps where the app is known to be off: weight
-from 37 weeks, and length and HC, DOL 1 included, whose 4-weekly rows no numeric source verifies; a
+from 37 weeks, and length and HC, DOL 1 included (4-weekly rows no numeric source verified, until
+2026-11-16; `verify-fenton-length-hc-1116.cjs` now asserts those 24 points within ±1); a
 DOL-1 point there must still carry no size-at-birth label. §4 prints every point, worst gap first in
 each group; `--md` prints the same as Markdown tables. Against 55d893d, before the half-week fix, 30
 fail (24 weights under 37 weeks, 6 DOL-1 weights); against `ea0abe0`, which read DOL 1 by completed
@@ -2260,15 +2261,16 @@ has no clock, so Google's own copy and the lock's duration are proven only by th
 node test/verify-sheet-backup-1115.cjs
 ```
 
-**`verify-fenton-length-hc-1116.cjs`** (56 assertions; jsdom, the same dev-only dependencies as the other
+**`verify-fenton-length-hc-1116.cjs`** (57 assertions; jsdom, the same dev-only dependencies as the other
 Fenton harnesses) — length and head circumference on Fenton's own growth-monitoring curve. §1: the fixture
 `fenton-official-1116.json` is what fentongrowth.ca returned (two submissions of 75 made-up rows, 282 points,
 12 cells it did not answer named). §2: `FENTON_LENGTH_GROWTH_LMS` and `FENTON_HC_GROWTH_LMS` are the
 solver's answer on it (`tools/fenton-lms-solve.cjs`): L is 1, the knots read back within 0.001 z, the
 held-out points within 0.02 z. §3: on screen all 234 knot points read within ±1 centile point of the
-official percentile. §4: before 24.0 (length) or 23.0 (head) there is no percentile and the chart says
-where the reference starts. §5: the drawn 50th passes through M at every week. §6: the old rows are gone.
-Against `e1d99cd` it fails 15 checks.
+official percentile, and so do the 24 length and head points of `fenton-official-1017.json` (day-level
+ages, 8 on DOL 1). §4: before 24.0 (length) or 23.0 (head) there is no percentile and the chart says
+where the reference starts. §5: each of the five drawn lines passes through its centile at every week.
+§6: the old rows are gone. Against `e1d99cd` it fails 16 checks.
 
 ```
 node test/verify-fenton-length-hc-1116.cjs

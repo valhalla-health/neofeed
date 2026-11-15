@@ -20,10 +20,13 @@
 //       every week, which is why it is fixed at 1.
 //   §3  ASSERTED. On screen, a length or a head circumference at a whole week
 //       reads within ±1 centile point of the official percentile, for all 234
-//       knot points; a DOL-1 measurement is read on the same curve.
+//       knot points; a DOL-1 measurement is read on the same curve; and the 24
+//       length and head points of 2026-10-17 (test/fenton-official-1017.json:
+//       ages between whole weeks, 8 of them on DOL 1) read within ±1 too.
 //   §4  Before the curve starts (length before 24.0, head before 23.0) there
 //       is no percentile, and the chart says where the reference starts.
-//   §5  The drawn 50th passes through M at every week of the table.
+//   §5  Each of the five drawn lines passes through its centile (z of
+//       −1.88079, −1.28155, 0, 1.28155, 1.88079) at every week of the table.
 //   §6  The old rows are gone, and where they were wrong is on record: at 42
 //       weeks the old length "50th" is this curve's 82nd (boys), the old head
 //       "50th" its 26th (boys).
@@ -31,7 +34,8 @@
 // NEGATIVE CONTROL: against e1d99cd, the commit before the change (copy this
 // file, its fixture and tools/fenton-lms-solve.cjs into a
 // `git -c core.autocrlf=false archive` of it): §1 passes; §2 and §5 stop at the
-// missing tables; §3 fails where the old rows are more than a point off.
+// missing tables; §3 fails where the old rows are more than a point off (the
+// 2026-10-17 points included).
 //
 // Same dev-only dependencies as the other jsdom harnesses (test/README.md).
 const fs = require('fs');
@@ -43,6 +47,7 @@ const { solveTable, solveKnot, normalKnot, lmsAt, zOf } = require('../tools/fent
 
 const DIR = path.join(__dirname, '..') + '/';
 const FIXTURE = JSON.parse(fs.readFileSync(path.join(__dirname, 'fenton-official-1116.json'), 'utf8'));
+const OCT17 = JSON.parse(fs.readFileSync(path.join(__dirname, 'fenton-official-1017.json'), 'utf8'));
 
 let pass = 0, fail = 0, n = 0;
 function ok(name, cond, detail) {
@@ -106,11 +111,11 @@ const readout = () => {
   const box = probe().querySelector('.fenton-trajectory');
   return box ? box.children[1].textContent.trim() : null;
 };
-// A made-up infant with one length or head circumference on `dol`, born so
-// that the measurement sits at exact PMA `week` + 0 days.
-const infant = (sex, week, measure, value, dol) => ({
-  sessionId: `T-${sex}-${measure}-${week}-${dol}`, name: 'ทด', initials: 'ทด', sex, bw: 900,
-  ga: dol === 1 ? week : week - 2, weights: [{ dol: 1, w: 900 }],
+// A made-up infant with one length or head circumference on `dol` (1 or 15),
+// born so that the measurement sits at exact PMA `week` + `days`.
+const infant = (sex, week, measure, value, dol, days = 0) => ({
+  sessionId: `T-${sex}-${measure}-${week}-${days}-${dol}`, name: 'ทด', initials: 'ทด', sex, bw: 900,
+  ga: (dol === 1 ? week : week - 2) + days / 10, weights: [{ dol: 1, w: 900 }],
   lengths: measure === 'length' ? [{ dol, v: value }] : [], hcs: measure === 'head' ? [{ dol, v: value }] : [],
 });
 const parse = (s) => {
@@ -228,12 +233,27 @@ const p50Anchors = () => {
     // A measurement on DOL 1 is read on the same curve: there is no other for these two.
     const b = FIXTURE.points.find(p => p.sex === 'girls' && p.measure === 'length' && p.age === 40 && p.aimedAt === 50);
     await chart(infant('girls', 40, 'length', b.value, 1), 'length');
+    const within1 = (said, official) => { const g = gapOf(parse(said), official); return g != null && Math.abs(g) <= 1; };
     ok(`a girl born at 40+0, ${b.value} cm on DOL 1, reads the official ${b.pct}th (±1): ${readout()}`,
-       Math.abs(gapOf(parse(readout()), b.pct)) <= 1, readout());
+       within1(readout(), b.pct), readout());
+    // 35.7 cm is the old table's row-42 "50th" for boys (the app drew it at 42.5).
     const h = FIXTURE.points.find(p => p.sex === 'boys' && p.measure === 'head' && p.age === 42 && p.aimedAt === 50);
     await chart(infant('boys', 42, 'head', h.value, 15), 'head');
-    ok(`a boy at 42+0 with the old table's "50th" head, ${h.value} cm, reads the official ${h.pct}th, not the 50th: ${readout()}`,
-       h.pct <= 30 && Math.abs(gapOf(parse(readout()), h.pct)) <= 1, [h, readout()]);
+    ok(`a boy at 42+0 with ${h.value} cm, the old row-42 "50th" head, reads the official ${h.pct}th, not the 50th: ${readout()}`,
+       h.value === 35.7 && h.pct <= 30 && within1(readout(), h.pct), [h, readout()]);
+
+    // The points of 2026-10-17: ages between whole weeks, growth mode (DOL 15) and birth mode (DOL 1).
+    const older = OCT17.points.filter(p => p.measure === 'length' || p.measure === 'hc');
+    const gaps = [];
+    for (const p of older) {
+      const [w, d] = p.ga.split('+').map(Number);
+      const measure = p.measure === 'hc' ? 'head' : 'length';
+      await chart(infant(p.sex, w, measure, p.value, p.mode === 'birth' ? 1 : 15, d), measure);
+      gaps.push({ ga: p.ga, mode: p.mode, measure, value: p.value, official: p.pct, said: readout(), ok: within1(readout(), p.pct) });
+    }
+    const between = older.filter(p => !p.ga.endsWith('+0')).length, birth = older.filter(p => p.mode === 'birth').length;
+    ok(`the 24 length and head points of 2026-10-17 (${between} between whole weeks, ${birth} on DOL 1) read within ±1`,
+       older.length === 24 && between >= 8 && birth === 8 && gaps.every(g => g.ok), gaps.filter(g => !g.ok).slice(0, 4));
   });
 
   await section('§4 Before the curve starts there is no percentile, and the chart says where it starts', async () => {
@@ -248,14 +268,31 @@ const p50Anchors = () => {
     ok('the "not checked against the source" note is gone from both tabs', !/ยังไม่ได้ตรวจเทียบ/.test(probe().textContent), '');
   });
 
-  await section('§5 The drawn 50th passes through M at every week', async () => {
+  await section('§5 Each drawn line passes through its centile at every week', async () => {
+    // The five lines and their colours (fenton.jsx PERCENTILES). The 3rd and
+    // 97th share a colour, and so do the 10th and 90th: the lower line is the
+    // one whose first point sits lower on the chart (a larger y).
+    const LINES = [['3rd', -1.88079, 'oklch(82.4% 0.039 139)', 'low'], ['10th', -1.28155, 'oklch(64% 0.043 150)', 'low'],
+      ['50th', 0, P50, 'only'], ['90th', 1.28155, 'oklch(64% 0.043 150)', 'high'], ['97th', 1.88079, 'oklch(82.4% 0.039 139)', 'high']];
+    const anchorsOf = (path) => [...path.getAttribute('d').matchAll(/([MC])([^MC]*)/g)].map(([, cmd, rest]) => {
+      const v = rest.match(/-?\d+(?:\.\d+)?(?:e-?\d+)?/g).map(Number);
+      return cmd === 'M' ? [v[0], v[1]] : [v[4], v[5]];
+    });
     for (const [measure, step] of [['length', 10], ['head', 5]]) for (const sex of ['boys', 'girls']) {
       await chart(infant(sex, 30, measure, measure === 'length' ? 39 : 27, 15), measure);
-      const s = scales(step), pts = p50Anchors();
-      const rows = TABLE[measure][sex];
-      const miss = rows.filter(r => !pts.some(p => Math.abs(p[0] - s.x(r[0])) <= 0.01 && Math.abs(p[1] - s.y(r[2])) <= 0.01));
-      ok(`${measure} ${sex}: the 50th has an anchor at M for each of the ${rows.length} weeks, and none before the first`,
-         miss.length === 0 && pts.length === rows.length && Math.abs(pts[0][0] - s.x(rows[0][0])) <= 0.01, [miss.slice(0, 3), pts.length]);
+      const s = scales(step), rows = TABLE[measure][sex];
+      const bad = [];
+      for (const [label, z, colour, which] of LINES) {
+        const paths = [...probe().querySelectorAll(`path[stroke="${colour}"]`)].filter(p => p.getAttribute('fill') === 'none' || !p.getAttribute('fill'))
+          .map(anchorsOf).sort((a, b) => b[0][1] - a[0][1]);                       // lower line first
+        const want = which === 'only' ? 1 : 2;
+        const pts = which === 'high' ? paths[1] : paths[0];
+        if (paths.length !== want || !pts) { bad.push([label, 'paths', paths.length]); continue; }
+        const miss = rows.filter(r => !pts.some(p => Math.abs(p[0] - s.x(r[0])) <= 0.01 && Math.abs(p[1] - s.y(r[2] * (1 + z * r[3]))) <= 0.01));
+        if (miss.length || pts.length !== rows.length || Math.abs(pts[0][0] - s.x(rows[0][0])) > 0.01) bad.push([label, miss.length, pts.length]);
+      }
+      ok(`${measure} ${sex}: the 3rd, 10th, 50th, 90th and 97th each have an anchor at M·(1 + z·S) for all ${rows.length} weeks, none before the first`,
+         bad.length === 0, bad);
     }
   });
 
