@@ -869,13 +869,16 @@ clinical judgement. Everything else is engineering sequencing.
       `FENTON_HC_GROWTH_LMS`, solved from fentongrowth.ca's z-scores (`CHANGELOG.md` 2026-11-16). Open:
       - **The first weeks.** Asked of the calculator: 22 weeks (not accepted), 23.0 (a head z-score, none
         for length), 23.5 (both). The curves start at 23.0 (head) and 24.0 (length); a measurement before
-        that has no percentile. The fixture already holds two length points at 23.5, which with L = 1 fix M
-        and S there; adding that row, or asking again between 22 and 23, is Pp's call.
+        that has no percentile. The fixture already holds two length points a sex at 23.5, which with L = 1
+        give M and S there exactly, with no third point to check them; adding that row, or asking again
+        between 22 and 23, is Pp's call.
       - **DOL 1 from 36 weeks.** Weight on DOL 1 is read on the size-at-birth rows. A DOL-1 length or head
         circumference is read on the growth curve. Fenton's "Birth size evaluation" agrees with it for the 8
         DOL-1 length and head points asked on 2026-10-17 (26+0 to 35+4, within 0.4 centile points). From 36
-        weeks it was not asked, and for weight the two part company there by up to 10 centile points. Pp
-        decides: a one-line caveat on a DOL-1 reading from 36 weeks, or a round of birth-mode points at
+        weeks it was not asked. For weight the two curves do differ near term: the two birth-mode weights
+        asked from 36.5 weeks read 0.7 and 5.5 centile points away from the monitoring curve (39+2 and
+        40+5), and the app's size-at-birth rows read a monitoring weight up to 10.2 points off it from 37
+        weeks (`CHANGELOG.md` 2026-10-19). Pp decides: a one-line caveat on a DOL-1 reading from 36 weeks, or a round of birth-mode points at
         37–42 weeks (Vera, 2026-11-16).
       - **Solved, not received.** Pp's email to tfenton@ucalgary.ca for the published LMS stands; if the
         calculator's API version moves from 2.1.3.0, re-run `tools/fenton-lms-solve.cjs` and the harness.

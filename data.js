@@ -1610,8 +1610,8 @@ const FENTON_WEIGHT_GROWTH_LMS = {
 // age in Fenton's model, and with L fixed at 1 the three points of each week
 // read back within 0.001 z. The half-week points no row was built from read
 // back within 0.02 z (under one centile point), and so do the 24 length and
-// head points of 2026-10-17 (test/fenton-official-1017.json), at day-level
-// ages and on DOL 1 up to 35+4.
+// head points of 2026-10-17 (test/fenton-official-1017.json): 12 of them
+// between whole weeks, 8 on DOL 1 (up to 35+4).
 //
 // What was asked of the calculator: 22 weeks (not accepted), 23.0 (a head
 // z-score, none for length), 23.5 and later (both). So head starts at 23.0
@@ -1619,9 +1619,11 @@ const FENTON_WEIGHT_GROWTH_LMS = {
 // measurement before the first row as having no reference, and says so.
 //
 // These replace FENTON_LENGTH and FENTON_HC (five centiles every 4 weeks, never
-// checked against a source). Their 50th matched this curve up to 38.5 weeks;
-// length's outer lines were already too narrow from about 33 weeks (at 38.5
-// the old boys' 3rd/10th/90th/97th read 7/16/84/94). Past 38.5 both ran
+// checked against a source). At their rows (26.5, 30.5, 34.5, 38.5 as drawn)
+// the old 50th matched this curve; between rows 34.5 and 38.5 it read as low
+// as the 44th centile for head and the 47th for length. Length's outer lines
+// were too narrow from about 33 weeks (at 38.5 the old boys' 3rd/10th/90th/
+// 97th read 7/16/84/94). Past 38.5 both ran
 // straight to a 42-week row that was wrong: at 42 weeks the old length "50th"
 // is this curve's 82nd centile (boys) and 79th (girls), and the old head
 // "50th" is its 26th (boys) and 32nd (girls), with the old head "3rd" below

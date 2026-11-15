@@ -22,7 +22,7 @@
 //       reads within ±1 centile point of the official percentile, for all 234
 //       knot points; a DOL-1 measurement is read on the same curve; and the 24
 //       length and head points of 2026-10-17 (test/fenton-official-1017.json:
-//       ages between whole weeks, 8 of them on DOL 1) read within ±1 too.
+//       12 between whole weeks, 8 of them on DOL 1) read within ±1 too.
 //   §4  Before the curve starts (length before 24.0, head before 23.0) there
 //       is no percentile, and the chart says where the reference starts.
 //   §5  Each of the five drawn lines passes through its centile (z of
@@ -234,15 +234,15 @@ const p50Anchors = () => {
     const b = FIXTURE.points.find(p => p.sex === 'girls' && p.measure === 'length' && p.age === 40 && p.aimedAt === 50);
     await chart(infant('girls', 40, 'length', b.value, 1), 'length');
     const within1 = (said, official) => { const g = gapOf(parse(said), official); return g != null && Math.abs(g) <= 1; };
-    ok(`a girl born at 40+0, ${b.value} cm on DOL 1, reads the official ${b.pct}th (±1): ${readout()}`,
+    ok(`a girl born at 40+0, ${b.value} cm on DOL 1, reads the official percentile ${b.pct} (±1): ${readout()}`,
        within1(readout(), b.pct), readout());
     // 35.7 cm is the old table's row-42 "50th" for boys (the app drew it at 42.5).
     const h = FIXTURE.points.find(p => p.sex === 'boys' && p.measure === 'head' && p.age === 42 && p.aimedAt === 50);
     await chart(infant('boys', 42, 'head', h.value, 15), 'head');
-    ok(`a boy at 42+0 with ${h.value} cm, the old row-42 "50th" head, reads the official ${h.pct}th, not the 50th: ${readout()}`,
+    ok(`a boy at 42+0 with ${h.value} cm, the old row-42 "50th" head, reads the official percentile ${h.pct}, not the 50th: ${readout()}`,
        h.value === 35.7 && h.pct <= 30 && within1(readout(), h.pct), [h, readout()]);
 
-    // The points of 2026-10-17: ages between whole weeks, growth mode (DOL 15) and birth mode (DOL 1).
+    // The points of 2026-10-17: 12 at whole weeks and 12 between them, growth mode (DOL 15) and birth mode (DOL 1).
     const older = OCT17.points.filter(p => p.measure === 'length' || p.measure === 'hc');
     const gaps = [];
     for (const p of older) {
@@ -253,7 +253,7 @@ const p50Anchors = () => {
     }
     const between = older.filter(p => !p.ga.endsWith('+0')).length, birth = older.filter(p => p.mode === 'birth').length;
     ok(`the 24 length and head points of 2026-10-17 (${between} between whole weeks, ${birth} on DOL 1) read within ±1`,
-       older.length === 24 && between >= 8 && birth === 8 && gaps.every(g => g.ok), gaps.filter(g => !g.ok).slice(0, 4));
+       older.length === 24 && between === 12 && birth === 8 && gaps.every(g => g.ok), gaps.filter(g => !g.ok).slice(0, 4));
   });
 
   await section('§4 Before the curve starts there is no percentile, and the chart says where it starts', async () => {

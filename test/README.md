@@ -2267,8 +2267,8 @@ Fenton harnesses) — length and head circumference on Fenton's own growth-monit
 12 cells it did not answer named). §2: `FENTON_LENGTH_GROWTH_LMS` and `FENTON_HC_GROWTH_LMS` are the
 solver's answer on it (`tools/fenton-lms-solve.cjs`): L is 1, the knots read back within 0.001 z, the
 held-out points within 0.02 z. §3: on screen all 234 knot points read within ±1 centile point of the
-official percentile, and so do the 24 length and head points of `fenton-official-1017.json` (day-level
-ages, 8 on DOL 1). §4: before 24.0 (length) or 23.0 (head) there is no percentile and the chart says
+official percentile, and so do the 24 length and head points of `fenton-official-1017.json` (12 between
+whole weeks, 8 on DOL 1). §4: before 24.0 (length) or 23.0 (head) there is no percentile and the chart says
 where the reference starts. §5: each of the five drawn lines passes through its centile at every week.
 §6: the old rows are gone. Against `e1d99cd` it fails 16 checks.
 
