@@ -220,9 +220,44 @@ const INIT = `
     await dialog.getByRole('button', { name: 'บันทึก' }).click();
     await row(page, 'AA-1').getByText(SENTINEL_AN).waitFor();
 
-    section('§5 as shipped, the fixed lines hold every print');
-    ok('the reason shows on a mapped order', /ข้อความคงที่/.test(await row(page, 'AA-1').innerText()));
-    eq('no print button', await row(page, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' }).count(), 0);
+    section('§5 as shipped, blank fixed lines print a trial sheet (Pp, 2026-11-16)');
+    ok('the row says the sheet prints as a trial', /แผ่นทดลอง ห้ามใช้จริง/.test(await row(page, 'AA-1').innerText()));
+    const trialPrint = row(page, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' });
+    await trialPrint.waitFor();
+    ok('…and offers the print button', await trialPrint.isVisible());
+    await trialPrint.click();
+    await page.waitForFunction(() => window.__prints === 1);
+    const trialSheet = await page.evaluate((pj) => {
+      const sheet = document.getElementById('sticker-sheet');
+      const label = sheet.querySelector('.part-label');
+      const get = (p) => p.split('.').reduce((o, k) => (o ? o[k] : undefined), pj);
+      const figs = [...sheet.querySelectorAll('[data-fig]')].map((e) => [e.dataset.fig, e.textContent]);
+      // The mark and the placeholders stay in the swept text, so a digit in either shows.
+      const copy = sheet.cloneNode(true);
+      copy.querySelectorAll('[data-fig],[data-lbl],[data-mapped],[data-date]').forEach((e) => e.remove());
+      return {
+        figures: figs.length, wrong: figs.filter(([p, v]) => get(p) !== v), rest: copy.textContent,
+        marked: label.classList.contains('part-trial'),
+        mark: [...sheet.querySelectorAll('[data-trial]')].map((e) => [e.closest('.part').className, e.textContent]),
+        fixed: [...label.querySelectorAll('[data-fixed]')].map((e) => e.textContent),
+      };
+    }, pjOf('AA-1'));
+    ok(`every figure on the trial sheet (${trialSheet.figures}) is its printJson string`, trialSheet.figures > 30 && trialSheet.wrong.length === 0);
+    eq('…and no number sits anywhere else on it, the mark and placeholders included', /\d/.test(trialSheet.rest), false);
+    ok('the PN label is marked trial', trialSheet.marked);
+    eq('one trial mark on each of the three parts', trialSheet.mark, ['part-worksheet', 'part-label', 'part-bag'].map((c) => [`part ${c} part-trial`, 'ทดลองพิมพ์ ห้ามใช้จริง']));
+    ok('each blank line prints a placeholder that waits for the TPN unit',
+      trialSheet.fixed.length === 3 && /รอหัวฉลาก/.test(trialSheet.fixed[0]) && trialSheet.fixed.slice(1).every((t) => /รอหน่วย TPN/.test(t)));
+    await page.emulateMedia({ media: 'print' });
+    const trialFits = await page.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
+    ok('the trial sheet and each part fit, measured under print', trialFits.length === 4 && trialFits.every(Boolean));
+    const trialPdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+    eq('the trial sheet is one A4 page', (trialPdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length, 1);
+    if (process.env.TPN_ROOM_TRIAL_PDF_OUT) fs.writeFileSync(process.env.TPN_ROOM_TRIAL_PDF_OUT, trialPdf);
+    await page.emulateMedia({ media: null });
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    await row(page, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();
+    ok('a trial print is logged, and the row says it was a trial', /พิมพ์แล้ว \(แผ่นทดลอง\)/.test(await row(page, 'AA-1').innerText()));
     await ctxA.close();
 
     section('§6 printing');
@@ -271,6 +306,7 @@ const INIT = `
     const be = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}`;
     eq('Buddhist-era dates; date made comes from the box', sheetCheck.dates, [be(today), be(today), be(made), be(today)]);
     eq('the fixed lines print', sheetCheck.fixed.length, 3);
+    eq('filled lines print no trial mark', await p2.evaluate(() => document.querySelectorAll('#sticker-sheet [data-trial], #sticker-sheet .part-trial').length), 0);
     await p2.emulateMedia({ media: 'print' });
     const fits = await p2.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
     ok('the sheet and each part fit, measured under print', fits.length === 4 && fits.every(Boolean));
@@ -285,6 +321,7 @@ const INIT = `
     ok('the sheet leaves the page after the print dialog', true);
     await row(p2, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();
     ok('the row says who printed it', /Pharmacist Dev/.test(await row(p2, 'AA-1').innerText()));
+    eq('a print with the lines filled is not called a trial', /ทดลอง/.test(await row(p2, 'AA-1').innerText()), false);
     ok('and offers a reprint', await row(p2, 'AA-1').getByRole('button', { name: 'พิมพ์ซ้ำ' }).isVisible());
 
     section('§7 the order moves after printing');

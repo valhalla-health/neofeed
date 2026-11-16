@@ -766,7 +766,8 @@ PR B of `openspec/changes/tpn-room-stickers`. Not live: `STATUS.md` says what ho
 - **`*.github.io`:** the page leaves for `moved.html` before it touches storage, on any such host. Use the Workers URL.
 - **Sign-in.** Google (gmail and Chula accounts, which have no NeoFeed password) or email and password; pharmacy or admin only. Google is a redirect to Google and back with no Google script on the page; its redirect URI, `https://neofeed.valhalla-health.workers.dev/tpn-room`, must be on the OAuth client's list (§ Deploying), so a real Google sign-in works on the Workers host only.
 - **Two things to fill in, in `tpn-room-core.js`:** `PN_FIXED`, the label's heading, storage line and extension, blank until
-  the unit gives them, and the page prints nothing until all three are set; `CONTACTS`, who to call. A release follows either change.
+  the unit gives them; until all three are set the whole sheet prints as a trial, "ทดลองพิมพ์ ห้ามใช้จริง" across each part and
+  `PN_TRIAL`'s placeholders in the PN label's blank lines (Pp, 2026-11-16); `CONTACTS`, who to call. A release follows either change.
 - **`tpn-room-check.html`** checks a PC's browser: folder, rewrite, permission, device key, after a restart. Use it on a
   new PC too. It calls no server and holds no patient data.
 - **The name file** is `neofeed-tpn-room-names.nfenc`, in a folder the room picks: never OneDrive, never one a restore clears. A
@@ -858,6 +859,9 @@ one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with 
 0.2):** `pseudonymizePatient()` cannot reach that PC, so an erasure leaves the name there until the 30-day purge, and
 an edit keeps the old name in the history until then; and a `.replaced-*` file left by "start a new file" has no end date,
 because the purge runs on the open file only. No retention rule or manual erasure step exists yet.
+**Trial sheets (since 2026-11-16, until the unit's PN lines come):** each carries a real name and AN on all three
+parts and is meant to be thrown away. The row tells the room to shred it or put it in the confidential-waste bin;
+where the ward's own disposal rule differs, that rule is for Pp and the DPO to name.
 
 **Backups of the Sheet (since 2026-11-15, not live):** 14 backup spreadsheets in the same Google account, one
 overwritten each night, hold everything the live Sheet holds, names included (§ Sheet backup and restore drill).
