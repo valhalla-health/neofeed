@@ -791,7 +791,7 @@ async function run(scIn) {
       near(sc, 'print Factor', g(rx('Factor: ?#')), e.F, 3);
       near(sc, 'print D50W mL', g(rx('# mL \\(D50W\\)')), e.d50, 1);
       near(sc, 'print dextrose g/kg/d', g(rx('g\\. \\(ในถุง\\) = # g/kg/d')), e.dexGkg, 2);
-      near(sc, 'print AA mL', g(rx('PED AMINE \\(0-1 yr\\.\\).*?= [\\d.—]+ g/kg/d = # mL')), e.aaMl, 1);
+      near(sc, 'print AA mL', g(rx('PED AMINE.*?= [\\d.—]+ g/kg/d = # mL')), e.aaMl, 1);
       near(sc, 'print WFI mL', g(/WFI (-?[\d.]+) mL/), e.wfi, 1);
       near(sc, 'print Components mL', g(rx('Components # mL')), e.components, 1);
       near(sc, 'print K+ in bag mEq/L', g(rx('K⁺ in bag # mEq/L')), e.kPerL, 0);
@@ -802,6 +802,8 @@ async function run(scIn) {
       near(sc, 'print phosphate mg', g(rx('Phosphate # mg')), e.pTpnMg, 0);
       near(sc, 'print Energy (TPN) kcal', g(rx('Energy \\(TPN\\) # kcal')), e.tpnKcal, 0);
       near(sc, 'print heparin mL', g(rx('Heparin 100 unit/mL(?:[\\d.]+ unit|—)#')), e.hepMl, 2);
+      // The front sheet's heparin line prints its mL too (ward, 2026-11-16), the back sheet's figure.
+      if (sc.hep > 0) near(sc, 'print heparin mL (front)', g(rx('7\\. Heparin \\(100 unit/mL\\)[\\d.]+ unit/mL[\\d.]+ unit = # mL')), e.hepMl, 2);
       if (sc.soluvit) near(sc, 'print Soluvit mL', g(rx('Soluvit N# mL/day')), e.soluvit, 1);
       if (sc.pedi) near(sc, 'print Peditrace mL', g(rx('µg/mL\\)# mL/day')), e.pedi, 1);
       if (sc.naCl > 0) near(sc, 'print NaCl mL', g(rx('☑ NaCl[\\d.]+ mEq[\\d.—]+ mEq = # mL')), e.naClMl, 1);

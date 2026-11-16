@@ -331,10 +331,10 @@ const topStrings = (form) => {
     const aa = [...form.querySelectorAll('td')].find(td => td.textContent.trim() === 'Amino acid')?.nextElementSibling;
     const picked = aa?.querySelector('.print-aa-picked'), others = aa?.querySelector('.print-aa-others');
     ok('the amino-acid cell is two lines: the ticked product with its dose, then the other choices', !!picked && !!others && aa.children.length === 2);
-    ok('…the ticked line carries the product ☑ and its dose', /^☑ 10% Aminoven infant \/ PED AMINE \(0-1 yr\.\)\s*= 4\.6 g\/kg\/d = [\d.]+ mL$/.test(squash(picked?.textContent)), squash(picked?.textContent));
+    ok('…the ticked line carries the product ☑ and its dose', /^☑ 10% Aminoven infant \/ PED AMINE\s*= 4\.6 g\/kg\/d = [\d.]+ mL$/.test(squash(picked?.textContent)), squash(picked?.textContent));
     eq('…the other four choices and "Other" follow, all unticked',
       [...(others?.children || [])].map(c => squash(c.textContent)),
-      ['☐ 10% Amiparen (>1 Yr.)', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 15% Aminoplasmal', '☐ Other ........']);
+      ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 15% Aminoplasmal', '☐ Other ........']);
 
     // A figure is a <strong>: its size is the nearest inline font size going up, else the form's own 10.5.
     const sizeOf = (el) => { for (let e = el; e && e !== form.parentElement; e = e.parentElement) { if (e.style?.fontSize) return parseFloat(e.style.fontSize); } return 10.5; };
@@ -357,7 +357,7 @@ const topStrings = (form) => {
       ok('the ticked line reads ☑ 15% Aminoplasmal with its dose', /^☑ 15% Aminoplasmal\s*= 3 g\/kg\/d = [\d.]+ mL$/.test(squash(picked?.textContent)), squash(picked?.textContent));
       eq('…the other choices start with the ten-percent Aminoven, unticked, and none is ticked',
         [...(others?.children || [])].map(c => squash(c.textContent)),
-        ['☐ 10% Aminoven infant / PED AMINE (0-1 yr.)', '☐ 10% Amiparen (>1 Yr.)', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ Other ........']);
+        ['☐ 10% Aminoven infant / PED AMINE', '☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ Other ........']);
       ok('…and the product is ticked once on the sheet', (squash(aa?.textContent).match(/☑/g) || []).length === 1);
     } finally { D.aaProductsFor = realGate; }
   });

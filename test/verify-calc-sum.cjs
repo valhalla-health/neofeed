@@ -396,6 +396,8 @@ const screenFigures = () => ({
   osm: (() => { const m = [...container.querySelectorAll('.metric')].find(d => d.querySelector('.lbl')?.textContent.trim() === 'Osmolarity'); return m ? numOrDash(m.querySelector('.val')?.firstChild?.textContent) : null; })(),
 });
 // The front sheet's small "Bag osm N mOsm/L" on the Total Volume line (null when it is not printed).
+// The front sheet's heparin line: its mL (null when it prints "—" or is missing). Ward, 2026-11-16.
+const printedFrontHeparinMl = () => { const t = __printFormTicked(container)?.querySelector('.print-heparin')?.textContent.replace(/\s+/g, ' '); const m = t && t.match(/unit = (-?[\d.]+) mL/); return m ? Number(m[1]) : null; };
 const printedOsm = () => { const t = __printFormTicked(container)?.querySelector('.print-osm')?.textContent; const m = t && t.match(/Bag osm (-?[\d.]+) mOsm\/L/); return m ? Number(m[1]) : null; };
 
 // The pharmacy back page's "Aqueous bag — stock" table, line by line.
@@ -546,6 +548,12 @@ function sumCheck(sc, label, Vd) {
     // A bag with no dextrose, amino acid or electrolyte estimates 0: the sheet prints no figure for it.
     ok(sc, `${label}: front sheet's Bag osm = on-screen Osmolarity tile (none when it reads 0)`,
       scr.osm !== null && (scr.osm === 0 ? printedOsm() === null : printedOsm() === scr.osm), { ...detail, printedOsm: printedOsm() });
+    // The heparin mL reached paper only on the back sheet, which does not print (ward, 2026-11-16):
+    // the front's heparin line now prints it, and it must be the back's stock line, mL for mL.
+    const backHep = parts.find(p => /^Heparin /.test(p.name));
+    ok(sc, `${label}: front sheet's heparin mL = back sheet's heparin stock mL (none at 0 U/mL)`,
+      !!backHep && (backHep.ml > 0 ? printedFrontHeparinMl() === backHep.ml : printedFrontHeparinMl() === null),
+      { ...detail, backHep: backHep && backHep.ml, frontHep: printedFrontHeparinMl() });
     const given = scr.pumpRate === null ? null : Number((scr.pumpRate * 24).toFixed(1));
     const overPct = given === null ? 0 : Math.round(Number((given - Vd).toFixed(1)) / Vd * 100);
     ok(sc, `${label}: the over-delivery note is the Rate box × 24 h, from 5 % up`, overPct >= 5 ? scr.overGiven === given : scr.overGiven === null, { ...detail, given, overGiven: scr.overGiven });

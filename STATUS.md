@@ -1,5 +1,7 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-16 — The front sheet's heparin line prints the units and mL the bag takes ("180 unit = 1.8 mL"), and the amino-acid choices drop "(0-1 yr.)" and "(>1 Yr.)": PR pending, not merged.** Frontend only; no dose or limit moves, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-16 (3)).
+>
 > ⏳ **2026-11-16 — On a Sunday (Bangkok), opening a patient goes to the growth page until that day has a length and a head circumference (doctors and nurses; "ไว้ทีหลัง" puts it off until the patient is opened again); a "พิมพ์กราฟ" button prints weight, length and HC with the order's patient block: PR #270, merged into `main` on Praew's instruction; release PR to follow.** Frontend only; it sits on top of the Fenton length and HC PR. No figure, table or `CONSTANTS_VERSION` moves. The print is one chart to an A4 page, the patient block on each. For Pp before merging: the banner's wording and a page from the ward's printer (`CHANGELOG.md` 2026-11-16 (2)).
 >
 > ⏳ **2026-11-15 — The front sheet prints the bag's osmolarity in small type on the Total Volume line ("Bag osm N mOsm/L", rounded as the Osmolarity tile and its alert): PR #265, merged into `main` on Praew's instruction; not live.** Frontend only; no dose or limit moves; `CONSTANTS_VERSION` stays `2026-11-15.1` (Pp, 2026-11-16: "คงไว้") (`CHANGELOG.md` 2026-11-15 (3)).
