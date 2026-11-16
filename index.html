@@ -2135,6 +2135,9 @@
   }
 
   /* ============ PRINT STYLES ============ */
+  /* The growth charts' print sheet exists only on paper (@media print below). */
+  .growth-print { display: none; }
+
   @media print {
     /* Hide all UI — show only Ramathibodi print form */
     .topbar, .rail, #toast-host, .picker-backdrop,
@@ -2143,7 +2146,24 @@
     /* Everything in the workspace except the order form itself — the edit/
        back-fill/prefill/lock/draft banners and the staleness banner sit
        outside .card and used to print above the pharmacy form. */
-    .work-inner > :not(#print-form):not(.print-batch), .bottom-nav, .quick-fab, .app > [role="status"] { display: none !important; }
+    .work-inner > :not(#print-form):not(.print-batch):not(.growth-print), .bottom-nav, .quick-fab, .app > [role="status"] { display: none !important; }
+
+    /* พิมพ์กราฟ (fenton.jsx GrowthPrintSheet): the three Fenton charts in
+       place of the growth page, one to an A4 page, each page under its own
+       patient block. Each chart is the screen's own, without its tabs, zoom
+       buttons or print button, as wide as the page's printable area (about
+       183 mm wide and 111 mm tall in a Chromium PDF), with its readout panel
+       under it. The legend prints as one row, not a column of four, so its
+       "Patient" marker stays explained and a page keeps room to spare. A page
+       is one unbreakable unit, so a wider printer margin cannot part the
+       patient block from its chart. Colours print as drawn. */
+    .growth-print { display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .growth-print-page + .growth-print-page { break-before: page; page-break-before: always; }
+    .growth-print-page, .growth-print-chart { break-inside: avoid; page-break-inside: avoid; }
+    .growth-print .legend { flex-direction: row !important; flex-wrap: wrap; justify-content: flex-end; gap: 4px 14px !important; }
+    .growth-print .fenton-grid { grid-template-columns: 1fr !important; }
+    .growth-print-chart svg { max-width: 100% !important; }
+    .growth-print .fenton-ctrl, .growth-print .fenton-zoom { display: none !important; }
 
     html, body { height: auto; background: #fff; }
     .app { display: block; height: auto; min-height: auto; overflow: visible; }
@@ -2189,13 +2209,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=e53dbdaccd"></script>
+  <script src="data.js?v=e69701bc75"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
-  <script src="compiled/calculator.js?v=8c7a281b1a"></script>
-  <script src="compiled/fenton.js?v=196ab85f3a"></script>
+  <script src="compiled/calculator.js?v=1bc49c301f"></script>
+  <script src="compiled/fenton.js?v=e19cf17755"></script>
   <script src="compiled/registry.js?v=e6f54efdb0"></script>
   <script src="compiled/log.js?v=dfd0cae3e3"></script>
-  <script src="compiled/app.js?v=4d78694aa4"></script>
+  <script src="compiled/app.js?v=7cde7bd98f"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

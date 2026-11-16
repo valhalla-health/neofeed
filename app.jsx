@@ -821,6 +821,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // user picks "เลือกวันที่ย้อนหลัง" on the Dashboard's log button.
   const [logDate, setLogDate] = React.useState(null);
   React.useEffect(() => { setEditEntry(null); setLogDate(null); setAutoPrint(null); }, [activeId]);
+  // Whether opening this patient should land on the growth page: Sunday in
+  // Bangkok, a doctor or a nurse, and no length and HC on today's DOL yet.
+  const growthDueFor = (id) => D_A.weeklyGrowthDue(patients.find(p => p.sessionId === id), role);
   const goTo = (v) => { setEditEntry(null); setLogDate(null); setAutoPrint(null); setPrintWard(null); setPrintQueue(null); setPrintBatch(null); setView(v); };
   // Declared after the [activeId] reset above on purpose: effects run in
   // order, so when picking an order also switched the patient, the reset's
@@ -2690,7 +2693,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             <WardPrintBatch batch={printBatch} patients={patients} log={log} onBack={() => setPrintBatch(null)} />}
           {view === "registry" && !(printBatch && printWard === printBatch.ward) && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard}
             printWard={printWard} onPrintWard={setPrintWard} onPrintOrder={openOrderToPrint} onPrintAll={startPrintAll}
-            onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={canDeletePatient ? handleDeletePatient : undefined} />}
+            onSelect={(id) => {setEditEntry(null);setActiveId(id);setView(growthDueFor(id) ? "fenton" : "log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={canDeletePatient ? handleDeletePatient : undefined} />}
           {/* Role-checked here as well as in the rail: `view` is plain state,
               and before sessions remounted App an admin's "admin" view was
               still selected for the next user of the tab (SEC-F2). */}
@@ -2728,9 +2731,30 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
                   <div className="sub">Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)</div>
                 </div>
               </div>
+              {/* Sunday, and today has no length or no head circumference yet
+                  (data.js weeklyGrowthDue). It can be put off; opening the
+                  patient again asks again, until both are entered. */}
+              {D_A.weeklyGrowthDue(active, role) && (() => {
+                const have = D_A.growthOnDol(active, dol);
+                const missing = [!have.length && "Length", !have.hc && "HC"].filter(Boolean).join(" และ ");
+                return (
+                  <div className="growth-due" role="status" style={{ padding: "12px 14px", background: "var(--warn-bg)",
+                    border: "1px solid var(--warn-line)", borderRadius: 10, marginBottom: 12, display: "flex",
+                    alignItems: "center", gap: 12, flexWrap: "wrap", color: "var(--warn-ink)", fontSize: 13.5, lineHeight: 1.5 }}>
+                    <span style={{ flex: "1 1 220px" }}>
+                      <strong>วันอาทิตย์: วัด Length และ HC ประจำสัปดาห์</strong>
+                      <span style={{ display: "block", fontSize: 12.5 }}>
+                        วันนี้ยังไม่มี {missing} ของ DOL {dol} กรอกในช่อง Length กับ HC ของหน้านี้ แล้วกด Save measurement
+                      </span>
+                    </span>
+                    <button type="button" className="btn" style={{ minHeight: 44 }} onClick={() => goTo("log")}>ไว้ทีหลัง</button>
+                  </div>
+                );
+              })()}
               <FentonChart patient={active} entries={log[activeId] || []} currentDol={dol} onUpdate={(weights) =>
                 handleWeightUpdate(active.sessionId, weights)
-              } />
+              } onPrint={() => window.print()} />
+              <GrowthPrintSheet patient={active} entries={log[activeId] || []} currentDol={dol} />
             </>
           }
           {view === "log" && active && <DailyLog patient={active} log={log} dol={dol}
@@ -2759,10 +2783,19 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           nothing on screen there, so an infant found in the search could not
           be opened, nor a discharged one brought back through Edit session
           (Pp, 2026-10-22). The quick calc stays put: its typed figures live
-          only in that page, and leaving it would lose them (Vera). */}
+          only in that page, and leaving it would lose them (Vera). On a
+          Sunday a pick of an infant whose length and HC are due goes to the
+          growth page instead, from any of these but the quick calc (Pp,
+          2026-11-16: every time the patient is opened). */}
       {pickerOpen &&
       <PatientPicker patients={patients} activeId={activeId}
-        onSelect={(id) => { setActiveId(id); if (![...PATIENT_VIEWS, "quickcalc"].includes(view)) goTo("log"); }}
+        onSelect={(id) => {
+          setActiveId(id);
+          // Sunday's length and head circumference come first (growthDueFor),
+          // from any page but the quick calc, whose typed figures would be lost.
+          if (!["quickcalc"].includes(view) && growthDueFor(id)) goTo("fenton");
+          else if (![...PATIENT_VIEWS, "quickcalc"].includes(view)) goTo("log");
+        }}
         onClose={() => setPickerOpen(false)} />
       }
 

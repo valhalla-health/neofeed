@@ -14,15 +14,19 @@ function Segmented({ value, onChange, options }) {
   );
 }
 
-function FentonChart({ patient, entries, currentDol, onUpdate }) {
+function FentonChart({ patient, entries, currentDol, onUpdate, printMetric, onPrint }) {
   // The reference tables are keyed "boys"/"girls" and nothing else. Any other
   // value — "M" typed into the sheet, a blank cell — made FENTON_WEIGHT[sex]
   // undefined, `.filter` threw, and with no error boundary the WHOLE app went
   // blank (review UP-S4). app.jsx normalises the common spellings at sync;
   // what is still unknown gets a message here instead of a guessed curve set.
   const sex = patient?.sex;
-  const sexValid = !!(sex && D_F.FENTON_WEIGHT[sex] && D_F.FENTON_LENGTH[sex] && D_F.FENTON_HC[sex]);
-  const [metric, setMetric] = React.useState("weight"); // weight | length | hc
+  const sexValid = !!(sex && D_F.FENTON_WEIGHT[sex] && D_F.FENTON_LENGTH_GROWTH_LMS[sex] && D_F.FENTON_HC_GROWTH_LMS[sex]);
+  const [metricState, setMetric] = React.useState("weight"); // weight | length | hc
+  // printMetric (GrowthPrintSheet below): one chart fixed on that measure,
+  // drawn at its design scale (on paper it fills the page's width, close to
+  // the 760 it was designed at), with no tab, zoom or entry controls.
+  const metric = printMetric || metricState;
   const [view, setView] = React.useState(null); // {x,y,w,h} viewBox override
   const dragRef = React.useRef(null);
 
@@ -96,12 +100,13 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // points within 4.2 centile points; a completed-week reading was up to 21
   // off. Pp, 2026-10-17).
   const REF_AGE_OFFSET = 0.5;
-  const table = (
-    metric === "weight" ? D_F.FENTON_WEIGHT[sex]
-  : metric === "length" ? D_F.FENTON_LENGTH[sex]
-  : D_F.FENTON_HC[sex]
-  );
-  const birthDataset = (() => {
+  // Only weight has size-at-birth rows. Length and head circumference are
+  // read and drawn on Fenton's growth-monitoring curve alone (below), a DOL-1
+  // measurement included. Fenton's Birth size evaluation agrees with that
+  // curve for the 8 DOL-1 points asked on 2026-10-17, up to 35+4; from 36
+  // weeks it has not been asked (BACKLOG.md).
+  const table = metric === "weight" ? D_F.FENTON_WEIGHT[sex] : [];
+  const sizeAtBirthRows = (() => {
     const rows = table.map(r => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
     const inside = rows.filter(r => r[0] <= GA_MAX);
     const last = inside[inside.length - 1];
@@ -119,7 +124,18 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // curves are drawn from it, and a weight there is read as an LMS z-score.
   // A DOL-1 weight is a size at birth and stays on birthDataset, as Fenton's
   // Birth size evaluation does. Before 36.5 the two are the same rows.
-  const growthLms = metric === "weight" ? D_F.FENTON_WEIGHT_GROWTH_LMS?.[sex] : null;
+  //
+  // Length and head circumference: the whole curve is L, M, S, at each whole
+  // week (FENTON_LENGTH_GROWTH_LMS from 24.0, FENTON_HC_GROWTH_LMS from 23.0,
+  // both to 42.0), solved from the same calculator on 2026-11-16. They replace
+  // five-centile rows every 4 weeks that were never checked against a source:
+  // their 50th was right at their rows up to 38.5 weeks, and past that length
+  // was drawn too high and head too low.
+  const growthLms = (
+    metric === "weight" ? D_F.FENTON_WEIGHT_GROWTH_LMS?.[sex]
+  : metric === "length" ? D_F.FENTON_LENGTH_GROWTH_LMS?.[sex]
+  : D_F.FENTON_HC_GROWTH_LMS?.[sex]
+  ) || null;
   const lmsStart = growthLms ? growthLms[0][0] : Infinity;
   const lmsAt = (t) => {
     if (!growthLms || t < lmsStart || t > growthLms[growthLms.length - 1][0]) return null;
@@ -132,9 +148,12 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const lmsValue = ([L, M, S], z) => Math.abs(L) < 1e-6 ? M * Math.exp(S * z) : M * Math.pow(1 + L * S * z, 1 / L);
   const CENTILE_Z = [-1.88079, -1.28155, 0, 1.28155, 1.88079];   // 3rd, 10th, 50th, 90th, 97th
   const monitorDataset = growthLms
-    ? [...birthDataset.filter(r => r[0] < lmsStart),
+    ? [...sizeAtBirthRows.filter(r => r[0] < lmsStart),
        ...growthLms.filter(r => r[0] <= GA_MAX).map(([t, ...lms]) => [t, ...CENTILE_Z.map(z => lmsValue(lms, z))])]
-    : birthDataset;
+    : sizeAtBirthRows;
+  // What a DOL-1 point is read against: the size-at-birth rows for weight, the
+  // one curve there is for length and head circumference.
+  const birthDataset = metric === "weight" ? sizeAtBirthRows : monitorDataset;
 
   const xMin = 22, xMax = GA_MAX;
 
@@ -199,7 +218,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // scale <1 once the rendered SVG is narrower than its 760 design width;
   // px() inflates a coordinate-space size so it still renders at its intended
   // on-screen size (capped at 1 so desktop, which never shrinks, is untouched).
-  const chartScale = Math.min(1, Math.max(renderedWidth / W, 0.35));
+  const chartScale = printMetric ? 1 : Math.min(1, Math.max(renderedWidth / W, 0.35));
   const px = (v) => v / chartScale;
   // r has extra room (vs. the plot's own tick marks) to fit the percentile
   // labels ("97th" etc.) sitting just past the right edge — see
@@ -321,13 +340,17 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const currentPercentile = (() => {
     if (points.length === 0) return null;
     const last = points[points.length - 1];
-    const lms = last.dol !== 1 ? lmsAt(last.pma) : null;
+    const lms = (metric !== "weight" || last.dol !== 1) ? lmsAt(last.pma) : null;
     if (lms) return centileOfZ(lmsZ(lms, last.value));
+    // Length and head circumference have no rows to read between: outside the
+    // curve there is no percentile (the "starts at" line below says where).
+    if (metric !== "weight") return null;
     const vals = rowAt(dataset, last.pma);
     return vals ? centileAmong(vals, last.value) : null;
   })();
-  // The curves start half a week after the axis does, so a measurement in
-  // between has no reference to be read against. Say where it begins, rather
+  // The curves start after the axis does (weight at 22.5 weeks, head at 23.0,
+  // length at 24.0), so a measurement in between has no reference to be read
+  // against. Say where it begins, rather
   // than a bare "—" or a value extrapolated past the first row.
   const referenceStart = dataset.length ? D_F.fmtGA(D_F.daysToGA(Math.ceil(dataset[0][0] * 7))) : null;
   const beforeReference = points.length > 0 && dataset.length > 0 && points[points.length - 1].pma < dataset[0][0];
@@ -355,16 +378,19 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   })();
 
   return (
-    <div className="card">
+    <div className={printMetric ? "growth-print-chart" : "card"} data-metric={metric}>
       <div className="card-h fenton-card-h">
         <Icon name="chart" size={14} color="var(--brand)" />
         Fenton 2025 growth chart · <span className="mono">{sex === "boys" ? "Male" : "Female"}</span>
+        {printMetric && <span> · {yLabel}</span>}
         <span className="h-meta fenton-ctrl" style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Segmented value={metric} onChange={setMetric} options={[
             { value: "weight", label: "Weight" },
             { value: "length", label: "Length" },
             { value: "hc",     label: "HC" },
           ]} />
+          {/* Prints weight, length and HC together (GrowthPrintSheet). */}
+          {onPrint && <button type="button" className="btn sm fenton-print-btn" onClick={onPrint}>พิมพ์กราฟ</button>}
         </span>
       </div>
       <div className="card-b">
@@ -379,32 +405,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
             </span>
           </div>
         )}
-        {/* FENTON_LENGTH / FENTON_HC are unverified (docs/CLINICAL_CONSTANTS.md):
-            Fenton publishes them only as charts, and the rows sit 4 weeks
-            apart. Weight carries no note: under 36.5 weeks its rows are the
-            official cutoff table, which the growth chart follows there, and
-            from 36.5 weeks it is read on Fenton's own monitoring curve
-            (FENTON_WEIGHT_GROWTH_LMS; test/verify-fenton-monitor-1019.cjs).
-            The 42-week length row is about 2–3 cm above
-            the official chart (BACKLOG.md), which makes a term infant look short. */}
-        {metric !== "weight" && (
-          <div role="note" style={{ padding: "10px 12px", background: "var(--warn-bg)",
-            border: "1px solid var(--warn-line)", borderRadius: 8, marginBottom: 10,
-            fontSize: 12.5, color: "var(--warn-ink)", lineHeight: 1.5, display: "flex", gap: 8 }}>
-            <span style={{ flexShrink: 0, marginTop: 2 }}><Icon name="info" size={13} color="var(--warn)" /></span>
-            <span>
-              <strong>เส้น {metric === "length" ? "Length" : "HC"} ยังไม่ได้ตรวจเทียบกับตัวเลขต้นฉบับ</strong>
-              <span style={{ display: "block", fontSize: 12 }}>
-                Fenton 2025 เผยแพร่ length และ HC เป็นกราฟเท่านั้น เส้นในแอปมีจุดทุก 4 สัปดาห์
-                เลยอ่าน percentile ได้แค่คร่าว ๆ
-                {metric === "length" && " ช่วงใกล้ 42 สัปดาห์ เส้นนี้สูงกว่ากราฟต้นฉบับ ทารกเลยดูตัวสั้นกว่าจริง"}
-              </span>
-            </span>
-          </div>
-        )}
         <div className="fenton-grid" style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 18 }}>
           <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 6 }}>
+            <div className="fenton-zoom" style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 6 }}>
               <button className="btn sm" onClick={() => {
                 const v = view || { x: 0, y: 0, w: W, h: H };
                 const cx = v.x + v.w / 2, cy = v.y + v.h / 2;
@@ -778,4 +781,71 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
   );
 }
 
+// The three charts on paper (Pp, 2026-11-16: "ให้มีปุ่ม ปริ้นท กราฟที่ plot fenton
+// ออกมาได้ด้วย เผื่อเอาออกมาดู"; all three in one go, and the header the printed
+// order carries). One chart to a page, as wide as the printable area so its labels
+// stay readable, and every page starts with the patient block: three charts
+// under one header ran onto pages that named nobody (Vera, 2026-11-16).
+// Hidden on screen; the print stylesheet in the two shells shows it and hides
+// the rest of the page. It adds no figure: each chart is FentonChart itself,
+// fixed on one measure.
+function GrowthPrintSheet({ patient, entries, currentDol }) {
+  if (!patient) return null;
+  const sexOk = !!(patient.sex && D_F.FENTON_WEIGHT[patient.sex]);
+  const cell = { padding: "1px 4px 1px 0", verticalAlign: "top" };
+  // The identity block of the printed order (calculator.jsx #print-form): name,
+  // NeoFeed ID, and boxes for the HN and AN that NeoFeed does not hold.
+  const idBlock = () => (
+    <>
+      <div style={{ textAlign: "center", borderBottom: "2px solid #000", paddingBottom: 4, marginBottom: 6 }}>
+        <div style={{ fontWeight: 700, fontSize: 13 }}>GROWTH CHART · FENTON 2025</div>
+        <div style={{ fontSize: 11 }}>Weight, length and head circumference by post-menstrual age</div>
+      </div>
+      <table className="growth-print-id" style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6, fontSize: 10.5 }}>
+        <tbody>
+          <tr>
+            <td style={{ ...cell, width: "45%" }}>ชื่อ: <strong>{D_F.patientName(patient) || "—"}</strong>
+              {patient.twinSuffix && <strong> (Twin {patient.twinSuffix})</strong>}</td>
+            <td style={{ ...cell, width: "30%" }}>NeoFeed ID: <strong>{patient.sessionId || "—"}</strong></td>
+            <td style={cell}>วันที่พิมพ์: <strong>{D_F.todayLocal()}</strong></td>
+          </tr>
+          <tr>
+            <td style={cell}>HN: ______________________</td>
+            <td style={cell} colSpan={2}>AN: ______________________ <span style={{ fontSize: 9, color: "#555" }}>(เขียน/ติดสติกเกอร์ — ตรวจตัวตนกับแฟ้มผู้ป่วย)</span></td>
+          </tr>
+          <tr>
+            <td style={cell}>อายุ: DOL <strong>{currentDol || "—"}</strong> &nbsp; ตึก: <strong>{patient.currentBed || "—"}</strong></td>
+            <td style={cell} colSpan={2}>GA แรกเกิด: <strong>{D_F.fmtGA(patient.ga)}</strong> &nbsp;
+              เพศ: <strong>{patient.sex === "boys" ? "Male" : patient.sex === "girls" ? "Female" : "—"}</strong> &nbsp;
+              น้ำหนักแรกเกิด: <strong>{!String(patient.bw == null ? "" : patient.bw).trim() || Number(patient.bw) === 0 ? "—" : Number.isFinite(Number(patient.bw)) ? `${D_F.displayNum(patient.bw, 0)} g` : String(patient.bw)}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </>
+  );
+  const foot = (
+    <div style={{ fontSize: 9, color: "#555", marginTop: 4 }}>
+      NeoFeed · Fenton TR et al. 2025 (PMID 40534585) · เส้น length และ HC คำนวณจาก fentongrowth.ca
+    </div>
+  );
+  return (
+    <div className="growth-print" data-session-id={patient.sessionId || ""}
+      style={{ fontFamily: "'IBM Plex Sans','Sarabun',serif", fontSize: 10.5, color: "#000" }}>
+      {sexOk
+        ? ["weight", "length", "hc"].map((m) => (
+            <div key={m} className="growth-print-page" data-metric={m}>
+              {idBlock()}
+              <FentonChart patient={patient} entries={entries} currentDol={currentDol} printMetric={m} />
+              {foot}
+            </div>
+          ))
+        : <div className="growth-print-page">
+            {idBlock()}
+            <div>เพศในทะเบียนไม่ถูกต้อง จึงพิมพ์กราฟ Fenton ไม่ได้ แก้ที่ Edit session</div>
+          </div>}
+    </div>
+  );
+}
+
 window.FentonChart = FentonChart;
+window.GrowthPrintSheet = GrowthPrintSheet;

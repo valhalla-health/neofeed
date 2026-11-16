@@ -461,6 +461,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setLogDate(null);
     setAutoPrint(null);
   }, [activeId]);
+  const growthDueFor = (id) => D_A.weeklyGrowthDue(patients.find((p) => p.sessionId === id), role);
   const goTo = (v) => {
     setEditEntry(null);
     setLogDate(null);
@@ -1718,7 +1719,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       onSelect: (id) => {
         setEditEntry(null);
         setActiveId(id);
-        setView("log");
+        setView(growthDueFor(id) ? "fenton" : "log");
       },
       onAdd: handleAddPatient,
       onEdit: handleEditPatient,
@@ -1765,7 +1766,24 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       onPrintAllResult: printAllResult,
       goTo
     }
-  ), view === "fenton" && active && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Fenton 2025 growth chart"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)"))), /* @__PURE__ */ React.createElement(FentonChart, { patient: active, entries: log[activeId] || [], currentDol: dol, onUpdate: (weights) => handleWeightUpdate(active.sessionId, weights) })), view === "log" && active && /* @__PURE__ */ React.createElement(
+  ), view === "fenton" && active && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Fenton 2025 growth chart"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)"))), D_A.weeklyGrowthDue(active, role) && (() => {
+    const have = D_A.growthOnDol(active, dol);
+    const missing = [!have.length && "Length", !have.hc && "HC"].filter(Boolean).join(" และ ");
+    return /* @__PURE__ */ React.createElement("div", { className: "growth-due", role: "status", style: {
+      padding: "12px 14px",
+      background: "var(--warn-bg)",
+      border: "1px solid var(--warn-line)",
+      borderRadius: 10,
+      marginBottom: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      flexWrap: "wrap",
+      color: "var(--warn-ink)",
+      fontSize: 13.5,
+      lineHeight: 1.5
+    } }, /* @__PURE__ */ React.createElement("span", { style: { flex: "1 1 220px" } }, /* @__PURE__ */ React.createElement("strong", null, "วันอาทิตย์: วัด Length และ HC ประจำสัปดาห์"), /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontSize: 12.5 } }, "วันนี้ยังไม่มี ", missing, " ของ DOL ", dol, " กรอกในช่อง Length กับ HC ของหน้านี้ แล้วกด Save measurement")), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", style: { minHeight: 44 }, onClick: () => goTo("log") }, "ไว้ทีหลัง"));
+  })(), /* @__PURE__ */ React.createElement(FentonChart, { patient: active, entries: log[activeId] || [], currentDol: dol, onUpdate: (weights) => handleWeightUpdate(active.sessionId, weights), onPrint: () => window.print() }), /* @__PURE__ */ React.createElement(GrowthPrintSheet, { patient: active, entries: log[activeId] || [], currentDol: dol })), view === "log" && active && /* @__PURE__ */ React.createElement(
     DailyLog,
     {
       patient: active,
@@ -1785,7 +1803,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       activeId,
       onSelect: (id) => {
         setActiveId(id);
-        if (![...PATIENT_VIEWS, "quickcalc"].includes(view)) goTo("log");
+        if (!["quickcalc"].includes(view) && growthDueFor(id)) goTo("fenton");
+        else if (![...PATIENT_VIEWS, "quickcalc"].includes(view)) goTo("log");
       },
       onClose: () => setPickerOpen(false)
     }

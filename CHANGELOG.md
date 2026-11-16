@@ -7,6 +7,125 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (2) — Sunday asks for length and HC; the growth charts print
+
+`data.js` (`isSundayBangkok`, `growthOnDol`, `weeklyGrowthDue`, new), `app.jsx` (opening a patient, the banner
+on the growth page, the print sheet), `fenton.jsx` (`FentonChart`'s `printMetric` and `onPrint`,
+`GrowthPrintSheet`, new), the two shells' print rules, `compiled/`, the shells' `?v=`,
+`test/verify-growth-weekly-print-1116.cjs` (new, 99 assertions), `STATUS.md`, `test/README.md`. This
+branch sits on top of the Fenton length and HC change above (same file, `fenton.jsx`).
+
+- **Why.** Pp, 2026-11-16: "ทุกเช้าวันอาทิตย์ตามเวลาประเทศไทย ให้เมื่อเข้าชื่อผู้ป่วย ให้เด้งหน้าไปกรอก HC and length
+  weekly ด้วยเลย", and "ให้มีปุ่ม ปริ้นท กราฟที่ plot fenton ออกมาได้ด้วย เผื่อเอาออกมาดู".
+- **Sunday.** Her answers: doctors and nurses both; all of Sunday in Bangkok from 00:00, not the morning only;
+  it can be put off, and then asks again each time the patient is opened. So on a Sunday, opening a patient from
+  the ward list or the patient picker goes to the growth page when today's DOL has no length or no head
+  circumference, with a banner that names what is missing and a "ไว้ทีหลัง" button back to the log. One value
+  keeps it asking for the other; with both in, the banner goes and the next opening lands on the log as before.
+  Not asked: an admin, a discharged infant, a test patient, an infant with no bed in the system (read-only: the
+  save would be refused), and from the quick calc (its typed figures would be lost). An infant with no DOL
+  anchor is asked only until its last stored row carries both values (`liveDol` falls back to that row).
+  The day is Bangkok's whatever the device's time zone (`isSundayBangkok`). "Today" is the DOL every screen
+  shows (`liveDol`), which is where the growth page files a new measurement.
+- **Print.** A "พิมพ์กราฟ" button on the growth card prints weight, length and HC in one print job (Pp: all
+  three in one go), one chart to an A4 page as wide as the printable area, each page under the printed order's
+  patient block (name, NeoFeed ID, boxes for HN and AN, bed, DOL) with GA at birth, sex, birth weight and the
+  print date. Each printed chart is the screen's own chart fixed on one measure; the tabs, zoom buttons and
+  entry box do not print, and the legend prints as one row. A page is one unbreakable unit. The print sheet
+  is hidden on screen and is the only thing on paper (`.growth-print`,
+  in both shells). For the order form and the ward print batch nothing changes on paper: the one rule that
+  hides the rest of the work area gained an exception for the growth sheet, which exists only on the growth
+  page.
+- **Nothing is calculated here.** No dose, limit, table or `CONSTANTS_VERSION` moves; the backend is not touched.
+- **Review by an agent that had not seen the work (Vera's procedure): NO BLOCK, and the print was wrong.** As
+  first built, the three charts sat under one header at 128 mm wide: on A4 they ran to three pages, of which
+  two named nobody, with chart labels near 5 pt (the reviewer printed a dump of the page to PDF). Now one chart
+  to a page, as wide as the printable area, the patient block on every page. Also from the review: an infant with no bed is no
+  longer asked; the banner no longer says "the box to the right" (it is below the chart on a phone); and the
+  harness gained what four planted mutations had slipped past (the picker, the device's time zone, the print
+  rules).
+- **Printed to PDF from dev local** (Chromium through Playwright, made-up infant AA with a length and a head
+  circumference): three A4 pages, weight, length, HC; each page carries the patient block and its chart at the
+  page's width with the readout under it; the smallest text is 6.5 pt; no console error.
+- **Second and third readings by new agents.** The second found the shells' comment wrong (it gave the chart as
+  190 mm wide; in the PDF it is about 183 by 111 mm) and a page that ended at 267 mm from the top of the sheet,
+  where the printable area ends at 289 mm. It estimated 285 mm for an infant past 42 weeks, whose side panel
+  carries an extra note; nobody printed that infant. A printer with wider margins could then have sent the chart
+  to the next sheet without its patient block. Now a page is one unbreakable unit and the legend prints as one
+  row. The third reading caught the first fix's evidence: the "15 mm margin" PDF had been printed at the shells'
+  own margins, because their `@page` rule overrides the print option. Printed again with the `@page` margin
+  itself changed:
+
+  | Margins | Printable area ends at | Weight page ends at | Length and HC pages end at |
+  |---|---|---|---|
+  | the shells' 8 mm top and bottom | 289 mm | 249 mm | 243 mm |
+  | 15 mm all round | 282 mm | 250 mm | 244 mm |
+  | 20 mm all round | 277 mm | 249 mm | 243 mm |
+
+  Three pages every time, each with the patient block and the legend. **Not printed:** an infant past 42 weeks
+  (dev local seeds none). Also from these readings: a birth weight that is not a number prints as typed, and a
+  blank one as a dash; the harness reads the print block alone, checks that no rule naming a page hides it, and
+  covers an infant with no DOL anchor.
+- **For Pp to look at before it merges:** the banner's Thai wording, and a page from the ward's own printer.
+  The harness proves what each page holds and that both shells carry the rules; the PDF shows the layout in
+  Chromium, not what the ward's printer and browser do with it.
+- **Tests.** `verify-growth-weekly-print-1116.cjs` 99/99, seven scenarios, six of them with the
+  clock moved to the next Sunday or Monday.
+
+## Session 2026-11-16 — Length and head circumference on Fenton's own curve
+
+`data.js` (`FENTON_LENGTH_GROWTH_LMS`, `FENTON_HC_GROWTH_LMS`, new; `FENTON_LENGTH`, `FENTON_HC` removed),
+`fenton.jsx` (`FentonChart`: both tabs drawn and read from the LMS tables; the not-verified note removed),
+`compiled/`, the shells' `?v=`, `tools/fenton-lms-solve.cjs` (new), `test/fenton-official-1116.json` (new),
+`test/verify-fenton-length-hc-1116.cjs` (new, 57 assertions), `test/verify-fenton-half-week-1017.cjs` (§4
+rewritten), `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `AI_SDLC.md`, `STATUS.md`, `test/README.md`.
+
+- **Why.** `BACKLOG.md` carried the two tables as a safety item: five centiles every 4 weeks, never checked
+  against a source, shown on screen with a "not verified" note since 2026-10-17. Pp, 2026-11-16: "จัดการเรื่อง
+  fenton ต่อให้หน่อย", and for the scope "ทำครบจนเปิด PR".
+- **From Fenton's calculator.** One round to fentongrowth.ca that Pp approved ("ส่งได้ ทั้งสองเพศ"): two
+  submissions, sex and data type Growth Monitoring, 75 made-up rows each of GA, head and length, typed into the
+  page's grid. No name, number, date of birth, GA at birth or weight. It returned a head z-score for 72 rows a
+  sex and a length z-score for 69: it did not accept 22 weeks, and gave no length z-score at 23.0. `test/fenton-official-1116.json` holds what was
+  returned, taken from the result table the page showed (the browser tool returned no response body).
+- **L is 1.** Solved freely at each week (three points near the old rows' 10th, 50th and 90th), L came out
+  0.97–1.04, the noise of a z printed to three decimals. So length and head circumference are normal at a given
+  age in Fenton's model. The tables store L = 1 and the least-squares M and S; the three points of each week read
+  back within 0.001 z and the half-week points no row was built from within 0.017 z, under one centile point. The
+  24 length and head points of 2026-10-17 (`test/fenton-official-1017.json`: 12 between whole weeks, 8 on DOL 1)
+  read within 0.4 centile points.
+- **What the old rows were.** Read on the new curve as the app drew them (row GA + 0.5): at its rows, up to
+  38.5 weeks, the 50th was right (it read 48 to 51), and between rows 34.5 and 38.5 it read as low as the 44th
+  centile for head and the 47th for length. Head's other lines were right at its rows too; length's outer lines
+  were too narrow from about 33 weeks (boys at 38.5 weeks: the old 3rd/10th/90th/97th read 7/16/84/94). Past 38.5 both ran
+  straight to a 42-week row that was wrong, in opposite directions. **Length too high:** at 42 weeks the old "50th" is the
+  82nd centile for boys and the 79th for girls, so a term infant read short. **Head too low:** at 42 weeks the
+  old "50th" is the 26th centile for boys and the 32nd for girls, and the old "3rd" line is below the 1st, so a
+  small head near term could read as normal. `BACKLOG.md` had named only length.
+- **What changes on screen.** The Length and HC tabs draw the five centile lines from the LMS tables and read a
+  measurement as an LMS z-score, as weight has been read from 36.5 weeks since 2026-10-19. The curves start at
+  24.0 weeks (length) and 23.0 (head); before that there is no percentile and the panel says where the
+  reference starts, as it already did for weight before 22.5. The "not verified" note is gone. A DOL-1 length or
+  head circumference is read on the same curve: Fenton's Birth size evaluation agrees with it for the 8 DOL-1
+  points asked on 2026-10-17, up to 35+4, and has not been asked from 36 weeks.
+- **Nothing printed or saved moves, and no dose.** Only `fenton.jsx` reads these tables, so
+  `CONSTANTS_VERSION` stays (`docs/CLINICAL_CONSTANTS.md`, When to bump).
+- **No second clinician has reviewed this change;** Pp's request only. The numbers are the calculator's, and the
+  harness holds them to it.
+- **Open** (`BACKLOG.md`): the first weeks, a DOL-1 reading from 36 weeks (Vera: a caveat on screen or a round
+  of birth-mode points, Pp's call), and Fenton's own LMS by email.
+- **Review by an agent that had not seen the work (Vera's procedure, and its own re-fit of the fixture without
+  the repo's solver): NO BLOCK.** No wrong number in `data.js`, no behaviour bug, the weight tab identical to
+  before on 54 made-up patients. Fixed from it: five statements that said more than the evidence (the old rows
+  "right to 38.5 weeks" was true only at the rows, and for length of the 50th only; "not asked" about DOL 1 ignored the 2026-10-17 points; "within
+  0.0005 z" is 0.0007 with the rows as stored; "69 rows" is 72 for head; what was asked below 23.5), and three
+  holes in the harness (only the 50th line was checked; nothing read on screen between whole weeks; two
+  assertions passed on a blank readout).
+- **Tests.** `verify-fenton-length-hc-1116.cjs` 57/57, and 16 failed against `e1d99cd`. The
+  three older Fenton harnesses pass (65, 93, 81).
+- **`STATUS.md` catches up:** #266 and #267 are live (release #268, `release-2026-11-16-pr268`, `00eb15d`;
+  backend `@75`).
+
 ## Session 2026-11-15 (5) — Sheet backup: 14 rotating backup books, a nightly copy, a restore drill
 
 `gas-backend.gs` (§ Sheet backup and restore drill: `setupSheetBackups`, `repairSheetBackups`,
@@ -77,6 +196,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   Sheet answers the first two. The restore steps have not been rehearsed on production.
 - **Tests.** `verify-sheet-backup-1115.cjs` 208/208; red against `a7b9f6e`'s backend.
   `node test/mutate-sheet-backup.cjs` breaks the new block 57 ways and the harness turns red on each.
+
 ## Session 2026-11-15 (4) — one figure, one number: every whole number through `displayNum`
 
 `calculator.jsx`, `data.js` (`CONSTANTS_VERSION` `2026-11-15.1`), `compiled/`, the shells' `?v=`,
@@ -132,6 +252,35 @@ line's anchor follows the vitamin D readout's new text), the neofeed-clinical-ru
   pre-release order: in the cost bullet above and the STATUS line. Left for Pp, from her not-reviewed list: a
   band graded on the unrounded figure can read its own limit at a tie (energy 89.5 on paper shows 90, Low,
   beside 90–120). That was so before this change, on the tile; only osmolarity is graded on the printed figure.
+
+## Session 2026-11-15 (3) — "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้": the bag's osmolarity on the front sheet
+
+`calculator.jsx` (`PrintOrderForm`'s Route of Delivery cell), `compiled/`, the neofeed-clinical-rules skill
+(CR-OSM-PERIPH: prose and three `prints` cases), `test/verify-calc-sum.cjs` (an on-screen check, NF-17).
+
+- **Why.** The stakeholder walk of 2026-11-07 (insight 2) found a 1,104 mOsm/L peripheral bag printed as
+  "☑ Peripheral (<900 mOsm/L)" with no value: the front sheet, the one that prints, showed only the route's
+  limit, and the bag's own figure sat on the back sheet, which never prints (`.print-back`). Pp, 2026-11-15:
+  "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้".
+- **What.** At the end of the front sheet's Total Volume line, in 9 px grey: "· Bag osm N mOsm/L". N is `fmt(calc.osm, 0)`, the rounding the
+  Osmolarity tile shows and CR-OSM-PERIPH grades, so an 899.6 estimate prints 900 and is graded critical. Since #266
+  (session (4)) the alert body, Step 3's chip and the back sheet round the same way, so all of them read one number
+  (Vera's finding 1 on the first commit, closed by that merge). A No TPN
+  sheet (which has no Total Volume line), a day with no bag volume, or a bag whose estimate is 0 (no dextrose, amino acid or electrolyte) prints no
+  figure. Nor does an order with no dosing weight, where the calc returns a placeholder osm of 300 (Vera's second
+  review).
+- **Placement.** The first commit put it beside the route boxes. In CI's wide print font (DejaVu Sans) that cell
+  wrapped, and the fullest order in `verify-print-one-page-1102.cjs` grew from 277.4 to 281.2 mm, 0.2 mm past the
+  page. The Total Volume line is short and has room. A local run on Windows cannot show this: Verdana measures
+  281.3 mm on `main`'s own code, so only CI's figure counts here.
+- **Feeds stay off the sheet** on purpose (Pp, 2026-11-15: the TPN room does not need them), which closes the walk's
+  other print question about feeds. The aqueous pump rate is still a question for pharmacy.
+- **Tests.** CR-OSM-PERIPH gains three `prints` cases: 899 prints 899, an 899.6 estimate prints 900 and asks for a
+  reason, and a central bag prints 800. `verify-calc-sum.cjs` checks on every saved order that the printed figure
+  equals the Osmolarity tile, or is absent when the tile reads 0.
+- **`CONSTANTS_VERSION` stays `2026-11-15.1`** (#266's). No constant and no printed figure moves; one figure is new, read from
+  the same `calc.osm` the order is graded on. A bump would make the ward re-save every old order before reprinting it, for a figure that adds
+  information and changes no dose. Pp confirmed it in the PR, 2026-11-16: "คงไว้".
 
 ## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
 
