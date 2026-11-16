@@ -1487,8 +1487,9 @@ const ESPGHAN_TARGETS = {
 // Corrected p3/p10/p90/p97 to v2; p50 (LMS median) is NOT in the v2 table
 // (it only carries the SGA/LGA cutoffs) and was left untouched — GA 42 and
 // the unaffected weeks show p50 was already fine, so there's no evidence it
-// needs revisiting. FENTON_LENGTH/FENTON_HC have no equivalent public
-// numeric table to re-check against; see BACKLOG.md.
+// needs revisiting. Length and head circumference have no public numeric
+// table either; since 2026-11-16 they are FENTON_LENGTH_GROWTH_LMS and
+// FENTON_HC_GROWTH_LMS below, solved from Fenton's own calculator.
 const FENTON_WEIGHT = {
   boys: [
     [22,  367,  411,  505,  599,  643],
@@ -1599,51 +1600,123 @@ const FENTON_WEIGHT_GROWTH_LMS = {
   ],
 };
 
-// Length (cm) — every 4 weeks 22–50
-const FENTON_LENGTH = {
+// Length and head circumference (cm): Fenton's growth-monitoring curves as
+// L, M, S at each whole week, [exact PMA, L, M, S], the shape of
+// FENTON_WEIGHT_GROWTH_LMS above. Fenton's LMS are not published; M and S were
+// solved from fentongrowth.ca's z-scores (API 2.1.3.0, 2026-11-16) for three
+// made-up values per week (test/fenton-official-1116.json;
+// tools/fenton-lms-solve.cjs). L is 1: solved freely it came out 0.97–1.04 at
+// every week, the noise of a 3-decimal z, so both sizes are normal at a given
+// age in Fenton's model, and with L fixed at 1 the three points of each week
+// read back within 0.001 z. The half-week points no row was built from read
+// back within 0.02 z (under one centile point), and so do the 24 length and
+// head points of 2026-10-17 (test/fenton-official-1017.json): 12 of them
+// between whole weeks, 8 on DOL 1 (up to 35+4).
+//
+// What was asked of the calculator: 22 weeks (not accepted), 23.0 (a head
+// z-score, none for length), 23.5 and later (both). So head starts at 23.0
+// and length at 24.0, the first week with three points. fenton.jsx reads a
+// measurement before the first row as having no reference, and says so.
+//
+// These replace FENTON_LENGTH and FENTON_HC (five centiles every 4 weeks, never
+// checked against a source). At their rows (26.5, 30.5, 34.5, 38.5 as drawn)
+// the old 50th matched this curve; between rows 34.5 and 38.5 it read as low
+// as the 44th centile for head and the 47th for length. Length's outer lines
+// were too narrow from about 33 weeks (at 38.5 the old boys' 3rd/10th/90th/
+// 97th read 7/16/84/94). Past 38.5 both ran
+// straight to a 42-week row that was wrong: at 42 weeks the old length "50th"
+// is this curve's 82nd centile (boys) and 79th (girls), and the old head
+// "50th" is its 26th (boys) and 32nd (girls), with the old head "3rd" below
+// the 1st (2026-11-16).
+const FENTON_LENGTH_GROWTH_LMS = {
   boys: [
-    [22, 24.2, 25.6, 28.7, 31.7, 33.1],
-    [26, 29.8, 31.2, 34.4, 37.6, 39.0],
-    [30, 35.5, 37.0, 40.2, 43.4, 44.9],
-    [34, 41.3, 42.7, 45.5, 48.3, 49.6],
-    [38, 46.2, 47.3, 49.7, 52.0, 53.2],
-    [42, 52.1, 53.3, 55.5, 57.7, 58.9],
-    [46, 53.5, 54.8, 57.0, 59.3, 60.5],
-    [50, 55.0, 56.3, 58.5, 60.8, 62.1],
+    [24.0, +1.000, 30.792, 0.07768],
+    [25.0, +1.000, 32.221, 0.07520],
+    [26.0, +1.000, 33.663, 0.07273],
+    [27.0, +1.000, 35.144, 0.07028],
+    [28.0, +1.000, 36.626, 0.06789],
+    [29.0, +1.000, 38.085, 0.06552],
+    [30.0, +1.000, 39.526, 0.06320],
+    [31.0, +1.000, 40.929, 0.06093],
+    [32.0, +1.000, 42.280, 0.05876],
+    [33.0, +1.000, 43.597, 0.05664],
+    [34.0, +1.000, 44.874, 0.05461],
+    [35.0, +1.000, 46.073, 0.05270],
+    [36.0, +1.000, 47.209, 0.05086],
+    [37.0, +1.000, 48.256, 0.04915],
+    [38.0, +1.000, 49.204, 0.04759],
+    [39.0, +1.000, 50.117, 0.04610],
+    [40.0, +1.000, 51.003, 0.04472],
+    [41.0, +1.000, 51.868, 0.04342],
+    [42.0, +1.000, 52.715, 0.04220],
   ],
   girls: [
-    [22, 23.8, 25.2, 28.1, 31.0, 32.4],
-    [26, 29.3, 30.7, 33.7, 36.8, 38.2],
-    [30, 35.0, 36.4, 39.5, 42.6, 44.1],
-    [34, 40.5, 41.8, 44.7, 47.6, 48.9],
-    [38, 45.4, 46.5, 48.9, 51.2, 52.3],
-    [42, 51.0, 52.2, 54.3, 56.4, 57.6],
-    [46, 52.5, 53.7, 55.9, 58.1, 59.3],
-    [50, 54.0, 55.3, 57.5, 59.8, 61.0],
+    [24.0, +1.000, 30.197, 0.07598],
+    [25.0, +1.000, 31.592, 0.07367],
+    [26.0, +1.000, 33.013, 0.07134],
+    [27.0, +1.000, 34.460, 0.06904],
+    [28.0, +1.000, 35.918, 0.06678],
+    [29.0, +1.000, 37.358, 0.06454],
+    [30.0, +1.000, 38.797, 0.06235],
+    [31.0, +1.000, 40.206, 0.06021],
+    [32.0, +1.000, 41.551, 0.05818],
+    [33.0, +1.000, 42.812, 0.05617],
+    [34.0, +1.000, 44.061, 0.05430],
+    [35.0, +1.000, 45.303, 0.05251],
+    [36.0, +1.000, 46.446, 0.05081],
+    [37.0, +1.000, 47.500, 0.04923],
+    [38.0, +1.000, 48.456, 0.04776],
+    [39.0, +1.000, 49.344, 0.04638],
+    [40.0, +1.000, 50.191, 0.04512],
+    [41.0, +1.000, 51.022, 0.04394],
+    [42.0, +1.000, 51.846, 0.04284],
   ],
 };
 
-// Head circumference (cm) — every 4 weeks 22–50
-const FENTON_HC = {
+const FENTON_HC_GROWTH_LMS = {
   boys: [
-    [22, 17.5, 18.2, 19.9, 21.5, 22.3],
-    [26, 21.5, 22.3, 24.1, 26.0, 26.8],
-    [30, 25.4, 26.3, 28.2, 30.2, 31.1],
-    [34, 29.2, 30.0, 31.9, 33.8, 34.7],
-    [38, 31.9, 32.8, 34.5, 36.2, 37.0],
-    [42, 33.2, 34.0, 35.7, 37.4, 38.2],
-    [46, 35.2, 36.0, 37.8, 39.5, 40.4],
-    [50, 36.4, 37.2, 39.0, 40.8, 41.6],
+    [23.0, +1.000, 20.436, 0.06384],
+    [24.0, +1.000, 21.522, 0.06179],
+    [25.0, +1.000, 22.587, 0.06037],
+    [26.0, +1.000, 23.622, 0.05940],
+    [27.0, +1.000, 24.674, 0.05851],
+    [28.0, +1.000, 25.741, 0.05762],
+    [29.0, +1.000, 26.789, 0.05545],
+    [30.0, +1.000, 27.762, 0.05366],
+    [31.0, +1.000, 28.698, 0.05323],
+    [32.0, +1.000, 29.667, 0.05184],
+    [33.0, +1.000, 30.600, 0.04975],
+    [34.0, +1.000, 31.499, 0.04738],
+    [35.0, +1.000, 32.328, 0.04511],
+    [36.0, +1.000, 33.039, 0.04319],
+    [37.0, +1.000, 33.669, 0.04132],
+    [38.0, +1.000, 34.264, 0.03966],
+    [39.0, +1.000, 34.825, 0.03811],
+    [40.0, +1.000, 35.355, 0.03665],
+    [41.0, +1.000, 35.857, 0.03529],
+    [42.0, +1.000, 36.335, 0.03398],
   ],
   girls: [
-    [22, 17.0, 17.8, 19.4, 21.1, 21.9],
-    [26, 21.1, 21.9, 23.7, 25.4, 26.3],
-    [30, 25.0, 25.9, 27.8, 29.6, 30.5],
-    [34, 28.7, 29.5, 31.4, 33.2, 34.1],
-    [38, 31.4, 32.2, 33.9, 35.6, 36.4],
-    [42, 32.7, 33.5, 35.2, 36.9, 37.7],
-    [46, 34.8, 35.6, 37.4, 39.1, 40.0],
-    [50, 36.0, 36.8, 38.5, 40.3, 41.2],
+    [23.0, +1.000, 19.969, 0.06587],
+    [24.0, +1.000, 21.040, 0.06259],
+    [25.0, +1.000, 22.109, 0.05991],
+    [26.0, +1.000, 23.164, 0.05843],
+    [27.0, +1.000, 24.214, 0.05750],
+    [28.0, +1.000, 25.257, 0.05632],
+    [29.0, +1.000, 26.315, 0.05465],
+    [30.0, +1.000, 27.292, 0.05323],
+    [31.0, +1.000, 28.238, 0.05241],
+    [32.0, +1.000, 29.199, 0.05079],
+    [33.0, +1.000, 30.103, 0.04895],
+    [34.0, +1.000, 30.972, 0.04696],
+    [35.0, +1.000, 31.789, 0.04478],
+    [36.0, +1.000, 32.533, 0.04315],
+    [37.0, +1.000, 33.165, 0.04129],
+    [38.0, +1.000, 33.717, 0.03965],
+    [39.0, +1.000, 34.229, 0.03838],
+    [40.0, +1.000, 34.714, 0.03709],
+    [41.0, +1.000, 35.175, 0.03595],
+    [42.0, +1.000, 35.613, 0.03492],
   ],
 };
 
@@ -3267,7 +3340,7 @@ window.NEOFEED_DATA = {
   // Comprehensive ESPGHAN reference object (for display panels)
   ESPGHAN_TARGETS,
   // Growth charts
-  FENTON_WEIGHT, FENTON_WEIGHT_GROWTH_LMS, FENTON_LENGTH, FENTON_HC,
+  FENTON_WEIGHT, FENTON_WEIGHT_GROWTH_LMS, FENTON_LENGTH_GROWTH_LMS, FENTON_HC_GROWTH_LMS,
   // Patient data (mock — replace with GAS fetch)
   MOCK_PATIENTS, MOCK_DAILY_LOG,
   // Utility functions

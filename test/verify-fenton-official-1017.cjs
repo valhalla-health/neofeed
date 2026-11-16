@@ -34,8 +34,11 @@
 //           Since 2026-10-19 the app reads that curve (FENTON_WEIGHT_GROWTH_LMS)
 //           and test/verify-fenton-monitor-1019.cjs asserts these 10 points
 //           within ±1; this group stays recorded so the counts below hold;
-//         - length and HC, on DOL 1 too: 4-weekly rows that no numeric
-//           source verifies, so a gap there is the rows', not the method's.
+//         - length and HC, on DOL 1 too. Until 2026-11-16 these were 4-weekly
+//           rows that no numeric source verified. Since then the app reads
+//           Fenton's own curve and test/verify-fenton-length-hc-1116.cjs
+//           asserts these 24 points within ±1; the group stays recorded here
+//           so the counts below hold.
 //   §4  The report: every point, app against official, worst gap first in
 //       each group. `--md` also prints it as Markdown tables for a PR body.
 //
