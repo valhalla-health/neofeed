@@ -1720,6 +1720,77 @@ const FENTON_HC_GROWTH_LMS = {
   ],
 };
 
+// Length and head circumference AT BIRTH (cm), for a DOL-1 measurement:
+// Fenton's "Birth size evaluation" as L, M, S, [exact GA, L, M, S], the shape
+// of the growth-monitoring rows above. Solved as they were (tools/
+// fenton-lms-solve.cjs, L fixed at 1) from that calculator's z-scores for three
+// made-up values per week (API 2.1.3.0, 2026-11-16;
+// test/fenton-official-birth-1116.json). Pp asked for this round on
+// 2026-11-16: a DOL-1 length or head from 36 weeks was read on the monitoring
+// curve, which Fenton says differs from size at birth after 36 weeks.
+//
+// What the calculator said: at 33, 34 and 35 weeks the birth-size curve IS
+// the monitoring curve (M within 0.002 cm, S within 0.00003), so these rows
+// start at 35.0 and a DOL-1 point before that is read on the monitoring rows.
+// From 36 weeks they part: length's S falls faster (at 41 weeks 0.0389 against
+// 0.0434 for boys), and from 38 weeks head's M grows more slowly (at 41
+// weeks 35.28 cm against 35.86 for boys). A boy born at 41+0 with a 35.9 cm head, the
+// monitoring 50th, is the 69th centile at birth.
+//
+// The Birth size evaluation ends at 41 4/7 (41.5714): rows at 41 5/7, 41 6/7,
+// 41.8, 41.99, 42, 42 0/7 and 42 1/7 came back empty. So the last row is
+// 41.5714, and fenton.jsx reads a DOL-1 point from 41+5 to 42+0 on that last
+// row (held, not extrapolated). Past 41 4/7 there is no reference to prove which
+// is closer; holding moves M by about 0.1 cm over those days, the monitoring
+// curve sits about 0.5 SD away for head. The three points of each week read
+// back within 0.001 z (0.0007 at worst, rows as stored), and the 8 half-week
+// and probe points a sex no row was built from within 0.015 z.
+const FENTON_LENGTH_BIRTH_LMS = {
+  boys: [
+    [35.0, +1.000, 46.073, 0.05269],
+    [36.0, +1.000, 47.207, 0.05005],
+    [37.0, +1.000, 48.261, 0.04743],
+    [38.0, +1.000, 49.228, 0.04506],
+    [39.0, +1.000, 50.066, 0.04288],
+    [40.0, +1.000, 50.763, 0.04085],
+    [41.0, +1.000, 51.362, 0.03891],
+    [41.5714, +1.000, 51.666, 0.03782],
+  ],
+  girls: [
+    [35.0, +1.000, 45.303, 0.05249],
+    [36.0, +1.000, 46.445, 0.05017],
+    [37.0, +1.000, 47.504, 0.04757],
+    [38.0, +1.000, 48.441, 0.04491],
+    [39.0, +1.000, 49.217, 0.04218],
+    [40.0, +1.000, 49.903, 0.03940],
+    [41.0, +1.000, 50.494, 0.03659],
+    [41.5714, +1.000, 50.768, 0.03498],
+  ],
+};
+
+const FENTON_HC_BIRTH_LMS = {
+  boys: [
+    [35.0, +1.000, 32.328, 0.04510],
+    [36.0, +1.000, 33.039, 0.04319],
+    [37.0, +1.000, 33.669, 0.04131],
+    [38.0, +1.000, 34.240, 0.03967],
+    [39.0, +1.000, 34.687, 0.03818],
+    [40.0, +1.000, 35.000, 0.03699],
+    [41.0, +1.000, 35.276, 0.03615],
+    [41.5714, +1.000, 35.431, 0.03574],
+  ],
+  girls: [
+    [35.0, +1.000, 31.789, 0.04478],
+    [36.0, +1.000, 32.533, 0.04314],
+    [37.0, +1.000, 33.164, 0.04127],
+    [38.0, +1.000, 33.696, 0.03963],
+    [39.0, +1.000, 34.079, 0.03808],
+    [40.0, +1.000, 34.350, 0.03699],
+    [41.0, +1.000, 34.636, 0.03591],
+    [41.5714, +1.000, 34.810, 0.03525],
+  ],
+};
+
 // ============================================================
 // Mock patient registry (replace with GAS fetch in production)
 // Session ID format: Initials + BW + TwinSuffix — a *pseudonym*, not
@@ -3377,6 +3448,7 @@ window.NEOFEED_DATA = {
   ESPGHAN_TARGETS,
   // Growth charts
   FENTON_WEIGHT, FENTON_WEIGHT_GROWTH_LMS, FENTON_LENGTH_GROWTH_LMS, FENTON_HC_GROWTH_LMS,
+  FENTON_LENGTH_BIRTH_LMS, FENTON_HC_BIRTH_LMS,
   // Patient data (mock — replace with GAS fetch)
   MOCK_PATIENTS, MOCK_DAILY_LOG,
   // Utility functions
