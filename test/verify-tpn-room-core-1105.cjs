@@ -105,6 +105,7 @@ section('§2 what may print');
   eq('blank fixed lines do not hold a print', Core.printReasons(order(), ctx({ fixed: Core.PN_FIXED })), []);
   eq('the fixed lines ship blank until the unit gives them', Core.fixedLinesReady(), false);
   ok('…so the row says the whole sheet prints as a trial', /แผ่นทดลอง ห้ามใช้จริง/.test(Core.trialNote()));
+  ok('…and to destroy it after, since it carries a name and AN', /ทำลาย/.test(Core.trialNote()) && /เอกสารลับ/.test(Core.trialNote()));
   eq('filled lines say nothing about a trial', Core.trialNote(FIXED), '');
   const half = { heading: 'H', storage: '', extension: 'E' };
   ok('one blank line is still a trial', Core.fixedLinesReady(half) === false && Core.trialNote(half) !== '');

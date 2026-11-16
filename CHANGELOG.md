@@ -31,9 +31,15 @@ the spec's "Print only what is safe to print", tasks 2.6), `REFERENCE.md` § The
   (แผ่นทดลอง)" and offers "พิมพ์ซ้ำ". Once all three lines are filled in and released, a row whose last print was a
   trial says "ที่พิมพ์ไปเป็นแผ่นทดลอง กดพิมพ์ซ้ำเพื่อได้สติกเกอร์จริง" (`trialReprintDue`). The mark leaves the moment
   all three lines are filled in.
-- **Tests.** Core: blank lines give no reason, the row's note, placeholders, a half-filled set, filled lines
-  unmarked, `trialReprintDue`. Page: as shipped, a mapped order prints, one mark on each part, three placeholders,
-  the sheet fits under print, the row says the print was a trial; a filled sheet and its row carry no trial.
+- **Disposal.** Vera's second run: a trial sheet carries a real name and AN, so the row's note says to shred it or
+  use the confidential-waste bin, and `REFERENCE.md` § Thai PDPA names trial sheets beside the name-file gaps.
+- **Tests.** Core: blank lines give no reason, the row's note and its disposal line, placeholders, a half-filled
+  set, filled lines unmarked, `trialReprintDue`. Page: as shipped, a mapped order prints; on the trial sheet every
+  figure is its `printJson` string and no other digit appears, the mark and placeholders included; one mark on
+  each part, three placeholders, it fits under print on one A4 page, and the row says the print was a trial; a
+  filled sheet and its row carry no trial. Not in the page harness: the reprint prompt after a trial print once
+  the lines are filled (it needs the name file reopened, the step §8 cannot pass in this container); the core
+  harness covers `trialReprintDue`.
   `test/verify-tpn-room-page-1105.cjs` §8 ("reopening") stops at its first step in this container on `main` too,
   before and after this change.
 

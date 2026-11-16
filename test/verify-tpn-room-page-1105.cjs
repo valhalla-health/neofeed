@@ -227,15 +227,23 @@ const INIT = `
     ok('…and offers the print button', await trialPrint.isVisible());
     await trialPrint.click();
     await page.waitForFunction(() => window.__prints === 1);
-    const trialSheet = await page.evaluate(() => {
+    const trialSheet = await page.evaluate((pj) => {
       const sheet = document.getElementById('sticker-sheet');
       const label = sheet.querySelector('.part-label');
+      const get = (p) => p.split('.').reduce((o, k) => (o ? o[k] : undefined), pj);
+      const figs = [...sheet.querySelectorAll('[data-fig]')].map((e) => [e.dataset.fig, e.textContent]);
+      // The mark and the placeholders stay in the swept text, so a digit in either shows.
+      const copy = sheet.cloneNode(true);
+      copy.querySelectorAll('[data-fig],[data-lbl],[data-mapped],[data-date]').forEach((e) => e.remove());
       return {
+        figures: figs.length, wrong: figs.filter(([p, v]) => get(p) !== v), rest: copy.textContent,
         marked: label.classList.contains('part-trial'),
         mark: [...sheet.querySelectorAll('[data-trial]')].map((e) => [e.closest('.part').className, e.textContent]),
         fixed: [...label.querySelectorAll('[data-fixed]')].map((e) => e.textContent),
       };
-    });
+    }, pjOf('AA-1'));
+    ok(`every figure on the trial sheet (${trialSheet.figures}) is its printJson string`, trialSheet.figures > 30 && trialSheet.wrong.length === 0);
+    eq('…and no number sits anywhere else on it, the mark and placeholders included', /\d/.test(trialSheet.rest), false);
     ok('the PN label is marked trial', trialSheet.marked);
     eq('one trial mark on each of the three parts', trialSheet.mark, ['part-worksheet', 'part-label', 'part-bag'].map((c) => [`part ${c} part-trial`, 'ทดลองพิมพ์ ห้ามใช้จริง']));
     ok('each blank line prints a placeholder that waits for the TPN unit',
@@ -243,7 +251,9 @@ const INIT = `
     await page.emulateMedia({ media: 'print' });
     const trialFits = await page.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
     ok('the trial sheet and each part fit, measured under print', trialFits.length === 4 && trialFits.every(Boolean));
-    if (process.env.TPN_ROOM_TRIAL_PDF_OUT) fs.writeFileSync(process.env.TPN_ROOM_TRIAL_PDF_OUT, await page.pdf({ preferCSSPageSize: true, printBackground: true }));
+    const trialPdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+    eq('the trial sheet is one A4 page', (trialPdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length, 1);
+    if (process.env.TPN_ROOM_TRIAL_PDF_OUT) fs.writeFileSync(process.env.TPN_ROOM_TRIAL_PDF_OUT, trialPdf);
     await page.emulateMedia({ media: null });
     await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     await row(page, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();

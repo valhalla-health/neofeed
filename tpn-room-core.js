@@ -228,7 +228,7 @@
   }
   // Said on the row, beside the print button, while the sheet prints as a trial.
   function trialNote(fixed) {
-    return fixedLinesReady(fixed) ? "" : "จะพิมพ์เป็นแผ่นทดลอง ห้ามใช้จริง ทั้งใบผสม ฉลาก PN และสติกเกอร์ถุง เพราะยังไม่มีหัวฉลาก วิธีเก็บ และเบอร์ต่อจากหน่วย TPN";
+    return fixedLinesReady(fixed) ? "" : "จะพิมพ์เป็นแผ่นทดลอง ห้ามใช้จริง ทั้งใบผสม ฉลาก PN และสติกเกอร์ถุง เพราะยังไม่มีหัวฉลาก วิธีเก็บ และเบอร์ต่อจากหน่วย TPN ดูเสร็จแล้วทำลายหรือทิ้งถังเอกสารลับ เพราะมีชื่อและ AN";
   }
 
   // The last print was a trial sheet, and the unit's lines are in now: what the room
