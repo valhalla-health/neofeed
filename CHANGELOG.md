@@ -77,6 +77,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   Sheet answers the first two. The restore steps have not been rehearsed on production.
 - **Tests.** `verify-sheet-backup-1115.cjs` 208/208; red against `a7b9f6e`'s backend.
   `node test/mutate-sheet-backup.cjs` breaks the new block 57 ways and the harness turns red on each.
+
 ## Session 2026-11-15 (4) — one figure, one number: every whole number through `displayNum`
 
 `calculator.jsx`, `data.js` (`CONSTANTS_VERSION` `2026-11-15.1`), `compiled/`, the shells' `?v=`,
@@ -159,7 +160,7 @@ line's anchor follows the vitamin D readout's new text), the neofeed-clinical-ru
   reason, and a central bag prints 800. `verify-calc-sum.cjs` checks on every saved order that the printed figure
   equals the Osmolarity tile, or is absent when the tile reads 0.
 - **`CONSTANTS_VERSION` stays `2026-11-15.1`** (#266's). No constant and no printed figure moves; one figure is new, read from
-  the same `calc.osm` the order is graded on. A bump would make the ward re-save every order for a figure that adds
+  the same `calc.osm` the order is graded on. A bump would make the ward re-save every old order before reprinting it, for a figure that adds
   information and changes no dose. Pp confirmed it in the PR, 2026-11-16: "คงไว้".
 
 ## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
