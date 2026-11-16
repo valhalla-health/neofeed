@@ -23,6 +23,9 @@
 # after another (33.7 min on main run 43864098626). Every check still runs:
 # the shares of a pass cover it exactly once (tools/run_checks.js shareOf), and
 # the `harnesses` job at the bottom is green only when every job above it is.
+#
+# Every line of this file that is not blank or a comment is pinned in
+# test/verify-run-checks.cjs § 6 (`LIVE`). Change both in the same commit.
 name: test
 
 on:

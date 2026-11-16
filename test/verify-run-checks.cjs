@@ -227,26 +227,127 @@ console.log('\n── #6 every level calls the one runner ──');
 {
   const read = (f) => fs.readFileSync(path.join(DIR, f), 'utf8');
   const yml = read('.github/workflows/test.yml');
+  const ymlLines = yml.split('\n');
+  // Every line of the workflow that is not blank or a comment, pinned (Pp,
+  // 2026-11-16, after three reviews each found a new way to write YAML that a
+  // pattern missed: `|| true` on or after a run line, a step `if:` written as
+  // its first key, a `shell:` or `defaults:` override, a runner step in a job
+  // `harnesses` does not wait for). Whole-line comments may change freely; any
+  // other edit to test.yml changes this list in the same commit, where a
+  // reviewer sees it.
+  // The checks after it say why the lines that matter are what they are.
+  const LIVE = [
+    "name: test",
+    "on:",
+    "  pull_request:",
+    "  push:",
+    "    branches: [main]",
+    "permissions:",
+    "  contents: read",
+    "concurrency:",
+    "  group: test-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+    "  cancel-in-progress: true",
+    "env:",
+    "  TZ: Asia/Bangkok",
+    "jobs:",
+    "  pre:",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 15",
+    "    steps:",
+    "      - uses: actions/checkout@v5",
+    "      - uses: actions/setup-node@v5",
+    "        with:",
+    "          node-version: 22",
+    "      - name: Build, shells and CI bans",
+    "        run: node tools/run_checks.js --level ci --phase pre",
+    "      - name: Center Point builds and its client tests pass",
+    "        run: node tools/run_checks.js --level ci --phase center-point",
+    "  sources:",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 30",
+    "    strategy:",
+    "      fail-fast: false",
+    "      matrix:",
+    "        shard: [1, 2, 3]",
+    "    steps:",
+    "      - uses: actions/checkout@v5",
+    "      - uses: actions/setup-node@v5",
+    "        with:",
+    "          node-version: 22",
+    "      - name: Install dev-only test dependencies (not committed)",
+    "        run: npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30",
+    "      - name: This shard of every harness, against the sources",
+    "        run: node tools/run_checks.js --level ci --phase sources --shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}",
+    "  compiled:",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 30",
+    "    strategy:",
+    "      fail-fast: false",
+    "      matrix:",
+    "        shard: [1, 2, 3]",
+    "    steps:",
+    "      - uses: actions/checkout@v5",
+    "      - uses: actions/setup-node@v5",
+    "        with:",
+    "          node-version: 22",
+    "      - name: Install dev-only test dependencies (not committed)",
+    "        run: npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30",
+    "      - name: Install Playwright and Chromium",
+    "        run: |",
+    "          npm install --prefix \"$RUNNER_TEMP/pw\" --no-save --no-package-lock playwright@1",
+    "          \"$RUNNER_TEMP/pw/node_modules/.bin/playwright\" install --with-deps chromium",
+    "      - name: This shard of every harness, against the shipped compiled/*.js, with the browser sections",
+    "        env:",
+    "          NODE_PATH: ${{ runner.temp }}/pw/node_modules",
+    "        run: node tools/run_checks.js --level ci --phase compiled --shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}",
+    "  harnesses:",
+    "    needs: [pre, sources, compiled]",
+    "    if: always()",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 5",
+    "    steps:",
+    "      - name: Every job above passed",
+    "        env:",
+    "          PRE: ${{ needs.pre.result }}",
+    "          SOURCES: ${{ needs.sources.result }}",
+    "          COMPILED: ${{ needs.compiled.result }}",
+    "        run: |",
+    "          echo \"pre: $PRE, sources: $SOURCES, compiled: $COMPILED\"",
+    "          test \"$PRE\" = success && test \"$SOURCES\" = success && test \"$COMPILED\" = success",
+  ];
+  const live = ymlLines.filter(l => l.trim() && !/^\s*#/.test(l));
+  const firstDiff = live.findIndex((l, i) => l !== LIVE[i]);
+  ok('every live line of test.yml is the pinned one', live.length === LIVE.length && firstDiff === -1,
+    { firstDiff, got: live[firstDiff], want: LIVE[firstDiff], lines: [live.length, LIVE.length] });
+
   // Each runner step's run line, whole: a substring check passed with `|| true`
   // appended, which turns a failing shard green and so `harnesses` with it.
-  // Every line that names the runner counts, a `run: |` block's included; only
-  // comments are left out.
+  // Every line that names the runner counts, a `run: |` block's included, with
+  // or without `.js`; comments, whole-line or trailing, are left out.
   const SHARD = '--shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}';
-  const ymlLines = yml.split('\n');
-  const runnerAt = ymlLines.map((l, i) => [l, i]).filter(([l]) => /run_checks\.js/.test(l) && !/^\s*#/.test(l));
-  const want = [['pre', ''], ['center-point', ''], ['sources', ` ${SHARD}`], ['compiled', ` ${SHARD}`]]
-    .map(([phase, tail]) => [phase, `        run: node tools/run_checks.js --level ci --phase ${phase}${tail}`]);
-  for (const [phase, line] of want) {
+  const bare = (l) => l.replace(/\s#.*$/, '');
+  const runnerAt = ymlLines.map((l, i) => [l, i]).filter(([l]) => !/^\s*#/.test(l) && /run_checks\b/.test(bare(l)));
+  const jobOf = (i) => { for (let j = i; j >= 0; j--) { const m = /^  ([\w-]+):\s*$/.exec(ymlLines[j]); if (m) return m[1]; } return null; };
+  const want = [['pre', 'pre', ''], ['center-point', 'pre', ''], ['sources', 'sources', ` ${SHARD}`], ['compiled', 'compiled', ` ${SHARD}`]]
+    .map(([phase, job, tail]) => [phase, job, `        run: node tools/run_checks.js --level ci --phase ${phase}${tail}`]);
+  for (const [phase, job, line] of want) {
     const at = runnerAt.find(([l]) => l === line);
-    ok(`CI runs phase ${phase} through the runner, and its exit code alone decides the step${phase === 'sources' || phase === 'compiled' ? ", split by the job's index" : ''}`, !!at, runnerAt.map(([l]) => l));
-    // A plain YAML value folds an indented next line into itself, so `|| true`
-    // there would join the command; a blank line ends it.
+    ok(`CI runs phase ${phase} through the runner, and its exit code alone decides the step${tail(phase)}`, !!at, runnerAt.map(([l]) => l));
+    ok(`phase ${phase} runs in the ${job} job, which harnesses waits for`, !!at && jobOf(at[1]) === job, at && jobOf(at[1]));
+    // A plain YAML value folds a more-indented next line into itself, so
+    // `|| true` there would join the command. After a blank line such text
+    // becomes a new script line, which `bash -e` never reaches once the runner
+    // has failed; the pin above refuses it anyway.
     ok(`nothing continues phase ${phase}'s run line`, !!at && ymlLines[at[1] + 1] === '', at && ymlLines[at[1] + 1]);
   }
+  function tail(phase) { return phase === 'sources' || phase === 'compiled' ? ", split by the job's index" : ''; }
   ok('no other line calls the runner', runnerAt.length === 4, runnerAt.map(([l]) => l));
   // A step or job `if:` could skip a runner step and leave its job green; the
-  // gate's `if: always()` is the only one.
-  ok('the only if: in the workflow is the gate\'s always()', JSON.stringify(ymlLines.filter(l => /^\s*if:/.test(l))) === JSON.stringify(['    if: always()']), ymlLines.filter(l => /^\s*if:/.test(l)));
+  // gate's `if: always()` is the only one, in any spelling of the key.
+  const ifs = ymlLines.filter(l => /^\s*(?:-\s+)?["']?if["']?\s*:/.test(l));
+  ok('the only if: in the workflow is the gate\'s always()', JSON.stringify(ifs) === JSON.stringify(['    if: always()']), ifs);
+  // `shell: true {0}` would run `true <script>` and end every step green.
+  ok('no shell: or defaults: anywhere', !/^\s*(?:-\s+)?["']?(?:shell|defaults)["']?\s*:/m.test(yml));
   ok('CI has no harness loop of its own', !/for f in test\/verify-/.test(yml));
   ok('CI calls no check directly', !/node tools\/ci_bans\.js|cmp index\.html|node tools\/build\.mjs|node --test test\//.test(yml));
   ok('the job name the branch rule requires is unchanged', /^  harnesses:/m.test(yml));

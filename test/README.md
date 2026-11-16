@@ -2323,12 +2323,20 @@ so the compiled loader never reached them and its compiled-pass run repeated the
 `verify-run-checks.cjs` § 7 checks the shares on a made-up config: three cover every step once, none is empty, a
 heavy step runs alone, a bad `--shard`, or one with no value, or a bad hint is refused, and the `slowest:` line
 lists a fast hinted step but not a fast unhinted one. § 5 checks that every hint names a real step and that
-calc-compare runs once. § 6 matches the `harnesses` job whole (it waits for every job, runs after a failure or a
-cancel, and is green only when each one passed); matches each runner step's `run:` line whole, with a blank
-line after it so nothing folds into the command (each shard's share comes from the job's index); allows no
-other line, a `run: |` block's included, to call the runner; allows no `if:` but the gate's `always()`;
-refuses `continue-on-error` anywhere; and matches the `concurrency` block with its `cancel-in-progress: true`.
-No npm install.
+calc-compare runs once.
+
+§ 6 pins every line of `test.yml` that is not blank or a whole-line comment (Pp, 2026-11-16, after three reviews
+each found a way to write YAML that a pattern missed). A comment may change freely; any other edit to the
+workflow changes the pinned list in the same commit, where a reviewer sees it. The checks after the pin say why
+the lines that matter are what they are: the `harnesses` job whole (it waits for every job, runs after a
+failure or a cancel, and is green only when each one passed); each runner step's `run:` line whole, in its own
+job, with a blank line after it (each shard's share comes from the job's index); no other line naming the
+runner, with or without `.js`, a `run: |` block's included; no `if:` in any spelling but the gate's
+`always()`; no `shell:`, `defaults:` or `continue-on-error`; and the `concurrency` block with its
+`cancel-in-progress: true`. No npm install.
+
+To change the workflow, edit `test.yml`, run `node test/verify-run-checks.cjs`, and copy the line it names
+into the `LIVE` list in § 6, one line at a time, or regenerate the list from the file.
 
 To run one shard here as CI does (the jsdom set above, through `NODE_PATH` in a worktree):
 

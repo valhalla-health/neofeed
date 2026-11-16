@@ -7,6 +7,35 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (10) — The workflow pinned line by line, after a fourth review
+
+`test/verify-run-checks.cjs` (108 assertions), `test/README.md` (the last section), `.github/workflows/test.yml`
+(one comment), `STATUS.md`. Corrects the entry below in three places:
+
+- **(6)'s compiled range was too narrow after all.** (9) said it was not wrong because the compiled pass
+  without calc-compare, 14.2 min, fits within three shares of 4.5 to 5.0 min. A fitting sum does not make the
+  shares: the runner's split on run 43864098626's step times gives 4.3, 4.8 and 5.2 min (two readers, each
+  re-running `shareOf` on the real config). (8)'s reason was wrong, but its conclusion stood. (7) replaced the
+  estimate with the measured run.
+- **(9)'s calc-fuzz correction was itself loose.** The runner rounds to whole seconds before the `s >= 10` cut,
+  so a step drops off below 9.5 s, and a printed 11 s is 1.0 to 2.0 s above that. Neither "one second from
+  dropping off" (8) nor "one second above it" (9) was exact.
+- **(9) and the README said § 6 allows no `if:` but the gate's and no fifth runner line;** the patterns behind
+  those claims missed `- if:` as a step's first key, a quoted `'if'` key and a runner called without `.js`.
+
+Pp's decision, 2026-11-16, after the fourth new agent (on `fb9668c`) still found ways past § 6: "ล็อก jobs ทั้งก้อน".
+§ 6 now pins every line of `test.yml` that is not blank or a whole-line comment, 77 lines, and fails on the
+first that differs. A comment may change freely; any other edit to the workflow changes the pinned list in the
+same commit, where a reviewer sees it. The checks after the pin stay, so the reason for each line that matters
+is stated, and they now also take `- if:`, quoted keys, `run_checks` without `.js`, trailing comments, the job
+each runner step sits in, and `shell:` or `defaults:` anywhere. A comment in the workflow's header says both
+must change together.
+
+- **Tests.** `verify-run-checks.cjs` 108/108. All 25 earlier mutations are still caught, and the fourth
+  reader's seven: `- if:` as a first key, a quoted `'if'`, a fifth step without `.js`, `shell: true {0}` on a
+  step, workflow `defaults` with that shell, the sources runner moved to a job outside `needs`, and a blank line
+  then `|| true`. Editing a whole-line comment still passes.
+
 ## Session 2026-11-16 (9) — The CI shards after a third review
 
 `test/verify-run-checks.cjs` (102 assertions), `test/README.md` (the last section), `STATUS.md`. Corrects the
