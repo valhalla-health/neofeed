@@ -399,6 +399,7 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
   const last = state ? Core.lastPrint(state.printLog, order.sessionId, date) : null;
   const changed = state ? Core.changedAfterPrint(order, state.printLog, date) : false;
   const paper = state ? Core.needsPaperCheck(date, state.meta.logLostOn) : false;
+  const trial = Core.trialNote();
   const crit = order.printJson && order.printJson.critical;
   const twin = Core.twinLabel(order.twinSuffix, order.multiplesCount);
   const [typedDate, setTypedDate] = React.useState("");
@@ -430,6 +431,7 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
       {changed && <p className="warn">หมอแก้ order หลังพิมพ์ → ฉบับ {order.revision}</p>}
       {paper && !last && <p className="warn">เทียบกับ order กระดาษก่อน ไฟล์ชื่อเริ่มใหม่ จึงไม่รู้ว่าพิมพ์ไปแล้วหรือยัง</p>}
       {last && !changed && <p className="muted">พิมพ์แล้ว {Core.wardTime(last.at)} โดย {last.by}</p>}
+      {reasons.length === 0 && trial && <p className="warn trial-note">{trial}</p>}
       {reasons.length > 0 && (
         <ul className="reasons">{reasons.map((r) => <li key={r}>{r}</li>)}</ul>
       )}
@@ -499,7 +501,8 @@ function StickerSheet({ model: m }) {
         <div className="small-id"><Lbl>NeoFeed ID</Lbl> <span data-mapped="id">{m.sessionId}</span></div>
       </section>
 
-      <section className="part part-label">
+      <section className={"part part-label" + (m.trial ? " part-trial" : "")}>
+        {m.trial && <div className="trial-mark" data-trial="">{Core.PN_TRIAL.mark}</div>}
         <div className="fixed-line heading" data-fixed="">{m.heading}</div>
         <div className="part-head">
           <div className="big-name" data-mapped="name">{m.name}</div>

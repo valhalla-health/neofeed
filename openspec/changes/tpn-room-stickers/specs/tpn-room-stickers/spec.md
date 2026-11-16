@@ -74,9 +74,15 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 
 - **WHEN** an order is a draft, lacks `printJson`, is unmapped, has a blank or free-text bed, has a null figure
   or an empty `orderDate`, has a `constantsVersion` other than the current one (the doctor's Print is held
-  then too), has no `entryId`, or the name file is not open, or the PN label's fixed lines are not filled in
-  (design D18)
+  then too), has no `entryId`, or the name file is not open
 - **THEN** it has no print button, and the row names the reason
+
+#### Scenario: The PN label's fixed lines are not filled in
+
+- **WHEN** an order can print, and any of the PN label's heading, storage line or extension is blank (design D18)
+- **THEN** the row says the PN label prints as a trial, the print button shows, and the printed PN label carries
+  "ฉลากทดลอง ห้ามติดถุง" across it and a placeholder that waits for the TPN unit in each blank line, never a
+  guessed line; the worksheet and the bag sticker carry no mark
 
 #### Scenario: The order changed after printing
 
