@@ -37,7 +37,7 @@ assertions), `test/verify-fenton-length-hc-1116.cjs` (its DOL-1 check moved from
 - **What changes on screen.** A length or head circumference whose newest point is DOL 1 is read on the
   birth-size L, M, S from 35.0 weeks, and the chart draws that curve, as it already did for weight. Before 35.0
   the monitoring rows serve, since the two agree there. From 41+5 to 42+0 there is no birth-size answer: the
-  reading holds the 41 4/7 row and the drawn lines run flat to 42 (Pp's call, `BACKLOG.md`). From DOL 2 nothing
+  reading holds the 41 4/7 row and the drawn lines run flat to 42 (Pp, 2026-11-16: "ใช้แถว 41+4 ต่อ", with no note on screen). From DOL 2 nothing
   changes.
 - **Nothing printed or saved moves, and no dose.** Only `fenton.jsx` reads these tables, so
   `CONSTANTS_VERSION` stays (`docs/CLINICAL_CONSTANTS.md`, When to bump).

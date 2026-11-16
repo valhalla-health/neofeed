@@ -156,7 +156,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate, printMetric, onPr
   // 0.002 cm at 33–35 weeks), so the monitoring rows serve. From 36 weeks the
   // two part: a boy born at 41+0 with the monitoring 50th head (35.9 cm) is
   // the 69th at birth. The evaluation ends at 41 4/7: from 41+5 to GA_MAX a
-  // DOL-1 point is read on that last row, held (Pp, BACKLOG.md).
+  // DOL-1 point is read on that last row, held (Pp, 2026-11-16: "ใช้แถว 41+4 ต่อ").
   const birthLms = (
     metric === "length" ? D_F.FENTON_LENGTH_BIRTH_LMS?.[sex]
   : metric === "hc" ? D_F.FENTON_HC_BIRTH_LMS?.[sex]
