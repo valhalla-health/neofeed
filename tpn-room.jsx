@@ -399,6 +399,7 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
   const last = state ? Core.lastPrint(state.printLog, order.sessionId, date) : null;
   const changed = state ? Core.changedAfterPrint(order, state.printLog, date) : false;
   const paper = state ? Core.needsPaperCheck(date, state.meta.logLostOn) : false;
+  const trial = Core.trialNote();
   const crit = order.printJson && order.printJson.critical;
   const twin = Core.twinLabel(order.twinSuffix, order.multiplesCount);
   const [typedDate, setTypedDate] = React.useState("");
@@ -429,7 +430,9 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
       )}
       {changed && <p className="warn">หมอแก้ order หลังพิมพ์ → ฉบับ {order.revision}</p>}
       {paper && !last && <p className="warn">เทียบกับ order กระดาษก่อน ไฟล์ชื่อเริ่มใหม่ จึงไม่รู้ว่าพิมพ์ไปแล้วหรือยัง</p>}
-      {last && !changed && <p className="muted">พิมพ์แล้ว {Core.wardTime(last.at)} โดย {last.by}</p>}
+      {last && !changed && <p className="muted">พิมพ์แล้ว{last.trial ? " (แผ่นทดลอง)" : ""} {Core.wardTime(last.at)} โดย {last.by}</p>}
+      {!changed && Core.trialReprintDue(last) && <p className="warn">ที่พิมพ์ไปเป็นแผ่นทดลอง กดพิมพ์ซ้ำเพื่อได้สติกเกอร์จริง</p>}
+      {reasons.length === 0 && trial && <p className="warn trial-note">{trial}</p>}
       {reasons.length > 0 && (
         <ul className="reasons">{reasons.map((r) => <li key={r}>{r}</li>)}</ul>
       )}
@@ -462,10 +465,14 @@ function sheetOverflows() {
 const Fig = ({ of, children }) => <span className="fig" data-fig={of}>{children}</span>;
 const Lbl = ({ children }) => <span className="lbl" data-lbl="">{children}</span>;
 
+// Across each part of a trial sheet (blank fixed lines, design D18), so no part passes for a real one.
+const TrialMark = () => <div className="trial-mark" data-trial="">{Core.PN_TRIAL.mark}</div>;
+
 function StickerSheet({ model: m }) {
   return (
     <div className="sheet" id="sticker-sheet">
-      <section className="part part-worksheet">
+      <section className={"part part-worksheet" + (m.trial ? " part-trial" : "")}>
+        {m.trial && <TrialMark />}
         <div className="part-head">
           <div className="big-name" data-mapped="name">{m.name}</div>
           <div><Lbl>Ward</Lbl> <span data-mapped="ward">{m.ward}</span></div>
@@ -499,7 +506,8 @@ function StickerSheet({ model: m }) {
         <div className="small-id"><Lbl>NeoFeed ID</Lbl> <span data-mapped="id">{m.sessionId}</span></div>
       </section>
 
-      <section className="part part-label">
+      <section className={"part part-label" + (m.trial ? " part-trial" : "")}>
+        {m.trial && <TrialMark />}
         <div className="fixed-line heading" data-fixed="">{m.heading}</div>
         <div className="part-head">
           <div className="big-name" data-mapped="name">{m.name}</div>
@@ -535,7 +543,8 @@ function StickerSheet({ model: m }) {
         </div>
       </section>
 
-      <section className="part part-bag">
+      <section className={"part part-bag" + (m.trial ? " part-trial" : "")}>
+        {m.trial && <TrialMark />}
         <div className="bag-name" data-mapped="name">{m.name}</div>
         <div className="bag-ward" data-mapped="ward">{m.ward}</div>
         <div className="facts-line">
@@ -649,6 +658,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         entry: {
           sessionId: order.sessionId, date: fresh.date, entryId: check.order.entryId,
           revision: check.order.revision, preparedDate, by: who, at: new Date().toISOString(),
+          trial: !Core.fixedLinesReady(),
         },
       });
     } catch (err) { setError(err.message); } finally { setBusy(false); }

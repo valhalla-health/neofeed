@@ -11,8 +11,17 @@
   "use strict";
 
   // The unit's fixed lines on the PN label (tasks.md 0.3 i). The unit has not given
-  // them, so nothing prints until all three are filled in (Pp, 2026-11-05).
+  // them yet. Until all three are filled in, the room may still print so it can see
+  // the sheet (Pp, 2026-11-16), but the whole sheet prints as a trial: a mark across
+  // each of its three parts, and a placeholder in each blank line of the PN label,
+  // never a guessed line (design D18).
   const PN_FIXED = { heading: "", storage: "", extension: "" };
+  const PN_TRIAL = {
+    mark: "ทดลองพิมพ์ ห้ามใช้จริง",
+    heading: "ฉลากทดลอง ห้ามติดถุง · รอหัวฉลากจากหน่วย TPN",
+    storage: "วิธีเก็บ: รอหน่วย TPN",
+    extension: "เบอร์ต่อ: รอหน่วย TPN",
+  };
 
   // Who to call. A blank line is left off the page, never guessed (tasks.md 2.9).
   const CONTACTS = { neofeed: "", passphrase: "", wrongOrder: "หมอผู้สั่ง" };
@@ -211,12 +220,21 @@
     if (!wardLabel(order.bed)) why.push("ยังไม่มีเตียงใน NeoFeed ให้หมอหรือพยาบาลใส่เตียงก่อน");
     if (!ctx.nameFileOpen) why.push("ไฟล์ชื่อยังไม่เปิด");
     else if (!ctx.mapping || !ctx.mapping.name || !ctx.mapping.an) why.push("ยังไม่ได้ใส่ชื่อกับ AN");
-    if (!fixedLinesReady(ctx.fixed)) why.push("ยังไม่ได้ใส่ข้อความคงที่บนฉลาก PN");
     return why;
   }
   function fixedLinesReady(fixed) {
     const f = fixed || PN_FIXED;
     return !!(f.heading && f.storage && f.extension);
+  }
+  // Said on the row, beside the print button, while the sheet prints as a trial.
+  function trialNote(fixed) {
+    return fixedLinesReady(fixed) ? "" : "จะพิมพ์เป็นแผ่นทดลอง ห้ามใช้จริง ทั้งใบผสม ฉลาก PN และสติกเกอร์ถุง เพราะยังไม่มีหัวฉลาก วิธีเก็บ และเบอร์ต่อจากหน่วย TPN ดูเสร็จแล้วทำลายหรือทิ้งถังเอกสารลับ เพราะมีชื่อและ AN";
+  }
+
+  // The last print was a trial sheet, and the unit's lines are in now: what the room
+  // holds is still the trial sheet, so the row asks for a reprint (Vera, 2026-11-16).
+  function trialReprintDue(last, fixed) {
+    return !!(last && last.trial && fixedLinesReady(fixed));
   }
 
   // ── What changed since the last print ──
@@ -303,17 +321,18 @@
       delivered: DELIVERED_ROWS.map(([k, label, unit]) => ({ key: k, label, unit, value: dl[k] })),
       osmolarity: dl.osmolarity,
       kcal: dl.kcal,
-      heading: f.heading,
-      storage: f.storage,
-      extension: f.extension,
+      trial: !fixedLinesReady(f),
+      heading: f.heading || PN_TRIAL.heading,
+      storage: f.storage || PN_TRIAL.storage,
+      extension: f.extension || PN_TRIAL.extension,
     };
   }
 
   const api = {
-    PN_FIXED, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
+    PN_FIXED, PN_TRIAL, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
     wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy,
-    missingFigures, printReasons, fixedLinesReady,
+    missingFigures, printReasons, fixedLinesReady, trialNote, trialReprintDue,
     lastPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
     recheck, stickerModel,
   };
