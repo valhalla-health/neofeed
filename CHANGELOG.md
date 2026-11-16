@@ -11,7 +11,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 
 `calculator.jsx` (the print form's heparin row and `AA_CHOICES`), `compiled/`, the shells' `?v=`,
 `test/verify-calc-sum.cjs`, `test/verify-calc-oracle.cjs`, `test/verify-print-one-page-1102.cjs`,
-`test/verify-review-0917-calc.cjs`, the `neofeed-clinical-rules` skill (`CR-HEPARIN`), `STATUS.md`.
+`test/verify-review-0917-calc.cjs`, the `neofeed-clinical-rules` skill (`CR-HEPARIN`), `REFERENCE.md` § The
+printed order (Vera), `STATUS.md`.
 
 - **Why.** Ward feedback on the printed order, 2026-11-16: "ไม่มีปริมาตร Heparin ที่เติม" (the sheet carries no
   heparin volume), and a request to drop the age range in brackets after "10% Aminoven infant / PED AMINE" and
