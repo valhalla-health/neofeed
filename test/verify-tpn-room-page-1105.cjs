@@ -7,8 +7,8 @@
 // storage and the encryption are all the browser's own. What this cannot prove is the
 // real PC's folder and permission: that is tasks.md 0.1, tpn-room-check.html.
 //
-// Set TPN_ROOM_PDF_OUT=<file> to keep the sample sheet (made-up infant, placeholder
-// fixed lines) for checking against a real sticker sheet (tasks.md 2.6).
+// Set TPN_ROOM_PDF_OUT=<file> to keep the sample sheet (made-up infant, the unit's own
+// fixed lines as shipped) for checking against a real sticker sheet (tasks.md 2.6).
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -26,8 +26,14 @@ const section = (t) => console.log(`\n── ${t} ──`);
 const SENTINEL = 'SENTINEL-NAME-7Q';
 const SENTINEL_AN = '98765/69';
 const PASSPHRASE = 'synthetic-room-passphrase';
-const FIXED_FILLED = 'const PN_FIXED = { heading: "ฉลากตัวอย่าง TPN", storage: "ข้อความตัวอย่างการเก็บรักษา", extension: "โทรภายในตัวอย่าง" };';
 const FIXED_BLANK = 'const PN_FIXED = { heading: "", storage: "", extension: "" };';
+// The shipped declaration, whatever its lines: the unit's since 2026-11-16, blank before.
+const FIXED_DECL = /const PN_FIXED = \{[\s\S]*?\};/;
+const SHIPPED = {
+  heading: 'Parenteral nutrition กลุ่มงานเภสัชกรรม โรงพยาบาลจุฬาลงกรณ์',
+  storage: 'วิธีเก็บ: เก็บในตู้เย็นได้ 7 วัน, ถ้าใส่วิตามินแล้วจะเก็บ 1 วัน',
+  extension: 'เบอร์ต่อหน่วย TPN: 73602',
+};
 
 const INIT = `
   window.__prints = 0;
@@ -57,8 +63,9 @@ const INIT = `
   const requests = [];
   const problems = [];
 
-  // One browser profile. `fill` swaps in made-up fixed lines, as the unit's real ones will be.
-  async function newRoom({ fill = true, fixed = FIXED_FILLED, versionFile = null } = {}) {
+  // One browser profile. `fixed` swaps another PN_FIXED in for the shipped one (the unit's
+  // lines since 2026-11-16): FIXED_BLANK for the trial sheet, or made-up lines; null keeps it.
+  async function newRoom({ fixed = null, versionFile = null } = {}) {
     const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 } });
     await ctx.addInitScript(INIT);
     await ctx.route('**/*', async (route) => {
@@ -66,9 +73,11 @@ const INIT = `
       requests.push({ url: req.url(), headers: await req.allHeaders(), body: req.postData() || '' });
       const u = new URL(req.url());
       if (u.hostname !== '127.0.0.1') return route.abort();
-      if (fill && u.pathname === '/tpn-room-core.js') {
+      if (fixed && u.pathname === '/tpn-room-core.js') {
         const res = await route.fetch();
-        const body = (await res.text()).replace(FIXED_BLANK, fixed);
+        const text = await res.text();
+        if (!FIXED_DECL.test(text)) throw new Error('tpn-room-core.js has no PN_FIXED declaration to swap');
+        const body = text.replace(FIXED_DECL, fixed);
         return route.fulfill({ response: res, body });
       }
       if (versionFile && versionFile.body && u.pathname === '/compiled/tpn-room-version.js') {
@@ -120,7 +129,7 @@ const INIT = `
     logRowOf('SS-1')[38] = JSON.stringify(ssPj);
 
     section('§1 the shell');
-    const ctxA = await newRoom({ fill: false });
+    const ctxA = await newRoom({ fixed: FIXED_BLANK });
     const raw = await ctxA.request.get(url + '/tpn-room.html');
     ok('served under the hosts\' CSP', /connect-src/.test(raw.headers()['content-security-policy'] || ''));
     const page = await open(ctxA);
@@ -220,7 +229,7 @@ const INIT = `
     await dialog.getByRole('button', { name: 'บันทึก' }).click();
     await row(page, 'AA-1').getByText(SENTINEL_AN).waitFor();
 
-    section('§5 as shipped, blank fixed lines print a trial sheet (Pp, 2026-11-16)');
+    section('§5 blank fixed lines print a trial sheet (Pp, 2026-11-16)');
     ok('the row says the sheet prints as a trial', /แผ่นทดลอง ห้ามใช้จริง/.test(await row(page, 'AA-1').innerText()));
     const trialPrint = row(page, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' });
     await trialPrint.waitFor();
@@ -261,7 +270,7 @@ const INIT = `
     await ctxA.close();
 
     section('§6 printing');
-    const ctxB = await newRoom({ fill: true });
+    const ctxB = await newRoom();
     const p2 = await open(ctxB);
     await signIn(p2, pharmacy.email, pharmacy.password);
     await row(p2, 'AA-1').waitFor();
@@ -305,7 +314,7 @@ const INIT = `
     eq('the name on all three parts', sheetCheck.names, 3);
     const be = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}`;
     eq('Buddhist-era dates; date made comes from the box', sheetCheck.dates, [be(today), be(today), be(made), be(today)]);
-    eq('the fixed lines print', sheetCheck.fixed.length, 3);
+    eq('the TPN unit’s three fixed lines print as shipped', sheetCheck.fixed, [SHIPPED.heading, SHIPPED.storage, SHIPPED.extension]);
     eq('filled lines print no trial mark', await p2.evaluate(() => document.querySelectorAll('#sticker-sheet [data-trial], #sticker-sheet .part-trial').length), 0);
     await p2.emulateMedia({ media: 'print' });
     const fits = await p2.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));

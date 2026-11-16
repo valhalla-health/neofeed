@@ -16,7 +16,9 @@
 //       red, one that prints 899 is not (Pp: 900 is over; Vera's second review);
 //   §3e the front sheet's Normal Requirement prints the new Na, K, Ca, P bands;
 //   §4  a bag above the 1,250 mL bottle cannot be submitted, says why, and may
-//       still be kept as a draft; 1,250 itself is allowed;
+//       still be kept as a draft; 1,250 itself is allowed (since 2026-11-16
+//       the prepared volume is the next 10 mL above delivered + dead, so that
+//       is 1,210 + 30, and 1,220 + 30 goes to 1,260);
 //   §5  heparin above 1 U/mL is a caution, 1 is not, and no bag means none;
 //   §6  oral vitamin D above 1,000 IU/day is a caution, Munti-vim included,
 //       and 1,000 itself is not;
@@ -269,7 +271,9 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     setField('MgSO₄', 4.861);   // 0.4 mEq, typed in mg since 2026-10-28
     setField('10% Ca gluconate', 60); setField('Glycophos', 2);
     const a = alertNamed('Bag cannot be made (ใส่ถุงไม่ได้)');
-    eq('1,270 mL to prepare: a critical alert', a && a.level, 'crit');
+    // 1,240 + 30 = 1,270, rounded up to the next 10 mL above it since 2026-11-16: 1,280.
+    eq('1,240 + 30 → 1,280 mL to prepare: a critical alert', a && a.level, 'crit');
+    ok('…saying 1280 mL to prepare', !!a && /1280 mL to prepare/.test(a.text), a && a.text);
     ok('…naming the 1,250 mL bottle', !!a && /1250 mL/.test(a.text), a && a.text);
     eq('Submit is disabled', submitBtn()?.disabled, true);
     ok('the save panel says why', /เกินขวดใหญ่สุด 1250 mL/.test(text(container.querySelector('.bag-cannot-be-made'))), text(container.querySelector('.bag-cannot-be-made')));
@@ -277,9 +281,17 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     await clickAsync(draftBtn());
     eq('…and the draft is logged', box.calls, 1);
     eq('…as a draft', box.entry?.status, 'draft');
+    // The bottle's own 1,250 mL is still allowed. Since 2026-11-16 the prepared
+    // volume is the next 10 mL above delivered + dead, so 1,250 is now reached
+    // from 1,210 + 30 = 1,240; 1,220 + 30 = 1,250 itself goes up to 1,260.
     setField('Volume(mL/day)', 1220);
-    eq('1,220 + 30 = 1,250 mL is not above the bottle: no alert', alertNamed('Bag cannot be made (ใส่ถุงไม่ได้)'), null);
+    const at1260 = alertNamed('Bag cannot be made (ใส่ถุงไม่ได้)');
+    eq('1,220 + 30 = 1,250 → 1,260 mL is above the bottle: a critical alert', at1260 && at1260.level, 'crit');
+    ok('…saying 1260 mL to prepare', !!at1260 && /1260 mL to prepare/.test(at1260.text), at1260 && at1260.text);
+    setField('Volume(mL/day)', 1210);
+    eq('1,210 + 30 = 1,240 → 1,250 mL is not above the bottle: no alert', alertNamed('Bag cannot be made (ใส่ถุงไม่ได้)'), null);
     ok('…and nothing in the save panel', !container.querySelector('.bag-cannot-be-made'));
+    ok('…and the bag is the bottle, 1250 mL prepared', /Prepared \(เตรียมจริง\)\s*1250 mL/.test(text(container)), (text(container).match(/Prepared \(เตรียมจริง\)[^m]*mL/) || [])[0]);
   });
 
   await section('§5 heparin above the usual 1 U/mL is a caution', async () => {

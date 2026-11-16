@@ -195,12 +195,14 @@ function baseOrder({ tf = 120 } = {}) {
     eq('a new NICU order still starts at 30 mL', inputFor('ปริมาตรคาสาย')?.value, '30');
     click([...dead.parentElement.querySelectorAll('.preset-chips button')].find(b => text(b) === '100'));
     eq('the 100 chip sets 100 mL', inputFor('ปริมาตรคาสาย')?.value, '100');
-    ok('…and the bag is prepared at 180 + 100 = 280 mL', /Prepared \(เตรียมจริง\)\s*280 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
+    // Since 2026-11-16 the prepared volume is the next 10 mL above delivered +
+    // dead (Pp), so 280 is prepared at 290 and 225 at 230.
+    ok('…and the bag is prepared at 180 + 100 = 280 → 290 mL', /Prepared \(เตรียมจริง\)\s*290 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
     setField('ปริมาตรคาสาย', 0);
     // The Factor box that said "no overfill" left the screen on 2026-11-06 (Pp).
     ok('0 is still typed by hand: prepared = delivered 180 mL', /Prepared \(เตรียมจริง\)\s*180 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
     setField('ปริมาตรคาสาย', 45);
-    ok('…and so is any other value (45 mL → 225 mL prepared)', /Prepared \(เตรียมจริง\)\s*225 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
+    ok('…and so is any other value (45 mL: 225 → 230 mL prepared)', /Prepared \(เตรียมจริง\)\s*230 mL\/day/.test(screenText()), screenText().match(/Prepared \(เตรียมจริง\)[^A-Za-z]{0,30}/));
   });
 
   // ═══════════════════════════ §2 dextrose hint ════════════════════════════
@@ -236,7 +238,8 @@ function baseOrder({ tf = 120 } = {}) {
     baseOrder();
     ok('no "WFI q.s." on screen', !/WFI q\.s\./.test(screenText()), screenText().match(/.{0,40}WFI.{0,40}/));
     ok('the bag make-up still gives the components and the bag total',
-      /Components\s*[\d.]+ mL/.test(screenText()) && /Bag total \(prepared\)\s*210 mL/.test(screenText()), screenText().match(/Components.{0,80}/));
+      // 180 + 30 = 210 is prepared at 220 since 2026-11-16.
+      /Components\s*[\d.]+ mL/.test(screenText()) && /Bag total \(prepared\)\s*220 mL/.test(screenText()), screenText().match(/Components.{0,80}/));
     await save();
     eq('saved', log.calls, 1);
     ok('the form\'s back sheet still gives WFI', /\+ WFI -?[\d.]+ mL/.test(text(printForm()?.querySelector('.print-back'))),
@@ -547,7 +550,9 @@ function baseOrder({ tf = 120 } = {}) {
       return (await copyCalc()).match(/Na Acetate:[^\n]*/)?.[0] || '';
     };
     const shipped = await quickNaAcetate();
-    ok('the quick calc\'s copy: a Na Acetate line with no acetate', /^Na Acetate: +3 mEq\/kg → 7 mEq → /.test(shipped.trim()) && !/acetate \d/.test(shipped), shipped);
+    // 3 mEq/kg × 2 kg × 220/180 = 7.3 mEq in the bag since 2026-11-16 (180 + 30
+    // up to 220); it was × 210/180 = 7 mEq.
+    ok('the quick calc\'s copy: a Na Acetate line with no acetate', /^Na Acetate: +3 mEq\/kg → 7\.3 mEq → /.test(shipped.trim()) && !/acetate \d/.test(shipped), shipped);
     const was = D.KCMH_STOCK.naAcetate.acetateMeqPerMl;
     D.KCMH_STOCK.naAcetate.acetateMeqPerMl = 3;   // a label value, for this check only
     try {
@@ -556,9 +561,10 @@ function baseOrder({ tf = 120 } = {}) {
       setField('Na Acetate', 3);
       ok('with 3 mEq/mL set: "· acetate 3 mEq/kg/d" in the caption', /1 mL\/kg\/d · acetate 3 mEq\/kg\/d/.test(caption()), caption());
       ok('…"acetate 3 mEq/mL" in the note', /acetate 3 mEq\/mL/.test(text(naAcRow()?.querySelector('.salt-note'))), text(naAcRow()?.querySelector('.salt-note')));
-      // 3 mEq/kg × 2 kg × 210/180 overfill = 7 mEq Na in the bag → 7 mEq acetate
+      // 3 mEq/kg × 2 kg × 220/180 overfill = 7.3 mEq Na in the bag → 7.3 mEq acetate
+      // (210/180 and 7 mEq before 2026-11-16)
       const labelled = await quickNaAcetate();
-      ok('…and the quick calc\'s copy gives the bag\'s acetate, 7 mEq', /\(acetate 7 mEq\)/.test(labelled), labelled);
+      ok('…and the quick calc\'s copy gives the bag\'s acetate, 7.3 mEq', /\(acetate 7\.3 mEq\)/.test(labelled), labelled);
     } finally { D.KCMH_STOCK.naAcetate.acetateMeqPerMl = was; }
   });
 

@@ -19,6 +19,23 @@ const fmt = (n, d = 1) => n === Infinity ? "!!" : D.displayNum(n, d);
 // decimals). displayNum clears the float tail before it rounds; toFixed(1)
 // read a KCl of 0.35 mL as 0.3, because 0.35 is stored as 0.34999….
 const roundMl = (n) => Number(D.displayNum(n, 1));
+// D50W, the amino acid and SWFI are drawn up with large syringes, so their mL
+// are whole numbers (TPN unit pharmacists, 2026-11-16: "Dextrose, amino, SWI
+// ขอไม่มีทศนิยม เพราะใช้ syringe scale ใหญ่ในการตวง ที่ผ่านมาถ้าได้ทศนิยมจะปัดให้").
+// Half up, as displayNum. The order, the screen and the printed doses keep the
+// ordered figures; the bag may hold up to half a mL of each stock more or less,
+// the tolerance pharmacy used by hand. D50W has two exceptions (see d50wVol).
+const roundWholeMl = (n) => Number(D.displayNum(n, 0));
+
+// Every printed order is fitted just before the print dialog lays it out,
+// whatever opened it (Print order, Print ทั้งหมด, or Ctrl+P): up to 115 % with
+// larger figures, one A4 page (D.fitPrintSheet, 2026-11-16). A page with no
+// order on it (the growth charts) has nothing to fit.
+if (typeof window !== "undefined" && window.addEventListener) {
+  window.addEventListener("beforeprint", () => {
+    document.querySelectorAll("#print-form, .print-batch-sheet").forEach((sheet) => D.fitPrintSheet(sheet));
+  });
+}
 
 // A route's K⁺-in-bag limits as they are written: "<word> 120" for the red
 // tier and "max 200" for the maximum. Where red IS the maximum (peripheral 60
@@ -1676,7 +1693,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         pTotal_mg:0, p_glycophos:0, p_k2hpo4:0, na_glycophos:0, isMEN,
         d50wVol:0, soluvitVol:0, peditrace_vol:0, solVol:sv0,
         componentVol:0, wfiVol:0, dexGPerKg:0, kMeqPerL:0,
-        preparedVol: totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0, deadVol_mL, overfill:1, factor:0,
+        preparedVol: D.preparedVolFor(totalTPN_mL, deadVol_mL), deadVol_mL, overfill:1, factor:0,
         deliveredFrac:1, dexG_bag:0, aaG_bag:0,
         bag:{ na_mEq:0, k_mEq:0, ca_mg:0, mg_mEq:0, p_mg:0, heparin_units:0 },
         znPeditrace_mg:0, znSO4_mg:0, znSO4_bag_mg:0, znTotal_mg:0,
@@ -1702,7 +1719,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // feeds-only day into a 30 mL bag of water and heparin on the pharmacy
     // form. The vitamins that go into that bag are zeroed below, for the same
     // reason.
-    const preparedVol = totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0;
+    // Since 2026-11-16 the sum is rounded up to the next 10 mL above it
+    // (D.preparedVolFor), so the line keeps more than the dead space typed.
+    // Everything below reads preparedVol, so the Factor carries the extra.
+    const preparedVol = D.preparedVolFor(totalTPN_mL, deadVol_mL);
     const overfill = totalTPN_mL > 0 ? preparedVol / totalTPN_mL : 1;   // G7/C7
     const factor = wtKg * overfill;                                     // H9
     const deliveredFrac = overfill > 0 ? 1 / overfill : 1;              // C7/G7
@@ -1829,7 +1849,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
     // D50W volume — how much 50% dextrose to add to reach target concentration
     // D50W (0.5 g/mL): mL needed = glucose g IN THE BAG ÷ 0.5
-    const d50wVol = dexG_bag > 0 ? roundMl(dexG_bag / S.d50w.gPerMl) : 0;
+    // Whole mL to the nearest (roundWholeMl, pharmacy 2026-11-16), with two
+    // exceptions Pp set the same day, after a cold reader showed the rounding
+    // moving the bag's dextrose: a bag with no dead space keeps one decimal (a
+    // 10 mL bag of D7.5 % takes 1.5 mL; 2 would make it 10 %), and a
+    // peripheral bag ordered at or under the peripheral limit is never rounded
+    // up past it (17.5 → 18 mL in a 70 mL bag is 12.9 %): it rounds down. Any
+    // route but "central" counts as peripheral, as the Central-only chip does.
+    const d50wExact = dexG_bag / S.d50w.gPerMl;
+    let d50wVol = 0;
+    if (dexG_bag > 0) {
+      if (!(deadVol_mL > 0)) {
+        d50wVol = roundMl(d50wExact);
+      } else {
+        d50wVol = roundWholeMl(d50wExact);
+        const bagPct = (ml) => ml * S.d50w.gPerMl / preparedVol * 100;
+        if (route !== "central" && dexPct <= D.DEX_PERIPHERAL_MAX_PCT && bagPct(d50wVol) > D.DEX_PERIPHERAL_MAX_PCT + 1e-9) {
+          d50wVol = Math.floor(d50wExact + 1e-9);
+        }
+      }
+    }
 
     // Vitamins + TE volumes (added to aqueous PN bag)
     // Both 1 mL/kg/day per the KCMH sheet (B43, B45), capped at 10 / 15 mL a
@@ -1876,7 +1915,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // Heparin is dosed per mL of bag (sheet G51 = F51 × G7), so prepared volume
       heparin:   heparinUmL > 0 ? roundMl(heparinUmL * preparedVol / S.heparin.unitsPerMl) : 0,
       znso4:     znPerKg > 0 ? roundMl(znSO4_bag_mg / S.znso4.znMgPerMl) : 0,     // ZnSO₄, mg elemental Zn ÷ mg/mL
-      aa:        roundMl(aaG_bag / S[aaStockKey].gPerMl),     // amino acid, chosen stock (aaStockKey)
+      aa:        roundWholeMl(aaG_bag / S[aaStockKey].gPerMl), // amino acid, chosen stock (aaStockKey), whole mL
       lipidSMOF: roundMl(lipidG / S.smof20.gPerMl),   // separate syringe — no overfill
     };
 
@@ -1909,7 +1948,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // WFI from the prepared volume as it is printed (D.displayNum, 1 decimal),
     // so the printed components + WFI = printed prepared exactly (NF-17, S7;
     // Pp, 2026-10-11). 130.45 mL used to print 87.5 + 42.9 = 130.5.
-    const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));
+    // Since 2026-11-16 the WFI is whole mL too (pharmacy: "SWI ขอไม่มีทศนิยม"),
+    // so components + WFI is the prepared volume to within half a mL, which is
+    // how pharmacy rounded it by hand; the other additives keep one decimal.
+    // A bag its components overfill keeps its exact negative WFI, so it is
+    // still refused: rounding must never turn −0.3 into 0.
+    const wfiExact = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));
+    const wfiVol = wfiExact < 0 ? wfiExact : roundWholeMl(wfiExact);
 
     // ── Sheet safety ceilings ────────────────────────────────────────────────
     // The sheet tests bag amounts against factor-scaled limits (F10 vs F9 = 18×H9,
@@ -1949,9 +1994,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,
   naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
   enFeeds, isMEN,
-  // `route` is deliberately NOT a dependency — the memo never reads it. It is
-  // used afterwards for sOsm and the saved entry's route string. Listing it
-  // recomputed the whole memo on every central/peripheral toggle.
+  // `route` is a dependency since 2026-11-16: the D50W mL reads it (a
+  // peripheral bag never rounds up past the peripheral dextrose limit). Until
+  // then the memo never read it, and it was left out so a central/peripheral
+  // toggle did not recompute it.
+  route,
   inclSoluvit, inclPeditrace, znPerKg, heparinUmL]);
 
   // Keep ioInput tracking the computed prescribed-fluid total until the user
@@ -2271,7 +2318,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     [heparinUmL > 0, calc.solVol.heparin, "Heparin"],
   ].filter(([ordered, ml]) => ordered && ml === 0).map(([, , label]) => label) : [];
   const stockAtZeroMl = stocksAtZeroMl.length > 0;
-  const stockAtZeroMlText = `${stocksAtZeroMl.join(", ")} ปัดแล้วเหลือ 0 mL (น้อยกว่า 0.05 mL) ห้อง TPN ตวงไม่ได้ — ปรับขนาดยา หรือเอาออกจากถุง`;
+  const stockAtZeroMlText = `${stocksAtZeroMl.join(", ")} ปัดแล้วเหลือ 0 mL ห้อง TPN ตวงไม่ได้ — ปรับขนาดยา หรือเอาออกจากถุง`;
   // Oral vitamin D a day: Step 6's IU/kg/d × weight, plus Munti-vim's own.
   const vitDIuDay = (suppVitD > 0 && wtKg > 0 ? suppVitD * wtKg : 0)
     + (suppMTV ? D.SUPP_DB.MTV_MUNTIVIM.vitD_iu_per_ml * D.SUPP_DB.MTV_MUNTIVIM.dose_default : 0);
@@ -2509,7 +2556,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     ? `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} feeds a day — each feed's feeds a day must be a whole number. This order cannot be submitted.`
     : `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, and 24 h ÷ ${fmt(feedsPerDay, 1)} is not whole hours (8 is q3h, 6 q4h, 4 q6h, 3 q8h, 2 q12h). This order cannot be submitted.`, ref: "Pp, 2026-10-28" });
   if (feedsOverMax) alerts.push({ level: "crit", title: `Feeds above ${D.EN_FEEDS_PER_DAY_MAX} a day`, body: `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, at most ${D.EN_FEEDS_PER_DAY_MAX} (q3h; q4h is 6), so this order cannot be submitted.`, ref: "Pp, 2026-10-28" });
-  if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: under 0.05 mL, which prints as 0 mL — the TPN room measures to 0.1 mL, so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
+  if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: prints as 0 mL (under 0.05 mL at one decimal, or under 0.5 mL where the stock is drawn up in whole mL: the amino acid, and D50W in a bag with dead space), so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
   // Heparin above the usual 0.5–1 U/mL: a caution, so a tenfold 10 U/mL is seen.
   if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push({ level: "warn", title: "Heparin above the usual dose",
     body: `Heparin ${fmt(heparinUmL, 2)} U/mL — ปกติ 0.5–${D.HEPARIN_USUAL_MAX_U_ML} U/mL ตรวจว่าพิมพ์ถูกหลัก`, ref: "TPN team, 2026-10-25" });
@@ -3695,7 +3742,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     {fmt(calc.preparedVol,1)} mL/day
                   </div>
                   <div style={{ color:"var(--ink-3)", fontSize:10, marginTop:1 }}>
-                    delivered {fmt(totalTPN_mL,1)} mL
+                    delivered {fmt(totalTPN_mL,1)} mL{deadVol_mL > 0 && totalTPN_mL > 0 ? ` + ${fmt(deadVol_mL,1)}, ปัดขึ้นหลักสิบ` : ""}
                   </div>
                 </div>
               </div>
@@ -4581,7 +4628,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `FLUID: Target ${fluidTargetPerKg} mL/kg/d = ${fmt(fluidTargetPerKg*calc.wtKg, 0)} mL/day`,
                 `  TPN aqueous: ${fmt(totalTPN_mL, 1)} mL/day delivered → Rate ${tpnPump ? fmt(tpnPump.rate, 1) : "—"} mL/hr over 24 h`,
                 calc.overfill > 1.001
-                  ? `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (+${fmt(deadVol_mL, 1)} mL ปริมาตรคาสาย) · Factor ${fmt(calc.factor, 3)} = ${fmt(calc.wtKg, 2)} kg × ${fmt(calc.overfill, 3)}`
+                  ? `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (+${fmt(deadVol_mL, 1)} mL ปริมาตรคาสาย, ปัดขึ้นหลักสิบ) · Factor ${fmt(calc.factor, 3)} = ${fmt(calc.wtKg, 2)} kg × ${fmt(calc.overfill, 3)}`
                   : `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (no overfill)`,
                 `  Lipid bag:   ${fmt(calc.lipidBagVol, 1)} mL/day → Rate ${lipidPump ? fmt(lipidPump.rate, 1) : "—"} mL/hr, infusion ${pumpHoursText(lipidPump)}${lipidPerKg > 0 ? ` (${fmt(lipidGkgh, 2)} g/kg/h)` : ""}`,
                 `  Prescribed:  ${fmt(calc.prescribedFluid, 0)} mL/day | Remaining: ${fmt(calc.remaining, 1)} mL`,
@@ -4613,7 +4660,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 calc.znTotal_mg > 0 ? `  Zn total ${fmt(calc.znTotal_mg, 2)} mg/day delivered (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) · max ${D.MAX_ZN_MG_DAY} mg/day` : "",
                 `Heparin:        ${heparinUmL} U/mL = ${calc.solVol.heparin} mL of ${S.heparin.unitsPerMl} U/mL`,
                 `──────────────────────────────`,
-                `BAG MAKE-UP:  components ${fmt(calc.componentVol, 1)} mL + WFI q.s. ${fmt(calc.wfiVol, 1)} mL = ${fmt(calc.preparedVol, 1)} mL prepared`,
+                `BAG MAKE-UP:  components ${fmt(calc.componentVol, 1)} mL + WFI q.s. ${fmt(calc.wfiVol, 1)} mL (whole mL) → ${fmt(calc.preparedVol, 1)} mL prepared`,
                 calc.wfiVol < 0 ? `  !! COMPONENTS EXCEED BAG VOLUME by ${fmt(Math.abs(calc.wfiVol), 1)} mL — cannot compound` : "",
                 bagOverBottle ? `  !! ${fmt(calc.preparedVol, 1)} mL IS ABOVE THE ${D.TPN_BOTTLE_MAX_ML} mL LARGEST BOTTLE — cannot be ordered` : "",
                 stockAtZeroMl ? `  !! ${stocksAtZeroMl.join(", ")} ROUNDS TO 0 mL — cannot be measured` : "",
@@ -5367,7 +5414,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
         </tr>
         <tr>
           <td>Dextrose</td>
-          <td>Final Conc. <strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG_bag,1)}</strong> g. (ในถุง) = <strong>{wtKg ? f(calc.dexGPerKg,2) : "—"}</strong> g/kg/d = <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)</td>
+          <td>Final Conc. <strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG_bag,1)}</strong> g. (ในถุง) = <strong>{wtKg ? f(calc.dexGPerKg,2) : "—"}</strong> g/kg/d → <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)</td>
         </tr>
         <tr>
           <td style={{ verticalAlign:"top" }}>Amino acid</td>
@@ -5592,7 +5639,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           <tr>
             <td>Total Volume:</td>
             <td><strong>{f(totalTPN_mL, 1)}</strong> mL delivered / <strong>{f(calc.preparedVol,1)}</strong> mL prepared
-              {calc.overfill > 1.001 && <> &nbsp;·&nbsp; ปริมาตรคาสาย <strong>{f(calc.deadVol_mL,1)}</strong> mL</>}</td>
+              {calc.overfill > 1.001 && <> &nbsp;·&nbsp; ปริมาตรคาสาย <strong>{f(calc.deadVol_mL,1)}</strong> mL, ปัดขึ้นหลักสิบ</>}</td>
           </tr>
           <tr>
             <td>Factor:</td>
@@ -5603,7 +5650,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           </tr>
           <tr>
             <td style={{ whiteSpace:"nowrap" }}>Dextrose Final Conc.</td>
-            <td><strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG_bag,1)}</strong> g in bag = <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)
+            <td><strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG_bag,1)}</strong> g in bag → <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)
               &nbsp;·&nbsp; delivered <strong>{f(calc.dexG,1)}</strong> g = <strong>{wtKg ? f(calc.dexGPerKg,2) : "—"}</strong> g/kg/d
               &nbsp;<span style={{ fontSize:9, color:"#555" }}>(max {D.MAX_DEXTROSE_G_KG} g/kg/d)</span></td>
           </tr>
@@ -5645,7 +5692,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
               <td style={{ ...td, fontWeight:700 }}>Water for injection q.s.</td>
               <td style={tdr} colSpan={2}>
                 Components <strong>{f(calc.componentVol,1)}</strong> mL + WFI <strong style={{ color: calc.wfiVol < 0 ? "#c00" : "#000" }}>{fSigned(calc.wfiVol,1)}</strong> mL
-                &nbsp;=&nbsp; <strong>{f(calc.preparedVol,1)}</strong> mL prepared
+                {/* WFI is whole mL since 2026-11-16, so the sum is the bag to within half a mL. */}
+                &nbsp;→&nbsp; <strong>{f(calc.preparedVol,1)}</strong> mL prepared
                 {calc.wfiVol < 0 && <div style={{ color:"#c00", fontWeight:700 }}>เกินปริมาตรถุง {f(Math.abs(calc.wfiVol),1)} mL</div>}
               </td>
             </tr>

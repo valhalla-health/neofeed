@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-11-15.1";
+const CONSTANTS_VERSION = "2026-11-16.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -1035,6 +1035,53 @@ function displayNum(value, maxDecimals = 2) {
   return String(r === 0 ? 0 : r);   // never "-0"
 }
 
+// ── The printed order, larger (TPN unit and the ward, 2026-11-16) ──
+// Pharmacy and the ward's older nurses asked for a bigger print: the print
+// dialog's Scale at 115 % "ใหญ่กำลังดี ไม่ล้น" for an ordinary order. Pp then
+// asked for the figures to stand out too, "โดยคงให้เป็น 1 หน้า A4 เท่าเดิม". So
+// just before the print dialog lays a sheet out (calculator.jsx, beforeprint),
+// a copy of it is laid out off-screen at the page's width and the sheet gets the
+// first of these steps that fits one A4 page: `zoom` scales the whole sheet and
+// `fig` its bold values (<strong>: the figures, the name, the ID, the date) on
+// top of that. The last step is the sheet as it printed before, so a long order
+// (several critical alerts, a long reason) is never printed smaller than it was
+// (Pp: "115% แต่ย่อให้พอดีหน้าเดียว"). The shells' CSS reads the two values as
+// --print-zoom and --print-fig, with that last step as the default.
+const PRINT_FIT_STEPS = [
+  { zoom: 1.15, fig: 1.15 }, { zoom: 1.1, fig: 1.15 }, { zoom: 1.05, fig: 1.15 },
+  { zoom: 1, fig: 1.15 }, { zoom: 1, fig: 1 },
+];
+// A4 inside the shells' @page margins (8 mm top and bottom, 10 mm each side),
+// less 2 mm in case the printer's layout runs a little longer than the screen's.
+const PRINT_AREA_MM = { width: 190, height: 279 };
+function fitPrintSheet(sheet) {
+  const doc = sheet.ownerDocument;
+  const probe = doc.createElement("div");
+  probe.className = "print-probe";   // the shells' CSS: off-screen, 190 mm wide, the print rules
+  const copy = sheet.cloneNode(true);
+  copy.removeAttribute("id");
+  probe.appendChild(copy);
+  doc.body.appendChild(probe);
+  let pick = PRINT_FIT_STEPS[PRINT_FIT_STEPS.length - 1];
+  try {
+    for (const step of PRINT_FIT_STEPS) {
+      copy.style.setProperty("--print-zoom", String(step.zoom));
+      copy.style.setProperty("--print-fig", step.fig + "em");
+      // The unzoomed wrapper, not the zoomed copy: a zoomed element's own box
+      // reads at its zoomed size only since Chromium 128 (standardized CSS
+      // zoom), and the ward's PCs may run older. The wrapper holds the copy at
+      // its printed height in both (cold reader, 2026-11-16).
+      const mm = probe.getBoundingClientRect().height * 25.4 / 96;
+      if (mm <= PRINT_AREA_MM.height) { pick = step; break; }
+    }
+  } finally {
+    probe.remove();
+  }
+  sheet.style.setProperty("--print-zoom", String(pick.zoom));
+  sheet.style.setProperty("--print-fig", pick.fig + "em");
+  return pick;
+}
+
 // ── Sticker figures (TPN room, Pp 2026-10-30) ─────────────────
 // What the TPN unit's three stickers print, computed once, here, and saved
 // with the order (Daily_Log AM, printJson). The TPN-room page copies these
@@ -1078,7 +1125,7 @@ function stickerFigures(o) {
     // rounded the calc's 0.1 mL value a second time and was 1 mL off in 4–8 %
     // of orders.
     deliveredMl: n(c.totalTPN_mL, 1),
-    deadMl: n(c.deadVol_mL, 2),
+    deadMl: null,   // filled in below, from the two printed volumes
     preparedMl: n(c.preparedVol, 1),
     stockMl: {
       d50w: n(c.d50wVol, 1),
@@ -1138,6 +1185,14 @@ function stickerFigures(o) {
       kcal: n(c.dexKcal + c.aaKcal, 0),
     },
   };
+  // Dead space on the PN label is Prepared − Delivered as both are printed, so
+  // the label's three volumes always add up (47.55 + 30 prints 47.6 + 32.4 = 80,
+  // not 47.6 + 32.5). It is what the line and the round-up keep (preparedVolFor,
+  // 2026-11-16), as on the KCMH sheet (G7 = C7 + G8); before 2026-11-16 it was the
+  // dead space typed. The meaning moved under printJson v 1: a row's
+  // constantsVersion (2026-11-16.1 on) says which, and the TPN room refuses any
+  // other version, so the schema version stays (a bump needs the backend first).
+  figures.deadMl = n(Number(figures.preparedMl) - Number(figures.deliveredMl), 1);
   // displayNum prints "—" for a missing or non-numeric input. The sticker must
   // never carry one, so the order has no figures and the page says "save again".
   // A negative figure is the same, and so is one past 12 characters. The input
@@ -2817,6 +2872,22 @@ function vitaminMlPerDay(stockKey, wtKg) {
 function defaultDeadVolFor(patient) {
   return isNewbornUnit(patient) ? NEWBORN_DEAD_VOL_ML : 0;
 }
+// The volume pharmacy prepares, mL/day (sheet G7): delivered plus the dead
+// space, rounded UP to the next 10 mL above that sum. The TPN set holds exactly
+// 30 mL, so a bag of delivered + 30 left nothing over for the line; the ward's
+// nurses asked for a round number with more than 30 mL to spare (Pp, 2026-11-16:
+// "ปัดขึ้นเป็นเลขกลมๆหรือเผื่อสายมากกว่า 30 mL", and she chose "next ten,
+// always above"). 48 + 30 = 78 → 80, and 110 + 30 = 140 → 150, so a 30 mL dead
+// space leaves more than 30 and at most 40 mL. The Factor is still prepared ÷ delivered × weight, so
+// every additive is scaled up with the bag and the infant gets the dose ordered.
+// No dead space (0 = no overfill) is not rounded, and no volume is no bag.
+function preparedVolFor(totalTPN_mL, deadVol_mL) {
+  const delivered = Number(totalTPN_mL) || 0, dead = Number(deadVol_mL) || 0;
+  if (!(delivered > 0)) return 0;
+  if (!(dead > 0)) return delivered;
+  const sum = Math.round((delivered + dead) * 100) / 100;   // clear a float tail first
+  return Math.floor(sum / 10) * 10 + 10;
+}
 
 // The four statuses a session can carry, in the order every picker lists
 // them: Edit session's select and the ward list's status chip (Pp,
@@ -3462,11 +3533,13 @@ window.NEOFEED_DATA = {
   lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt, lipidRateGrade, tpnOverDelivery, TPN_OVER_NOTE_PCT,
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
+  // The printed order at up to 115 %, shrunk a step at a time to one A4 page
+  PRINT_FIT_STEPS, PRINT_AREA_MM, fitPrintSheet,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
   KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, GLYCO_NA_HABIT_MEQ, GLYCO_P_HABIT_MG, MEN_MAX_ML_KG, FULL_EN_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
-  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, vitaminMlPerDay,
+  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, preparedVolFor, vitaminMlPerDay,
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.

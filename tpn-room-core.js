@@ -10,12 +10,19 @@
 (function (root) {
   "use strict";
 
-  // The unit's fixed lines on the PN label (tasks.md 0.3 i). The unit has not given
-  // them yet. Until all three are filled in, the room may still print so it can see
-  // the sheet (Pp, 2026-11-16), but the whole sheet prints as a trial: a mark across
-  // each of its three parts, and a placeholder in each blank line of the PN label,
-  // never a guessed line (design D18).
-  const PN_FIXED = { heading: "", storage: "", extension: "" };
+  // The unit's fixed lines on the PN label (tasks.md 0.3 i), as the TPN unit wrote
+  // them (2026-11-16, through Pp). While any of the three is blank, the whole sheet
+  // prints as a trial: a mark across each of its three parts, and a placeholder in
+  // each blank line of the PN label, never a guessed line (design D18). With all
+  // three in, the sheet is a real label (Pp, 2026-11-16: the mark goes in this PR,
+  // after she checks the sheet's PDF against the room's sticker paper).
+  const PN_FIXED = {
+    heading: "Parenteral nutrition กลุ่มงานเภสัชกรรม โรงพยาบาลจุฬาลงกรณ์",
+    storage: "วิธีเก็บ: เก็บในตู้เย็นได้ 7 วัน, ถ้าใส่วิตามินแล้วจะเก็บ 1 วัน",
+    extension: "เบอร์ต่อหน่วย TPN: 73602",
+  };
+  // The blank set, for the trial path and its tests.
+  const PN_BLANK = { heading: "", storage: "", extension: "" };
   const PN_TRIAL = {
     mark: "ทดลองพิมพ์ ห้ามใช้จริง",
     heading: "ฉลากทดลอง ห้ามติดถุง · รอหัวฉลากจากหน่วย TPN",
@@ -329,7 +336,7 @@
   }
 
   const api = {
-    PN_FIXED, PN_TRIAL, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
+    PN_FIXED, PN_BLANK, PN_TRIAL, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
     wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy,
     missingFigures, printReasons, fixedLinesReady, trialNote, trialReprintDue,
