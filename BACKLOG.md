@@ -872,9 +872,9 @@ clinical judgement. Everything else is engineering sequencing.
         that has no percentile. The fixture already holds two length points a sex at 23.5, which with L = 1
         give M and S there exactly, with no third point to check them; adding that row, or asking again
         between 22 and 23, is Pp's call.
-      - **DOL 1 from 36 weeks: done 2026-11-16 (3).** Pp chose the round of birth-mode points. A DOL-1
+      - **DOL 1 from 36 weeks: done 2026-11-16 (4).** Pp chose the round of birth-mode points. A DOL-1
         length or head from 35.0 weeks is read on `FENTON_LENGTH_BIRTH_LMS` / `FENTON_HC_BIRTH_LMS`, solved
-        from Fenton's Birth size evaluation (`CHANGELOG.md` 2026-11-16 (3)). **41+5 to 42+0, decided:**
+        from Fenton's Birth size evaluation (`CHANGELOG.md` 2026-11-16 (4)). **41+5 to 42+0, decided:**
         The evaluation answers nothing past 41 4/7, so a DOL-1 point there is read on the 41 4/7 row, held.
         The other choices were the monitoring curve, which is about 0.5 SD off for head at that age, or no
         percentile. Pp, 2026-11-16: "ใช้แถว 41+4 ต่อ" (keep the hold, no note on screen).

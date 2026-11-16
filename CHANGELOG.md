@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-16 (3) — A DOL-1 length or head is read as a size at birth
+## Session 2026-11-16 (4) — A DOL-1 length or head is read as a size at birth
 
 `data.js` (`FENTON_LENGTH_BIRTH_LMS`, `FENTON_HC_BIRTH_LMS`, new), `fenton.jsx` (`FentonChart`: a DOL-1
 length or head circumference from 35.0 weeks is read and drawn on them), `compiled/`, the shells' `?v=`,
@@ -46,6 +46,42 @@ assertions), `test/verify-fenton-length-hc-1116.cjs` (its DOL-1 check moved from
   at the missing tables in §2, §4 and §5. `verify-fenton-length-hc-1116.cjs` 57/57 with its DOL-1 check at 34+0.
 - **`STATUS.md` catches up:** #265, #269 and #270 are live (release #271, `release-2026-11-16-pr271`,
   `4794318`).
+
+## Session 2026-11-16 (3) — The TPN room prints a trial sheet until the unit's three PN lines come
+
+`tpn-room-core.js` (`PN_TRIAL`, `trialNote`, `trialReprintDue`, new; `printReasons`, `stickerModel`), `tpn-room.jsx`
+(the row's notes, `TrialMark` on each part, `trial` in the print-log entry), `tpn-room.css`, `compiled/tpn-room.js`
+and the room shells' `?v=`, `test/verify-tpn-room-core-1105.cjs` (§2), `test/verify-tpn-room-page-1105.cjs` (§5
+prints a trial sheet, §6 checks a filled sheet carries no mark), `openspec/changes/tpn-room-stickers` (design D18,
+the spec's "Print only what is safe to print", tasks 2.6), `REFERENCE.md` § The TPN room's page, `STATUS.md`.
+
+- **Why.** The TPN room signed in, mapped a bed and found no print button (LINE, 2026-11-16): the page held every
+  print until `PN_FIXED` had the PN label's heading, storage line and extension (D18, Pp 2026-11-05), and the unit
+  has not given them (0.3 i). Pp, 2026-11-16: "เขาอยากเห็นการปริ้นออกมาก่อน แล้วค่อยว่ากันอีกที ให้เขาปริ้นได้ก่อน".
+- **What.** Blank fixed lines no longer hold a print. The row says the sheet prints as a trial ("จะพิมพ์เป็นแผ่นทดลอง
+  ห้ามใช้จริง …") beside the button. Each of the three parts, the worksheet, the PN label and the bag sticker, carries
+  "ทดลองพิมพ์ ห้ามใช้จริง" across it in light grey; each blank PN line prints a placeholder that waits for the unit
+  ("ฉลากทดลอง ห้ามติดถุง · รอหัวฉลากจากหน่วย TPN", "วิธีเก็บ: รอหน่วย TPN", "เบอร์ต่อ: รอหน่วย TPN"), never a guessed
+  line. A half-filled set keeps the lines it has and is still a trial. No figure, rule or backend change; every
+  figure is still a `printJson` string, and stays legible under the mark (checked on the harness's PDF).
+- **All three parts, not the PN label alone.** Vera's finding 1: the first cut marked only the PN label, leaving
+  the worksheet and bag sticker unmarked from a layout no one has checked against a real sheet (tasks 2.6). Pp chose
+  to mark all three.
+- **The print log.** Vera's finding 2: a trial print is logged with `trial: true`, so the row reads "พิมพ์แล้ว
+  (แผ่นทดลอง)" and offers "พิมพ์ซ้ำ". Once all three lines are filled in and released, a row whose last print was a
+  trial says "ที่พิมพ์ไปเป็นแผ่นทดลอง กดพิมพ์ซ้ำเพื่อได้สติกเกอร์จริง" (`trialReprintDue`). The mark leaves the moment
+  all three lines are filled in.
+- **Disposal.** Vera's second run: a trial sheet carries a real name and AN, so the row's note says to shred it or
+  use the confidential-waste bin, and `REFERENCE.md` § Thai PDPA names trial sheets beside the name-file gaps.
+- **Tests.** Core: blank lines give no reason, the row's note and its disposal line, placeholders, a half-filled
+  set, filled lines unmarked, `trialReprintDue`. Page: as shipped, a mapped order prints; on the trial sheet every
+  figure is its `printJson` string and no other digit appears, the mark and placeholders included; one mark on
+  each part, three placeholders, it fits under print on one A4 page, and the row says the print was a trial; a
+  filled sheet and its row carry no trial. Not in the page harness: the reprint prompt after a trial print once
+  the lines are filled (it needs the name file reopened, the step §8 cannot pass in this container); the core
+  harness covers `trialReprintDue`.
+  `test/verify-tpn-room-page-1105.cjs` §8 ("reopening") stops at its first step in this container on `main` too,
+  before and after this change.
 
 ## Session 2026-11-16 (2) — Sunday asks for length and HC; the growth charts print
 
