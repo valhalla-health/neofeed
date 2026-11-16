@@ -7,6 +7,70 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (5) — A DOL-1 length or head is read as a size at birth
+
+`data.js` (`FENTON_LENGTH_BIRTH_LMS`, `FENTON_HC_BIRTH_LMS`, new), `fenton.jsx` (`FentonChart`: a DOL-1
+length or head circumference from 35.0 weeks is read and drawn on them), `compiled/`, the shells' `?v=`,
+`test/fenton-official-birth-1116.json` (new), `test/verify-fenton-birth-length-hc-1116.cjs` (new, 63
+assertions), `test/verify-fenton-length-hc-1116.cjs` (its DOL-1 check moved from 40+0 to 34+0),
+`docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `STATUS.md`, `test/README.md`.
+
+- **Why.** Pp, 2026-11-16: "length หรือ HC ของ DOL 1 ในทารกตั้งแต่ 36 สัปดาห์ ตอนนี้อ่านบนเส้น growth ลองปรับดูว่าจะ
+  ทำอะไรได้บ้าง". A DOL-1 weight was read on the size-at-birth rows; a DOL-1 length or head on the
+  growth-monitoring curve. Fenton publishes no length or head table at birth, and says the size-at-birth values
+  differ from the growth chart after 36 weeks. Asked for the way, Pp chose "ถามเครื่องคิดเลข Fenton".
+- **From Fenton's calculator.** One round to fentongrowth.ca in "Birth size evaluation" mode, both sexes:
+  sex, data type and per row GA, head and length, made-up values read off the monitoring curve near its 10th,
+  50th and 90th at 33 to 42 weeks, plus a half-week point near the 3rd or 97th. No name, number, date of birth,
+  GA at birth or weight. The rows were pasted into the page's paste box as CSV. The raw result tables are in
+  the fixture, and their SHA-256, taken in the page, matches the file.
+- **The evaluation ends at 41 4/7.** Every 42-week row came back empty. Probes found the last GA it answers:
+  41 3/7 and 41 4/7 came back; 41 5/7, 41 6/7, 41.8, 41.99, 42, 42 0/7 and 42 1/7 did not. So three more rows
+  a sex were asked at 41 4/7 to close the curve.
+- **What it said.** Solved as the monitoring rows were (`tools/fenton-lms-solve.cjs`, L fixed at 1; solved
+  freely L is 0.98 to 1.02): at 33, 34 and 35 weeks the birth-size curve is the monitoring curve (M within
+  0.002 cm, S within 0.00003). From 36 weeks they part. Length's spread narrows faster (boys at 41 weeks: S
+  0.0389 at birth, 0.0434 monitoring). From 38 weeks head's median grows more slowly (boys at 41 weeks: 35.28 cm at
+  birth, 35.86 monitoring). Read on screen the old way, the first DOL-1 points more than a centile point off
+  were at 39+0. A boy born at 41+0 with a 35.9 cm head, the monitoring 50th, is the 69th at birth. A girl born at
+  40+0 at 50.2 cm, the monitoring 50th, is the 56th.
+- **What changes on screen.** A length or head circumference whose newest point is DOL 1 is read on the
+  birth-size L, M, S from 35.0 weeks, and the chart draws that curve, as it already did for weight. Before 35.0
+  the monitoring rows serve, since the two agree there. From 41+5 to 42+0 there is no birth-size answer: the
+  reading holds the 41 4/7 row and the drawn lines run flat to 42 (Pp, 2026-11-16: "ใช้แถว 41+4 ต่อ", with no note on screen). From DOL 2 nothing
+  changes.
+- **Nothing printed or saved moves, and no dose.** Only `fenton.jsx` reads these tables, so
+  `CONSTANTS_VERSION` stays (`docs/CLINICAL_CONSTANTS.md`, When to bump).
+- **No second clinician has reviewed this change;** Pp's request only.
+- **Tests.** `verify-fenton-birth-length-hc-1116.cjs` 63/63; against `302dae6` it fails §3 from 39+0 and stops
+  at the missing tables in §2, §4 and §5. `verify-fenton-length-hc-1116.cjs` 57/57 with its DOL-1 check at 34+0.
+- **`STATUS.md` catches up:** #265, #269 and #270 are live (release #271, `release-2026-11-16-pr271`,
+  `4794318`).
+## Session 2026-11-16 (4) — The front sheet prints the heparin mL; no age range after the two 10% amino acids
+
+`calculator.jsx` (the print form's heparin row and `AA_CHOICES`), `compiled/`, the shells' `?v=`,
+`test/verify-calc-sum.cjs`, `test/verify-calc-oracle.cjs`, `test/verify-print-one-page-1102.cjs`,
+`test/verify-review-0917-calc.cjs`, the `neofeed-clinical-rules` skill (`CR-HEPARIN`), `REFERENCE.md` § The
+printed order (Vera), `STATUS.md`.
+
+- **Why.** Ward feedback on the printed order, 2026-11-16: "ไม่มีปริมาตร Heparin ที่เติม" (the sheet carries no
+  heparin volume), and a request to drop the age range in brackets after "10% Aminoven infant / PED AMINE" and
+  "10% Amiparen".
+- **Heparin.** The front sheet's "7. Heparin (100 unit/mL)" line printed the U/mL alone; its mL was on the
+  pharmacy back sheet, which renders but has not printed since 2026-10-28. The line now prints the U/mL in the
+  per-kg column and the mL of 100 U/mL stock in the pharmacist's column, the back sheet's own
+  `calc.solVol.heparin` (`CR-R-STOCK-ML`, 1 decimal); "—" with no bag or 0 U/mL. The units a day were left off:
+  Center Point's sheet has no slot for them (`verify-center-point-print-parity`), and they are U/mL × the
+  prepared volume, both printed. No figure is computed differently and no limit moves; `CONSTANTS_VERSION` stays.
+- **Amino acids.** `AA_CHOICES` reads "10% Aminoven infant / PED AMINE" and "10% Amiparen". The product, its
+  stock and every figure are unchanged. `D.AA_PRODUCTS`' labels keep their brackets: nothing renders them.
+- **Checks (NF-17).** `verify-calc-sum` adds, on every printed order, that the front's heparin mL is the back's
+  heparin stock mL (none at 0 U/mL); `verify-calc-oracle` reads the front's heparin mL against its own
+  expected mL; `CR-HEPARIN`'s inside case prints "1.8 mL". The two print harnesses that matched
+  the bracketed labels read the new ones. `verify-review-0917-calc` §6's five printed-figure pins are
+  recaptured: compared figure by figure with `main`, each order gains exactly the heparin mL and nothing else
+  moves.
+
 ## Session 2026-11-16 (3) — The TPN room prints a trial sheet until the unit's three PN lines come
 
 `tpn-room-core.js` (`PN_TRIAL`, `trialNote`, `trialReprintDue`, new; `printReasons`, `stickerModel`), `tpn-room.jsx`

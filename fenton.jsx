@@ -100,11 +100,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate, printMetric, onPr
   // points within 4.2 centile points; a completed-week reading was up to 21
   // off. Pp, 2026-10-17).
   const REF_AGE_OFFSET = 0.5;
-  // Only weight has size-at-birth rows. Length and head circumference are
-  // read and drawn on Fenton's growth-monitoring curve alone (below), a DOL-1
-  // measurement included. Fenton's Birth size evaluation agrees with that
-  // curve for the 8 DOL-1 points asked on 2026-10-17, up to 35+4; from 36
-  // weeks it has not been asked (BACKLOG.md).
+  // Weight's size-at-birth rows are FENTON_WEIGHT, below. Length and head
+  // circumference have theirs as L, M, S (FENTON_LENGTH_BIRTH_LMS,
+  // FENTON_HC_BIRTH_LMS, from 35.0 weeks; birthLms below).
   const table = metric === "weight" ? D_F.FENTON_WEIGHT[sex] : [];
   const sizeAtBirthRows = (() => {
     const rows = table.map(r => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
@@ -151,9 +149,37 @@ function FentonChart({ patient, entries, currentDol, onUpdate, printMetric, onPr
     ? [...sizeAtBirthRows.filter(r => r[0] < lmsStart),
        ...growthLms.filter(r => r[0] <= GA_MAX).map(([t, ...lms]) => [t, ...CENTILE_Z.map(z => lmsValue(lms, z))])]
     : sizeAtBirthRows;
-  // What a DOL-1 point is read against: the size-at-birth rows for weight, the
-  // one curve there is for length and head circumference.
-  const birthDataset = metric === "weight" ? sizeAtBirthRows : monitorDataset;
+  // What a DOL-1 point is read against: size at birth. For weight that is
+  // sizeAtBirthRows. For length and head circumference it is Fenton's Birth
+  // size evaluation as L, M, S (data.js, 2026-11-16), from 35.0 weeks; before
+  // that the calculator's birth-size curve is the monitoring one (M within
+  // 0.002 cm at 33–35 weeks), so the monitoring rows serve. From 36 weeks the
+  // two part: a boy born at 41+0 with the monitoring 50th head (35.9 cm) is
+  // the 69th at birth. The evaluation ends at 41 4/7: from 41+5 to GA_MAX a
+  // DOL-1 point is read on that last row, held (Pp, 2026-11-16: "ใช้แถว 41+4 ต่อ").
+  const birthLms = (
+    metric === "length" ? D_F.FENTON_LENGTH_BIRTH_LMS?.[sex]
+  : metric === "hc" ? D_F.FENTON_HC_BIRTH_LMS?.[sex]
+  : null
+  ) || null;
+  const birthLmsStart = birthLms ? birthLms[0][0] : Infinity;
+  const birthLmsAt = (t) => {
+    if (!birthLms || t < birthLmsStart || t > GA_MAX) return null;
+    const last = birthLms[birthLms.length - 1];
+    if (t >= last[0]) return last.slice(1);
+    const i = Math.max(0, birthLms.findIndex(r => r[0] >= t) - 1);
+    const lo = birthLms[i], hi = birthLms[i + 1];
+    const f = (t - lo[0]) / (hi[0] - lo[0]);
+    return [1, 2, 3].map(j => lo[j] + f * (hi[j] - lo[j]));
+  };
+  const birthDataset = metric === "weight" ? sizeAtBirthRows
+    : !birthLms ? monitorDataset
+    : (() => {
+        const rows = birthLms.map(([t, ...lms]) => [t, ...CENTILE_Z.map(z => lmsValue(lms, z))]);
+        const last = rows[rows.length - 1];
+        return [...monitorDataset.filter(r => r[0] < birthLmsStart), ...rows,
+                ...(last[0] < GA_MAX ? [[GA_MAX, ...last.slice(1)]] : [])];
+      })();
 
   const xMin = 22, xMax = GA_MAX;
 
@@ -340,7 +366,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate, printMetric, onPr
   const currentPercentile = (() => {
     if (points.length === 0) return null;
     const last = points[points.length - 1];
-    const lms = (metric !== "weight" || last.dol !== 1) ? lmsAt(last.pma) : null;
+    const lms = last.dol !== 1 ? lmsAt(last.pma)
+      : metric === "weight" ? null
+      : (birthLmsAt(last.pma) || lmsAt(last.pma));
     if (lms) return centileOfZ(lmsZ(lms, last.value));
     // Length and head circumference have no rows to read between: outside the
     // curve there is no percentile (the "starts at" line below says where).
