@@ -227,9 +227,15 @@ console.log('\n── #6 every level calls the one runner ──');
 {
   const read = (f) => fs.readFileSync(path.join(DIR, f), 'utf8');
   const yml = read('.github/workflows/test.yml');
-  for (const phase of ['pre', 'sources', 'compiled', 'center-point']) {
-    ok(`CI runs phase ${phase} through the runner`, yml.includes(`node tools/run_checks.js --level ci --phase ${phase}`));
+  // Each runner step's run line, whole: a substring check passed with `|| true`
+  // appended, which turns a failing shard green and so `harnesses` with it.
+  const SHARD = '--shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}';
+  const runLines = yml.split('\n').filter(l => /^\s+run: .*run_checks\.js/.test(l));
+  for (const [phase, tail] of [['pre', ''], ['center-point', ''], ['sources', ` ${SHARD}`], ['compiled', ` ${SHARD}`]]) {
+    ok(`CI runs phase ${phase} through the runner, and its exit code alone decides the step${tail ? ', split by the job\'s index' : ''}`,
+      runLines.includes(`        run: node tools/run_checks.js --level ci --phase ${phase}${tail}`), runLines);
   }
+  ok('no other step calls the runner', runLines.length === 4, runLines);
   ok('CI has no harness loop of its own', !/for f in test\/verify-/.test(yml));
   ok('CI calls no check directly', !/node tools\/ci_bans\.js|cmp index\.html|node tools\/build\.mjs|node --test test\//.test(yml));
   ok('the job name the branch rule requires is unchanged', /^  harnesses:/m.test(yml));
@@ -257,10 +263,6 @@ console.log('\n── #6 every level calls the one runner ──');
   ok('harnesses waits for every job, runs after a failure or a cancel, and is green only when each one passed',
     gateAt >= 0 && yml.slice(gateAt + 1) === GATE, gateAt >= 0 ? yml.slice(gateAt + 1) : 'no harnesses job');
   ok('no step anywhere may fail without failing its job', !/continue-on-error/.test(yml));
-  const SHARD = '--shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}';
-  for (const phase of ['sources', 'compiled']) {
-    ok(`the ${phase} pass is split by the job's index, not the matrix values`, yml.includes(`--phase ${phase} ${SHARD}`));
-  }
   ok('a PR\'s older run is cancelled; each push to main has its own group',
     yml.includes("\nconcurrency:\n  group: test-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}\n  cancel-in-progress: true\n"));
   ok('a push to main still runs CI, the post-merge check', /push:\n(\s+#.*\n)*\s+branches: \[main\]/.test(yml));
@@ -298,12 +300,16 @@ console.log('\n── #7 shards cover a phase exactly once ──');
 
   // A heavy step goes first onto an empty share and gets it to itself.
   const heavy = fixture(files, { ...cfg, shard_seconds: { about: 'x', sources: { 'verify-c.cjs': 100 } } });
+  const outs = [];
   const got = [1, 2, 3].map(k => {
     fs.rmSync(path.join(heavy, 'mark'), { force: true });
-    run(heavy, ['--level', 'ci', '--phase', 'sources', '--shard', `${k}/3`]);
+    outs.push(run(heavy, ['--level', 'ci', '--phase', 'sources', '--shard', `${k}/3`]).out);
     return marks(heavy);
   });
   ok('a step shard_seconds calls heavy runs alone', got.some(s => s.join() === 'c'), got);
+  // Its hint is refreshed from this line, so it is listed however fast it ran.
+  ok('a hinted step is on the slowest: line even under 10 s', outs.some(o => /slowest: verify-c\.cjs 0 s/.test(o)), outs);
+  ok('an unhinted step under 10 s is not', outs.every(o => !/slowest:.*verify-[abdefg]\.cjs/.test(o)), outs);
   ok('the other shares still cover the rest once', JSON.stringify(got.flat().sort()) === JSON.stringify(tags), got);
 
   const bad = (name, args, config, re) => {

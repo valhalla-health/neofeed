@@ -299,14 +299,15 @@ async function main() {
   for (const s of mine) {
     const t0 = Date.now();
     await step(s.c, s.label, s.fn);
-    took.push([s.label, Math.round((Date.now() - t0) / 1000)]);
+    const hinted = ((cfg.shard_seconds || {})[s.phase] || {})[s.name] !== undefined;
+    took.push([s.label, Math.round((Date.now() - t0) / 1000), hinted]);
   }
 
   const out = (s) => sink.write(s + '\n');
   out(`\nrun_checks · level ${o.level}${o.phase ? ` · phase ${o.phase}` : ''}${shard ? ` · shard ${shard.k}/${shard.n}: ${mine.length} of ${plan.length} steps` : ''}`);
   // The numbers tools/checks.json's shard_seconds is refreshed from: every step
-  // of 10 s or more, so a hinted step cannot fall off the line.
-  const slow = took.filter(([, s]) => s >= 10).sort((a, b) => b[1] - a[1]);
+  // of 10 s or more, and every hinted step however fast it ran this time.
+  const slow = took.filter(([, s, hinted]) => s >= 10 || hinted).sort((a, b) => b[1] - a[1]);
   if (isCi && slow.length) out(`  slowest: ${slow.map(([l, s]) => `${l} ${s} s`).join(', ')}`);
   if (tails.length) out(tails.join('\n'));
   const width = Math.max(10, ...Object.keys(cfg.dimensions).map(d => d.length));

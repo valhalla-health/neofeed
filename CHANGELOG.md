@@ -7,6 +7,34 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (8) — The CI shards after a second review
+
+`test/verify-run-checks.cjs` (97 assertions), `tools/run_checks.js`, `test/README.md` (§ CI and the last
+section), `REFERENCE.md` (§ The frontend build). Corrects the entry below in two places:
+
+- **It corrects one thing in (6), not three.** The compiled share estimate in (6) could not hold: three shares of
+  4.5 to 5.0 min cannot cover a 16.9 min pass. The 95 assertions in (6) were right for `28cbccf`; the count
+  rose to 96 with the new § 7 case. "No check was dropped" was never in (6): it was in the workflow header and
+  the STATUS line, both reworded in place to "every check still runs".
+- **`REFERENCE.md` never said CI runs on `release`;** only `test/README.md` § CI did. Both said every harness
+  runs twice.
+
+A second new agent read only `35c435b`'s changed lines. Fixed from it:
+
+- **The runner steps could swallow a failure.** § 6 matched the four `run_checks.js` run lines by substring, so
+  `|| true` on a shard, `pre` or Center Point step still passed, and that job, then `harnesses`, would go green
+  over a failing harness. Each run line is now matched whole, and no fifth step may call the runner.
+- **`test/README.md` § CI said CI installs no browser.** The compiled pass has installed Chromium since
+  2026-10-04 and runs `verify-sync-gate-and-poll.cjs`'s measurement; only the sources pass prints its SKIP.
+- **"Then" was wrong** in README § CI and `REFERENCE.md`: the shards do not wait for `pre`, and all seven jobs
+  start together. Both now say "alongside", and that calc-compare runs in the sources pass only.
+- **The `slowest:` line** now lists every hinted step however fast it ran, as well as every step of 10 s or
+  more: calc-fuzz, hinted 20 s, took 11 s in this PR's first run, one second from dropping off the line.
+- **The README's last section** said `harnesses` splits the passes; the shard jobs do. It now lists what § 6
+  checks, without a count that goes stale.
+- **Tests.** `verify-run-checks.cjs` 97/97, and 21 of 21 mutations caught: the 16 in (7), `|| true` on each of
+  the four runner steps, and a hinted step left off the `slowest:` line.
+
 ## Session 2026-11-16 (7) — The CI shards after review, and their first run
 
 `test/verify-run-checks.cjs` (96 assertions), `tools/run_checks.js`, `.github/workflows/test.yml` (comments),

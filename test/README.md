@@ -244,17 +244,17 @@ It swaps a module only when the harness transforms the whole, unmodified `.jsx` 
 otherwise, and prints which modules it replaced. Source-text assertions (regexes over the `.jsx`)
 still read the sources, which is what they pin.
 
-**CI:** `.github/workflows/test.yml` first rebuilds with `npm ci --prefix tools && node tools/build.mjs`
-on the clean checkout and fails if that changes anything (stale or hand-edited `compiled/`, or
-shell tokens), then checks shell byte-identity, then runs every `verify-*.cjs` (plus `DEAD=0` for
-the Factor harness) **twice** — against the sources, then with the compiled preload, where a harness
-that mounts modules but swapped none fails the step. `verify-calc-compare.cjs` alone runs once, in the
-sources pass, since it never loads `compiled/`. Since 2026-11-16 the two passes run as parallel shards
-(§ CI in parallel shards, the last section). It runs on each pull request and on pushes to `main`; a push
-to `release` runs nothing, since its tree is always a `main` commit already passed.
-CI installs no browser, so `verify-sync-gate-and-poll.cjs`'s Chromium measurement prints a SKIP
-there and its static CSS assertions carry the section; run it locally (with `playwright`
-installed) to get the real measurement.
+**CI:** `.github/workflows/test.yml`'s `pre` job rebuilds with `npm ci --prefix tools && node tools/build.mjs`
+on its clean checkout and fails if that changes anything (stale or hand-edited `compiled/`, or
+shell tokens), and checks shell byte-identity. Alongside it, parallel shards (§ CI in parallel shards, the
+last section) run every `verify-*.cjs` (plus `DEAD=0` for the Factor harness) **twice**: against the
+sources, and with the compiled preload, where a harness that mounts modules but swapped none fails the step.
+`verify-calc-compare.cjs` alone runs once, in the sources pass, since it never loads `compiled/`. CI runs
+on each pull request and on pushes to `main`; a push to `release` runs nothing, since its tree is always a
+`main` commit already passed.
+The sources pass installs no browser, so there `verify-sync-gate-and-poll.cjs`'s Chromium measurement
+prints a SKIP and its static CSS assertions carry the section; the compiled pass installs Chromium and runs
+the measurement.
 
 ## Running
 
@@ -2321,9 +2321,11 @@ lightest share; a step it does not name counts 3 s). Refresh it from the `slowes
 so the compiled loader never reached them and its compiled-pass run repeated the sources one (about 160 s).
 
 `verify-run-checks.cjs` § 7 checks the shares on a made-up config: three cover every step once, none is empty, a
-heavy step runs alone, and a bad `--shard` or hint is refused. § 5 and § 6 now also check that every hint names a
-real step, that calc-compare runs once, and that `harnesses` waits for every job, runs after a failure or a
-cancel, and splits each pass by the job's index. 96 assertions, no npm install.
+heavy step runs alone, and a bad `--shard` (or none given) or hint is refused. § 5 checks that every hint names a
+real step and that calc-compare runs once. § 6 matches the `harnesses` job whole (it waits for every job, runs
+after a failure or a cancel, and is green only when each one passed), matches each runner step's `run:` line
+whole (each shard's share comes from the job's index), refuses `continue-on-error` anywhere, and matches the
+`concurrency` block with its `cancel-in-progress: true`. No npm install.
 
 To run one shard here as CI does (the jsdom set above, through `NODE_PATH` in a worktree):
 
