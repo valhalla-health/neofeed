@@ -95,6 +95,9 @@ button.google { width: 100%; margin: 14px 0 4px; padding: 9px 14px; font-weight:
 .small-id { font-size: 8pt; margin-top: 1mm; }
 .fixed-line { min-height: 1.2em; }
 .heading { font-weight: 700; text-align: center; }
+/* A trial sheet (blank fixed lines): a mark across each part, so none passes for a real one. */
+.part { position: relative; }
+.trial-mark { position: absolute; left: 50%; top: 50%; padding: 0 4mm; font-size: 30pt; font-weight: 700; color: rgba(0, 0, 0, .18); border: 3px solid rgba(0, 0, 0, .18); transform: translate(-50%, -50%) rotate(-12deg); pointer-events: none; white-space: nowrap; }
 .amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5mm 5mm; margin: 1.5mm 0; }
 .bag-name { font-size: 24pt; font-weight: 700; text-align: center; overflow-wrap: anywhere; }
 .bag-ward { font-size: 34pt; font-weight: 700; text-align: center; border: 3px solid #000; margin: 2mm 25mm; padding: 1mm; }
