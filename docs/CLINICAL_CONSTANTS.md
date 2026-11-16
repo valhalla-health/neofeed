@@ -105,6 +105,12 @@ a value — `liveDol`, the GA/PMA helpers, `normalizeBed`, `syncFreshness`. Thos
 and no number is new. The new ZnSO₄ dose is 0 on every row saved before it, and its two new constants
 are an alert threshold and a display-only reference.
 
+A second exception, 2026-11-15, kept `2026-11-15.1` for a **new printed figure read from the same calc**:
+the front sheet's "Bag osm N mOsm/L" (PR #265). Unlike 2026-09-22, one number is new; none moved. It is
+the `calc.osm` the doctor already saw on the Osmolarity tile and the order was graded on, and an order
+saved under another version is still held by `calcMoved`. A bump would only make the ward re-save every
+old order before reprinting it, for a figure that changes no dose (Pp, 2026-11-16: "คงไว้").
+
 Format `YYYY-MM-DD` or `YYYY-MM-DD.N`. `test/verify-provenance-stamp.cjs` enforces the format and
 rejects a leading `=`, `+`, `-` or `@`, which a spreadsheet would read as a formula.
 
