@@ -5,6 +5,8 @@
 //   node tools/run_checks.js --level stop --hook   what the Stop hook runs
 //   node tools/run_checks.js --level ci            all of CI, here, in order
 //   node tools/run_checks.js --level ci --phase sources
+//   node tools/run_checks.js --level ci --phase sources --shard 2/3
+//                                                  one of CI's parallel jobs: its share of that phase
 //   node tools/run_checks.js --validate            read tools/checks.json and stop
 //   node tools/run_checks.js --install-hooks       point this clone at .githooks/
 //
@@ -37,6 +39,7 @@ function parseArgs(argv) {
     else if (a === '--root') o.root = argv[++i];
     else if (a === '--config') o.config = argv[++i];
     else if (a === '--changed') o.changed = argv[++i].split(',').filter(Boolean);
+    else if (a === '--shard') o.shard = argv[++i];
     else if (a === '--hook') o.hook = true;
     else if (a === '--validate') o.validate = true;
     else if (a === '--install-hooks') o.install = true;
@@ -119,6 +122,13 @@ function load(o) {
   for (const p of phases) {
     for (const g of cfg.phases[p].guards || []) if (!GUARDS[g]) fail2(`phase "${p}": unknown guard "${g}"`);
   }
+  for (const [p, hints] of Object.entries(cfg.shard_seconds || {})) {
+    if (p === 'about') continue;
+    if (!phases.includes(p)) fail2(`shard_seconds: unknown phase "${p}"`);
+    for (const [label, s] of Object.entries(hints || {})) {
+      if (!(typeof s === 'number' && s > 0)) fail2(`shard_seconds.${p}["${label}"] must be a number of seconds above 0`);
+    }
+  }
   for (const f of expand(o.root, 'test/verify-*.cjs')) {
     if (!claimed.has(f) || !claimed.get(f).levels.includes('ci')) fail2(`${f} runs in no CI check`);
   }
@@ -167,6 +177,25 @@ function missingPackages(c, o, env) {
   return (c.needs || []).filter(p => !dirs.some(d => fs.existsSync(path.join(d, p))));
 }
 
+// --shard K/N: CI splits one phase over N parallel jobs. Every job computes
+// the same split from the same tree, so the N shares cover the phase exactly
+// once, whatever the hints say. Longest step first, onto the lightest share,
+// weighed by tools/checks.json's shard_seconds; a step it does not name weighs
+// DEFAULT_SECONDS. A stale hint only makes the shares uneven.
+const DEFAULT_SECONDS = 3;
+function shareOf(plan, shard, seconds) {
+  const weigh = (s) => (seconds[s.phase] || {})[s.name] ?? DEFAULT_SECONDS;
+  const load = new Array(shard.n).fill(0);
+  const owner = new Array(plan.length);
+  const order = plan.map((_, i) => i).sort((a, b) => (weigh(plan[b]) - weigh(plan[a])) || (a - b));
+  for (const i of order) {
+    const k = load.indexOf(Math.min(...load));
+    owner[i] = k;
+    load[k] += weigh(plan[i]);
+  }
+  return plan.filter((_, i) => owner[i] === shard.k - 1);
+}
+
 function readHookInput() {
   try { return JSON.parse(fs.readFileSync(0, 'utf8') || '{}'); } catch { return {}; }
 }
@@ -189,6 +218,13 @@ async function main() {
   if (o.phase && !cfg.phases[o.phase]) fail2(`unknown phase "${o.phase}"`);
 
   const isCi = o.level === 'ci';
+  let shard = null;
+  if (o.shard !== undefined) {
+    const m = /^(\d+)\/(\d+)$/.exec(String(o.shard));
+    if (!m || +m[1] < 1 || +m[1] > +m[2]) fail2(`--shard must be K/N with 1 <= K <= N, not "${o.shard}"`);
+    if (!isCi || !o.phase) fail2('--shard needs --level ci and one --phase');
+    shard = { k: +m[1], n: +m[2] };
+  }
   const changed = isCi ? null : changedFiles(o);
   if (changed && !changed.length) return 0;
 
@@ -214,9 +250,12 @@ async function main() {
     }
   }
 
+  // Every step this run could take, in order; a shard then keeps its share.
+  const plan = [];
   for (const phase of phases) {
     const ph = cfg.phases[phase];
     const env0 = { ...baseEnv, ...(ph.env || {}) };
+    const at = (name) => (phases.length > 1 && isCi ? `${name} [${phase}]` : name);
     for (const c of cfg.checks) {
       if (!c.phases.includes(phase) || !c.levels.includes(o.level)) continue;
       if (!isCi && c.when_changed && !c.when_changed.some(w => changed.includes(w))) continue;
@@ -230,17 +269,17 @@ async function main() {
       }
       const ctx = { root: o.root, env, sink, quiet: !isCi };
       if (c.builtin) {
-        await step(c, c.id, () => BUILTINS[c.builtin](ctx));
+        plan.push({ phase, c, name: c.id, label: at(c.id), fn: () => BUILTINS[c.builtin](ctx) });
       } else if (c.cmd) {
-        await step(c, c.id, async () => {
+        plan.push({ phase, c, name: c.id, label: at(c.id), fn: async () => {
           const r = await exec(c.cmd[0], c.cmd.slice(1), ctx);
           return { ok: r.code === 0, output: r.output, why: r.code === 0 ? '' : `exit ${r.code}` };
-        });
+        } });
       } else {
         const list = files.get(c.id);
         for (const f of list) {
-          const label = list.length === 1 && !c.harness.includes('*') ? c.id : path.posix.basename(f);
-          await step(c, phases.length > 1 && isCi ? `${label} [${phase}]` : label, async () => {
+          const name = list.length === 1 && !c.harness.includes('*') ? c.id : path.posix.basename(f);
+          plan.push({ phase, c, name, label: at(name), fn: async () => {
             const r = await exec('node', [f], ctx);
             if (r.code !== 0) return { ok: false, output: r.output, why: `exit ${r.code}` };
             const src = fs.readFileSync(path.join(o.root, f), 'utf8');
@@ -249,14 +288,24 @@ async function main() {
               if (why) return { ok: false, output: r.output, why };
             }
             return { ok: true, output: r.output };
-          });
+          } });
         }
       }
     }
   }
 
+  const mine = shard ? shareOf(plan, shard, cfg.shard_seconds || {}) : plan;
+  const took = [];
+  for (const s of mine) {
+    const t0 = Date.now();
+    await step(s.c, s.label, s.fn);
+    took.push([s.label, Math.round((Date.now() - t0) / 1000)]);
+  }
+
   const out = (s) => sink.write(s + '\n');
-  out(`\nrun_checks · level ${o.level}${o.phase ? ` · phase ${o.phase}` : ''}`);
+  out(`\nrun_checks · level ${o.level}${o.phase ? ` · phase ${o.phase}` : ''}${shard ? ` · shard ${shard.k}/${shard.n}: ${mine.length} of ${plan.length} steps` : ''}`);
+  // The numbers tools/checks.json's shard_seconds is refreshed from.
+  if (isCi && took.length) out(`  slowest: ${took.sort((a, b) => b[1] - a[1]).slice(0, 5).map(([l, s]) => `${l} ${s} s`).join(', ')}`);
   if (tails.length) out(tails.join('\n'));
   const width = Math.max(10, ...Object.keys(cfg.dimensions).map(d => d.length));
   let closed = [];

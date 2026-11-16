@@ -12,6 +12,7 @@
 //   #4  the compiled pass keeps both of CI's guards
 //   #5  the real tools/checks.json: Pp's gate (2026-11-08), every harness claimed
 //   #6  CI, both hooks and the docs really call the runner
+//   #7  --shard: CI's parallel jobs cover a phase exactly once (2026-11-16)
 //
 // Needs Node 18+ and no npm install. Synthetic files only.
 const fs = require('fs');
@@ -196,6 +197,29 @@ console.log('\n── #5 the real tools/checks.json ──');
   ok('the no-dead-space KCMH run survived', byId['kcmh-factor-no-dead-space']?.env?.DEAD === '0', byId['kcmh-factor-no-dead-space']);
   ok('Center Point is still built and tested', byId['center-point-build'] && byId['center-point-tests']);
   ok('the build-freshness check runs first', cfg.checks[0].id === 'build-fresh' && cfg.checks[0].phases[0] === Object.keys(cfg.phases)[0], cfg.checks[0]);
+  ok('every other harness still runs in both passes', JSON.stringify(byId['every-other-harness']?.phases) === '["sources","compiled"]', byId['every-other-harness']);
+  // calc-compare clears NODE_OPTIONS for the trees it builds, so the compiled
+  // loader never reaches them: a compiled-pass run only repeated this one.
+  ok('calc-compare runs once, in the sources pass', JSON.stringify(byId['calc-compare']?.phases) === '["sources"]', byId['calc-compare']);
+  ok('calc-compare really never loads compiled/', /NODE_OPTIONS: ''/.test(fs.readFileSync(path.join(DIR, 'tools', 'calc-compare.cjs'), 'utf8')) && /NODE_OPTIONS: ''/.test(fs.readFileSync(path.join(DIR, 'test', 'verify-calc-compare.cjs'), 'utf8')));
+  // A hint naming no step weighs nothing, so a renamed slow harness would
+  // quietly unbalance CI's shards. Names as the runner gives them.
+  const claimed = new Set();
+  const names = {};
+  for (const c of cfg.checks) {
+    let own = [c.id];
+    if (c.harness) {
+      const dir = path.posix.dirname(c.harness), b = path.posix.basename(c.harness);
+      const re = new RegExp('^' + b.split('*').map(s => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$');
+      const found = fs.readdirSync(path.join(DIR, dir)).filter(f => re.test(f)).map(f => `${dir}/${f}`).filter(f => !claimed.has(f));
+      found.forEach(f => claimed.add(f));
+      own = b.includes('*') ? found.map(f => path.posix.basename(f)) : [c.id];
+    }
+    for (const p of c.phases) (names[p] ||= new Set()) && own.forEach(x => names[p].add(x));
+  }
+  const stale = Object.entries(cfg.shard_seconds || {}).filter(([p]) => p !== 'about')
+    .flatMap(([p, h]) => Object.keys(h).filter(l => !names[p]?.has(l)).map(l => `${p}: ${l}`));
+  ok('every shard_seconds hint names a step of its phase', stale.length === 0, stale);
 }
 
 // ── #6 ──────────────────────────────────────────────────────────────────────
@@ -209,6 +233,17 @@ console.log('\n── #6 every level calls the one runner ──');
   ok('CI has no harness loop of its own', !/for f in test\/verify-/.test(yml));
   ok('CI calls no check directly', !/node tools\/ci_bans\.js|cmp index\.html|node tools\/build\.mjs|node --test test\//.test(yml));
   ok('the job name the branch rule requires is unchanged', /^  harnesses:/m.test(yml));
+  ok('harnesses waits for every job and runs even after a failure or a cancel',
+    /^  harnesses:\n    needs: \[pre, sources, compiled\]\n    if: always\(\)\n/m.test(yml));
+  ok('harnesses is green only when every job above it is',
+    /test "\$PRE" = success && test "\$SOURCES" = success && test "\$COMPILED" = success/.test(yml));
+  const SHARD = '--shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}';
+  for (const phase of ['sources', 'compiled']) {
+    ok(`the ${phase} pass is split by the job's index, not the matrix values`, yml.includes(`--phase ${phase} ${SHARD}`));
+  }
+  ok('only a PR\'s older run is cancelled; each push to main has its own group',
+    /group: test-\$\{\{ github\.event_name == 'pull_request' && format\('pr-\{0\}', github\.event\.pull_request\.number\) \|\| github\.run_id \}\}/.test(yml));
+  ok('a push to main still runs CI, the post-merge check', /push:\n(\s+#.*\n)*\s+branches: \[main\]/.test(yml));
   const settings = JSON.parse(read('.claude/settings.json'));
   const stop = settings.hooks.Stop[0].hooks[0].command;
   ok('the Stop hook calls the runner in hook mode', /run_checks\.js/.test(stop) && /--level stop/.test(stop) && /--hook/.test(stop), stop);
@@ -217,6 +252,51 @@ console.log('\n── #6 every level calls the one runner ──');
   ok('the hook is LF, or sh on this PC cannot read its first line', !pre.includes('\r') || /\.githooks\/\* text eol=lf/.test(read('.gitattributes')));
   ok('.githooks is never published', /^\.githooks\/$/m.test(read('.assetsignore')));
   ok('AGENTS.md names the one command', /node tools\/run_checks\.js/.test(read('AGENTS.md')));
+}
+
+// ── #7 ──────────────────────────────────────────────────────────────────────
+console.log('\n── #7 shards cover a phase exactly once ──');
+{
+  const tags = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  const files = Object.fromEntries(tags.map(t => [`test/verify-${t}.cjs`, PASSES(t)]));
+  const cfg = base([chk('a', 'clinical', 'test/verify-a.cjs'), chk('rest', 'app', 'test/verify-*.cjs')]);
+  const root = fixture(files, cfg);
+  const shares = [];
+  for (const k of [1, 2, 3]) {
+    fs.rmSync(path.join(root, 'mark'), { force: true });
+    const r = run(root, ['--level', 'ci', '--phase', 'sources', '--shard', `${k}/3`]);
+    shares.push(marks(root));
+    if (k === 2) ok('the report names the share', new RegExp(`shard 2/3: ${shares[1].length} of 7 steps`).test(r.out), r.out);
+  }
+  const all = shares.flat();
+  ok('three shares run every step', JSON.stringify([...all].sort()) === JSON.stringify(tags), shares);
+  ok('and no step twice', new Set(all).size === all.length, shares);
+  ok('no share is empty', shares.every(s => s.length > 0), shares);
+  fs.rmSync(path.join(root, 'mark'), { force: true });
+  run(root, ['--level', 'ci', '--phase', 'sources', '--shard', '1/1']);
+  ok('1/1 is the whole phase', marks(root).sort().join() === tags.join(), marks(root));
+
+  // A heavy step goes first onto an empty share and gets it to itself.
+  const heavy = fixture(files, { ...cfg, shard_seconds: { about: 'x', sources: { 'verify-c.cjs': 100 } } });
+  const got = [1, 2, 3].map(k => {
+    fs.rmSync(path.join(heavy, 'mark'), { force: true });
+    run(heavy, ['--level', 'ci', '--phase', 'sources', '--shard', `${k}/3`]);
+    return marks(heavy);
+  });
+  ok('a step shard_seconds calls heavy runs alone', got.some(s => s.join() === 'c'), got);
+  ok('the other shares still cover the rest once', JSON.stringify(got.flat().sort()) === JSON.stringify(tags), got);
+
+  const bad = (name, args, config, re) => {
+    const r = run(fixture(files, config || cfg), args);
+    ok(name, r.code === 2 && re.test(r.out), r);
+  };
+  bad('a share past the count is refused', ['--level', 'ci', '--phase', 'sources', '--shard', '4/3'], null, /--shard/);
+  bad('share 0 is refused', ['--level', 'ci', '--phase', 'sources', '--shard', '0/3'], null, /--shard/);
+  bad('a share that is not K/N is refused', ['--level', 'ci', '--phase', 'sources', '--shard', 'two'], null, /--shard/);
+  bad('a share needs one phase', ['--level', 'ci', '--shard', '1/2'], null, /--phase/);
+  bad('a share is for CI only', ['--level', 'commit', '--phase', 'sources', '--shard', '1/2', '--changed', 'x.txt'], null, /--level ci/);
+  bad('shard_seconds for an unknown phase is refused', ['--level', 'ci'], { ...cfg, shard_seconds: { nope: {} } }, /shard_seconds/);
+  bad('a hint that is not seconds is refused', ['--level', 'ci'], { ...cfg, shard_seconds: { sources: { 'verify-c.cjs': 'slow' } } }, /shard_seconds/);
 }
 
 for (const r of roots) fs.rmSync(r, { recursive: true, force: true });

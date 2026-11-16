@@ -2304,3 +2304,27 @@ control in it, and both shells carry each print rule. It cannot show the printed
 ```
 node test/verify-growth-weekly-print-1116.cjs
 ```
+
+## CI in parallel shards, 2026-11-16 — one harness extended
+
+CI no longer runs the ~285 harness steps one after another in one job (33.7 min on main run 43864098626).
+`.github/workflows/test.yml` runs `pre` (with Center Point), three `sources` shards and three `compiled` shards
+side by side, and the `harnesses` job, the one the branch rules require, is green only when all seven are.
+Each shard calls `node tools/run_checks.js --level ci --phase <pass> --shard K/N`, with K and N taken from the
+job's index and the matrix size. Every job computes the same split from the same tree, so the shares cover a
+pass exactly once; `shard_seconds` in `tools/checks.json` only evens them out (longest step first, onto the
+lightest share; a step it does not name counts 3 s). Refresh it from the `slowest:` line each shard prints.
+
+`verify-calc-compare.cjs` now runs in the sources pass only. It clears `NODE_OPTIONS` for the trees it builds,
+so the compiled loader never reached them and its compiled-pass run repeated the sources one (about 160 s).
+
+`verify-run-checks.cjs` § 7 checks the shares on a made-up config: three cover every step once, none is empty, a
+heavy step runs alone, and a bad `--shard` or hint is refused. § 5 and § 6 now also check that every hint names a
+real step, that calc-compare runs once, and that `harnesses` waits for every job, runs after a failure or a
+cancel, and splits each pass by the job's index. 95 assertions, no npm install.
+
+To run one shard here as CI does (the jsdom set above, through `NODE_PATH` in a worktree):
+
+```bash
+node tools/run_checks.js --level ci --phase sources --shard 2/3
+```

@@ -7,6 +7,45 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (6) — CI runs the harnesses in parallel jobs
+
+`.github/workflows/test.yml`, `tools/run_checks.js` (`--shard K/N`, `shareOf`, a `slowest:` line),
+`tools/checks.json` (`shard_seconds`; a `calc-compare` check, sources pass only), `test/verify-run-checks.cjs`
+(§ 7 new, § 5 and § 6 extended; 95 assertions), `test/README.md`, `STATUS.md`.
+
+- **Why.** Pp, 2026-11-16: "เช็ค harness NeoFeed ว่าต้องทำทั้งหมดนี้ไหม ทำไมใช้เวลานานมาก", then "ทำ PR ข้อ 1-4".
+  Main run 43864098626 took 33.7 min: one job ran every harness one after another, 16.3 min against the
+  sources and 16.9 min against `compiled/`, and everything else took under a minute. The median run grew from
+  19.7 to 26.8 min between 27 Oct and 16 Nov, as most PRs add a harness that then runs twice; the timeout is 45.
+- **What repeated** (398 runs, 27 Oct to 16 Nov, 147 runner-hours). Every push to `release` (30) tested the tree
+  of a main commit already passed: 11.2 h. A release PR's head is main's tip, already run by the push to main
+  (44 pairs, 19.1 h). A PR run kept going after a newer push to the same PR (73 runs, 15.8 h after the newer
+  one started). `verify-calc-compare.cjs` clears `NODE_OPTIONS`, so its compiled-pass run repeated the sources
+  run, about 160 s each time.
+- **1. Parallel jobs.** `pre` (build, shells, CI bans, then Center Point), three `sources` shards and three
+  `compiled` shards run side by side. `harnesses`, the check the rules on `main` and `release` require, keeps
+  its name; it needs all three jobs, runs `always()`, and is green only when each one's result is `success`
+  (a required check that is skipped would count as passed). Each shard calls the runner with
+  `--shard $(( job-index + 1 ))/job-total`, never the matrix values. Every shard computes the same split from
+  the same tree, longest step first onto the lightest share, weighed by `shard_seconds` (13 sources and 9
+  compiled steps of 20 s or more; any other counts 3 s). On run 43864098626's times that gives shares of 5.1
+  to 5.6 min (sources) and 4.5 to 5.0 min (compiled), against one 33.7 min job.
+- **2. calc-compare once.** It runs in the sources pass only. Its trees are built with Babel in a child whose
+  `NODE_OPTIONS` is empty, so the compiled pass never tested anything else.
+- **3. Older PR runs stop.** `concurrency` groups a PR's runs by its number and cancels the older one. A push
+  to main gets its run id as its group, so no post-merge run is cancelled or queued.
+- **4. No run on a push to `release`.** The release PR's run is the gate; Cloudflare deploys on the push either
+  way. The post-merge check stays the run on the push to main.
+- **Not done, Pp's call:** letting a release PR use the push-to-main result on the same commit (untested on
+  GitHub), and dropping the sources pass (the compiled pass tests what ships; with parallel jobs it no longer
+  costs waiting time).
+- **Tests.** `verify-run-checks.cjs` 95/95. Each new assertion was watched failing: the runner from
+  `origin/main`, a share that keeps every step, hints ignored, `harnesses` without `always()` or without the
+  compiled result, a shard from the matrix value, main pushes cancelled, no push to main, calc-compare in both
+  passes, a stale hint, a hint for an unknown phase (11 of 11 caught). Sources shard 2/3 ran here end to end.
+- **`STATUS.md` catches up:** #273 is live via release #275 (`663b49f`); #272 and #274 are merged into `main`
+  and in release PR #276.
+
 ## Session 2026-11-16 (5) — A DOL-1 length or head is read as a size at birth
 
 `data.js` (`FENTON_LENGTH_BIRTH_LMS`, `FENTON_HC_BIRTH_LMS`, new), `fenton.jsx` (`FentonChart`: a DOL-1
