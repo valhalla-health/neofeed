@@ -22,7 +22,8 @@ rules itself, edge fixtures re-tuned onto the same edge, no assertion removed), 
 `REFERENCE.md`, `STATUS.md`, `openspec/changes/tpn-room-stickers/design.md` and `tasks.md`.
 
 - **Why.** The TPN unit and the ward sent their notes on the trial sheet through Pp on 2026-11-16, with Base's rescaled
-  sheet (`tpn_A4.pdf`) and a photo of a printed order. Pp: "work all".
+  sheet (`tpn_A4.pdf`) and a photo of a printed order. Pp: "work all". PR #278; Pp checked the sticker PDF against the
+  room's paper ("ตรงแล้ว") and said "merge แล้ว release เลย".
 - **The bag rounds up.** The TPN set holds exactly 30 mL, so a bag of delivered + 30 left nothing over. The nurses asked
   for "เลขกลมๆหรือเผื่อสายมากกว่า 30 mL"; Pp chose the next 10 mL above delivered + dead space, so 30 mL of dead space
   leaves more than 30 and at most 40 mL. The Factor carries the extra, so the infant still gets the dose ordered. No dead
