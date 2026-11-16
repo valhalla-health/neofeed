@@ -243,10 +243,12 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     }).join(' · ');
     ok('"changes vs previous order" lists ZnSO₄ 0 → 0.15', /ZnSO₄: 0 → 0\.15 mg Zn\/kg\/d/.test(changes), changes);
     const form = printText();
-    // Factor = 2 kg × (180 + 30) / 180; in the bag 0.15 × 2 × 7/6 = 0.35 mg.
+    // Factor = 2 kg × prepared / 180. Since 2026-11-16 180 + 30 = 210 is prepared
+    // at 220 (the next 10 mL above), so in the bag 0.15 × 2 × 220/180 = 0.367,
+    // 0.37 mg (it was 0.15 × 2 × 7/6 = 0.35 at 210 mL).
     ok('the form has the paper form\'s ZnSO₄ (additional) line', /ZnSO₄ \(Additional to the above\)/.test(form), form.match(/6\. Trace Element.{0,300}/));
     ok('…per kg 0.15 mg Zn', /0\.15 mg Zn\/kg/.test(form), form.match(/ZnSO₄.{0,160}/));
-    ok('…in the bag 0.35 mg Zn (× Factor)', /0\.35 mg Zn/.test(form), form.match(/ZnSO₄.{0,160}/));
+    ok('…in the bag 0.37 mg Zn (× Factor)', /0\.37 mg Zn/.test(form), form.match(/ZnSO₄.{0,160}/));
     ok('…and the delivered total, 0.8 mg/day', /Zn รวม 0\.8 mg\/day/.test(form), form.match(/Zn รวม.{0,60}/));
 
     mount({ patient: pt('ZV-2000', 2000), onLog: logger().onLog });
@@ -525,19 +527,21 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     eq('3. MgSO₄: the name only', cells(frontEl, 'MgSO₄')?.[0], '3. Mg⁺⁺ ☑ MgSO₄');
     eq('4. Ca Gluconate: the name only', cells(frontEl, 'Ca Gluconate')?.[0], '4. Ca⁺⁺ ☑ Ca Gluconate');
     // MgSO₄ is the 10% vial, the only one since 2026-10-27; with the strength
-    // off the label it goes beside the mL instead. 1.149 mL prints 1.1 since
-    // 2026-10-27 (one decimal; it printed 1.15).
-    ok('…MgSO₄\'s in-bag mL names the vial it is for', /= 1\.1 mL \(10%\)/.test(cells(frontEl, 'MgSO₄')?.[2] || ''), cells(frontEl, 'MgSO₄'));
+    // off the label it goes beside the mL instead. 1.149 mL printed 1.1 from
+    // 2026-10-27 (one decimal; it printed 1.15); since 2026-11-16 the bag is
+    // 220 mL, so 0.4 × 2 × 220/180 ÷ 0.812 = 1.204 mL, which prints 1.2.
+    ok('…MgSO₄\'s in-bag mL names the vial it is for', /= 1\.2 mL \(10%\)/.test(cells(frontEl, 'MgSO₄')?.[2] || ''), cells(frontEl, 'MgSO₄'));
 
-    // Every figure on its product's own line. Factor = 2 × 210/180.
-    eq('NaCl: 2 mEq per kg · 4.7 mEq = 1.4 mL in the bag', cells(frontEl, 'NaCl')?.slice(1, 3), ['2 mEq', '4.7 mEq = 1.4 mL']);
+    // Every figure on its product's own line. Factor = 2 × 220/180 since
+    // 2026-11-16 (180 + 30 = 210, up to the next 10 mL); it was 2 × 210/180.
+    eq('NaCl: 2 mEq per kg · 4.9 mEq = 1.4 mL in the bag', cells(frontEl, 'NaCl')?.slice(1, 3), ['2 mEq', '4.9 mEq = 1.4 mL']);
     eq('Na Acetate, not ordered: its own line, blank', cells(frontEl, 'Na Acetate')?.slice(1, 3), ['—', '—']);
     const gly = cells(frontEl, 'Disodium glycerophosphate');
     ok('Glycophos: 1.5 mL per kg on its own line, with Na 3 mEq and P 46.5 mg', !!gly && /^1\.5 mL/.test(gly[1]) && /Na 3 mEq/.test(gly[1]) && /P 46\.5 mg/.test(gly[1]), gly);
-    eq('…3.5 mL in the bag', gly && gly[2], '3.5 mL');
+    eq('…3.7 mL in the bag (1.5 × 2.444)', gly && gly[2], '3.7 mL');
     eq('Total Na: 5 mEq per kg', cells(frontEl, 'Total Na')?.[1], '5 mEq');
     eq('K₂HPO₄, not ordered: its own line, blank', cells(frontEl, 'K₂HPO₄')?.slice(1, 3), ['—', '—']);
-    eq('KCl: 2 mEq per kg · 4.7 mEq = 2.3 mL in the bag', cells(frontEl, 'KCl')?.slice(1, 3), ['2 mEq', '4.7 mEq = 2.3 mL']);
+    eq('KCl: 2 mEq per kg · 4.9 mEq = 2.4 mL in the bag', cells(frontEl, 'KCl')?.slice(1, 3), ['2 mEq', '4.9 mEq = 2.4 mL']);
     ok('ordered products are bold: NaCl, Glycophos, KCl, MgSO₄, Ca gluconate, Peditrace, ZnSO₄',
       ['NaCl', 'Disodium glycerophosphate', 'KCl', 'MgSO₄', 'Ca Gluconate', 'Peditrace', 'ZnSO₄'].every(l => bold(frontEl, l)),
       ['NaCl', 'Disodium glycerophosphate', 'KCl', 'MgSO₄', 'Ca Gluconate', 'Peditrace', 'ZnSO₄'].filter(l => !bold(frontEl, l)));
@@ -554,12 +558,14 @@ function baseOrder({ dead = 0, tpnMl = 180 } = {}) {
     // "× Factor → delivers" notes and the osmolarity formula leave the front.
     ok('no "× Factor → delivers" note on the front', !/× Factor → delivers/.test(front), front.match(/.{30}× Factor → delivers.{20}/));
     ok('no osmolarity formula on the front', !/Osm\. \(mOsm\/L\)|%dextrose/.test(front), front.match(/Osm\..{60}/));
-    // The note moved to pharmacy's recipe: 2.3 mL in the bag × 180/210 = 1.97 mL.
+    // The note moved to pharmacy's recipe: 2.4 mL in the bag × 180/220 = 1.96 mL
+    // (2.3 × 180/210 = 1.97 before 2026-11-16).
     const backRow = (label) => [...back.querySelectorAll('tr')].find(tr => text(tr.firstElementChild) === label) || null;
-    ok('the back\'s Soluvit N line says what it delivers', /× Factor → delivers 1\.97 mL \(KCMH sheet G43/.test(text(backRow('Soluvit N'))), text(backRow('Soluvit N')));
-    ok('…and so does Peditrace\'s', /× Factor → delivers 1\.97 mL \(KCMH sheet G45/.test(text(backRow('Peditrace'))), text(backRow('Peditrace')));
+    ok('the back\'s Soluvit N line says what it delivers', /× Factor → delivers 1\.96 mL \(KCMH sheet G43/.test(text(backRow('Soluvit N'))), text(backRow('Soluvit N')));
+    ok('…and so does Peditrace\'s', /× Factor → delivers 1\.96 mL \(KCMH sheet G45/.test(text(backRow('Peditrace'))), text(backRow('Peditrace')));
 
-    ok('the back has the Factor and the bag make-up', /Factor:/.test(backText) && /Components [\d.]+ mL \+ WFI [\d.]+ mL = 210 mL prepared/.test(backText), backText.slice(0, 300));
+    // "→", not "=", since 2026-11-16: the WFI is whole mL.
+    ok('the back has the Factor and the bag make-up', /Factor:/.test(backText) && /Components [\d.]+ mL \+ WFI [\d.]+ mL → 220 mL prepared/.test(backText), backText.slice(0, 300));
     ok('…the K⁺ concentration of the bag', /K⁺ in bag 22 mEq\/L/.test(backText), backText.match(/K⁺ in bag.{0,30}/));
     ok('…who saved it, when, and the revision', /บันทึกโดย Dr Test \(doc@kcmh\.test\)/.test(text(back.querySelector('.print-saved-by'))), text(back.querySelector('.print-saved-by')));
     ok('…and names the infant, in case the sheets part', backText.includes('PF-2000'), backText.slice(0, 200));

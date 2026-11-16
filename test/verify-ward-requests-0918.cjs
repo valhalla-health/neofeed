@@ -31,7 +31,8 @@
 //          CP's packet has one amino-acid slot, labelled "10% Aminoven infant".
 //   §10    "ใน SCN+NICU แก้เป็น +30 ml อัตโนมัติไปเลย" — a new order on the newborn
 //          wards starts with 30 mL dead space (ปริมาตรคาสาย), so pharmacy
-//          prepares delivered + 30 and the Factor scales every additive. A new
+//          prepares delivered + 30 (since 2026-11-16 rounded up to the next
+//          10 mL above it) and the Factor scales every additive. A new
 //          day keeps a dead space somebody set and turns yesterday's 0 (the old
 //          default) into 30; a saved order is the record and reopens unchanged;
 //          the chips still override. No TPN, no bag: a feeds-only day prepares
@@ -457,13 +458,15 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       const compAminoven = componentsMl();
       click(aaButtons()[1]);
       ok('field reads "Amino acid (Aminoplasmal 15%)"', aaLabel().startsWith('Amino acid (Aminoplasmal 15%)'), aaLabel());
-      ok('no amino-acid stock mL on screen (26.7 mL, on the print below)', !aaVolumeShown());
-      near('components fall by the 13.3 mL saved', compAminoven - componentsMl(), 13.3, 1);
+      // The amino acid is whole mL since 2026-11-16 (TPN unit): 4 g is 40 mL of
+      // Aminoven 10 % or 26.7 → 27 mL of Aminoplasmal 15 %, 13 mL less (13.3 before).
+      ok('no amino-acid stock mL on screen (27 mL, on the print below)', !aaVolumeShown());
+      near('components fall by the 13 mL saved (40 − 27)', compAminoven - componentsMl(), 13, 1);
       ok('the label caution shows under the choice', /2 ปี|2 years/.test(text(container.querySelector('.s2-aa-row'))), text(container.querySelector('.s2-aa-row')));
       await save();
       eq('calcInput.aaProduct = aminoplasmal15', log.entry && log.entry.calcInput.aaProduct, 'aminoplasmal15');
       const t = printText();
-      ok('print: "☑ 15% Aminoplasmal = 2 g/kg/d = 4 g in bag = 26.7 mL"', /☑ 15% Aminoplasmal = 2 g\/kg\/d = 4 g in bag = 26\.7 mL/.test(t), t.match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
+      ok('print: "☑ 15% Aminoplasmal = 2 g/kg/d = 4 g in bag = 27 mL"', /☑ 15% Aminoplasmal = 2 g\/kg\/d = 4 g in bag = 27 mL/.test(t), t.match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
       ok('…and the prescription line is not Aminoven', !/☑ 10% Aminoven/.test(t), t.match(/☑ [^=]+=/g));
       ok('print lists the product change vs the previous order', /Amino acid product Aminoven 10%→Aminoplasmal 15%/.test(t), t.match(/เปลี่ยนแปลงจากคำสั่ง[^บ]*/));
 
@@ -471,7 +474,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       mount({ patient: pt('FW-2000', 2000, { currentBed: 'future ward' }), editEntry: { entryId: 'e-1', lastModified: 'lm-1', ts: '2026-09-18', dol: 1, weight: 2000,
         ioInput: 0, ioOutput: 0, drainContent: 0, calcInput: log.entry.calcInput }, onLog: logger().onLog });
       ok('reopened: Aminoplasmal 15% is the selected product', aaButtons()[1] && aaButtons()[1].className.includes('on'));
-      ok('…printable as saved, 26.7 mL', !!printForm() && /15% Aminoplasmal = 2 g\/kg\/d = 4 g in bag = 26\.7 mL/.test(printText()));
+      ok('…printable as saved, 27 mL', !!printForm() && /15% Aminoplasmal = 2 g\/kg\/d = 4 g in bag = 27 mL/.test(printText()));
 
       // Center Point: its packet (neofeed-tpn-v2) has one amino-acid slot,
       // "10% Aminoven infant" — so its entry never offers another product.
@@ -513,15 +516,18 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     mount({ patient: pt('DV-2000', 2000), onLog: log.onLog });
     eq('a new NICU order starts at 30 mL', deadVal(), 30);
     tpnOrder();
-    near('prepared = delivered 120 + 30 = 150 mL/day', prepared(), 150, 1);
-    // Factor 2 kg × 1.25 = 2.5: off the screen since 2026-11-06 (Pp, pharmacy's
-    // figure); the amino acid below is × 2.5, and the back sheet keeps the Factor.
+    // Since 2026-11-16 the prepared volume is the next 10 mL above delivered +
+    // dead (Pp): 120 + 30 = 150 is prepared at 160.
+    near('prepared = delivered 120 + 30 = 150, up to 160 mL/day', prepared(), 160, 1);
+    // Factor 2 kg × 160/120 = 2.667 (it was 2.5 at 150): off the screen since
+    // 2026-11-06 (Pp, pharmacy's figure); the amino acid below is × 2.667, and
+    // the back sheet keeps the Factor.
     ok('no Factor box on screen', !/Factor\s*[\d.]/.test(text(container)), text(container).match(/Factor.{0,30}/));
     ok('no amino-acid stock mL on screen', !aaVolumeShown());
     await save();
-    ok('print: the amino acid in the bag scales with it: 2 g/kg × 2.5 = 5 g → 50 mL', /PED AMINE = 2 g\/kg\/d = 5 g in bag = 50 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
+    ok('print: the amino acid in the bag scales with it: 2 g/kg × 2.667 = 5.3 g → 53 mL (whole mL)', /PED AMINE = 2 g\/kg\/d = 5\.3 g in bag = 53 mL/.test(printText()), printText().match(/☑ [^=]+=[^=]+=[^=]+= [\d.]+ mL/));
     eq('saved calcInput.deadVol_mL = 30', log.entry && log.entry.calcInput.deadVol_mL, 30);
-    ok('print: 150 mL prepared · ปริมาตรคาสาย 30 mL', /150 mL \(Prepared Vol\.\)/.test(printText()) && /ปริมาตรคาสาย 30 mL/.test(printText()),
+    ok('print: 160 mL prepared · ปริมาตรคาสาย 30 mL, ปัดขึ้นหลักสิบ', /160 mL \(Prepared Vol\.\)/.test(printText()) && /ปริมาตรคาสาย 30 mL, ปัดขึ้นหลักสิบ/.test(printText()),
       printText().match(/Total Volume:[^F]*/));
 
     mount({ patient: pt('DS-2000', 2000, { currentBed: 'SCN 12' }), onLog: logger().onLog });
@@ -595,7 +601,10 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
 
     const log = logger();
     mount({ patient: pt('VT-2000', 2000), onLog: log.onLog });
-    tpn(2000, 120);                                  // + 30 mL dead space → prepared 150, overfill 1.25
+    // + 20 mL dead space → 140, prepared at 150 (the next 10 mL above), overfill
+    // 1.25. It was the default 30 until 2026-11-16, when 120 + 30 went to 160 and
+    // the vitamins' 2.7 mL would deliver 2.03, not the 2 mL ordered.
+    tpn(2000, 120); setField('ปริมาตรคาสาย', 20);
     // The in-bag mL left the screen on 2026-11-06 (Pp: "Hide them all"): the
     // screen gives the dose, 1 mL/kg/day; the print below gives 2.5 mL.
     eq('Soluvit on screen: the dose, 1 mL/kg/day', readout('Soluvit N (water-sol.)'), 1);
@@ -611,9 +620,10 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       [t.match(/5\. Multivitamin.{0,160}/), backLine('Soluvit N')]);
     ok('print: Peditrace 2.5 mL/day, × Factor → delivers 2 mL', /\(Zn 250 µg\/mL\)2\.5 mL\/day/.test(t) && /× Factor → delivers 2 mL/.test(backLine('Peditrace')),
       [t.match(/6\. Trace Element.{0,160}/), backLine('Peditrace')]);
-    // D50W 30 + AA 50 + heparin 1.5 + Soluvit 2.5 + Peditrace 2.5 = 86.5 mL; WFI 150 − 86.5 = 63.5
-    ok('the bag make-up counts the scaled amounts: components 86.5 + WFI 63.5 = 150 mL',
-      /Components 86\.5 mL \+ WFI 63\.5 mL = 150 mL prepared/.test(t), t.match(/Components [^=]*= [\d.]+ mL prepared/));
+    // D50W 30 + AA 50 + heparin 1.5 + Soluvit 2.5 + Peditrace 2.5 = 86.5 mL; WFI 150 − 86.5 = 63.5,
+    // drawn up as 64 mL since 2026-11-16 (whole mL, half up), so the line reads "→".
+    ok('the bag make-up counts the scaled amounts: components 86.5 + WFI 64 → 150 mL',
+      /Components 86\.5 mL \+ WFI 64 mL → 150 mL prepared/.test(t), t.match(/Components [^→]*→ [\d.]+ mL prepared/));
 
     // No overfill, nothing to scale: 1 mL/kg as before.
     mount({ patient: pt('VN-2000', 2000), onLog: logger().onLog });
@@ -677,14 +687,15 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     // then they match no version and are all held, a feeds-only day included
     // (Vera, PR #159 finding 4; verify-calcmoved-unstamped-1017.cjs). The
     // reviewer's case first: 1.5 kg, TPN 100 mL, dead space 20, vitamins
-    // ticked. It printed Soluvit 1.5 mL; the calculator now says 1.8.
+    // ticked. It printed Soluvit 1.5 mL; the calculator said 1.8 (× 120/100), and
+    // since 2026-11-16, with 100 + 20 prepared at 130, 1.5 × 1.3 = 1.95 → 2.
     got = open(row('s-leg-overfill', {}));
-    // Soluvit is now 1.5 × 1.2 = 1.8 mL: on the print after the save below
+    // Soluvit is now 1.5 × 1.3 = 1.95 → 2 mL: on the print after the save below
     // (the screen gives the dose only since 2026-11-06).
     ok('legacy overfilled row: Print is held', !printForm());
     ok('…with the reason', /ปรับการคำนวณ/.test(banner()), banner());
     await save();
-    ok('…until it is saved again', !!printForm() && /Soluvit N1\.8 mL\/day/.test(printText()), printText().match(/Soluvit N[\d.—]+ mL\/day/));
+    ok('…until it is saved again', !!printForm() && /Soluvit N2 mL\/day/.test(printText()), printText().match(/Soluvit N[\d.—]+ mL\/day/));
 
     open(row('s-leg-plain', { deadVol_mL: 0 }));
     ok('legacy row with no dead space, no MEN, TPN given: held too', !printForm() && /ปรับการคำนวณ/.test(banner()), banner());

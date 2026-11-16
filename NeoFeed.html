@@ -2135,6 +2135,16 @@
   }
 
   /* ============ PRINT STYLES ============ */
+  /* data.js fitPrintSheet's probe: a copy of a printed order laid out off-screen at the
+     page's printable width, under the print rules that set its height (the zoom and figure
+     size it is trying, the cells' line height, the back sheet left out), so what it
+     measures is what will print. Keep these in step with the #print-form rules below. */
+  .print-probe { position: absolute; left: -10000px; top: 0; width: 190mm; visibility: hidden; }
+  .print-probe > * { display: block !important; zoom: var(--print-zoom, 1); }
+  .print-probe td, .print-probe th { line-height: 1.35; }
+  .print-probe strong { font-size: var(--print-fig, 1em); }
+  .print-probe .print-back { display: none !important; }
+
   /* The growth charts' print sheet exists only on paper (@media print below). */
   .growth-print { display: none; }
 
@@ -2183,6 +2193,11 @@
        red box and the signature line never split across a page break. */
     #print-form td, #print-form th { line-height: 1.35; }
     #print-form .print-crit-box, #print-form .print-sign { break-inside: avoid; page-break-inside: avoid; }
+    /* Larger for the TPN room and the ward (2026-11-16): up to 115 %, the bold figures a
+       step larger again, each set just before printing to the largest that fits one A4
+       page (data.js fitPrintSheet). Unset, the sheet prints as it did before. */
+    #print-form, .print-batch-sheet { zoom: var(--print-zoom, 1); }
+    #print-form strong, .print-batch-sheet strong { font-size: var(--print-fig, 1em); }
 
     /* Print ทั้งหมด (registry.jsx WardPrintBatch): each order's sheet as its
        calculator rendered it, the same rules as #print-form, one per page. */
@@ -2209,9 +2224,9 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=b1141ff686"></script>
+  <script src="data.js?v=a0bd35de03"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
-  <script src="compiled/calculator.js?v=4e0c8c852a"></script>
+  <script src="compiled/calculator.js?v=42419e889a"></script>
   <script src="compiled/fenton.js?v=a2d86c5d15"></script>
   <script src="compiled/registry.js?v=e6f54efdb0"></script>
   <script src="compiled/log.js?v=dfd0cae3e3"></script>

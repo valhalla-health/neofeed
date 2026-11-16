@@ -6,6 +6,10 @@
 // of the same documented formulas must agree — with one named exception since
 // 2026-09-18: NeoFeed scales Soluvit/Peditrace by the overfill, where the
 // sheet's G43/G45 use actual weight (see vitExtra below).
+// Since 2026-11-16 the prepared volume G7 is rounded up to the next 10 mL
+// (preparedKcmh) and the amino acid, the WFI and (with dead space) D50W are
+// drawn up in whole mL (drawn, below); both are modelled here from the rule,
+// not taken from the app.
 const fs = require('fs');
 const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
@@ -40,9 +44,22 @@ for (const f of ['icons.jsx', 'calculator.jsx']) {
   }).code);
 }
 
+// ── The prepared volume, 2026-11-16 ─────────────────────────────────────────
+// Pp, for the TPN unit and the ward: with a dead space, delivered + dead is
+// rounded UP to the next 10 mL strictly above the sum (100 + 20 = 120 → 130),
+// so the line keeps more than the dead space typed. What reaches the sheet's G8
+// is then prepared − delivered, and G7 = C7 + G8 as the workbook has it. No dead
+// space is no overfill and no rounding. Written here, not read from data.js.
+function preparedKcmh(delivered, dead) {
+  if (!(delivered > 0)) return 0;
+  if (!(dead > 0)) return delivered;
+  const sum = Number((delivered + dead).toFixed(2));   // 1220.04 + 30, not 1250.0399…
+  return (Math.floor(sum / 10) + 1) * 10;
+}
+
 // ── The KCMH worksheet's formula chain, transcribed independently ──────────
 function sheet(i) {
-  const C6 = i.wtKg, C7 = i.delivered, G7 = i.delivered + i.dead;
+  const C6 = i.wtKg, C7 = i.delivered, G8 = preparedKcmh(i.delivered, i.dead) - i.delivered, G7 = C7 + G8;
   const H9 = (G7 / C7) * C6;                       // Factor
   const F10 = (i.dexPct / 100) * G7,  H10 = F10 * 2;          // dextrose g, D50W mL
   const F11 = i.aaPerKg * H9,        H12 = (F11 / 10) * 100;  // AA g, Aminoven mL
@@ -169,6 +186,38 @@ const want = sheet(IN);
 // precisely vitExtra.
 const overfill = want.prepared / IN.delivered;
 const vitExtra = (want.soluvitMl + want.peditraceMl) * (overfill - 1);
+
+// ── What pharmacy draws up from the sheet, 2026-11-16 ──────────────────────
+// The sheet's mL are exact; the bag is drawn up rounded. The amino acid and
+// the WFI are whole mL (TPN unit: big syringes, no decimals), half up, and D50W
+// too as drawnD50w says; every other stock keeps one decimal, half up, as
+// before. The WFI is what the
+// printed prepared volume leaves after the printed components, then whole mL,
+// unless it is below 0 (an over-full bag keeps its exact shortfall). Modelled
+// here so the components and WFI are checked against the rule, not against the
+// app's own sum. Until 2026-11-16 this harness held the app's components and
+// WFI to the sheet's exact J52/I53 within 0.15 mL; a whole-mL amino acid alone
+// moves 0.2 mL here, so they are held to the drawn-up bag within 0.05 instead.
+const halfUp = (x, d) => { const p = 10 ** d; return Math.round(Number((x * p).toFixed(6))) / p; };
+// D50W, as amended the same day (Pp): one decimal on a bag with no dead space;
+// whole mL with one, except that a non-central bag ordered at or under 12.5 %
+// rounds down rather than past 12.5 % in the bag. This order is central.
+const ROUTE = 'central';
+function drawnD50w(exactMl) {
+  if (!(IN.dead > 0)) return halfUp(exactMl, 1);
+  const whole = halfUp(exactMl, 0);
+  if (ROUTE !== 'central' && IN.dexPct <= 12.5 && whole * 0.5 / want.prepared * 100 > 12.5 + 1e-9) return Math.floor(exactMl + 1e-9);
+  return whole;
+}
+const drawn = [
+  drawnD50w(want.d50w), halfUp(want.aaMl, 0),
+  halfUp(want.naClMl, 1), halfUp(want.naAcetMl, 1), halfUp(want.glycoMl, 1),
+  halfUp(want.k2hpo4Ml, 1), halfUp(want.kClMl, 1), halfUp(want.mgMl, 1), halfUp(want.caMl, 1),
+  halfUp(want.soluvitMl * overfill, 1), halfUp(want.peditraceMl * overfill, 1), halfUp(want.hepMl, 1),
+];
+const printedComponents = halfUp(drawn.reduce((s, v) => s + v, 0), 1);
+const wfiLeft = halfUp(halfUp(want.prepared, 1) - printedComponents, 1);
+const printedWfi = wfiLeft < 0 ? wfiLeft : halfUp(wfiLeft, 0);
 const form = __printFormTicked(container);
 const formText = form.textContent.replace(/\s+/g, ' ');
 const bodyText = container.textContent.replace(/\s+/g, ' ');
@@ -182,18 +231,28 @@ const near = (label, got, exp, tol) => {
 // pull "<caption> ... <number> <unit>" out of the rendered form
 const grab = (re) => { const m = formText.match(re); return m ? parseFloat(m[1]) : null; };
 
-console.log(`\n── ${IN.wtKg} kg · deliver ${IN.delivered} mL · dead ${IN.dead} mL → prepare ${want.prepared} mL ──`);
+console.log(`\n── ${IN.wtKg} kg · deliver ${IN.delivered} mL · dead ${IN.dead} mL → prepare ${want.prepared} mL${IN.dead > 0 ? ` (next 10 above ${IN.delivered + IN.dead})` : ''} ──`);
 console.log(`   sheet Factor H9 = (${want.prepared}/${IN.delivered}) x ${IN.wtKg} = ${want.factor.toFixed(3)}\n`);
 
 near('Factor',                 grab(/Factor:([\d.]+)/),                      want.factor,       0.001);
 near('Prepared volume mL',     grab(/([\d.]+) mL \(Prepared Vol\.\)/),        want.prepared,     0.05);
-near('D50W mL',                grab(/([\d.]+) mL \(D50W\)/),                  want.d50w,         0.05);
-// anchor to the Aminoven row: the dextrose row also reads "g in bag = ... mL"
+// The amino acid is whole mL since 2026-11-16, and so is D50W on a bag with
+// dead space (drawnD50w): the sheet's exact mL, half up. Within 0.05 of that,
+// so within 0.5 of the sheet and no further; with no dead space D50W keeps one
+// decimal, within 0.05 of the sheet as before.
+near(`D50W mL (sheet, ${IN.dead > 0 ? 'whole mL' : 'one decimal'})`, grab(/([\d.]+) mL \(D50W\)/), drawnD50w(want.d50w), 0.05);
+// anchor to the Aminoven row: the dextrose row read "g in bag = ... mL" too (since 2026-11-16 "→")
 near('AA g in bag',            grab(/Aminoven infant \/ PED AMINE = [\d.]+ g\/kg\/d = ([\d.]+) g in bag/), want.aaBag, 0.05);   // PED AMINE named since 2026-10-28
-near('Aminoven mL',            grab(/g\/kg\/d = [\d.]+ g in bag = ([\d.]+) mL/),  want.aaMl,   0.05);
+near('Aminoven mL (sheet, whole mL)', grab(/g\/kg\/d = [\d.]+ g in bag = ([\d.]+) mL/), halfUp(want.aaMl, 0), 0.05);
 near('20% NaCl mL',            grab(/mEq = ([\d.]+) mL/),                     want.naClMl,       0.05);
-near('Components mL (+vitExtra)', grab(/Components ([\d.]+) mL/),             want.componentVol + vitExtra, 0.15);
-near('WFI q.s. mL (−vitExtra)',  grab(/WFI (-?[\d.]+) mL/),                    want.wfi - vitExtra,          0.15);
+near('Components mL (drawn up)', grab(/Components ([\d.]+) mL/),              printedComponents, 0.05);
+near('WFI q.s. mL (whole mL)',   grab(/WFI (-?[\d.]+) mL/),                    printedWfi,        0.05);
+// What whole-mL WFI allows: the printed components + WFI is the prepared
+// volume to within half a mL (2026-11-16), never further.
+{
+  const c = grab(/Components ([\d.]+) mL/), w = grab(/WFI (-?[\d.]+) mL/);
+  near('components + WFI ≈ prepared (±0.5)', c === null || w === null ? null : c + w, want.prepared, 0.5);
+}
 near('Dextrose delivered g',   grab(/Dextrose ([\d.]+) g/),                   want.dexDeliveredG, 0.05);
 near('AA delivered g',         grab(/Amino acid ([\d.]+) g =/),               want.aaDeliveredG, 0.05);
 near('Na delivered mEq',       grab(/Na⁺ ([\d.]+) mEq/),                      want.naDelivered,  0.02);

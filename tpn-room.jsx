@@ -490,20 +490,23 @@ function StickerSheet({ model: m }) {
               {m.stock.map((r) => (
                 <tr key={r.key}>
                   <td className="tick"><Lbl>☐</Lbl></td>
-                  <td><Lbl>{r.label}</Lbl></td>
+                  <td className="name"><Lbl>{r.label}</Lbl></td>
                   <td className="num"><Fig of={"stockMl." + r.key}>{r.value}</Fig></td>
                   <td className="unit"><Lbl>mL</Lbl></td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="wfi">
-            <Lbl>SWFI</Lbl>
-            <div className="wfi-value"><Fig of="stockMl.wfi">{m.wfiMl}</Fig></div>
-            <Lbl>mL</Lbl>
+          {/* The ID sits under the SWFI box, so the 85 mm part keeps its sixteen rows (2026-11-16). */}
+          <div className="wfi-col">
+            <div className="wfi">
+              <Lbl>SWFI</Lbl>
+              <div className="wfi-value"><Fig of="stockMl.wfi">{m.wfiMl}</Fig></div>
+              <Lbl>mL</Lbl>
+            </div>
+            <div className="small-id"><Lbl>NeoFeed ID</Lbl> <span data-mapped="id">{m.sessionId}</span></div>
           </div>
         </div>
-        <div className="small-id"><Lbl>NeoFeed ID</Lbl> <span data-mapped="id">{m.sessionId}</span></div>
       </section>
 
       <section className={"part part-label" + (m.trial ? " part-trial" : "")}>

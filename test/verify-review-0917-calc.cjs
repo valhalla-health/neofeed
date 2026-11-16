@@ -351,29 +351,45 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     // 0.6 mL (S5_elbw), 0.7 (parity_plain, parity_dead), 0.9 (mixed_pn_en),
     // 1.1 (lipid48_k4). Was:
     // 4665993be1d28165, d8e6e0037140316a, 4360095edf3f8a57, e69aa282b98914b1, 21f65359af7e9e7c.
+    // Four recaptured 2026-11-16, the TPN unit's whole-mL amino acid and WFI and
+    // the prepared volume up to the next 10 mL (Pp), compared figure by figure
+    // with fabe44a. What moved, and nothing else: S5_elbw WFI 30.5 → 31 (60 −
+    // 29.5, half up); parity_plain the amino acid 39.5 → 39 (3.9488 g, three
+    // times), components 89 → 88.5, WFI 48 → 49 (48.5 up); mixed_pn_en the
+    // amino acid 38.5 → 39 (three times), components 70.1 → 70.6, WFI 19.9 → 19
+    // (19.4). parity_dead, 137 + 6.3 mL, is prepared at 150, not 143.3 (front,
+    // back and bag line), Factor 1.291 → 1.351, so every bag figure scales by
+    // 150/143.3: dextrose 17.9 → 18.8 g and D50W 35.8 → 38 mL (whole, 37.5 up),
+    // amino acid 4.1 → 4.3 g and 41.3 → 43 mL, NaCl 3 → 3.1 mEq, Na acetate 1.4
+    // → 1.5 mEq, K₂HPO₄ 1.7 → 1.8 mEq and mL, KCl 4 → 4.2 mEq and 2 → 2.1 mL,
+    // MgSO₄ 5.5 → 5.7 mg, Ca gluconate 61 → 64 mg and 6.7 → 7 mL, Soluvit and
+    // Peditrace 1.3 → 1.4, heparin 0.7 → 0.8 mL, components 93.3 → 98, WFI 50 →
+    // 52. lipid48_k4 did not change: no dead space (D50W keeps 27.5), amino acid
+    // 35 and WFI 32 were whole already. Was: 4c15805376de12fb, b05f7580288efc98,
+    // 44855b86110a1f9d, 0e0e83347c3316b0.
     const ORDERS = {
-      S5_elbw: ['4c15805376de12fb', { ...P, bw: 500, weights: [{ dol: 1, w: 500 }] }, () => {
+      S5_elbw: ['465620d013bf7076', { ...P, bw: 500, weights: [{ dol: 1, w: 500 }] }, () => {
         setField('Current weight', 500); fillRequired(150);
         setField('Volume(mL/day)', 60); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 2);
         setField('20% NaCl', 1); setField('Na Acetate', 1); setField('KCl', 1); setField('Glycophos', 1); }],
       // Recaptured 2026-10-27, every stock mL at one decimal (Pp). Exactly 3 of
       // its 105 figures moved: MgSO₄ 0.53 → 0.5 (front and back), heparin
       // 0.69 → 0.7 (was 28dee697feed160b).
-      parity_plain: ['b05f7580288efc98', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
+      parity_plain: ['23e9333b3ea2f2a4', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
       // Recaptured 2026-09-18 when Soluvit/Peditrace began scaling with the
       // overfill (Praew). Exactly 4 of its 90 figures moved: Soluvit 1.2 → 1.3,
       // Peditrace 1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50 (was aa0510d437c34170).
       // Recaptured 2026-10-27, one decimal: exactly 5 of its 106 moved. K₂HPO₄
       // 1.68 → 1.7 and MgSO₄ 0.56 → 0.6 (front and back), heparin 0.72 → 0.7
       // (was 0db6f59f3b7827db).
-      parity_dead: ['44855b86110a1f9d', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
+      parity_dead: ['6497fe44ac0f85d3', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
       // Recaptured 2026-10-17, when EN_DB was rebuilt from the handbook pages
       // (BM + HMF Ca 115 → 116.05, P 59 → 59.87 mg/100 mL). Exactly 4 of its 86
       // figures moved: EN Ca 67 → 68, EN PO₄ 34 → 35, total Ca 127 → 128,
       // total PO₄ 65 → 66 (was 981b3ea0856ce4b9).
       // Recaptured 2026-10-27, one decimal: exactly 2 of its 86 moved, MgSO₄
       // 0.41 → 0.4 front and back (was 9039368c94184bc9).
-      mixed_pn_en: ['0e0e83347c3316b0', P, () => {
+      mixed_pn_en: ['e0cb21941dc2b54a', P, () => {
         setField('Current weight', 1100); fillRequired(150); selectFeed('BM_HMF_24'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
         setField('Volume(mL/day)', 90); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('20% lipid', 3);
         setField('20% NaCl', 2); setField('KCl', 2); setField('10% Ca gluconate', 60); setField('Glycophos', 2); setField('MgSO₄', 3.64575); }],   // 0.3 mEq, typed in mg since 2026-10-28
@@ -648,7 +664,8 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     setField('ปริมาตรคาสาย', 20); setField('Heparin', 1);
     const hint = inputFor('Heparin').closest('.field').querySelector('.field-hint')?.textContent || '';
     // The "→ 1.2 mL of 100 U/mL" half left the screen on 2026-11-06 (Pp: "Hide them all").
-    ok('heparin hint: units from the prepared 120 mL, and no stock mL', /total 120 U\/day/.test(hint) && !/mL of 100 U\/mL/.test(hint), hint);
+    // 100 + 20 mL is prepared at 130 since 2026-11-16 (the next 10 mL above 120), so 130 U.
+    ok('heparin hint: units from the prepared 130 mL (100 + 20, up to the next 10), and no stock mL', /total 130 U\/day/.test(hint) && !/mL of 100 U\/mL/.test(hint), hint);
   });
 
   await section('§14 SEC-F7 · the NeoFeed reason prompt keeps names and HNs out', async () => {

@@ -7,6 +7,55 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (13) — The TPN unit's answers: bag volume, whole mL, sticker sizes, label lines, a larger print
+
+`data.js` (`preparedVolFor`, `PRINT_FIT_STEPS`, `PRINT_AREA_MM`, `fitPrintSheet`, new; `stickerFigures` `deadMl`;
+`CONSTANTS_VERSION` `2026-11-16.1`), `calculator.jsx` (`roundWholeMl`; the bag's prepared volume, D50W, amino acid
+and WFI; a `beforeprint` listener), `NeoFeed.html` and `index.html` (the probe's CSS and two print rules),
+`tpn-room-core.js` (`PN_FIXED` filled in, `PN_BLANK`), `tpn-room.jsx`, `tpn-room.css`, `compiled/`, the shells' `?v=`,
+`test/verify-tpn-sticker-1116.cjs` (new), `test/verify-print-one-page-1102.cjs` (§2d), `test/verify-tpn-room-page-1105.cjs`,
+`test/tpn-room-fixture.cjs`, the 14 harnesses whose own worksheet models the bag rules moved (`calc-sum`, `clinical-rules`,
+`calc-oracle`, `calc-fuzz`, `kcmh-factor`, `stock-ml-1027`, `review-0917-calc`, `tpn-team-0922`, `tpn-meeting-0928`,
+`tpn-answers-1027`, `sticker-figures-1030`, `tpn-room-core-1105`, `ward-requests-0918`, `wfi-stop-1028`; each models the new
+rules itself, edge fixtures re-tuned onto the same edge, no assertion removed), `.claude/skills/neofeed-clinical-rules/SKILL.md`
+(CR-U-FACTOR, CR-R-BAG-SUM, CR-R-STOCK-ML, CR-BOTTLE-MAX, CR-BAG-OVERFULL and their cases), `docs/CLINICAL_CONSTANTS.md`,
+`REFERENCE.md`, `STATUS.md`, `openspec/changes/tpn-room-stickers/design.md` and `tasks.md`.
+
+- **Why.** The TPN unit and the ward sent their notes on the trial sheet through Pp on 2026-11-16, with Base's rescaled
+  sheet (`tpn_A4.pdf`) and a photo of a printed order. Pp: "work all". PR #278; Pp checked the sticker PDF against the
+  room's paper ("ตรงแล้ว") and said "merge แล้ว release เลย".
+- **The bag rounds up.** The TPN set holds exactly 30 mL, so a bag of delivered + 30 left nothing over. The nurses asked
+  for "เลขกลมๆหรือเผื่อสายมากกว่า 30 mL"; Pp chose the next 10 mL above delivered + dead space, so 30 mL of dead space
+  leaves more than 30 and at most 40 mL. The Factor carries the extra, so the infant still gets the dose ordered. No dead
+  space, no rounding.
+- **Whole mL for D50W, amino acid and SWFI** ("ใช้ syringe scale ใหญ่ในการตวง ที่ผ่านมาถ้าได้ทศนิยมจะปัดให้"). Half up. The
+  rest keep one decimal, so components + WFI is the bag to within half a mL, the tolerance pharmacy used by hand. The
+  printed "=" before the prepared volume and before the D50W mL became "→".
+- **D50W's two exceptions** (Pp, after the cold reader showed whole mL moving the bag's dextrose: a 70 mL peripheral
+  bag of D12.5 % took 18 mL, 12.9 %; a 10 mL bag of D7.5 % with no dead space took 2 mL, 10 %): a bag with no dead
+  space keeps one decimal, and a peripheral bag ordered at or under 12.5 % never rounds up past it; it rounds down.
+- **The stickers.** The worksheet is 150 × 85 mm with each figure beside its name and the NeoFeed ID under the SWFI box;
+  the PN label is 200 × 80 mm; each part has a dashed outline to cut along. The PN label's heading, storage line and
+  extension are the unit's (`PN_FIXED`), so the trial mark goes (Pp: "เอาออก Pp เช็ก PDF ก่อน merge"). The label's Dead
+  space is prepared − delivered, so its three volumes add up.
+- **A larger print, one A4 page.** "ตอนกด print ตั้งค่า scale 115% ใหญ่กำลังดี ไม่ล้น", and Pp asked for the figures to be
+  larger as well, "โดยคงให้เป็น 1 หน้า A4 เท่าเดิม". Before the print dialog, `fitPrintSheet` lays a copy out off-screen
+  at 190 mm and gives the sheet the first step that fits 279 mm: 115 %, 110 %, 105 %, then 100 %, the bold values at
+  1.15 em; the last step is the sheet as it printed before. In Chromium with the wide test font, the order with no
+  critical alert prints at 110 %, the one-alert order at 100 % with larger figures.
+- **Answered, no code.** Osmolarity counts the sodium from Glycophos and Na acetate (0.3 e): NeoFeed already did. The
+  acetate line leaves out Aminoven Infant's (0.3 m): it already did. Twins carry the ward's usual sticker (0.3 j).
+  Soluvit and Peditrace take decimals, as they already did; Pp kept Peditrace's 15 mL maximum from its leaflet (the
+  unit wrote 10; no infant up to NeoFeed's 8 kg reaches either).
+- **Cold reader** (one pass, on a frozen snapshot). Fixed: the D50W rounding above; `fitPrintSheet` measured the zoomed
+  copy, right only from Chromium 128, so it measures the unzoomed wrapper; the D50W "=" chain; the label's Dead space
+  from the printed volumes (47.6 + 32.4 = 80, not 32.5); the back sheet's dead space says "ปัดขึ้นหลักสิบ"; weak checks
+  in the new harness; stale wording. Kept: printJson stays v 1 although `deadMl` changed meaning, because the row's
+  `constantsVersion` marks it and a bump needs a backend deploy first; Center Point shows the dead space typed, an input.
+- **Found, not fixed here.** On `main` before this change, `verify-print-one-page-1102.cjs` §2 already prints the
+  14-alert order on two pages in the wide test font (281.3 mm of 281), and the Print ทั้งหมด job of the fullest sheets
+  on four pages. CI does not run §2. This change leaves that order at its old size (the floor step).
+
 ## Session 2026-11-16 (12) — PR #277 merged into `main`; STATUS catches up on release #276
 
 `STATUS.md` only. Pp, 2026-11-16: "merge เมื่อ CI ผ่าน". PR #277's line now reads merged into `main` on her

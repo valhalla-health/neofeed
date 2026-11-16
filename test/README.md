@@ -2307,6 +2307,20 @@ control in it, and both shells carry each print rule. It cannot show the printed
 node test/verify-growth-weekly-print-1116.cjs
 ```
 
+**`verify-tpn-sticker-1116.cjs`** (45 assertions; jsdom, the real Calculator on saved orders) — the TPN unit's
+answers of 2026-11-16 that move the bag. §1: `D.preparedVolFor` rounds delivered + dead space up to the next 10 mL
+above the sum, every whole mL from 1 to 1200 keeping more than 30 and at most 40 mL over; no dead space is not
+rounded. §2: the printed form's prepared volume, Factor, whole-mL D50W, amino acid and WFI, a one-decimal Ca
+gluconate, and the "→" lines; §2b a bag with no dead space keeps D50W at one decimal; §2d a peripheral bag at
+12.5 % rounds D50W down (17 mL, central 18), one above 12.5 % does not (19). §3: a bag over-full by 0.3 mL is
+refused, not rounded to WFI 0. §4: `stickerFigures` Dead space is printed Prepared − printed Delivered. §5: the
+unit's three PN lines ship. Against `fabe44a` it fails 24 checks; with the negative-WFI guard, the peripheral
+round-down or the no-dead-space decimal removed from the calculator, the check for each fails.
+
+```
+node test/verify-tpn-sticker-1116.cjs
+```
+
 ## CI in parallel shards, 2026-11-16 — one harness extended
 
 CI no longer runs the ~285 harness steps one after another in one job (33.7 min on main run 43864098626).
