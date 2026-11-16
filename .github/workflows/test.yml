@@ -3,42 +3,68 @@
 # NeoFeed prints pharmacy orders, and until 2026-09-11 nothing ran these
 # harnesses automatically — they were run by hand before a push, and a push
 # to main is a production deploy (STATUS.md § Release-branch deploy gate).
-# This job is meant to be a REQUIRED status check on `release`, so a
-# main → release PR cannot merge red. See IMPROVEMENT_SPEC_2026-09-04.md § 3.2.
+# The `harnesses` job is a REQUIRED status check on both `main` and `release`,
+# so neither a PR into main nor a main → release PR can merge red. See
+# IMPROVEMENT_SPEC_2026-09-04.md § 3.2.
 #
 # Since 2026-09-17 the frontend has a build step (tools/build.mjs) whose output
 # is COMMITTED: both hosts serve compiled/, vendor/ and the shells straight
-# from git, and no build ever runs on a host. So this job does three things
+# from git, and no build ever runs on a host. So this workflow does three things
 # with it: rebuilds from the .jsx sources and fails if that changes a single
 # byte (stale or hand-edited output cannot merge), runs every harness against
 # the sources as before, and runs them all again against the compiled files
-# that actually ship. The test npm packages below are dev-only, installed here
-# and never committed — the same command test/README.md documents.
+# that actually ship (all but verify-calc-compare.cjs, which never loads
+# compiled/ and so runs in the sources pass only). The test npm packages below
+# are dev-only, installed here and never committed — the same command
+# test/README.md documents.
+#
+# Since 2026-11-16 the two harness passes run as parallel jobs, each split
+# over three shards (`--shard K/N`), instead of one job running ~285 steps one
+# after another (33.7 min on main run 43864098626). Every check still runs:
+# the shares of a pass cover it exactly once (tools/run_checks.js shareOf), and
+# the `harnesses` job at the bottom is green only when every job above it is.
+#
+# Every line of this file that is not blank or a comment is pinned in
+# test/verify-run-checks.cjs § 6 (`LIVE`). Change both in the same commit.
 name: test
 
 on:
   pull_request:
+  # Not `release`: a release PR's head is main's own tip, and every merge into
+  # release has had the tree of a main commit this workflow already passed (30
+  # of 30, 2026-10-27 to 2026-11-16). The release PR's own run is the gate;
+  # Cloudflare deploys on the push whatever a run on it would say.
   push:
-    branches: [main, release]
+    branches: [main]
 
 permissions:
   contents: read
 
+# A newer push to a PR stops that PR's older run: the older head can no
+# longer merge. A push to main gets a group of its own (its run id), so no
+# post-merge run is ever cancelled or queued behind another.
+concurrency:
+  group: test-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  # The ward's timezone. The app pins Asia/Bangkok itself; running the
+  # harnesses in it too matches how they are run locally.
+  TZ: Asia/Bangkok
+
+# NF-32: every check is listed in tools/checks.json, each with a dimension and
+# a blocking flag, and tools/run_checks.js is the one command that runs them.
+# The pre-commit and Stop hooks call the same runner, so a check added once
+# runs at every level. Add a check there, not as a step here. The jobs below
+# only set up what each phase needs.
 jobs:
-  harnesses:
+  # pre: a fresh build must change no byte of compiled/, vendor/ or the shells
+  # (stale or hand-edited output cannot merge; this runs first in its own
+  # checkout, before anything writes to the tree), the two HTML shells are
+  # identical, and tools/ci_bans.js with its self-test (NF-19, NF-08).
+  pre:
     runs-on: ubuntu-latest
-    # 30, not 20, since 2026-09-23: the three calculator harnesses added that
-    # day (oracle, clicks, fuzz) cost about two minutes per mode, and every
-    # harness here runs twice — once against the sources, once against
-    # compiled/. A deeper fuzz run is deliberately NOT the default: FUZZ_N=500
-    # is for a local session, not for every PR. 45, not 30, since 2026-10-04: the
-    # browser sections now run here too, once, in the compiled pass (about ten
-    # minutes on a laptop; see the Playwright step below).
-    timeout-minutes: 45
-    env:
-      # The ward's timezone. The app pins Asia/Bangkok itself; running the
-      # harnesses in it too matches how they are run locally.
-      TZ: Asia/Bangkok
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -46,50 +72,94 @@ jobs:
         with:
           node-version: 22
 
-      # NF-32: every check is listed in tools/checks.json, each with a dimension
-      # and a blocking flag, and tools/run_checks.js is the one command that runs
-      # them. The pre-commit and Stop hooks call the same runner, so a check added
-      # once runs at every level. Add a check there, not as a step here. The
-      # steps below only set up what each phase needs.
-      #
-      # pre: a fresh build must change no byte of compiled/, vendor/ or the shells
-      # (stale or hand-edited output cannot merge; this runs first, before
-      # anything else writes to the tree), the two HTML shells are identical, and
-      # tools/ci_bans.js with its self-test (NF-19, NF-08).
       - name: Build, shells and CI bans
         run: node tools/run_checks.js --level ci --phase pre
+
+      # Center Point serves a bundle of calculator.jsx built from center-point/
+      # (PR #57). Without this, a change that breaks that bundle or CP's client
+      # passed CI; the harnesses load the sources, not the bundle.
+      - name: Center Point builds and its client tests pass
+        run: node tools/run_checks.js --level ci --phase center-point
+
+  sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # Every shard reports, as every check did when one job ran them all.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
 
       - name: Install dev-only test dependencies (not committed)
         run: npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30
 
-      - name: Every harness, against the sources
-        run: node tools/run_checks.js --level ci --phase sources
+      # The share comes from the job's index and the matrix size, never from
+      # the matrix values, so a pass cannot lose a shard to a typo above.
+      - name: This shard of every harness, against the sources
+        run: node tools/run_checks.js --level ci --phase sources --shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}
+
+  # The same harnesses, with every .jsx module they mount replaced by the
+  # compiled/*.js file the browser actually runs (test/compiled-loader.cjs).
+  # The runner fails a harness that mounts modules but swapped none, so the
+  # preload cannot silently fall back to testing the sources, and fails a
+  # browser SKIP, so a broken Playwright install cannot pass as green again.
+  compiled:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Install dev-only test dependencies (not committed)
+        run: npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30
 
       # Eight harnesses have browser sections (the phone sweep, mobile fit, the
       # admin census, ...) that need Playwright and a Chromium and print SKIP
       # without them. Until 2026-10-04 nothing here installed either, so those
       # sections had only ever run on a laptop. They run once, in the compiled
-      # pass below, against the files that ship. Playwright lives in its own
-      # folder and is reached through NODE_PATH in that pass only: installing it
-      # into ./node_modules would prune the --no-save packages installed above,
-      # and the sources pass keeps its SKIP so the browser time is spent once.
-      - name: Install Playwright and Chromium (compiled pass only)
+      # pass, against the files that ship. Playwright lives in its own folder
+      # and is reached through NODE_PATH in this pass only: installing it into
+      # ./node_modules would prune the --no-save packages installed above, and
+      # the sources pass keeps its SKIP so the browser time is spent once.
+      - name: Install Playwright and Chromium
         run: |
           npm install --prefix "$RUNNER_TEMP/pw" --no-save --no-package-lock playwright@1
           "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
 
-      # The same harnesses, with every .jsx module they mount replaced by the
-      # compiled/*.js file the browser actually runs (test/compiled-loader.cjs).
-      # The runner fails a harness that mounts modules but swapped none, so the
-      # preload cannot silently fall back to testing the sources, and fails a
-      # browser SKIP, so a broken Playwright install cannot pass as green again.
-      - name: Every harness, against the shipped compiled/*.js, with the browser sections
+      - name: This shard of every harness, against the shipped compiled/*.js, with the browser sections
         env:
           NODE_PATH: ${{ runner.temp }}/pw/node_modules
-        run: node tools/run_checks.js --level ci --phase compiled
+        run: node tools/run_checks.js --level ci --phase compiled --shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}
 
-      # Center Point serves a bundle of calculator.jsx built from center-point/
-      # (PR #57). Without this, a change that breaks that bundle or CP's client
-      # passed CI; the harnesses above load the sources, not the bundle.
-      - name: Center Point builds and its client tests pass
-        run: node tools/run_checks.js --level ci --phase center-point
+  # The check the branch rules on main and release require, by this job's name.
+  # always(): a failed, cancelled or skipped job above must turn this red. A
+  # required check that is skipped counts as passed, so it must never be. So a
+  # PR run cancelled by a newer push ends with a red `harnesses` on the older
+  # commit; that is expected, and only the PR's head commit counts.
+  harnesses:
+    needs: [pre, sources, compiled]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job above passed
+        env:
+          PRE: ${{ needs.pre.result }}
+          SOURCES: ${{ needs.sources.result }}
+          COMPILED: ${{ needs.compiled.result }}
+        run: |
+          echo "pre: $PRE, sources: $SOURCES, compiled: $COMPILED"
+          test "$PRE" = success && test "$SOURCES" = success && test "$COMPILED" = success

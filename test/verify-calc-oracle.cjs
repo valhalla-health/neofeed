@@ -28,8 +28,13 @@
 // supplement, a feeds-only day with no bag, a term infant on a manual dosing
 // weight with a MEN feed and the Vitalipid cap, an alert-stress order, the
 // 16 kg Soluvit/Peditrace ceilings, every remaining feed in EN_DB, two feeds on
-// one day (2026-10-28), and a prepared
-// volume with a second decimal (130.45 mL, NF-17). Since
+// one day (2026-10-28), a prepared
+// volume with a second decimal (130.45 mL, NF-17; with no dead space since
+// 2026-11-16), and whole-mL D50W at the peripheral limit, on both routes.
+// Since 2026-11-16 (Pp, for the TPN unit and the ward) the prepared volume is
+// delivered + dead rounded up to the next 10 mL, and D50W (with dead space),
+// the amino acid and the WFI are whole mL; expected() writes both rules out
+// itself. Since
 // 2026-10-08 (Pp) a dosing weight above 8,000 g is no order at all, so the
 // 16 kg ceilings are checked on screen and the scenario must then refuse to
 // save, print or copy; under 8 kg neither ceiling binds.
@@ -158,6 +163,12 @@ const r2 = (x) => Math.round(x * 100) / 100;
 // "1.25 > 1.3 ml"). toPrecision(12) drops the float tail first, so 21.75
 // (stored as 21.7499…) is 21.8 and 0.35 is 0.4.
 const rMl = (x) => Math.round(+(x * 10).toPrecision(12)) / 10;
+// Whole mL, half up, the float tail dropped first (46.4999… is 46.5 → 47).
+// The TPN unit, 2026-11-16: D50W (on a bag with dead space), the amino acid
+// and the WFI are drawn up with big syringes, "ขอไม่มีทศนิยม".
+const rWhole = (x) => Math.round(+(x).toPrecision(12));
+// The peripheral dextrose limit, % (transcribed: the TPN team's 12.5 %).
+const PERIPHERAL_DEX_MAX = 12.5;
 
 // ── The expected figures, from first principles ────────────────────────────
 function expected(sc) {
@@ -165,7 +176,11 @@ function expected(sc) {
   const wG = sc.tpnWtOverride > 0 ? sc.tpnWtOverride : auto;
   const W = wG / 1000;
   const Vd = sc.tpn || 0, dead = sc.dead || 0;
-  const Vp = Vd > 0 ? Vd + dead : 0;
+  // The prepared volume (Pp, 2026-11-16, for the TPN unit and the ward): with
+  // dead space, delivered + dead rounded UP to the next 10 mL strictly above
+  // the sum, so 100 + 30 = 130 is 140; with none, the delivered volume. Until
+  // then it was delivered + dead. The Factor below follows it.
+  const Vp = Vd > 0 ? (dead > 0 ? (Math.floor(r2(Vd + dead) / 10) + 1) * 10 : Vd) : 0;
   const of = Vd > 0 ? Vp / Vd : 1;
   const F = W * of;
   const glyMl = (sc.glyNa || 0) / 2;               // typed as mEq Na/kg → mL/kg
@@ -173,11 +188,24 @@ function expected(sc) {
 
   // dextrose
   e.dexDel = Vd * sc.dex / 100; e.dexBag = Vp * sc.dex / 100;
-  e.d50 = e.dexBag > 0 ? rMl(e.dexBag / STOCK.d50) : 0;
+  // D50W (Pp, 2026-11-16): one decimal on a bag with no dead space, as before;
+  // whole mL, half up, with one, except that a bag on any route but central,
+  // ordered at or under the peripheral limit, is never rounded up past that
+  // limit in the bag: it goes down to the whole mL below instead.
+  { const exact = e.dexBag / STOCK.d50;
+    let ml = 0;
+    if (e.dexBag > 0) {
+      if (!(dead > 0)) ml = rMl(exact);
+      else {
+        ml = rWhole(exact);
+        if (sc.route !== 'central' && sc.dex <= PERIPHERAL_DEX_MAX && ml * STOCK.d50 / Vp * 100 > PERIPHERAL_DEX_MAX + 1e-9) ml = Math.floor(exact + 1e-9);
+      }
+    }
+    e.d50 = ml; }
   e.gir = W > 0 ? e.dexDel * 1000 / 1440 / W : 0;
   e.dexGkg = W > 0 ? e.dexDel / W : 0;
-  // amino acid
-  e.aaDel = sc.aa * W; e.aaBag = sc.aa * F; e.aaMl = rMl(e.aaBag / STOCK.aa);
+  // amino acid, whole mL since 2026-11-16
+  e.aaDel = sc.aa * W; e.aaBag = sc.aa * F; e.aaMl = rWhole(e.aaBag / STOCK.aa);
   // lipid
   e.lipG = sc.lip * W; e.smof = rMl(e.lipG / STOCK.smof);
   // Vitalipid rounded down to a whole mL, at least 1, since 2026-10-28 (CR-VITALIPID-CAP).
@@ -214,7 +242,11 @@ function expected(sc) {
   e.components = Math.round(Math.round((e.d50 + e.aaMl + e.naClMl + e.naAcMl + e.glyMl + e.k2Ml + e.kClMl + e.mgMl + e.caMl + e.soluvit + e.pedi + e.znMl + e.hepMl) * 100) / 10) / 10;
   // WFI q.s. = the prepared volume as printed (one decimal, half up) − the
   // components, so the printed bag line closes exactly (NF-17, Pp 2026-10-11).
-  e.wfi = r1(r1(Vp) - e.components);
+  // Since 2026-11-16 that remainder is drawn up in whole mL, half up, so the
+  // line closes to within half a mL; below 0 the bag is over-full, and its
+  // exact shortfall is kept so it is refused (−0.3 must never read 0).
+  { const left = r1(r1(Vp) - e.components);
+    e.wfi = left < 0 ? left : rWhole(left); }
   e.bagNa = e.naKg * F; e.bagK = e.kKg * F;
   e.kPerL = Vp > 0 ? e.bagK / (Vp / 1000) : 0;
   // phosphorus from the bag, mg/day delivered
@@ -459,8 +491,12 @@ const SCEN = [
     weights: [{ dol: 1, w: 1000 }] },
   // A prepared volume with a second decimal: 80.45 + 50 = 130.45 mL prints as
   // 130.5, and the WFI must be taken from that (NF-17; it printed 42.9, now 43).
-  { name: 'H prepared 130.45 mL (second decimal), WFI from the printed volume', bw: 1000, cur: 1000, dol: 10, fluid: 150,
-    ioOut: 50, tpn: 80.45, dead: 50, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 40, hep: 0.5, weights: [{ dol: 1, w: 1000 }] },
+  // Since 2026-11-16 a bag with dead space is prepared at a multiple of 10 mL,
+  // so the second decimal needs no dead space: 130.45 mL delivered is the bag.
+  // Ca 37 mg/kg (it was 40) makes the components 64.0 mL, so the printed 130.5
+  // leaves 66.5 → 67 mL of whole-mL WFI, where 130.45 would leave 66.45 → 66.
+  { name: 'H prepared 130.45 mL (second decimal, no dead space), WFI from the printed volume', bw: 1000, cur: 1000, dol: 10, fluid: 150,
+    ioOut: 50, tpn: 130.45, dead: 0, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 37, hep: 0.5, weights: [{ dol: 1, w: 1000 }] },
   // The answers of 2026-10-25: a VLBW DOL 3 (Na 0–5), heparin typed tenfold,
   // ZnSO₄ in the WFI, IV K 4.5 (under 5.0), GIR just above 12, IV NPE:AA
   // about 43 (no ceiling), and a bag above the 1,250 mL bottle.
@@ -469,6 +505,13 @@ const SCEN = [
     zn: 0.4, hep: 10, weights: [{ dol: 1, w: 1200 }] },
   { name: 'J bag above the 1,250 mL bottle cannot be ordered', bw: 7000, cur: 7500, dol: 60, fluid: 160,
     ioOut: 300, tpn: 1240, dead: 30, dex: 10, aa: 2.5, naCl: 3, kCl: 2, mg: 0.4, ca: 60, hep: 1 },
+  // Whole-mL D50W at the peripheral limit (Pp, 2026-11-16): 35 + 30 mL is
+  // prepared at 70 mL, and D12.5 % is 8.75 g = 17.5 mL of D50W. Half up that is
+  // 18 mL, 12.9 % in the bag, past the peripheral 12.5 %, so a peripheral bag
+  // takes 17 mL; the same order on a central line takes 18.
+  ...['peripheral', 'central'].map((route) => ({
+    name: `L D12.5 % ${route}, 35 + 30 → 70 mL: D50W 17.5 mL is ${route === 'central' ? '18' : '17'}`, bw: 1000, cur: 1000, dol: 10,
+    route, fluid: 150, ioOut: 30, tpn: 35, dead: 30, dex: 12.5, aa: 0.5, hep: 0.5, weights: [{ dol: 1, w: 1000 }] })),
 ];
 
 // ── DOM helpers ─────────────────────────────────────────────────────────────
@@ -877,7 +920,8 @@ async function quickCalcCopy(sc, e) {
   near(sc, 'copy BAG WFI', g(/WFI q\.s\. (-?[\d.]+) mL/), e.wfi, 1);
   if (e.Vd > 0) {
     near(sc, 'copy BAG components', g(/BAG MAKE-UP: +components (-?[\d.]+) mL/), e.components, 1);
-    near(sc, 'copy BAG prepared', g(/= (-?[\d.]+) mL prepared/), r1(e.Vp), 1);
+    // "→", not "=", since 2026-11-16: with a whole-mL WFI the line closes to within half a mL.
+    near(sc, 'copy BAG prepared', g(/\(whole mL\) → (-?[\d.]+) mL prepared/), r1(e.Vp), 1);
   }
   if (sc.zn > 0) near(sc, 'copy ZnSO₄ mL', g(/mg Zn in bag → ([\d.]+) mL of 1 mg Zn\/mL/), e.znMl, 2);
   if (sc.vitD > 0) near(sc, 'copy Vit D IU/day', g(/Vit D: [\d.]+ IU\/kg\/d = (\d+) IU\/day/), e.vitD_day, 0);

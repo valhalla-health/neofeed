@@ -118,15 +118,17 @@ One A4 sheet, three parts, cut by hand, as in the unit's current print.
 
   | Figure | At most |
   |---|---|
-  | D50W, amino acid stocks, WFI, prepared and delivered volumes | one decimal, as the doctor's form (Pp, 2026-10-30: the sample's whole mL rounded NeoFeed's 0.1 mL value a second time and was 1 mL off in 4–8 % of orders) |
+  | Prepared and delivered volumes | one decimal, as the doctor's form (Pp, 2026-10-30: the sample's whole mL rounded NeoFeed's 0.1 mL value a second time and was 1 mL off in 4–8 % of orders) |
+  | D50W, amino acid stocks, WFI | whole mL since 2026-11-16, as the doctor's form: rounded once, in the calculation, not a second time on the sticker (the unit's pharmacists draw them up with large syringes). D50W keeps one decimal in a bag with no dead space |
   | Every other stock row | one decimal |
-  | Dead space | two decimals |
+  | Dead space | one decimal: printed Prepared − printed Delivered (2026-11-16) |
   | Factor | two decimals |
   | PN label amounts | the sample's units: dextrose % and g, amino acid % and g per product, Na⁺ K⁺ Cl⁻ acetate in mEq, Ca²⁺ phosphate Zn²⁺ in mg, vitamin and trace mL, heparin units, osmolarity mOsm/L and kcal as whole numbers. One exception: **Mg²⁺ in mg**, in the same mg the order uses, where the sample shows mEq (Pp, 2026-10-30: the unit's own label moves to mg too) |
 
   Each figure is NeoFeed's calculated value rounded half up for display. No printed figure is derived
-  from another printed figure. Every mL row prints at #171's one decimal at most, so the worksheet adds up
-  to the prepared volume and matches the doctor's form row for row; the calculation is unchanged.
+  from another printed figure, except Dead space (Prepared − Delivered as printed, so the three add up). Every mL row prints at #171's one decimal at most, and since 2026-11-16 D50W, amino acid and SWFI print
+  whole mL (D50W keeps one decimal in a bag with no dead space), so the worksheet adds up to the prepared volume
+  to within half a mL and matches the doctor's form row for row.
 - **Known difference from the unit's Excel:** on the worksheet, Soluvit and Peditrace are × Factor (2.5 mL where the
   sheet gives 2.2 for a 2.20 kg infant at 280/250 mL). Pharmacy is told before the first real sticker.
 

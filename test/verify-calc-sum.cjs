@@ -15,8 +15,12 @@
 //     Ca gluconate, Soluvit N, Peditrace, heparin; lipid and Vitalipid are a
 //     separate syringe and are not in this table) plus the printed WFI q.s. and
 //     the printed prepared volume. Asserted:
-//       a. Σ(printed stock mL) + printed WFI = printed prepared, within TOL
-//       b. printed Components + printed WFI = printed prepared, exactly
+//       a. Σ(printed stock mL) + printed WFI = printed prepared, within the
+//          WFI's rounding (more than −0.5, at most +0.5 mL) and TOL
+//       b. the printed WFI is whole mL, printed prepared − printed Components
+//          rounded half up (2026-11-16: "SWI ขอไม่มีทศนิยม"; until then
+//          Components + WFI = prepared exactly), so the line reads "→", and
+//          Components + WFI is the prepared volume to within that rounding
 //       c. Σ(printed stock mL) = printed Components and on-screen Components,
 //          within TOL; on-screen Components and Bag total (prepared) equal the
 //          printed ones
@@ -29,9 +33,10 @@
 // 1b · THE QUICK CALC'S COPY. The same order is typed into the quick calc, the
 //     one place NeoFeed still copies from (Pp: "test quick calc copies text"),
 //     and its Copy's BAG MAKE-UP line must carry the quick calc's own on-screen
-//     Components and Bag total, close exactly (components + WFI = prepared),
-//     and say COMPONENTS EXCEED BAG VOLUME exactly when the screen says the bag
-//     cannot be compounded.
+//     Components and Bag total, carry the WFI the rule gives (whole mL from
+//     prepared − components since 2026-11-16, the exact shortfall when below
+//     0; it closed exactly before), and say COMPONENTS EXCEED BAG VOLUME
+//     exactly when the screen says the bag cannot be compounded.
 //
 // THE TOLERANCE, from the app's rounding chain (calculator.jsx, solVol and the
 // bag make-up block):
@@ -48,12 +53,20 @@
 //   TOL = 0.05 mL (+1e-9 for float noise) when any printed part has a non-zero
 //   hundredths digit; 0 (+1e-9) when every part is a whole tenth, since then
 //   S = C. Check (b) is exact (1e-9). Nothing looser is justified.
+//   Since 2026-11-16 (Pp, for the TPN unit): D50W on a bag with dead space,
+//   the amino acid and the WFI are whole mL, half up; every other part keeps
+//   one decimal. W = P − C rounded to the whole mL when P − C ≥ 0 (the exact
+//   shortfall when below: refused), so C + W − P lies in (−0.5, +0.5]. Check (b)
+//   is that rounding, exactly (wholeWfi, in tenths), and (a) is |S + W − P|
+//   inside the same half mL, plus TOL. Still nothing looser.
 //
 // 2 · WIRED-IN CHECK. After the first save each order changes one input the
 //     way a person does — a click on a dead-space preset chip, or a new TPN
 //     volume typed a character at a time — and the harness asserts that the
-//     on-screen Bag total (prepared) moves to the new delivered + dead volume
-//     (input arithmetic, not the app's formula), that Components moves when it
+//     on-screen Bag total (prepared) moves to the new delivered + dead volume,
+//     rounded up to the next 10 mL above it when there is dead space (input
+//     arithmetic from the 2026-11-16 rule, preparedOf, not the app's formula;
+//     the chip picked is one that moves the bag), that Components moves when it
 //     must (a dead-space change on a bag with dextrose), that the stale print
 //     form is withdrawn while unsaved, and that after the second save the
 //     reprinted form carries the new figures and its parts still add up.
@@ -101,8 +114,9 @@
 // this check — a 900 g infant on day 3 of TPN, a term infant, a bag a few mL
 // short of its prepared volume, one that overflows it, K₂HPO₄ and MgSO₄ under
 // 0.05 mL (0 mL, so not orderable since 2026-10-27), hundredths that carry across the sum, a prepared volume with a
-// second decimal (typed 80.45 mL), and components that fill such a bag
-// exactly (WFI 0, no over-full alert) — and SUM_N seeded random orders (default 40,
+// second decimal (130.45 mL with no dead space since 2026-11-16; it was
+// 80.45 + 50), components that fill such a bag exactly (WFI 0, no over-full
+// alert), and a bag 0.3 mL short whose whole-mL WFI is 0 (S10) — and SUM_N seeded random orders (default 40,
 // seed SUM_SEED 20261011; the seed and the whole order print with a failure).
 // Then 3's three two-feed orders: 6 + 2 beside a bag, 4 + 4 feeds only, and
 // 5 + 3 on a peripheral line.
@@ -180,8 +194,8 @@ const PATCHES = {
   1: ['soluvitVol + peditrace_vol + solVol.znso4 + solVol.heparin\n',
       'soluvitVol + peditrace_vol + solVol.znso4\n',
       'heparin dropped from componentVol'],
-  2: ['const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));',
-      'const wfiVol = parseFloat((Number(D.displayNum(totalTPN_mL, 1)) - componentVol).toFixed(1));',
+  2: ['const wfiExact = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));',
+      'const wfiExact = parseFloat((Number(D.displayNum(totalTPN_mL, 1)) - componentVol).toFixed(1));',
       'WFI from the delivered volume, not the prepared one'],
   3: ['totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,',
       'totalTPN_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,',
@@ -260,8 +274,11 @@ const OWN = [
   { name: 'S2 term infant 3.4 kg, central, every bag stock', bw: 3400, cur: 3350, dol: 5, fluid: 100, ioOut: 120,
     tpn: 300, dead: 50, dex: 12.5, aa: 3, lip: 3, naCl: 2, naAc: 1, glyNa: 2, kCl: 1.5, k2: 0.5, mg: 0.4, ca: 60, hep: 1,
     weights: [{ dol: 1, w: 3400 }] },
-  { name: 'S3 near the bag volume limit (WFI under 1 mL)', bw: 1000, cur: 1000, dol: 8, fluid: 150, ioOut: 50,
-    tpn: 50, dead: 0, dex: 20, aa: 2.3, naCl: 3, kCl: 2, ca: 20, hep: 0.6, weights: [{ dol: 1, w: 1000 }] },
+  // S3 leaves 0.6 mL, which prints as 1 mL of WFI since 2026-11-16 (49.4 + 1 → 50,
+  // 0.4 mL over, inside the half mL the whole-mL WFI allows). S10 below leaves 0.3.
+  { name: 'S3 near the bag volume limit (0.6 mL left, WFI 1 mL)', bw: 1000, cur: 1000, dol: 8, fluid: 150, ioOut: 50,
+    tpn: 50, dead: 0, dex: 20, aa: 2.3, naCl: 3, kCl: 2, ca: 20, hep: 0.6, weights: [{ dol: 1, w: 1000 }],
+    expectMake: { components: 49.4, wfi: 1, prepared: 50 } },
   { name: 'S4 over the bag volume limit (cannot be compounded)', bw: 1000, cur: 1000, dol: 8, fluid: 150, ioOut: 50,
     tpn: 50, dead: 0, dex: 20, aa: 2.6, naCl: 3, kCl: 2, ca: 20, hep: 0.6, weights: [{ dol: 1, w: 1000 }], overflow: true },
   // S5 printed K₂HPO₄ and MgSO₄ as 0.01 mL until 2026-10-27; at one decimal
@@ -274,14 +291,28 @@ const OWN = [
   // prepared printed "87.5 + WFI 42.9 = 130.5": displayNum rounded the tie up and toFixed
   // rounded 42.94999… down. WFI now comes from the printed prepared volume (87.5 + 43 = 130.5).
   // CHANGELOG.md, 2026-10-11 (8). Do not loosen the tolerance to make it pass.
-  { name: 'S7 prepared volume with a second decimal (80.45 + 50 mL)', bw: 1000, cur: 1000, dol: 10, fluid: 150, ioOut: 50,
-    tpn: 80.45, dead: 50, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 40, hep: 0.5, weights: [{ dol: 1, w: 1000 }] },
+  // Until 2026-11-16 S7 was 80.45 + 50 mL. A bag with dead space is now prepared
+  // at a multiple of 10 mL, so a second decimal comes only with no dead space:
+  // 130.45 mL delivered is the bag. Ca 37 mg/kg makes the components 64.0 mL
+  // (D50W 26.1, amino acid 30, NaCl 0.6, KCl 0.5, Ca 4.1, heparin 0.7, Soluvit
+  // and Peditrace 1 each), so the printed 130.5 leaves 66.5 → 67 mL of whole-mL
+  // WFI, where the unrounded 130.45 would leave 66.45 → 66.
+  { name: 'S7 prepared volume with a second decimal (130.45 mL, no dead space)', bw: 1000, cur: 1000, dol: 10, fluid: 150, ioOut: 50,
+    tpn: 130.45, dead: 0, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 37, hep: 0.5, weights: [{ dol: 1, w: 1000 }],
+    expectMake: { components: 64, wfi: 67, prepared: 130.5 } },
   // S8: the over-full alert at the same tie (Vera, NF-17 review). 130.45 mL prepared prints 130.5;
   // the components (130.48 → 130.5) fill it exactly. WFI is 0 and no alert fires. Before the fix the
   // WFI was 130.45 − 130.5 → −0.1 and the bag was called over-full by 0.1 mL.
   { name: 'S8 components fill the printed bag exactly at the tie (WFI 0)', bw: 2000, cur: 2000, dol: 10, fluid: 120,
     ioOut: 80, tpn: 130.45, dead: 0, dex: 20, aa: 3.5, naCl: 2, kCl: 1, ca: 6, hep: 0.6, weights: [{ dol: 1, w: 2000 }],
     expectMake: { components: 130.5, wfi: 0, prepared: 130.5 } },
+  // S8 still sits on its tie after 2026-11-16: a bag with no dead space keeps
+  // D50W at one decimal (52.2), so the components are 130.5 and the WFI 0.
+  // S10 (2026-11-16): S3 with Ca 22.5 mg/kg (2.5 mL) leaves 0.3 mL, which whole-
+  // mL WFI prints as 0 (49.7 + 0 → 50). It is not over-full and must still order.
+  { name: 'S10 0.3 mL left: whole-mL WFI 0, still orderable', bw: 1000, cur: 1000, dol: 8, fluid: 150, ioOut: 50,
+    tpn: 50, dead: 0, dex: 20, aa: 2.3, naCl: 3, kCl: 2, ca: 22.5, hep: 0.6, weights: [{ dol: 1, w: 1000 }],
+    expectMake: { components: 49.7, wfi: 0, prepared: 50 } },
   // S9: Glycophos typed by P (Pp, 2026-11-06). 20 mg P/kg is 20/31 mL/kg, a dose
   // with no end to its decimals: the printed bag must still add up. glyNa is the
   // same dose in mEq Na, for stocksAtZero and expectedLines.
@@ -417,7 +448,9 @@ function readPrintBag() {
       parts.push({ name, ml: numOrDash(strong.textContent), text: strong.textContent.trim() });
     } else if (/^Water for injection q\.s\./.test(name || '')) {
       const t = tds[1].textContent.replace(/\s+/g, ' ');
-      const m = t.match(/Components (-?[\d.]+|—) mL \+ WFI (-?[\d.]+|—) mL = (-?[\d.]+|—) mL prepared/);
+      // "→", not "=", since 2026-11-16: with a whole-mL WFI the two sides are
+      // equal only to within half a mL.
+      const m = t.match(/Components (-?[\d.]+|—) mL \+ WFI (-?[\d.]+|—) mL → (-?[\d.]+|—) mL prepared/);
       make = m ? { components: numOrDash(m[1]), wfi: numOrDash(m[2]), prepared: numOrDash(m[3]), overflowNote: /เกินปริมาตรถุง/.test(t) } : { error: t };
     }
   }
@@ -439,9 +472,27 @@ const r1 = (x) => Math.round(x * 10) / 10;
 // strengths, not read off the app. Dextrose, amino acid, Soluvit and
 // Peditrace cannot get there at the doses these orders use.
 const rMl = (x) => Math.round(+(x * 10).toPrecision(12)) / 10;
+// The prepared volume, restated from the rule (Pp, 2026-11-16), not read off
+// the app: with a dead space, delivered + dead rounded UP to the next 10 mL
+// strictly above the sum (48 + 30 = 78 → 80, 110 + 30 = 140 → 150); with none,
+// the delivered volume as it is; no volume, no bag.
+function preparedOf(Vd, dead) {
+  if (!(Vd > 0)) return 0;
+  if (!(dead > 0)) return Vd;
+  const sum = Math.round((Vd + dead) * 100) / 100;
+  return (Math.floor(sum / 10) + 1) * 10;
+}
+// The WFI as printed since 2026-11-16: what the printed prepared volume P leaves
+// after the printed Components C, in whole mL, half up, from a non-negative
+// remainder (an over-full bag is not printed). Worked in tenths so 50 − 49.4
+// is 6 tenths, not 0.6000000000000014.
+function wholeWfi(P, C) {
+  const tenths = Math.round(P * 10) - Math.round(C * 10);
+  return tenths < 0 ? tenths / 10 : Math.floor((tenths + 5) / 10);
+}
 function stocksAtZero(sc, dosingG, Vd, dead) {
   if (!(Vd > 0)) return [];
-  const S = window.NEOFEED_DATA.KCMH_STOCK, Vp = Vd + dead, F = dosingG / 1000 * Vp / Vd;
+  const S = window.NEOFEED_DATA.KCMH_STOCK, Vp = preparedOf(Vd, dead), F = dosingG / 1000 * Vp / Vd;
   return [['naCl', S.naCl.naMeqPerMl], ['naAc', S.naAcetate.naMeqPerMl], ['glyNa', S.glycophos.naMeqPerMl],
     ['kCl', S.kCl.kMeqPerMl], ['k2', S.k2hpo4.kMeqPerMl], ['mg', S.mgso4_10.mgMeqPerMl], ['ca', S.caGluconate.caMgPerMl],
     ['zn', S.znso4.znMgPerMl]].filter(([k, perMl]) => sc[k] > 0 && rMl(sc[k] * F / perMl) === 0).map(([k]) => k)
@@ -537,9 +588,17 @@ function sumCheck(sc, label, Vd) {
     return null;
   }
   ok(sc, `${label}: no "cannot be compounded" on a bag with WFI ≥ 0`, !scr.cannotOnScreen && !make.overflowNote, detail);
-  ok(sc, `${label}: Σ(printed stock mL) + printed WFI = printed prepared (±${TOL > EPS ? '0.05' : '0'})`,
-    Math.abs(sr + make.wfi - make.prepared) <= TOL, detail);
-  ok(sc, `${label}: printed Components + WFI = prepared, exactly`, Math.abs(make.components + make.wfi - make.prepared) <= EPS, detail);
+  // Since 2026-11-16 the WFI is whole mL, half up, so Components + WFI is the
+  // prepared volume to within half a mL: P − C rounded to the whole mL moves it
+  // by more than −0.5 and at most +0.5 (a remainder of x.5 goes up). Until then
+  // both sums were exact (b) or within TOL (a).
+  const offTenths = Math.round((make.components + make.wfi - make.prepared) * 10);
+  ok(sc, `${label}: printed WFI is whole mL`, Number.isInteger(make.wfi), detail);
+  ok(sc, `${label}: printed WFI = printed prepared − printed Components, to the whole mL, half up`,
+    make.wfi === wholeWfi(make.prepared, make.components), { ...detail, wantWfi: wholeWfi(make.prepared, make.components) });
+  ok(sc, `${label}: printed Components + WFI = prepared, within the WFI's rounding (−0.5, +0.5]`, offTenths > -5 && offTenths <= 5, detail);
+  ok(sc, `${label}: Σ(printed stock mL) + printed WFI = printed prepared, within the WFI's rounding${TOL > EPS ? ' ±0.05' : ''}`,
+    sr + make.wfi - make.prepared > -0.5 - TOL + EPS && sr + make.wfi - make.prepared <= 0.5 + TOL, detail);
   ok(sc, `${label}: Σ(printed stock mL) = printed Components (±${TOL > EPS ? '0.05' : '0'})`, Math.abs(sr - make.components) <= TOL, detail);
   if (Vd > 0) {
     ok(sc, `${label}: Σ(printed stock mL) = on-screen Components (±${TOL > EPS ? '0.05' : '0'})`, scr.components !== null && Math.abs(sr - scr.components) <= TOL, detail);
@@ -637,7 +696,11 @@ async function run(scIn, idx) {
   const useChip = Vd > 0 && idx % 2 === 0;
   let newVd = Vd, newDead = sc.dead, how;
   if (useChip) {
-    newDead = [30, 50, 100].find(v => v !== sc.dead);
+    // Since 2026-11-16 a dead-space change inside the same ten (37 → 30 mL on
+    // 100 mL: 140 either way) leaves the bag as it is, so the chip picked is
+    // one that moves the prepared volume: the check is that the screen follows
+    // a change that must show.
+    newDead = [30, 50, 100].find(v => v !== sc.dead && preparedOf(Vd, v) !== preparedOf(Vd, sc.dead));
     const chip = chipsAfter('ปริมาตรคาสาย').find(c => Number(c.textContent) === newDead);
     ok(sc, `dead-space chip ${newDead} exists`, !!chip);
     if (!chip) return 'no chip';
@@ -651,8 +714,8 @@ async function run(scIn, idx) {
     how = `TPN volume typed ${Vd} → ${newVd} mL/day`;
   }
   const after = screenFigures();
-  const wantPrepared = r1(newVd + newDead);
-  ok(sc, `wired-in (${how}): on-screen Bag total moves to delivered + dead`,
+  const wantPrepared = r1(preparedOf(newVd, newDead));
+  ok(sc, `wired-in (${how}): on-screen Bag total moves to delivered + dead, up to the next 10 mL`,
     after.bagTotal !== null && Math.abs(after.bagTotal - wantPrepared) <= 0.05 + EPS, { before, after, wantPrepared });
   ok(sc, `wired-in (${how}): on-screen Bag total changed`, after.bagTotal !== before.bagTotal, { before, after });
   if (useChip && sc.dex > 0) ok(sc, `wired-in (${how}): on-screen Components changed (D50W follows the prepared volume)`,
@@ -701,14 +764,18 @@ async function quickCalcBag(scIn) {
   const btn = [...container.querySelectorAll('button')].find(b => /คัดลอกผลคำนวณ/.test(b.textContent));
   ok(sc, 'quick calc: คัดลอกผลคำนวณ is offered', !!btn);
   if (btn) await clickAsync(btn);
+  // The line says "(whole mL) →" since 2026-11-16, for the WFI's rounding.
   const m = typeof copied === 'string'
-    && copied.match(/BAG MAKE-UP: +components (-?[\d.]+) mL \+ WFI q\.s\. (-?[\d.]+) mL = (-?[\d.]+) mL prepared/);
-  ok(sc, 'quick calc: the copy has a BAG MAKE-UP line', !!m, typeof copied === 'string' ? copied.slice(0, 200) : copied);
+    && copied.match(/BAG MAKE-UP: +components (-?[\d.]+) mL \+ WFI q\.s\. (-?[\d.]+) mL \(whole mL\) → (-?[\d.]+) mL prepared/);
+  ok(sc, 'quick calc: the copy has a BAG MAKE-UP line', !!m, typeof copied === 'string' ? (copied.match(/BAG MAKE-UP[^\n]*/) || [copied.slice(0, 200)])[0] : copied);
   if (!m) return;
   const cp = { components: +m[1], wfi: +m[2], prepared: +m[3], cannot: /COMPONENTS EXCEED BAG VOLUME/.test(copied) };
   const scr = screenFigures();
   const detail = { copy: cp, screen: scr };
-  ok(sc, 'quick calc copy: components + WFI = prepared, exactly', Math.abs(cp.components + cp.wfi - cp.prepared) <= EPS, detail);
+  // Until 2026-11-16, components + WFI = prepared exactly. Now the WFI is whole
+  // mL from the remainder, and an over-full bag keeps its exact shortfall.
+  ok(sc, 'quick calc copy: WFI = prepared − components, whole mL half up (exact when below 0)',
+    cp.wfi === wholeWfi(cp.prepared, cp.components), { ...detail, wantWfi: wholeWfi(cp.prepared, cp.components) });
   if (Vd > 0) {
     ok(sc, 'quick calc copy: components = on-screen Components', scr.components !== null && cp.components === scr.components, detail);
     ok(sc, 'quick calc copy: prepared = on-screen Bag total', scr.bagTotal !== null && cp.prepared === scr.bagTotal, detail);
@@ -913,8 +980,11 @@ const TIES = [
     tpn: 100, dex: 10.5, aa: 1.95, want: { kcal: 44 } },
   { name: 'T3 760 g, Glycophos 1 mEq Na (0.5 mmol P): P 15.5 → 16 mg/kg/d',
     bw: 760, cur: 760, tpn: 100, dex: 10, aa: 3, glyNa: 1, want: { p: 16 } },
-  { name: 'T4 1.5 kg, 150 + 30 mL, Ca 42.5 mg/kg: Ca gluconate 42.5 × 1.8 = 76.5 → 77 mg in the bag',
-    bw: 1500, cur: 1500, tpn: 150, dex: 10, aa: 3, ca: 42.5, glyNa: 2, want: { caMg: 77 } },
+  // T4 was 150 + 30 mL = 180 until 2026-11-16; 150 + 30 = 180 now goes up to
+  // 190 (Factor 1.9, 80.75 mg, no tie), so 20 mL of dead space keeps the bag at
+  // 180 (170 → 180) and the Factor at 1.5 × 180/150 = 1.8, the float just under.
+  { name: 'T4 1.5 kg, 150 + 20 → 180 mL, Ca 42.5 mg/kg: Ca gluconate 42.5 × 1.8 = 76.5 → 77 mg in the bag',
+    bw: 1500, cur: 1500, tpn: 150, dead: 20, dex: 10, aa: 3, ca: 42.5, glyNa: 2, want: { caMg: 77 } },
   { name: 'T5 1,005 g, oral vitamin D 500 IU/kg: 502.5 → 503 IU/day, saved as 503 (Vera)',
     bw: 1005, cur: 1005, tpn: 100, dex: 10, aa: 3, vitD: 500, want: { vitD: 503 } },
   { name: 'T6 1,130 g, oral Ca 50 mg/kg: 56.5 → 57 mg/day, saved as 57 (Vera)',

@@ -12,6 +12,7 @@
 //   #4  the compiled pass keeps both of CI's guards
 //   #5  the real tools/checks.json: Pp's gate (2026-11-08), every harness claimed
 //   #6  CI, both hooks and the docs really call the runner
+//   #7  --shard: CI's parallel jobs cover a phase exactly once (2026-11-16)
 //
 // Needs Node 18+ and no npm install. Synthetic files only.
 const fs = require('fs');
@@ -196,6 +197,29 @@ console.log('\n── #5 the real tools/checks.json ──');
   ok('the no-dead-space KCMH run survived', byId['kcmh-factor-no-dead-space']?.env?.DEAD === '0', byId['kcmh-factor-no-dead-space']);
   ok('Center Point is still built and tested', byId['center-point-build'] && byId['center-point-tests']);
   ok('the build-freshness check runs first', cfg.checks[0].id === 'build-fresh' && cfg.checks[0].phases[0] === Object.keys(cfg.phases)[0], cfg.checks[0]);
+  ok('every other harness still runs in both passes', JSON.stringify(byId['every-other-harness']?.phases) === '["sources","compiled"]', byId['every-other-harness']);
+  // calc-compare clears NODE_OPTIONS for the trees it builds, so the compiled
+  // loader never reaches them: a compiled-pass run only repeated this one.
+  ok('calc-compare runs once, in the sources pass', JSON.stringify(byId['calc-compare']?.phases) === '["sources"]', byId['calc-compare']);
+  ok('calc-compare really never loads compiled/', /NODE_OPTIONS: ''/.test(fs.readFileSync(path.join(DIR, 'tools', 'calc-compare.cjs'), 'utf8')) && /NODE_OPTIONS: ''/.test(fs.readFileSync(path.join(DIR, 'test', 'verify-calc-compare.cjs'), 'utf8')));
+  // A hint naming no step weighs nothing, so a renamed slow harness would
+  // quietly unbalance CI's shards. Names as the runner gives them.
+  const claimed = new Set();
+  const names = {};
+  for (const c of cfg.checks) {
+    let own = [c.id];
+    if (c.harness) {
+      const dir = path.posix.dirname(c.harness), b = path.posix.basename(c.harness);
+      const re = new RegExp('^' + b.split('*').map(s => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$');
+      const found = fs.readdirSync(path.join(DIR, dir)).filter(f => re.test(f)).map(f => `${dir}/${f}`).filter(f => !claimed.has(f));
+      found.forEach(f => claimed.add(f));
+      own = b.includes('*') ? found.map(f => path.posix.basename(f)) : [c.id];
+    }
+    for (const p of c.phases) (names[p] ||= new Set()) && own.forEach(x => names[p].add(x));
+  }
+  const stale = Object.entries(cfg.shard_seconds || {}).filter(([p]) => p !== 'about')
+    .flatMap(([p, h]) => Object.keys(h).filter(l => !names[p]?.has(l)).map(l => `${p}: ${l}`));
+  ok('every shard_seconds hint names a step of its phase', stale.length === 0, stale);
 }
 
 // ── #6 ──────────────────────────────────────────────────────────────────────
@@ -203,12 +227,173 @@ console.log('\n── #6 every level calls the one runner ──');
 {
   const read = (f) => fs.readFileSync(path.join(DIR, f), 'utf8');
   const yml = read('.github/workflows/test.yml');
-  for (const phase of ['pre', 'sources', 'compiled', 'center-point']) {
-    ok(`CI runs phase ${phase} through the runner`, yml.includes(`node tools/run_checks.js --level ci --phase ${phase}`));
+  const ymlLines = yml.split('\n');
+  const isComment = (l) => /^[ \t]*#/.test(l);
+  // YAML also breaks a line at a lone CR (and YAML 1.1 at U+0085, U+2028 and
+  // U+2029), so `# note<CR>if: false` is a comment here but a skipped step on
+  // GitHub. Git keeps a lone CR whatever .gitattributes says. Every pin below
+  // reads lines as LF splits them, so this check holds the pin up.
+  ok('test.yml breaks lines with LF only', !/[\r\u0085\u2028\u2029]/.test(yml));
+  // Every line of the workflow that is not blank or a comment, pinned (Pp,
+  // 2026-11-16, after four reviews each found a new way to write YAML that a
+  // pattern missed: `|| true` on or after a run line, a step `if:` written as
+  // its first key, a `shell:` or `defaults:` override, a runner step in a job
+  // `harnesses` does not wait for). Whole-line comments may change freely; any
+  // other edit to test.yml changes this list in the same commit, where a
+  // reviewer sees it. This pin is the guard.
+  // The checks after it say why the lines that matter are what they are.
+  const LIVE = [
+    "name: test",
+    "on:",
+    "  pull_request:",
+    "  push:",
+    "    branches: [main]",
+    "permissions:",
+    "  contents: read",
+    "concurrency:",
+    "  group: test-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+    "  cancel-in-progress: true",
+    "env:",
+    "  TZ: Asia/Bangkok",
+    "jobs:",
+    "  pre:",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 15",
+    "    steps:",
+    "      - uses: actions/checkout@v5",
+    "      - uses: actions/setup-node@v5",
+    "        with:",
+    "          node-version: 22",
+    "      - name: Build, shells and CI bans",
+    "        run: node tools/run_checks.js --level ci --phase pre",
+    "      - name: Center Point builds and its client tests pass",
+    "        run: node tools/run_checks.js --level ci --phase center-point",
+    "  sources:",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 30",
+    "    strategy:",
+    "      fail-fast: false",
+    "      matrix:",
+    "        shard: [1, 2, 3]",
+    "    steps:",
+    "      - uses: actions/checkout@v5",
+    "      - uses: actions/setup-node@v5",
+    "        with:",
+    "          node-version: 22",
+    "      - name: Install dev-only test dependencies (not committed)",
+    "        run: npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30",
+    "      - name: This shard of every harness, against the sources",
+    "        run: node tools/run_checks.js --level ci --phase sources --shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}",
+    "  compiled:",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 30",
+    "    strategy:",
+    "      fail-fast: false",
+    "      matrix:",
+    "        shard: [1, 2, 3]",
+    "    steps:",
+    "      - uses: actions/checkout@v5",
+    "      - uses: actions/setup-node@v5",
+    "        with:",
+    "          node-version: 22",
+    "      - name: Install dev-only test dependencies (not committed)",
+    "        run: npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30",
+    "      - name: Install Playwright and Chromium",
+    "        run: |",
+    "          npm install --prefix \"$RUNNER_TEMP/pw\" --no-save --no-package-lock playwright@1",
+    "          \"$RUNNER_TEMP/pw/node_modules/.bin/playwright\" install --with-deps chromium",
+    "      - name: This shard of every harness, against the shipped compiled/*.js, with the browser sections",
+    "        env:",
+    "          NODE_PATH: ${{ runner.temp }}/pw/node_modules",
+    "        run: node tools/run_checks.js --level ci --phase compiled --shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}",
+    "  harnesses:",
+    "    needs: [pre, sources, compiled]",
+    "    if: always()",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 5",
+    "    steps:",
+    "      - name: Every job above passed",
+    "        env:",
+    "          PRE: ${{ needs.pre.result }}",
+    "          SOURCES: ${{ needs.sources.result }}",
+    "          COMPILED: ${{ needs.compiled.result }}",
+    "        run: |",
+    "          echo \"pre: $PRE, sources: $SOURCES, compiled: $COMPILED\"",
+    "          test \"$PRE\" = success && test \"$SOURCES\" = success && test \"$COMPILED\" = success",
+  ];
+  const live = ymlLines.filter(l => l.trim() && !isComment(l));
+  let firstDiff = live.findIndex((l, i) => l !== LIVE[i]);
+  if (firstDiff === -1 && live.length !== LIVE.length) firstDiff = Math.min(live.length, LIVE.length);
+  ok('every live line of test.yml is the pinned one', firstDiff === -1,
+    { firstDiff, got: live[firstDiff], want: LIVE[firstDiff], lines: [live.length, LIVE.length] });
+
+  // The checks below are a second layer: they say why the lines that matter
+  // are what they are, and catch the plain mistakes. They read text, not YAML,
+  // so an escaped or quoted key, a ` #` inside quotes or a commented job key can
+  // get past them; none of those gets past the pin.
+  //
+  // Each runner step's run line, whole: a substring check passed with `|| true`
+  // appended, which turns a failing shard green and so `harnesses` with it.
+  // Every line that names the runner counts, a `run: |` block's included, with
+  // or without `.js`.
+  const SHARD = '--shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}';
+  const bare = (l) => /["'\\]/.test(l) ? l : l.replace(/\s#.*$/, '');
+  const runnerAt = ymlLines.map((l, i) => [l, i]).filter(([l]) => !isComment(l) && /run_checks\b/.test(bare(l)));
+  const jobOf = (i) => { for (let j = i; j >= 0; j--) { const m = /^  ([\w-]+):\s*$/.exec(ymlLines[j]); if (m) return m[1]; } return null; };
+  const want = [['pre', 'pre', ''], ['center-point', 'pre', ''], ['sources', 'sources', ` ${SHARD}`], ['compiled', 'compiled', ` ${SHARD}`]]
+    .map(([phase, job, tail]) => [phase, job, `        run: node tools/run_checks.js --level ci --phase ${phase}${tail}`]);
+  for (const [phase, job, line] of want) {
+    const at = runnerAt.find(([l]) => l === line);
+    ok(`CI runs phase ${phase} through the runner, and its exit code alone decides the step${tail(phase)}`, !!at, runnerAt.map(([l]) => l));
+    ok(`phase ${phase} runs in the ${job} job, which harnesses waits for`, !!at && jobOf(at[1]) === job, at && jobOf(at[1]));
+    // A plain YAML value folds a more-indented next line into itself, so
+    // `|| true` there would join the command. After a blank line such text
+    // becomes a new script line, which `bash -e` never reaches once the runner
+    // has failed; the pin above refuses it anyway.
+    const next = at ? ymlLines.slice(at[1] + 1).find(l => !isComment(l)) : undefined;
+    ok(`nothing continues phase ${phase}'s run line`, next === '', next);
   }
+  function tail(phase) { return phase === 'sources' || phase === 'compiled' ? ", split by the job's index" : ''; }
+  ok('no other line calls the runner', runnerAt.length === 4, runnerAt.map(([l]) => l));
+  // A step or job `if:` could skip a runner step and leave its job green; the
+  // gate's `if: always()` is the only one, in any spelling of the key.
+  const ifs = ymlLines.filter(l => !isComment(l) && /^\s*(?:-\s+)?["']?if["']?\s*:/.test(l));
+  ok('the only if: in the workflow is the gate\'s always()', JSON.stringify(ifs) === JSON.stringify(['    if: always()']), ifs);
+  // `shell: true {0}` would run `true <script>` and end every step green.
+  ok('no shell: or defaults: anywhere', !/^\s*(?:-\s+)?["']?(?:shell|defaults)["']?\s*:/m.test(yml));
   ok('CI has no harness loop of its own', !/for f in test\/verify-/.test(yml));
   ok('CI calls no check directly', !/node tools\/ci_bans\.js|cmp index\.html|node tools\/build\.mjs|node --test test\//.test(yml));
   ok('the job name the branch rule requires is unchanged', /^  harnesses:/m.test(yml));
+  // The gate job, whole and literal, to the end of the file (its live lines, so
+  // a comment in it may change). A substring check passed with `|| true`,
+  // `continue-on-error`, or COMPILED bound to the sources result.
+  const GATE = [
+    '  harnesses:',
+    '    needs: [pre, sources, compiled]',
+    '    if: always()',
+    '    runs-on: ubuntu-latest',
+    '    timeout-minutes: 5',
+    '    steps:',
+    '      - name: Every job above passed',
+    '        env:',
+    '          PRE: ${{ needs.pre.result }}',
+    '          SOURCES: ${{ needs.sources.result }}',
+    '          COMPILED: ${{ needs.compiled.result }}',
+    '        run: |',
+    '          echo "pre: $PRE, sources: $SOURCES, compiled: $COMPILED"',
+    '          test "$PRE" = success && test "$SOURCES" = success && test "$COMPILED" = success',
+  ];
+  const gateAt = live.indexOf('  harnesses:');
+  ok('harnesses waits for every job, runs after a failure or a cancel, and is green only when each one passed',
+    gateAt >= 0 && JSON.stringify(live.slice(gateAt)) === JSON.stringify(GATE), gateAt >= 0 ? live.slice(gateAt) : 'no harnesses job');
+  ok('no step anywhere may fail without failing its job', !/continue-on-error/.test(yml));
+  const concAt = live.indexOf('concurrency:');
+  ok('a PR\'s older run is cancelled; each push to main has its own group', concAt >= 0 && JSON.stringify(live.slice(concAt, concAt + 3)) === JSON.stringify([
+    'concurrency:',
+    "  group: test-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+    '  cancel-in-progress: true',
+  ]), concAt >= 0 && live.slice(concAt, concAt + 3));
+  ok('a push to main still runs CI, the post-merge check', /push:\n(\s+#.*\n)*\s+branches: \[main\]/.test(yml));
   const settings = JSON.parse(read('.claude/settings.json'));
   const stop = settings.hooks.Stop[0].hooks[0].command;
   ok('the Stop hook calls the runner in hook mode', /run_checks\.js/.test(stop) && /--level stop/.test(stop) && /--hook/.test(stop), stop);
@@ -217,6 +402,56 @@ console.log('\n── #6 every level calls the one runner ──');
   ok('the hook is LF, or sh on this PC cannot read its first line', !pre.includes('\r') || /\.githooks\/\* text eol=lf/.test(read('.gitattributes')));
   ok('.githooks is never published', /^\.githooks\/$/m.test(read('.assetsignore')));
   ok('AGENTS.md names the one command', /node tools\/run_checks\.js/.test(read('AGENTS.md')));
+}
+
+// ── #7 ──────────────────────────────────────────────────────────────────────
+console.log('\n── #7 shards cover a phase exactly once ──');
+{
+  const tags = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  const files = Object.fromEntries(tags.map(t => [`test/verify-${t}.cjs`, PASSES(t)]));
+  const cfg = base([chk('a', 'clinical', 'test/verify-a.cjs'), chk('rest', 'app', 'test/verify-*.cjs')]);
+  const root = fixture(files, cfg);
+  const shares = [];
+  for (const k of [1, 2, 3]) {
+    fs.rmSync(path.join(root, 'mark'), { force: true });
+    const r = run(root, ['--level', 'ci', '--phase', 'sources', '--shard', `${k}/3`]);
+    shares.push(marks(root));
+    if (k === 2) ok('the report names the share', new RegExp(`shard 2/3: ${shares[1].length} of 7 steps`).test(r.out), r.out);
+  }
+  const all = shares.flat();
+  ok('three shares run every step', JSON.stringify([...all].sort()) === JSON.stringify(tags), shares);
+  ok('and no step twice', new Set(all).size === all.length, shares);
+  ok('no share is empty', shares.every(s => s.length > 0), shares);
+  fs.rmSync(path.join(root, 'mark'), { force: true });
+  run(root, ['--level', 'ci', '--phase', 'sources', '--shard', '1/1']);
+  ok('1/1 is the whole phase', marks(root).sort().join() === tags.join(), marks(root));
+
+  // A heavy step goes first onto an empty share and gets it to itself.
+  const heavy = fixture(files, { ...cfg, shard_seconds: { about: 'x', sources: { 'verify-c.cjs': 100 } } });
+  const outs = [];
+  const got = [1, 2, 3].map(k => {
+    fs.rmSync(path.join(heavy, 'mark'), { force: true });
+    outs.push(run(heavy, ['--level', 'ci', '--phase', 'sources', '--shard', `${k}/3`]).out);
+    return marks(heavy);
+  });
+  ok('a step shard_seconds calls heavy runs alone', got.some(s => s.join() === 'c'), got);
+  // Its hint is refreshed from this line, so it is listed however fast it ran.
+  ok('a hinted step is on the slowest: line even under 10 s', outs.some(o => /slowest: verify-c\.cjs \d s/.test(o)), outs);
+  ok('an unhinted step under 10 s is not', outs.every(o => !/slowest:.*verify-[abdefg]\.cjs/.test(o)), outs);
+  ok('the other shares still cover the rest once', JSON.stringify(got.flat().sort()) === JSON.stringify(tags), got);
+
+  const bad = (name, args, config, re) => {
+    const r = run(fixture(files, config || cfg), args);
+    ok(name, r.code === 2 && re.test(r.out), r);
+  };
+  bad('a share past the count is refused', ['--level', 'ci', '--phase', 'sources', '--shard', '4/3'], null, /--shard/);
+  bad('share 0 is refused', ['--level', 'ci', '--phase', 'sources', '--shard', '0/3'], null, /--shard/);
+  bad('a share that is not K/N is refused', ['--level', 'ci', '--phase', 'sources', '--shard', 'two'], null, /--shard/);
+  bad('--shard with no value is refused, not read as the whole phase', ['--level', 'ci', '--phase', 'sources', '--shard'], null, /--shard/);
+  bad('a share needs one phase', ['--level', 'ci', '--shard', '1/2'], null, /--phase/);
+  bad('a share is for CI only', ['--level', 'commit', '--phase', 'sources', '--shard', '1/2', '--changed', 'x.txt'], null, /--level ci/);
+  bad('shard_seconds for an unknown phase is refused', ['--level', 'ci'], { ...cfg, shard_seconds: { nope: {} } }, /shard_seconds/);
+  bad('a hint that is not seconds is refused', ['--level', 'ci'], { ...cfg, shard_seconds: { sources: { 'verify-c.cjs': 'slow' } } }, /shard_seconds/);
 }
 
 for (const r of roots) fs.rmSync(r, { recursive: true, force: true });

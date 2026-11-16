@@ -50,10 +50,11 @@ node tools/build.mjs
 
 then commit the source edit **together with** everything the build changed
 (`compiled/`, both shells' `?v=` tokens). Edit the `.jsx`, never `compiled/`. If you
-forget, the `test` workflow's first step rebuilds on a clean checkout and fails the PR
-("compiled/, vendor/ or the HTML shells do not match a fresh build"); it then runs every
-harness twice, once against the sources and once against `compiled/`
-(`test/compiled-loader.cjs`).
+forget, the `test` workflow's `pre` job rebuilds on a clean checkout and fails the PR
+("compiled/, vendor/ or the HTML shells do not match a fresh build"). Alongside that job,
+parallel shards run every harness twice, once against the sources and once against `compiled/`
+(`test/compiled-loader.cjs`); `verify-calc-compare.cjs`, which never loads `compiled/`, runs in
+the sources pass only.
 
 What the build guarantees, and refuses to write anything without:
 - **Load order** is the `MODULES` list in `tools/build.mjs`: `boot.js` (first in
@@ -151,7 +152,22 @@ split (`break-inside: avoid` in both shells). In the box the line also carries "
 so that if an order does overflow and the box moves whole to page 2, that page still names the infant and the day. The room comes from spacing (cell padding 1.5 px, line height 1.35,
 the form's own padding 0 / 2 mm, the amino-acid choices on two lines), never from a smaller figure or a
 removed line. `verify-print-one-page-1102.cjs` counts the pages in Chromium, so a line added to the front
-that tips the fullest order onto a second page fails it. The provenance footer stays two lines (8 px, about
+that tips the fullest order onto a second page fails it.
+
+**Larger when it fits (2026-11-16).** Pharmacy and the ward's older nurses read the sheet at 115 %, and Pp asked for
+the figures to stand out too, on one page. Just before the print dialog (`beforeprint`, whatever opened it),
+`D.fitPrintSheet` lays a copy out off-screen at 190 mm (`.print-probe` in both shells) and sets `--print-zoom` and
+`--print-fig` on the sheet to the first `PRINT_FIT_STEPS` step that fits 279 mm, measured on the unzoomed wrapper
+(a zoomed element's own box reads zoomed only from Chromium 128): 115 %, 110 %, 105 %, 100 %, the bold
+values (`<strong>`) at 1.15 em; the last step is the sheet as it printed before. A print rule added to `#print-form`
+that changes its height needs its `.print-probe` twin, or the probe measures a different sheet. Staff leave the
+dialog's Scale at its default: 115 % there as well would print about 132 %.
+
+**Prepared volume and whole mL (2026-11-16).** A bag with dead space prepares delivered + dead space rounded up to
+the next 10 mL above the sum (`D.preparedVolFor`), so the TPN set's 30 mL always has more behind it; the Factor
+carries the extra. D50W, the amino acid and the WFI are whole mL, half up; the other stocks keep one decimal, so
+components + WFI is the bag to within half a mL. D50W keeps one decimal in a bag with no dead space, and on a
+peripheral bag ordered at or under 12.5 % it rounds down where rounding up would pass 12.5 % (Pp, 2026-11-16). The provenance footer stays two lines (8 px, about
 226 mm of text on 186 mm of page).
 
 ## GA/PMA convention
@@ -765,9 +781,12 @@ PR B of `openspec/changes/tpn-room-stickers`. Not live: `STATUS.md` says what ho
   `?v=` tokens, and `index.html` does not link them, so `tools/verify-release.mjs` names their files. Sarabun is in `fonts/sarabun/`.
 - **`*.github.io`:** the page leaves for `moved.html` before it touches storage, on any such host. Use the Workers URL.
 - **Sign-in.** Google (gmail and Chula accounts, which have no NeoFeed password) or email and password; pharmacy or admin only. Google is a redirect to Google and back with no Google script on the page; its redirect URI, `https://neofeed.valhalla-health.workers.dev/tpn-room`, must be on the OAuth client's list (§ Deploying), so a real Google sign-in works on the Workers host only.
-- **Two things to fill in, in `tpn-room-core.js`:** `PN_FIXED`, the label's heading, storage line and extension, blank until
-  the unit gives them; until all three are set the whole sheet prints as a trial, "ทดลองพิมพ์ ห้ามใช้จริง" across each part and
-  `PN_TRIAL`'s placeholders in the PN label's blank lines (Pp, 2026-11-16); `CONTACTS`, who to call. A release follows either change.
+- **Two things in `tpn-room-core.js`:** `PN_FIXED`, the label's heading, storage line and extension, as the TPN unit wrote
+  them on 2026-11-16; with any of the three blank, the whole sheet prints as a trial, "ทดลองพิมพ์ ห้ามใช้จริง" across each part and
+  `PN_TRIAL`'s placeholders in the PN label's blank lines; `CONTACTS`, who to call. A release follows either change.
+- **The sheet's sizes (TPN unit, 2026-11-16).** The worksheet is 150 × 85 mm, 5 mm from the left and 10 mm from the top,
+  each figure beside its name; the PN label 200 × 80 mm; the bag sticker takes the rest. Each part has a dashed outline to
+  cut along. The page refuses a sheet whose content overflows a part (`sheetOverflows`).
 - **`tpn-room-check.html`** checks a PC's browser: folder, rewrite, permission, device key, after a restart. Use it on a
   new PC too. It calls no server and holds no patient data.
 - **The name file** is `neofeed-tpn-room-names.nfenc`, in a folder the room picks: never OneDrive, never one a restore clears. A
