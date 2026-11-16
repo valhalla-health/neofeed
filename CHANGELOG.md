@@ -7,6 +7,14 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (12) — PR #277 merged into `main`; STATUS catches up on release #276
+
+`STATUS.md` only. Pp, 2026-11-16: "merge เมื่อ CI ผ่าน". PR #277's line now reads merged into `main` on her
+instruction; it needs no release, since a PR's run uses the workflow of its merge with `main`. **`STATUS.md`
+catches up:** #272 and #274 are live via release #276 (`release-2026-11-16-pr276`, `dcd2c84`; `verify-release`
+0 failures on both hosts, comment on #276). The tag `release-2026-11-16-pr275` is now on the remote, on
+`663b49f`; `verify-release` never ran on that commit itself, and #276, which carries it, passed.
+
 ## Session 2026-11-16 (11) — A lone CR could hide a line from the pin; the reviews end here
 
 `test/verify-run-checks.cjs` (109 assertions), `test/README.md` (the last section), `STATUS.md`. Corrects the
