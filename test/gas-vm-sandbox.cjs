@@ -95,7 +95,33 @@ function boot(opts) {
         if (t.once) delete sh.throwOn[m];
         throw t.err || new Error('Service Spreadsheets failed while accessing document with id x.');
       },
-      getName: () => name,
+      getName: () => sh.name,
+      // setName / copyTo (sheet backup, verify-sheet-backup-1115.cjs). A tab knows
+      // its book only when a book made it (insertSheet, copyTo, create), which
+      // is all the backup needs: it renames only tabs it has just copied.
+      setName(n) {
+        const book = sh._bookSheets;
+        if (!book) throw new Error('sandbox: setName on a tab that no book made');
+        if (book[n] && book[n] !== sh) throw new Error('A sheet with the name "' + n + '" already exists. Please enter another name.');
+        const rebuilt = {};
+        for (const k of Object.keys(book)) { rebuilt[book[k] === sh ? n : k] = book[k]; delete book[k]; }
+        Object.assign(book, rebuilt);
+        sh.name = n;
+        return sh;
+      },
+      // A deep copy into another book as "Copy of <name>", grid size included.
+      // Sheets' own copy keeps each cell's type, so nothing is re-parsed here.
+      copyTo(destBook) {
+        if (env.copyHook) env.copyHook(sh, destBook);
+        sh._guard('copyTo');
+        let n = 'Copy of ' + sh.name, i = 0;
+        while (destBook._sheets[n]) n = 'Copy of ' + sh.name + ' ' + (++i);
+        const copy = makeSheet(n, [], { maxColumns: sh.maxColumns, maxRows: Math.max(sh.maxRows, data.length) });
+        data.forEach(r => copy.data.push((r || []).map(v => (isDate(v) ? new HostDate(v.getTime()) : v))));
+        copy._bookSheets = destBook._sheets;
+        destBook._sheets[n] = copy;
+        return copy;
+      },
       getMaxColumns: () => sh.maxColumns,
       getMaxRows: () => Math.max(sh.maxRows, data.length),
       insertColumnsAfter(after, n) { sh._guard('insertColumnsAfter'); sh.maxColumns += n; },
@@ -133,7 +159,7 @@ function boot(opts) {
         while (data.length < r) data.push([]);
         const row = data[r - 1];
         while (row.length < c - 1) row.push('');
-        row[c - 1] = cellIn(name, r, c, v);
+        row[c - 1] = cellIn(sh.name, r, c, v);
       },
       getDataRange() {
         return { getValues() { const lr = sh._lastRow(), lc = sh._lastCol(); return lr && lc ? sh._read(1, 1, lr, lc) : [[]]; } };
@@ -221,13 +247,66 @@ function boot(opts) {
     return { _buf: buf, type, name, getName: () => name, getContentType: () => type,
       getBytes: () => toSigned(buf), getDataAsString: () => buf.toString('utf8') };
   };
-  const spreadsheet = {
-    getSheetByName: (n) => env.sheets[n] || null,
-    insertSheet: (n) => (env.sheets[n] = makeSheet(n, [], { maxColumns: 26 })),
-    getSheets: () => Object.values(env.sheets),
-  };
+  // A book over a name → tab map. The live book's map is env.sheets, which the
+  // harnesses fill directly; SpreadsheetApp.create() makes the others (the
+  // backup slots), kept in env.books by id. openById() with any other id is the
+  // live book, as it was before there was more than one.
+  function makeBook(id, title, sheetsOf) {
+    const book = {
+      get _sheets() { return sheetsOf(); }, title,
+      getId: () => id,
+      getName: () => book.title,
+      rename(n) { if (env.renameThrows) throw new Error(env.renameThrows); book.title = n; },
+      // In this double a book made by create() starts in another zone and locale
+      // than the live book (set in create() below). What Google does is not known here.
+      timeZone: 'Asia/Bangkok', locale: 'en_GB',
+      getSpreadsheetTimeZone: () => book.timeZone,
+      setSpreadsheetTimeZone(z) { book.timeZone = z; },
+      getSpreadsheetLocale: () => book.locale,
+      setSpreadsheetLocale(l) { book.locale = l; },
+      getSheetByName: (n) => sheetsOf()[n] || null,
+      insertSheet(n) {
+        const sheets = sheetsOf();
+        if (sheets[n]) throw new Error('A sheet with the name "' + n + '" already exists. Please enter another name.');
+        const sh = makeSheet(n, [], { maxColumns: 26 });
+        sh._bookSheets = sheets;
+        return (sheets[n] = sh);
+      },
+      getSheets: () => Object.values(sheetsOf()),
+      deleteSheet(sh) {
+        const sheets = sheetsOf();
+        const k = Object.keys(sheets).find(key => sheets[key] === sh);
+        if (!k) throw new Error('sandbox: deleteSheet of a tab this book does not hold');
+        if (Object.keys(sheets).length === 1) throw new Error("You can't remove all the sheets in a document.");
+        delete sheets[k];
+      },
+    };
+    return book;
+  }
+  const spreadsheet = makeBook('sheet-id', 'NeoFeed (sandbox)', () => env.sheets);
+  env.books = {};
+  env.opened = [];
   const sandbox = {
-    SpreadsheetApp: { openById: () => { if (env.openByIdThrows) throw new Error(env.openByIdThrows); return spreadsheet; } },
+    SpreadsheetApp: {
+      // env.deadBooks: ids that fail the way a deleted file does, with Google's
+      // own sentence, which names the id.
+      openById: (id) => {
+        env.opened.push(id);   // every open that was asked for, whether or not it worked
+        if (env.openByIdThrows) throw new Error(env.openByIdThrows);
+        if (env.deadBooks && env.deadBooks.has(id)) throw new Error('Service Spreadsheets failed while accessing document with id ' + id + '.');
+        return env.books[id] || spreadsheet;
+      },
+      flush: () => { env.flushes = (env.flushes || 0) + 1; },
+      create: (title) => {
+        if (env.createThrows) throw new Error(env.createThrows);
+        const id = 'backup-book-' + (Object.keys(env.books).length + 1);
+        const map = {};
+        const book = makeBook(id, title, () => map);
+        book.insertSheet('Sheet1');
+        book.timeZone = 'America/Los_Angeles'; book.locale = 'en_US';
+        return (env.books[id] = book);
+      },
+    },
     Utilities: {
       getUuid: () => crypto.randomUUID(),
       computeHmacSha256Signature: (value, key) => {
