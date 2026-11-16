@@ -5349,7 +5349,19 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
       <table style={{ width:"100%", marginBottom:4, fontSize:10.5 }}><tbody>
         <tr>
           <td>Total Volume</td>
-          <td><strong>{f(totalTPN_mL, 1)}</strong> mL (Delivered Vol.) / <strong>{f(calc.preparedVol,1)}</strong> mL (Prepared Vol.) / Day</td>
+          <td><strong>{f(totalTPN_mL, 1)}</strong> mL (Delivered Vol.) / <strong>{f(calc.preparedVol,1)}</strong> mL (Prepared Vol.) / Day
+            {/* The bag's own osmolarity, small, on the front sheet (Pp,
+                2026-11-15: "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้"). On this line, not
+                the Route cell: there it wrapped in CI's wide font and pushed the
+                fullest order 3.8 mm onto a second page. Rounded as the
+                Osmolarity tile, its alert and CR-OSM-PERIPH read it (fmt →
+                displayNum), so all of them read one number. No bag volume,
+                or an estimate of 0 (no dextrose, AA or electrolyte), no figure;
+                nor with no dosing weight, where the calc returns a placeholder
+                osm of 300 that is not the bag's (Vera, PR #265). */}
+            {totalTPN_mL > 0 && wtKg > 0 && calc.osm > 0 && (
+              <span className="print-osm" style={{ fontSize:9, color:"#333" }}> · Bag osm {fmt(calc.osm, 0)} mOsm/L</span>
+            )}</td>
         </tr>
         <tr>
           <td>Dextrose</td>
