@@ -7,6 +7,31 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (4) — The front sheet prints the heparin mL; no age range after the two 10% amino acids
+
+`calculator.jsx` (the print form's heparin row and `AA_CHOICES`), `compiled/`, the shells' `?v=`,
+`test/verify-calc-sum.cjs`, `test/verify-calc-oracle.cjs`, `test/verify-print-one-page-1102.cjs`,
+`test/verify-review-0917-calc.cjs`, the `neofeed-clinical-rules` skill (`CR-HEPARIN`), `REFERENCE.md` § The
+printed order (Vera), `STATUS.md`.
+
+- **Why.** Ward feedback on the printed order, 2026-11-16: "ไม่มีปริมาตร Heparin ที่เติม" (the sheet carries no
+  heparin volume), and a request to drop the age range in brackets after "10% Aminoven infant / PED AMINE" and
+  "10% Amiparen".
+- **Heparin.** The front sheet's "7. Heparin (100 unit/mL)" line printed the U/mL alone; its mL was on the
+  pharmacy back sheet, which renders but has not printed since 2026-10-28. The line now prints the U/mL in the
+  per-kg column and the mL of 100 U/mL stock in the pharmacist's column, the back sheet's own
+  `calc.solVol.heparin` (`CR-R-STOCK-ML`, 1 decimal); "—" with no bag or 0 U/mL. The units a day were left off:
+  Center Point's sheet has no slot for them (`verify-center-point-print-parity`), and they are U/mL × the
+  prepared volume, both printed. No figure is computed differently and no limit moves; `CONSTANTS_VERSION` stays.
+- **Amino acids.** `AA_CHOICES` reads "10% Aminoven infant / PED AMINE" and "10% Amiparen". The product, its
+  stock and every figure are unchanged. `D.AA_PRODUCTS`' labels keep their brackets: nothing renders them.
+- **Checks (NF-17).** `verify-calc-sum` adds, on every printed order, that the front's heparin mL is the back's
+  heparin stock mL (none at 0 U/mL); `verify-calc-oracle` reads the front's heparin mL against its own
+  expected mL; `CR-HEPARIN`'s inside case prints "1.8 mL". The two print harnesses that matched
+  the bracketed labels read the new ones. `verify-review-0917-calc` §6's five printed-figure pins are
+  recaptured: compared figure by figure with `main`, each order gains exactly the heparin mL and nothing else
+  moves.
+
 ## Session 2026-11-16 (3) — The TPN room prints a trial sheet until the unit's three PN lines come
 
 `tpn-room-core.js` (`PN_TRIAL`, `trialNote`, `trialReprintDue`, new; `printReasons`, `stickerModel`), `tpn-room.jsx`

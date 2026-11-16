@@ -1,5 +1,7 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-16 — The front sheet's heparin line prints the mL of heparin the bag takes, and the amino-acid choices drop "(0-1 yr.)" and "(>1 Yr.)": PR #274, not merged.** Frontend only; no dose or limit moves, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-16 (4)).
+>
 > ⏳ **2026-11-16 — The TPN room's page prints before the unit gives the PN label's three fixed lines: the whole sheet prints as a trial ("ทดลองพิมพ์ ห้ามใช้จริง" across the worksheet, the PN label and the bag sticker; a placeholder in each blank PN line) (Pp: "ให้เขาปริ้นได้ก่อน"): this PR, not merged; not live.**
 > Frontend only, the TPN room's page alone; no figure or rule changes (`CHANGELOG.md` 2026-11-16 (3)). Live needs a release on Praew's go-ahead. 0.3 i stays open.
 >
