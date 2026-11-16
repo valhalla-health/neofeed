@@ -127,7 +127,8 @@ anything nor rebuilt on a trigger. It is not currently part of this layer.
 
 **Not connected yet:** the clinical guidelines (ESPGHAN targets, Fenton 2025) sit in `data.js` as
 constants with no link back to the source that justifies them, except in prose. `FENTON_LENGTH` and
-`FENTON_HC` are *unverified against any source* — which the graph cannot tell you, because the
+`FENTON_HC` were *unverified against any source* until 2026-11-16, when Fenton's own calculator replaced
+them (`docs/CLINICAL_CONSTANTS.md`) — which the graph could not tell you, because the
 graph does not know what "verified" means for a clinical constant.
 
 ## 4 · Isolated dev environments → mock data only 🟡
@@ -190,7 +191,7 @@ does not change anyone's day-to-day.
 - **Guideline drift.** ESPGHAN targets and the Fenton reference are constants in `data.js`.
   Nothing re-checks them when a guideline is revised.
 - **Unverified constants shipped.** `FENTON_LENGTH` / `FENTON_HC` were never verified against any
-  source and sit at 4-week steps. `FENTON_WEIGHT` was verified on 2026-08-10 — the other two were
+  source and sat at 4-week steps until 2026-11-16 (replaced; `CHANGELOG.md`). `FENTON_WEIGHT` was verified on 2026-08-10 — the other two were
   not, and only the changelog records the difference.
 - **The stock concentrations.** Na acetate (3 mEq/mL) and KCl (2 mEq/mL) were **inferred from the
   worksheet's divisors, not read off a strength label.** These change the mL printed on every order

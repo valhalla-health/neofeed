@@ -21,7 +21,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // blank (review UP-S4). app.jsx normalises the common spellings at sync;
   // what is still unknown gets a message here instead of a guessed curve set.
   const sex = patient?.sex;
-  const sexValid = !!(sex && D_F.FENTON_WEIGHT[sex] && D_F.FENTON_LENGTH[sex] && D_F.FENTON_HC[sex]);
+  const sexValid = !!(sex && D_F.FENTON_WEIGHT[sex] && D_F.FENTON_LENGTH_GROWTH_LMS[sex] && D_F.FENTON_HC_GROWTH_LMS[sex]);
   const [metric, setMetric] = React.useState("weight"); // weight | length | hc
   const [view, setView] = React.useState(null); // {x,y,w,h} viewBox override
   const dragRef = React.useRef(null);
@@ -96,12 +96,13 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // points within 4.2 centile points; a completed-week reading was up to 21
   // off. Pp, 2026-10-17).
   const REF_AGE_OFFSET = 0.5;
-  const table = (
-    metric === "weight" ? D_F.FENTON_WEIGHT[sex]
-  : metric === "length" ? D_F.FENTON_LENGTH[sex]
-  : D_F.FENTON_HC[sex]
-  );
-  const birthDataset = (() => {
+  // Only weight has size-at-birth rows. Length and head circumference are
+  // read and drawn on Fenton's growth-monitoring curve alone (below), a DOL-1
+  // measurement included. Fenton's Birth size evaluation agrees with that
+  // curve for the 8 DOL-1 points asked on 2026-10-17, up to 35+4; from 36
+  // weeks it has not been asked (BACKLOG.md).
+  const table = metric === "weight" ? D_F.FENTON_WEIGHT[sex] : [];
+  const sizeAtBirthRows = (() => {
     const rows = table.map(r => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
     const inside = rows.filter(r => r[0] <= GA_MAX);
     const last = inside[inside.length - 1];
@@ -119,7 +120,18 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // curves are drawn from it, and a weight there is read as an LMS z-score.
   // A DOL-1 weight is a size at birth and stays on birthDataset, as Fenton's
   // Birth size evaluation does. Before 36.5 the two are the same rows.
-  const growthLms = metric === "weight" ? D_F.FENTON_WEIGHT_GROWTH_LMS?.[sex] : null;
+  //
+  // Length and head circumference: the whole curve is L, M, S, at each whole
+  // week (FENTON_LENGTH_GROWTH_LMS from 24.0, FENTON_HC_GROWTH_LMS from 23.0,
+  // both to 42.0), solved from the same calculator on 2026-11-16. They replace
+  // five-centile rows every 4 weeks that were never checked against a source:
+  // their 50th was right at their rows up to 38.5 weeks, and past that length
+  // was drawn too high and head too low.
+  const growthLms = (
+    metric === "weight" ? D_F.FENTON_WEIGHT_GROWTH_LMS?.[sex]
+  : metric === "length" ? D_F.FENTON_LENGTH_GROWTH_LMS?.[sex]
+  : D_F.FENTON_HC_GROWTH_LMS?.[sex]
+  ) || null;
   const lmsStart = growthLms ? growthLms[0][0] : Infinity;
   const lmsAt = (t) => {
     if (!growthLms || t < lmsStart || t > growthLms[growthLms.length - 1][0]) return null;
@@ -132,9 +144,12 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const lmsValue = ([L, M, S], z) => Math.abs(L) < 1e-6 ? M * Math.exp(S * z) : M * Math.pow(1 + L * S * z, 1 / L);
   const CENTILE_Z = [-1.88079, -1.28155, 0, 1.28155, 1.88079];   // 3rd, 10th, 50th, 90th, 97th
   const monitorDataset = growthLms
-    ? [...birthDataset.filter(r => r[0] < lmsStart),
+    ? [...sizeAtBirthRows.filter(r => r[0] < lmsStart),
        ...growthLms.filter(r => r[0] <= GA_MAX).map(([t, ...lms]) => [t, ...CENTILE_Z.map(z => lmsValue(lms, z))])]
-    : birthDataset;
+    : sizeAtBirthRows;
+  // What a DOL-1 point is read against: the size-at-birth rows for weight, the
+  // one curve there is for length and head circumference.
+  const birthDataset = metric === "weight" ? sizeAtBirthRows : monitorDataset;
 
   const xMin = 22, xMax = GA_MAX;
 
@@ -321,13 +336,17 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const currentPercentile = (() => {
     if (points.length === 0) return null;
     const last = points[points.length - 1];
-    const lms = last.dol !== 1 ? lmsAt(last.pma) : null;
+    const lms = (metric !== "weight" || last.dol !== 1) ? lmsAt(last.pma) : null;
     if (lms) return centileOfZ(lmsZ(lms, last.value));
+    // Length and head circumference have no rows to read between: outside the
+    // curve there is no percentile (the "starts at" line below says where).
+    if (metric !== "weight") return null;
     const vals = rowAt(dataset, last.pma);
     return vals ? centileAmong(vals, last.value) : null;
   })();
-  // The curves start half a week after the axis does, so a measurement in
-  // between has no reference to be read against. Say where it begins, rather
+  // The curves start after the axis does (weight at 22.5 weeks, head at 23.0,
+  // length at 24.0), so a measurement in between has no reference to be read
+  // against. Say where it begins, rather
   // than a bare "—" or a value extrapolated past the first row.
   const referenceStart = dataset.length ? D_F.fmtGA(D_F.daysToGA(Math.ceil(dataset[0][0] * 7))) : null;
   const beforeReference = points.length > 0 && dataset.length > 0 && points[points.length - 1].pma < dataset[0][0];
@@ -376,29 +395,6 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
             <span>
               มีค่าที่วัดหลัง PMA {GA_MAX} สัปดาห์ <strong>{hiddenPastMax}</strong> ค่า ไม่ได้แสดงบนกราฟ —
               Fenton 2025 มีข้อมูลอ้างอิงถึง {GA_MAX} สัปดาห์เท่านั้น
-            </span>
-          </div>
-        )}
-        {/* FENTON_LENGTH / FENTON_HC are unverified (docs/CLINICAL_CONSTANTS.md):
-            Fenton publishes them only as charts, and the rows sit 4 weeks
-            apart. Weight carries no note: under 36.5 weeks its rows are the
-            official cutoff table, which the growth chart follows there, and
-            from 36.5 weeks it is read on Fenton's own monitoring curve
-            (FENTON_WEIGHT_GROWTH_LMS; test/verify-fenton-monitor-1019.cjs).
-            The 42-week length row is about 2–3 cm above
-            the official chart (BACKLOG.md), which makes a term infant look short. */}
-        {metric !== "weight" && (
-          <div role="note" style={{ padding: "10px 12px", background: "var(--warn-bg)",
-            border: "1px solid var(--warn-line)", borderRadius: 8, marginBottom: 10,
-            fontSize: 12.5, color: "var(--warn-ink)", lineHeight: 1.5, display: "flex", gap: 8 }}>
-            <span style={{ flexShrink: 0, marginTop: 2 }}><Icon name="info" size={13} color="var(--warn)" /></span>
-            <span>
-              <strong>เส้น {metric === "length" ? "Length" : "HC"} ยังไม่ได้ตรวจเทียบกับตัวเลขต้นฉบับ</strong>
-              <span style={{ display: "block", fontSize: 12 }}>
-                Fenton 2025 เผยแพร่ length และ HC เป็นกราฟเท่านั้น เส้นในแอปมีจุดทุก 4 สัปดาห์
-                เลยอ่าน percentile ได้แค่คร่าว ๆ
-                {metric === "length" && " ช่วงใกล้ 42 สัปดาห์ เส้นนี้สูงกว่ากราฟต้นฉบับ ทารกเลยดูตัวสั้นกว่าจริง"}
-              </span>
             </span>
           </div>
         )}
