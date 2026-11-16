@@ -95,7 +95,10 @@ runScenarios(__filename, 'GROWTH: SUNDAY PROMPT + PRINT (2026-11-16)', {
       + `console.log(JSON.stringify([D.isSundayBangkok(u(2026,10,14,16,59,59)),D.isSundayBangkok(u(2026,10,14,17,0,0)),D.isSundayBangkok(u(2026,10,15,16,59,59)),D.isSundayBangkok(u(2026,10,15,17,0,0))]))`;
     for (const tz of ['UTC', 'America/Los_Angeles']) {
       const r = spawnSync(process.execPath, ['-e', probe, DIR + 'data.js'], { encoding: 'utf8', env: { ...process.env, TZ: tz } });
-      A.eq(`the two Bangkok midnights, on a device set to ${tz}`, (r.stdout || '').trim(), '[false,true,true,false]');
+      // CI runs node with test/compiled-loader.cjs preloaded, and it writes a
+      // '[compiled-loader] ...' line to stdout as the child exits: keep only the probe's line.
+      const out = (r.stdout || '').split(/\r?\n/).filter(l => l && !l.startsWith('[compiled-loader]')).join('\n');
+      A.eq(`the two Bangkok midnights, on a device set to ${tz}`, out, '[false,true,true,false]');
     }
 
     const p = (over) => ({ sessionId: 'NF-1', status: 'Active', currentBed: 'NICU 1', dob: D.todayLocal(), admissionDate: D.todayLocal(), weights: [], lengths: [], hcs: [], ...over });
