@@ -7,6 +7,35 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (11) — A lone CR could hide a line from the pin; the reviews end here
+
+`test/verify-run-checks.cjs` (109 assertions), `test/README.md` (the last section), `STATUS.md`. Corrects the
+entry below in three places:
+
+- **(10) said the checks after the pin "now also take quoted keys, trailing comments, the job each runner step
+  sits in, and `shell:` or `defaults:` anywhere".** They read text, not YAML: an escaped key (`"i\x66"`,
+  `"sh\x65ll"`), a ` #` inside quotes before a runner call, a job key with a trailing comment or in quotes, and
+  run lines inside a `name: |` block all got past them in the fifth reader's tries. Only the pin caught those.
+  The README now says the pin is the guard and the checks after it are a second layer.
+- **(10) said "A comment may change freely".** Three checks after the pin read raw text, so a comment inside the
+  `harnesses` job or at the end of the file, between `concurrency:` and `group:`, or right after a runner line
+  failed them. They now read the same comment-free lines as the pin, and all four cases pass.
+- **(10) and the code said "after three reviews";** four had each found a YAML spelling that § 6 missed.
+
+The fifth new agent (on `0a7ce05`) found one way past the pin itself: a lone CR. The pin splits on LF, so
+`# note<CR>if: false` read as one comment line, while YAML, which breaks a line at CR too, read a step with
+`if: false`, and `.gitattributes` keeps a lone CR. § 6 now refuses any line break but LF (CR, U+0085,
+U+2028, U+2029) before the pin. When the pin fails on a removed last line it now names that index.
+
+Pp's decision, 2026-11-16, after this fifth review: "ปิด CR แล้วจบ". So no further new-agent review runs on
+this PR; the second-layer gaps above stay, documented, with the pin in front of them.
+
+- **Tests.** `verify-run-checks.cjs` 109/109. The 32 earlier mutations are still caught, and five more: a lone
+  CR hiding a step `if: false` and a job `if: false`, a U+2028 doing the same, a ` #` in quotes before a runner
+  call, and an escaped `if` key. Comment-only edits pass in five places: an existing comment reworded, a new
+  comment inside the `harnesses` job, at the end of the file, between `concurrency:` and `group:`, and right
+  after a runner line.
+
 ## Session 2026-11-16 (10) — The workflow pinned line by line, after a fourth review
 
 `test/verify-run-checks.cjs` (108 assertions), `test/README.md` (the last section), `.github/workflows/test.yml`

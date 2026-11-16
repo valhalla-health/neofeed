@@ -228,13 +228,19 @@ console.log('\n── #6 every level calls the one runner ──');
   const read = (f) => fs.readFileSync(path.join(DIR, f), 'utf8');
   const yml = read('.github/workflows/test.yml');
   const ymlLines = yml.split('\n');
+  const isComment = (l) => /^[ \t]*#/.test(l);
+  // YAML also breaks a line at a lone CR (and YAML 1.1 at U+0085, U+2028 and
+  // U+2029), so `# note<CR>if: false` is a comment here but a skipped step on
+  // GitHub. Git keeps a lone CR whatever .gitattributes says. Every pin below
+  // reads lines as LF splits them, so this check holds the pin up.
+  ok('test.yml breaks lines with LF only', !/[\r\u0085\u2028\u2029]/.test(yml));
   // Every line of the workflow that is not blank or a comment, pinned (Pp,
-  // 2026-11-16, after three reviews each found a new way to write YAML that a
+  // 2026-11-16, after four reviews each found a new way to write YAML that a
   // pattern missed: `|| true` on or after a run line, a step `if:` written as
   // its first key, a `shell:` or `defaults:` override, a runner step in a job
   // `harnesses` does not wait for). Whole-line comments may change freely; any
   // other edit to test.yml changes this list in the same commit, where a
-  // reviewer sees it.
+  // reviewer sees it. This pin is the guard.
   // The checks after it say why the lines that matter are what they are.
   const LIVE = [
     "name: test",
@@ -315,18 +321,24 @@ console.log('\n── #6 every level calls the one runner ──');
     "          echo \"pre: $PRE, sources: $SOURCES, compiled: $COMPILED\"",
     "          test \"$PRE\" = success && test \"$SOURCES\" = success && test \"$COMPILED\" = success",
   ];
-  const live = ymlLines.filter(l => l.trim() && !/^\s*#/.test(l));
-  const firstDiff = live.findIndex((l, i) => l !== LIVE[i]);
-  ok('every live line of test.yml is the pinned one', live.length === LIVE.length && firstDiff === -1,
+  const live = ymlLines.filter(l => l.trim() && !isComment(l));
+  let firstDiff = live.findIndex((l, i) => l !== LIVE[i]);
+  if (firstDiff === -1 && live.length !== LIVE.length) firstDiff = Math.min(live.length, LIVE.length);
+  ok('every live line of test.yml is the pinned one', firstDiff === -1,
     { firstDiff, got: live[firstDiff], want: LIVE[firstDiff], lines: [live.length, LIVE.length] });
 
+  // The checks below are a second layer: they say why the lines that matter
+  // are what they are, and catch the plain mistakes. They read text, not YAML,
+  // so an escaped or quoted key, a ` #` inside quotes or a commented job key can
+  // get past them; none of those gets past the pin.
+  //
   // Each runner step's run line, whole: a substring check passed with `|| true`
   // appended, which turns a failing shard green and so `harnesses` with it.
   // Every line that names the runner counts, a `run: |` block's included, with
-  // or without `.js`; comments, whole-line or trailing, are left out.
+  // or without `.js`.
   const SHARD = '--shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}';
-  const bare = (l) => l.replace(/\s#.*$/, '');
-  const runnerAt = ymlLines.map((l, i) => [l, i]).filter(([l]) => !/^\s*#/.test(l) && /run_checks\b/.test(bare(l)));
+  const bare = (l) => /["'\\]/.test(l) ? l : l.replace(/\s#.*$/, '');
+  const runnerAt = ymlLines.map((l, i) => [l, i]).filter(([l]) => !isComment(l) && /run_checks\b/.test(bare(l)));
   const jobOf = (i) => { for (let j = i; j >= 0; j--) { const m = /^  ([\w-]+):\s*$/.exec(ymlLines[j]); if (m) return m[1]; } return null; };
   const want = [['pre', 'pre', ''], ['center-point', 'pre', ''], ['sources', 'sources', ` ${SHARD}`], ['compiled', 'compiled', ` ${SHARD}`]]
     .map(([phase, job, tail]) => [phase, job, `        run: node tools/run_checks.js --level ci --phase ${phase}${tail}`]);
@@ -338,22 +350,23 @@ console.log('\n── #6 every level calls the one runner ──');
     // `|| true` there would join the command. After a blank line such text
     // becomes a new script line, which `bash -e` never reaches once the runner
     // has failed; the pin above refuses it anyway.
-    ok(`nothing continues phase ${phase}'s run line`, !!at && ymlLines[at[1] + 1] === '', at && ymlLines[at[1] + 1]);
+    const next = at ? ymlLines.slice(at[1] + 1).find(l => !isComment(l)) : undefined;
+    ok(`nothing continues phase ${phase}'s run line`, next === '', next);
   }
   function tail(phase) { return phase === 'sources' || phase === 'compiled' ? ", split by the job's index" : ''; }
   ok('no other line calls the runner', runnerAt.length === 4, runnerAt.map(([l]) => l));
   // A step or job `if:` could skip a runner step and leave its job green; the
   // gate's `if: always()` is the only one, in any spelling of the key.
-  const ifs = ymlLines.filter(l => /^\s*(?:-\s+)?["']?if["']?\s*:/.test(l));
+  const ifs = ymlLines.filter(l => !isComment(l) && /^\s*(?:-\s+)?["']?if["']?\s*:/.test(l));
   ok('the only if: in the workflow is the gate\'s always()', JSON.stringify(ifs) === JSON.stringify(['    if: always()']), ifs);
   // `shell: true {0}` would run `true <script>` and end every step green.
   ok('no shell: or defaults: anywhere', !/^\s*(?:-\s+)?["']?(?:shell|defaults)["']?\s*:/m.test(yml));
   ok('CI has no harness loop of its own', !/for f in test\/verify-/.test(yml));
   ok('CI calls no check directly', !/node tools\/ci_bans\.js|cmp index\.html|node tools\/build\.mjs|node --test test\//.test(yml));
   ok('the job name the branch rule requires is unchanged', /^  harnesses:/m.test(yml));
-  // The gate job, whole and literal, to the end of the file. A substring check
-  // passed with `|| true`, `continue-on-error`, or COMPILED bound to the
-  // sources result; any edit to this job has to change this block with it.
+  // The gate job, whole and literal, to the end of the file (its live lines, so
+  // a comment in it may change). A substring check passed with `|| true`,
+  // `continue-on-error`, or COMPILED bound to the sources result.
   const GATE = [
     '  harnesses:',
     '    needs: [pre, sources, compiled]',
@@ -369,14 +382,17 @@ console.log('\n── #6 every level calls the one runner ──');
     '        run: |',
     '          echo "pre: $PRE, sources: $SOURCES, compiled: $COMPILED"',
     '          test "$PRE" = success && test "$SOURCES" = success && test "$COMPILED" = success',
-    '',
-  ].join('\n');
-  const gateAt = yml.indexOf('\n  harnesses:\n');
+  ];
+  const gateAt = live.indexOf('  harnesses:');
   ok('harnesses waits for every job, runs after a failure or a cancel, and is green only when each one passed',
-    gateAt >= 0 && yml.slice(gateAt + 1) === GATE, gateAt >= 0 ? yml.slice(gateAt + 1) : 'no harnesses job');
+    gateAt >= 0 && JSON.stringify(live.slice(gateAt)) === JSON.stringify(GATE), gateAt >= 0 ? live.slice(gateAt) : 'no harnesses job');
   ok('no step anywhere may fail without failing its job', !/continue-on-error/.test(yml));
-  ok('a PR\'s older run is cancelled; each push to main has its own group',
-    yml.includes("\nconcurrency:\n  group: test-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}\n  cancel-in-progress: true\n"));
+  const concAt = live.indexOf('concurrency:');
+  ok('a PR\'s older run is cancelled; each push to main has its own group', concAt >= 0 && JSON.stringify(live.slice(concAt, concAt + 3)) === JSON.stringify([
+    'concurrency:',
+    "  group: test-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+    '  cancel-in-progress: true',
+  ]), concAt >= 0 && live.slice(concAt, concAt + 3));
   ok('a push to main still runs CI, the post-merge check', /push:\n(\s+#.*\n)*\s+branches: \[main\]/.test(yml));
   const settings = JSON.parse(read('.claude/settings.json'));
   const stop = settings.hooks.Stop[0].hooks[0].command;

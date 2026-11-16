@@ -2325,18 +2325,26 @@ heavy step runs alone, a bad `--shard`, or one with no value, or a bad hint is r
 lists a fast hinted step but not a fast unhinted one. § 5 checks that every hint names a real step and that
 calc-compare runs once.
 
-§ 6 pins every line of `test.yml` that is not blank or a whole-line comment (Pp, 2026-11-16, after three reviews
-each found a way to write YAML that a pattern missed). A comment may change freely; any other edit to the
-workflow changes the pinned list in the same commit, where a reviewer sees it. The checks after the pin say why
-the lines that matter are what they are: the `harnesses` job whole (it waits for every job, runs after a
-failure or a cancel, and is green only when each one passed); each runner step's `run:` line whole, in its own
-job, with a blank line after it (each shard's share comes from the job's index); no other line naming the
-runner, with or without `.js`, a `run: |` block's included; no `if:` in any spelling but the gate's
-`always()`; no `shell:`, `defaults:` or `continue-on-error`; and the `concurrency` block with its
-`cancel-in-progress: true`. No npm install.
+§ 6 pins every line of `test.yml` that is not blank or a whole-line comment (Pp, 2026-11-16, after four reviews
+each found a way to write YAML that a pattern missed). **The pin is the guard.** A whole-line comment may change
+or move freely; any other edit to the workflow changes the pinned list in the same commit, where a reviewer sees
+it. The pin reads lines as LF splits them, so § 6 also refuses any other line break (a lone CR, U+0085, U+2028,
+U+2029): YAML breaks a line there, and `# note<CR>if: false` would be a comment to the pin and a skipped step to
+GitHub.
 
-To change the workflow, edit `test.yml`, run `node test/verify-run-checks.cjs`, and copy the line it names
-into the `LIVE` list in § 6, one line at a time, or regenerate the list from the file.
+The checks after the pin are a second layer. They say why the lines that matter are what they are and catch the
+plain mistakes, but they read text, not YAML, so an escaped or quoted key, a ` #` inside quotes or a commented
+job key can get past them (never past the pin). They check: the `harnesses` job (it waits for every job, runs
+after a failure or a cancel, and is green only when each one passed); each runner step's `run:` line, with a
+blank line after it, under a job key `pre`, `sources` or `compiled` (each shard's share comes from the job's
+index); four lines naming the runner and no more; one `if:`, the gate's `always()`; no `shell:`, `defaults:` or
+`continue-on-error`; and the `concurrency` block with its `cancel-in-progress: true`. No npm install.
+
+To change the workflow, edit `test.yml` and run `node test/verify-run-checks.cjs`. The pin's failure names the
+first differing line by index (`firstDiff`), with what the file has (`got`) and what the list has (`want`): edit
+`LIVE` in § 6 until they agree, or regenerate it from the file's non-blank, non-comment lines. A change to a
+runner line, the `harnesses` job or the `concurrency` block also changes `want`, `GATE` or the concurrency lines
+in the checks after the pin.
 
 To run one shard here as CI does (the jsdom set above, through `NODE_PATH` in a worktree):
 
