@@ -5505,14 +5505,14 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td style={tdr}><strong>{znPerKg > 0 ? znPerKg : "—"}</strong> mg Zn/kg</td>
             <td style={tdr}><strong>{znPerKg > 0 ? f(calc.znSO4_bag_mg, 2) : "—"}</strong> mg Zn</td>
           </tr>
-          {/* 7. Heparin: the U/mL ordered, then the units and mL the prepared bag
-              takes, the same figures as the back sheet's heparin line. Until
+          {/* 7. Heparin: the U/mL ordered, then the mL of 100 U/mL stock the
+              prepared bag takes, the back sheet's heparin mL. Until
               2026-11-16 its mL was on the back only, which has not printed since
               2026-10-28, so the paper carried no heparin volume (ward, 2026-11-16). */}
           <tr className="print-heparin">
             <td style={tdRx(heparinUmL > 0)}>7. Heparin ({S.heparin.unitsPerMl} unit/mL)</td>
             <td style={tdr}><strong>{heparinUmL}</strong> unit/mL</td>
-            <td style={tdr}>{heparinUmL > 0 && bag ? <><strong>{fmt(heparinUmL * calc.preparedVol, 0)}</strong> unit = <strong>{f(calc.solVol?.heparin,1)}</strong> mL</> : "—"}</td>
+            <td style={tdr}>{heparinUmL > 0 && bag ? <><strong>{f(calc.solVol?.heparin,1)}</strong> mL</> : "—"}</td>
             <td style={td}>0.5–{D.HEPARIN_USUAL_MAX_U_ML} unit/mL</td>
           </tr>
           {/* 8. Other — the oral orders, which the paper form has no line for */}

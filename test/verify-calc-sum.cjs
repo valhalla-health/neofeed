@@ -397,7 +397,7 @@ const screenFigures = () => ({
 });
 // The front sheet's small "Bag osm N mOsm/L" on the Total Volume line (null when it is not printed).
 // The front sheet's heparin line: its mL (null when it prints "—" or is missing). Ward, 2026-11-16.
-const printedFrontHeparinMl = () => { const t = __printFormTicked(container)?.querySelector('.print-heparin')?.textContent.replace(/\s+/g, ' '); const m = t && t.match(/unit = (-?[\d.]+) mL/); return m ? Number(m[1]) : null; };
+const printedFrontHeparinMl = () => { const t = __printFormTicked(container)?.querySelector('.print-heparin')?.textContent.replace(/\s+/g, ' '); const m = t && t.match(/unit\/mL ?(-?[\d.]+) mL/); return m ? Number(m[1]) : null; };
 const printedOsm = () => { const t = __printFormTicked(container)?.querySelector('.print-osm')?.textContent; const m = t && t.match(/Bag osm (-?[\d.]+) mOsm\/L/); return m ? Number(m[1]) : null; };
 
 // The pharmacy back page's "Aqueous bag — stock" table, line by line.

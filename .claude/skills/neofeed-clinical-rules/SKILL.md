@@ -545,15 +545,15 @@ for now. The 20 is `NPE_IV_WARN_LO` since 2026-11-10; it had been a literal in `
 ### CR-HEPARIN · heparin above the usual dose
 
 Amber above 1 U/mL of the aqueous bag (usual 0.5–1, KCMH default 1), so a tenfold 10 U/mL is seen. No
-bag, no caution. The front sheet's heparin line prints the U/mL, then the units and mL of 100 U/mL stock the
-prepared bag takes, the back sheet's figures (ward, 2026-11-16: until then the mL was on the back only, which
+bag, no caution. The front sheet's heparin line prints the U/mL, then the mL of 100 U/mL stock the prepared bag
+takes, the back sheet's figure (ward, 2026-11-16: until then the mL was on the back only, which
 does not print).
 Source: KCMH TPN team, 2026-10-25. ESPGHAN 2018, Kolaček: 0.5–1.0 U/mL is unlikely to destabilise the
 lipid emulsion; Fanaroff ch Therapeutic Agents p. 8: 0.5–1 unit/mL for central-line patency.
 
 ```rule
 {"rule": "CR-HEPARIN", "kind": "caution", "coded": {"HEPARIN_USUAL_MAX_U_ML": 1, "KCMH_STOCK.heparin.unitsPerMl": 100}, "where": [{"file": "data.js", "line": 932, "has": "const HEPARIN_USUAL_MAX_U_ML = 1;"}, {"file": "calculator.jsx", "line": 2514, "has": "if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push"}]}
-{"case": "1 U/mL: no caution; the front sheet prints 180 unit = 1.8 mL for the 180 mL prepared", "side": "inside", "infant": {"g": 1500}, "route": "Central", "order": {"Volume(mL/day)": 150, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1, "Heparin": 1}, "expect": {"no_alert": "Heparin above the usual dose", "prints": "7. Heparin (100 unit/mL)1 unit/mL180 unit = 1.8 mL"}}
+{"case": "1 U/mL: no caution; the front sheet prints 1.8 mL for the 180 mL prepared", "side": "inside", "infant": {"g": 1500}, "route": "Central", "order": {"Volume(mL/day)": 150, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1, "Heparin": 1}, "expect": {"no_alert": "Heparin above the usual dose", "prints": "7. Heparin (100 unit/mL)1 unit/mL1.8 mL"}}
 {"case": "1.5 U/mL: caution", "side": "outside", "infant": {"g": 1500}, "route": "Central", "order": {"Volume(mL/day)": 150, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1, "Heparin": 1.5}, "expect": {"alert": "Heparin above the usual dose", "level": "warn"}}
 ```
 

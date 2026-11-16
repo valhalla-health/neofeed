@@ -18,17 +18,18 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   "10% Amiparen".
 - **Heparin.** The front sheet's "7. Heparin (100 unit/mL)" line printed the U/mL alone; its mL was on the
   pharmacy back sheet, which renders but has not printed since 2026-10-28. The line now prints the U/mL in the
-  per-kg column and "N unit = X mL" in the pharmacist's column, the same `heparinUmL × preparedVol` and
-  `calc.solVol.heparin` the back sheet shows (`CR-R-STOCK-ML`, 1 decimal). "—" with no bag or 0 U/mL. No figure
-  is computed differently and no limit moves; `CONSTANTS_VERSION` stays.
+  per-kg column and the mL of 100 U/mL stock in the pharmacist's column, the back sheet's own
+  `calc.solVol.heparin` (`CR-R-STOCK-ML`, 1 decimal); "—" with no bag or 0 U/mL. The units a day were left off:
+  Center Point's sheet has no slot for them (`verify-center-point-print-parity`), and they are U/mL × the
+  prepared volume, both printed. No figure is computed differently and no limit moves; `CONSTANTS_VERSION` stays.
 - **Amino acids.** `AA_CHOICES` reads "10% Aminoven infant / PED AMINE" and "10% Amiparen". The product, its
   stock and every figure are unchanged. `D.AA_PRODUCTS`' labels keep their brackets: nothing renders them.
 - **Checks (NF-17).** `verify-calc-sum` adds, on every printed order, that the front's heparin mL is the back's
   heparin stock mL (none at 0 U/mL); `verify-calc-oracle` reads the front's heparin mL against its own
-  expected mL; `CR-HEPARIN`'s inside case prints "180 unit = 1.8 mL". The two print harnesses that matched
+  expected mL; `CR-HEPARIN`'s inside case prints "1.8 mL". The two print harnesses that matched
   the bracketed labels read the new ones. `verify-review-0917-calc` §6's five printed-figure pins are
-  recaptured: compared figure by figure with `main`, each order gains exactly the heparin units and mL and
-  nothing else moves.
+  recaptured: compared figure by figure with `main`, each order gains exactly the heparin mL and nothing else
+  moves.
 
 ## Session 2026-11-16 (2) — Sunday asks for length and HC; the growth charts print
 

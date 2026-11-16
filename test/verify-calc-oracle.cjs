@@ -803,7 +803,7 @@ async function run(scIn) {
       near(sc, 'print Energy (TPN) kcal', g(rx('Energy \\(TPN\\) # kcal')), e.tpnKcal, 0);
       near(sc, 'print heparin mL', g(rx('Heparin 100 unit/mL(?:[\\d.]+ unit|—)#')), e.hepMl, 2);
       // The front sheet's heparin line prints its mL too (ward, 2026-11-16), the back sheet's figure.
-      if (sc.hep > 0) near(sc, 'print heparin mL (front)', g(rx('7\\. Heparin \\(100 unit/mL\\)[\\d.]+ unit/mL[\\d.]+ unit = # mL')), e.hepMl, 2);
+      if (sc.hep > 0) near(sc, 'print heparin mL (front)', g(rx('7\\. Heparin \\(100 unit/mL\\)[\\d.]+ unit/mL# mL')), e.hepMl, 2);
       if (sc.soluvit) near(sc, 'print Soluvit mL', g(rx('Soluvit N# mL/day')), e.soluvit, 1);
       if (sc.pedi) near(sc, 'print Peditrace mL', g(rx('µg/mL\\)# mL/day')), e.pedi, 1);
       if (sc.naCl > 0) near(sc, 'print NaCl mL', g(rx('☑ NaCl[\\d.]+ mEq[\\d.—]+ mEq = # mL')), e.naClMl, 1);
