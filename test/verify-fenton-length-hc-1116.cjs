@@ -20,7 +20,9 @@
 //       every week, which is why it is fixed at 1.
 //   §3  ASSERTED. On screen, a length or a head circumference at a whole week
 //       reads within ±1 centile point of the official percentile, for all 234
-//       knot points; a DOL-1 measurement is read on the same curve; and the 24
+//       knot points; a DOL-1 measurement before 35 weeks is read on the same
+//       curve (from 35.0 on the birth-size rows, test/verify-fenton-birth-
+//       length-hc-1116.cjs); and the 24
 //       length and head points of 2026-10-17 (test/fenton-official-1017.json:
 //       12 between whole weeks, 8 of them on DOL 1) read within ±1 too.
 //   §4  Before the curve starts (length before 24.0, head before 23.0) there
@@ -230,11 +232,12 @@ const p50Anchors = () => {
       ok(`${measure} ${sex}: all ${pts.length} whole-week points read within ±1 of the official percentile`,
          pts.length === (measure === 'length' ? 57 : 60) && bad.length === 0, bad.slice(0, 4));
     }
-    // A measurement on DOL 1 is read on the same curve: there is no other for these two.
-    const b = FIXTURE.points.find(p => p.sex === 'girls' && p.measure === 'length' && p.age === 40 && p.aimedAt === 50);
-    await chart(infant('girls', 40, 'length', b.value, 1), 'length');
+    // A measurement on DOL 1 before 35 weeks is read on the same curve (Fenton's
+    // birth-size curve is this one there); from 35.0 it has rows of its own.
+    const b = FIXTURE.points.find(p => p.sex === 'girls' && p.measure === 'length' && p.age === 34 && p.aimedAt === 50);
+    await chart(infant('girls', 34, 'length', b.value, 1), 'length');
     const within1 = (said, official) => { const g = gapOf(parse(said), official); return g != null && Math.abs(g) <= 1; };
-    ok(`a girl born at 40+0, ${b.value} cm on DOL 1, reads the official percentile ${b.pct} (±1): ${readout()}`,
+    ok(`a girl born at 34+0, ${b.value} cm on DOL 1, reads the official percentile ${b.pct} (±1): ${readout()}`,
        within1(readout(), b.pct), readout());
     // 35.7 cm is the old table's row-42 "50th" for boys (the app drew it at 42.5).
     const h = FIXTURE.points.find(p => p.sex === 'boys' && p.measure === 'head' && p.age === 42 && p.aimedAt === 50);

@@ -2261,6 +2261,21 @@ has no clock, so Google's own copy and the lock's duration are proven only by th
 node test/verify-sheet-backup-1115.cjs
 ```
 
+**`verify-fenton-birth-length-hc-1116.cjs`** (63 assertions; jsdom, the same dev-only dependencies as the
+other Fenton harnesses): a DOL-1 length or head circumference is read as a size at birth. §1: the fixture
+`fenton-official-birth-1116.json` is what fentongrowth.ca's Birth size evaluation returned. Its raw text
+hashes to the SHA-256 taken in the page. 164 points, each a cell of a returned table. The 42-week rows and
+the probes past 41 4/7 are named. §2: `FENTON_LENGTH_BIRTH_LMS` and `FENTON_HC_BIRTH_LMS` are the solver's
+answer from 35.0. At 33–35 weeks the birth-size curve is the monitoring curve, and at 41 weeks it is not.
+§3: on screen every DOL-1 knot and probe point at 33+0 to 41+4 reads within ±1 centile point. The same
+35.9 cm head at 41+0 reads ~69th on DOL 1 and ~51st on DOL 15. §4: from 41+5 to 42+0 a DOL-1 point reads
+the 41 4/7 row. §5: on DOL 1 the drawn 50th is the birth-size M; on DOL 15 it is the monitoring M. Against
+`302dae6` it fails 8 checks.
+
+```
+node test/verify-fenton-birth-length-hc-1116.cjs
+```
+
 **`verify-fenton-length-hc-1116.cjs`** (57 assertions; jsdom, the same dev-only dependencies as the other
 Fenton harnesses) — length and head circumference on Fenton's own growth-monitoring curve. §1: the fixture
 `fenton-official-1116.json` is what fentongrowth.ca returned (two submissions of 75 made-up rows, 282 points,
@@ -2268,7 +2283,7 @@ Fenton harnesses) — length and head circumference on Fenton's own growth-monit
 solver's answer on it (`tools/fenton-lms-solve.cjs`): L is 1, the knots read back within 0.001 z, the
 held-out points within 0.02 z. §3: on screen all 234 knot points read within ±1 centile point of the
 official percentile, and so do the 24 length and head points of `fenton-official-1017.json` (12 between
-whole weeks, 8 on DOL 1). §4: before 24.0 (length) or 23.0 (head) there is no percentile and the chart says
+whole weeks, 8 on DOL 1), and a DOL-1 length at 34+0 (from 35.0 a DOL-1 point has its own curve). §4: before 24.0 (length) or 23.0 (head) there is no percentile and the chart says
 where the reference starts. §5: each of the five drawn lines passes through its centile at every week.
 §6: the old rows are gone. Against `e1d99cd` it fails 16 checks.
 

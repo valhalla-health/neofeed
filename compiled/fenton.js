@@ -64,7 +64,26 @@ function FentonChart({ patient, entries, currentDol, onUpdate, printMetric, onPr
     ...sizeAtBirthRows.filter((r) => r[0] < lmsStart),
     ...growthLms.filter((r) => r[0] <= GA_MAX).map(([t, ...lms]) => [t, ...CENTILE_Z.map((z) => lmsValue(lms, z))])
   ] : sizeAtBirthRows;
-  const birthDataset = metric === "weight" ? sizeAtBirthRows : monitorDataset;
+  const birthLms = (metric === "length" ? D_F.FENTON_LENGTH_BIRTH_LMS?.[sex] : metric === "hc" ? D_F.FENTON_HC_BIRTH_LMS?.[sex] : null) || null;
+  const birthLmsStart = birthLms ? birthLms[0][0] : Infinity;
+  const birthLmsAt = (t) => {
+    if (!birthLms || t < birthLmsStart || t > GA_MAX) return null;
+    const last = birthLms[birthLms.length - 1];
+    if (t >= last[0]) return last.slice(1);
+    const i = Math.max(0, birthLms.findIndex((r) => r[0] >= t) - 1);
+    const lo = birthLms[i], hi = birthLms[i + 1];
+    const f = (t - lo[0]) / (hi[0] - lo[0]);
+    return [1, 2, 3].map((j) => lo[j] + f * (hi[j] - lo[j]));
+  };
+  const birthDataset = metric === "weight" ? sizeAtBirthRows : !birthLms ? monitorDataset : (() => {
+    const rows = birthLms.map(([t, ...lms]) => [t, ...CENTILE_Z.map((z) => lmsValue(lms, z))]);
+    const last = rows[rows.length - 1];
+    return [
+      ...monitorDataset.filter((r) => r[0] < birthLmsStart),
+      ...rows,
+      ...last[0] < GA_MAX ? [[GA_MAX, ...last.slice(1)]] : []
+    ];
+  })();
   const xMin = 22, xMax = GA_MAX;
   const pma0 = D_F.gaToDecimalWeeks(patient?.ga || 28);
   const allPoints = (() => {
@@ -183,7 +202,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate, printMetric, onPr
   const currentPercentile = (() => {
     if (points.length === 0) return null;
     const last = points[points.length - 1];
-    const lms = metric !== "weight" || last.dol !== 1 ? lmsAt(last.pma) : null;
+    const lms = last.dol !== 1 ? lmsAt(last.pma) : metric === "weight" ? null : birthLmsAt(last.pma) || lmsAt(last.pma);
     if (lms) return centileOfZ(lmsZ(lms, last.value));
     if (metric !== "weight") return null;
     const vals = rowAt(dataset, last.pma);
