@@ -7,6 +7,38 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (7) — The CI shards after review, and their first run
+
+`test/verify-run-checks.cjs` (96 assertions), `tools/run_checks.js`, `.github/workflows/test.yml` (comments),
+`test/README.md`, `REFERENCE.md` (§ The frontend build, one line), `STATUS.md`. Corrects the entry below in
+three places: the assertion count (96, not 95), the compiled share estimate (replaced by the measured run
+below), and "No check was dropped" (every check still runs; calc-compare's repeat in the compiled pass was).
+
+- **This PR's first run** (43873848021, on `28cbccf`) took 6.1 min, against 33.7 for one job. `pre` 8 s;
+  sources shards 3.4, 3.6 and 5.9 min; compiled shards 5.3, 4.8 and 5.9 min; `harnesses` 2 s. The shards ran
+  45 + 46 + 52 = 143 sources steps and 32 + 55 + 55 = 142 compiled steps, every one once. Sources shard 1 ran
+  short because calc-compare took 86 s there, not the 158 s hinted; runner speed varies, so refresh the hints
+  from a few runs' `slowest:` lines, not one.
+- **New-agent review** of `28cbccf` (read-only, briefed with the files and Pp's four decisions): nothing lets
+  `harnesses` pass wrongly or drops or repeats a step. It re-ran the split on the real config (143 and 142
+  steps, each once) and found no harness that needs `tools/node_modules`, Center Point's build or another
+  harness's files. Fixed from it:
+  - two gate assertions that a substring match let pass on a broken gate (`|| true`, `continue-on-error`,
+    COMPILED read from the sources result, `cancel-in-progress: false`): the whole `harnesses` job is now
+    matched literally, `continue-on-error` is refused anywhere, and the concurrency block is matched with its
+    `cancel-in-progress: true`;
+  - `test/README.md` § CI and `REFERENCE.md` still said every harness runs twice and CI runs on `release`;
+  - `--shard` with no value ran the whole phase; it is now refused;
+  - the `slowest:` line stopped at five steps, so a hinted step could fall off it; it now lists every step of
+    10 s or more;
+  - a comment in the workflow now says a PR run cancelled by a newer push ends with a red `harnesses` on the
+    older commit, as `always()` must.
+- **A full local `--level ci` run without `--phase`** now labels a builtin or command step with its phase too
+  (`kcmh-factor-no-dead-space [sources]`), as harness steps already were. Hooks, `--validate` and single-phase
+  runs print what they printed before (the reviewer compared the two runners on a stub tree).
+- **Tests.** `verify-run-checks.cjs` 96/96, and 16 of 16 mutations caught: the 11 below, plus the four gate
+  mutations above and `--shard` with no value.
+
 ## Session 2026-11-16 (6) — CI runs the harnesses in parallel jobs
 
 `.github/workflows/test.yml`, `tools/run_checks.js` (`--shard K/N`, `shareOf`, a `slowest:` line),

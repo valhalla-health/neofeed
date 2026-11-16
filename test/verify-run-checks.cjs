@@ -233,16 +233,36 @@ console.log('\n── #6 every level calls the one runner ──');
   ok('CI has no harness loop of its own', !/for f in test\/verify-/.test(yml));
   ok('CI calls no check directly', !/node tools\/ci_bans\.js|cmp index\.html|node tools\/build\.mjs|node --test test\//.test(yml));
   ok('the job name the branch rule requires is unchanged', /^  harnesses:/m.test(yml));
-  ok('harnesses waits for every job and runs even after a failure or a cancel',
-    /^  harnesses:\n    needs: \[pre, sources, compiled\]\n    if: always\(\)\n/m.test(yml));
-  ok('harnesses is green only when every job above it is',
-    /test "\$PRE" = success && test "\$SOURCES" = success && test "\$COMPILED" = success/.test(yml));
+  // The gate job, whole and literal, to the end of the file. A substring check
+  // passed with `|| true`, `continue-on-error`, or COMPILED bound to the
+  // sources result; any edit to this job has to change this block with it.
+  const GATE = [
+    '  harnesses:',
+    '    needs: [pre, sources, compiled]',
+    '    if: always()',
+    '    runs-on: ubuntu-latest',
+    '    timeout-minutes: 5',
+    '    steps:',
+    '      - name: Every job above passed',
+    '        env:',
+    '          PRE: ${{ needs.pre.result }}',
+    '          SOURCES: ${{ needs.sources.result }}',
+    '          COMPILED: ${{ needs.compiled.result }}',
+    '        run: |',
+    '          echo "pre: $PRE, sources: $SOURCES, compiled: $COMPILED"',
+    '          test "$PRE" = success && test "$SOURCES" = success && test "$COMPILED" = success',
+    '',
+  ].join('\n');
+  const gateAt = yml.indexOf('\n  harnesses:\n');
+  ok('harnesses waits for every job, runs after a failure or a cancel, and is green only when each one passed',
+    gateAt >= 0 && yml.slice(gateAt + 1) === GATE, gateAt >= 0 ? yml.slice(gateAt + 1) : 'no harnesses job');
+  ok('no step anywhere may fail without failing its job', !/continue-on-error/.test(yml));
   const SHARD = '--shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}';
   for (const phase of ['sources', 'compiled']) {
     ok(`the ${phase} pass is split by the job's index, not the matrix values`, yml.includes(`--phase ${phase} ${SHARD}`));
   }
-  ok('only a PR\'s older run is cancelled; each push to main has its own group',
-    /group: test-\$\{\{ github\.event_name == 'pull_request' && format\('pr-\{0\}', github\.event\.pull_request\.number\) \|\| github\.run_id \}\}/.test(yml));
+  ok('a PR\'s older run is cancelled; each push to main has its own group',
+    yml.includes("\nconcurrency:\n  group: test-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}\n  cancel-in-progress: true\n"));
   ok('a push to main still runs CI, the post-merge check', /push:\n(\s+#.*\n)*\s+branches: \[main\]/.test(yml));
   const settings = JSON.parse(read('.claude/settings.json'));
   const stop = settings.hooks.Stop[0].hooks[0].command;
@@ -293,6 +313,7 @@ console.log('\n── #7 shards cover a phase exactly once ──');
   bad('a share past the count is refused', ['--level', 'ci', '--phase', 'sources', '--shard', '4/3'], null, /--shard/);
   bad('share 0 is refused', ['--level', 'ci', '--phase', 'sources', '--shard', '0/3'], null, /--shard/);
   bad('a share that is not K/N is refused', ['--level', 'ci', '--phase', 'sources', '--shard', 'two'], null, /--shard/);
+  bad('--shard with no value is refused, not read as the whole phase', ['--level', 'ci', '--phase', 'sources', '--shard'], null, /--shard/);
   bad('a share needs one phase', ['--level', 'ci', '--shard', '1/2'], null, /--phase/);
   bad('a share is for CI only', ['--level', 'commit', '--phase', 'sources', '--shard', '1/2', '--changed', 'x.txt'], null, /--level ci/);
   bad('shard_seconds for an unknown phase is refused', ['--level', 'ci'], { ...cfg, shard_seconds: { nope: {} } }, /shard_seconds/);

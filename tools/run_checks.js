@@ -39,7 +39,7 @@ function parseArgs(argv) {
     else if (a === '--root') o.root = argv[++i];
     else if (a === '--config') o.config = argv[++i];
     else if (a === '--changed') o.changed = argv[++i].split(',').filter(Boolean);
-    else if (a === '--shard') o.shard = argv[++i];
+    else if (a === '--shard') o.shard = argv[++i] ?? '';
     else if (a === '--hook') o.hook = true;
     else if (a === '--validate') o.validate = true;
     else if (a === '--install-hooks') o.install = true;
@@ -304,8 +304,10 @@ async function main() {
 
   const out = (s) => sink.write(s + '\n');
   out(`\nrun_checks · level ${o.level}${o.phase ? ` · phase ${o.phase}` : ''}${shard ? ` · shard ${shard.k}/${shard.n}: ${mine.length} of ${plan.length} steps` : ''}`);
-  // The numbers tools/checks.json's shard_seconds is refreshed from.
-  if (isCi && took.length) out(`  slowest: ${took.sort((a, b) => b[1] - a[1]).slice(0, 5).map(([l, s]) => `${l} ${s} s`).join(', ')}`);
+  // The numbers tools/checks.json's shard_seconds is refreshed from: every step
+  // of 10 s or more, so a hinted step cannot fall off the line.
+  const slow = took.filter(([, s]) => s >= 10).sort((a, b) => b[1] - a[1]);
+  if (isCi && slow.length) out(`  slowest: ${slow.map(([l, s]) => `${l} ${s} s`).join(', ')}`);
   if (tails.length) out(tails.join('\n'));
   const width = Math.max(10, ...Object.keys(cfg.dimensions).map(d => d.length));
   let closed = [];

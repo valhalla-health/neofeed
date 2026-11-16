@@ -13,14 +13,16 @@
 # with it: rebuilds from the .jsx sources and fails if that changes a single
 # byte (stale or hand-edited output cannot merge), runs every harness against
 # the sources as before, and runs them all again against the compiled files
-# that actually ship. The test npm packages below are dev-only, installed here
-# and never committed — the same command test/README.md documents.
+# that actually ship (all but verify-calc-compare.cjs, which never loads
+# compiled/ and so runs in the sources pass only). The test npm packages below
+# are dev-only, installed here and never committed — the same command
+# test/README.md documents.
 #
 # Since 2026-11-16 the two harness passes run as parallel jobs, each split
 # over three shards (`--shard K/N`), instead of one job running ~285 steps one
-# after another (33.7 min on main run 43864098626). No check was dropped: the
-# shares of a pass cover it exactly once (tools/run_checks.js shareOf), and the
-# `harnesses` job at the bottom is green only when every job above it is.
+# after another (33.7 min on main run 43864098626). Every check still runs:
+# the shares of a pass cover it exactly once (tools/run_checks.js shareOf), and
+# the `harnesses` job at the bottom is green only when every job above it is.
 name: test
 
 on:
@@ -141,7 +143,9 @@ jobs:
 
   # The check the branch rules on main and release require, by this job's name.
   # always(): a failed, cancelled or skipped job above must turn this red. A
-  # required check that is skipped counts as passed, so it must never be.
+  # required check that is skipped counts as passed, so it must never be. So a
+  # PR run cancelled by a newer push ends with a red `harnesses` on the older
+  # commit; that is expected, and only the PR's head commit counts.
   harnesses:
     needs: [pre, sources, compiled]
     if: always()

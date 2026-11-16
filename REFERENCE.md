@@ -52,7 +52,8 @@ then commit the source edit **together with** everything the build changed
 (`compiled/`, both shells' `?v=` tokens). Edit the `.jsx`, never `compiled/`. If you
 forget, the `test` workflow's first step rebuilds on a clean checkout and fails the PR
 ("compiled/, vendor/ or the HTML shells do not match a fresh build"); it then runs every
-harness twice, once against the sources and once against `compiled/`
+harness twice, in parallel shards (`verify-calc-compare.cjs`, which never loads `compiled/`, once),
+once against the sources and once against `compiled/`
 (`test/compiled-loader.cjs`).
 
 What the build guarantees, and refuses to write anything without:
