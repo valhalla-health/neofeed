@@ -2321,11 +2321,14 @@ lightest share; a step it does not name counts 3 s). Refresh it from the `slowes
 so the compiled loader never reached them and its compiled-pass run repeated the sources one (about 160 s).
 
 `verify-run-checks.cjs` § 7 checks the shares on a made-up config: three cover every step once, none is empty, a
-heavy step runs alone, and a bad `--shard` (or none given) or hint is refused. § 5 checks that every hint names a
-real step and that calc-compare runs once. § 6 matches the `harnesses` job whole (it waits for every job, runs
-after a failure or a cancel, and is green only when each one passed), matches each runner step's `run:` line
-whole (each shard's share comes from the job's index), refuses `continue-on-error` anywhere, and matches the
-`concurrency` block with its `cancel-in-progress: true`. No npm install.
+heavy step runs alone, a bad `--shard`, or one with no value, or a bad hint is refused, and the `slowest:` line
+lists a fast hinted step but not a fast unhinted one. § 5 checks that every hint names a real step and that
+calc-compare runs once. § 6 matches the `harnesses` job whole (it waits for every job, runs after a failure or a
+cancel, and is green only when each one passed); matches each runner step's `run:` line whole, with a blank
+line after it so nothing folds into the command (each shard's share comes from the job's index); allows no
+other line, a `run: |` block's included, to call the runner; allows no `if:` but the gate's `always()`;
+refuses `continue-on-error` anywhere; and matches the `concurrency` block with its `cancel-in-progress: true`.
+No npm install.
 
 To run one shard here as CI does (the jsdom set above, through `NODE_PATH` in a worktree):
 

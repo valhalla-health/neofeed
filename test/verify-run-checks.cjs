@@ -229,13 +229,24 @@ console.log('\n── #6 every level calls the one runner ──');
   const yml = read('.github/workflows/test.yml');
   // Each runner step's run line, whole: a substring check passed with `|| true`
   // appended, which turns a failing shard green and so `harnesses` with it.
+  // Every line that names the runner counts, a `run: |` block's included; only
+  // comments are left out.
   const SHARD = '--shard $(( ${{ strategy.job-index }} + 1 ))/${{ strategy.job-total }}';
-  const runLines = yml.split('\n').filter(l => /^\s+run: .*run_checks\.js/.test(l));
-  for (const [phase, tail] of [['pre', ''], ['center-point', ''], ['sources', ` ${SHARD}`], ['compiled', ` ${SHARD}`]]) {
-    ok(`CI runs phase ${phase} through the runner, and its exit code alone decides the step${tail ? ', split by the job\'s index' : ''}`,
-      runLines.includes(`        run: node tools/run_checks.js --level ci --phase ${phase}${tail}`), runLines);
+  const ymlLines = yml.split('\n');
+  const runnerAt = ymlLines.map((l, i) => [l, i]).filter(([l]) => /run_checks\.js/.test(l) && !/^\s*#/.test(l));
+  const want = [['pre', ''], ['center-point', ''], ['sources', ` ${SHARD}`], ['compiled', ` ${SHARD}`]]
+    .map(([phase, tail]) => [phase, `        run: node tools/run_checks.js --level ci --phase ${phase}${tail}`]);
+  for (const [phase, line] of want) {
+    const at = runnerAt.find(([l]) => l === line);
+    ok(`CI runs phase ${phase} through the runner, and its exit code alone decides the step${phase === 'sources' || phase === 'compiled' ? ", split by the job's index" : ''}`, !!at, runnerAt.map(([l]) => l));
+    // A plain YAML value folds an indented next line into itself, so `|| true`
+    // there would join the command; a blank line ends it.
+    ok(`nothing continues phase ${phase}'s run line`, !!at && ymlLines[at[1] + 1] === '', at && ymlLines[at[1] + 1]);
   }
-  ok('no other step calls the runner', runLines.length === 4, runLines);
+  ok('no other line calls the runner', runnerAt.length === 4, runnerAt.map(([l]) => l));
+  // A step or job `if:` could skip a runner step and leave its job green; the
+  // gate's `if: always()` is the only one.
+  ok('the only if: in the workflow is the gate\'s always()', JSON.stringify(ymlLines.filter(l => /^\s*if:/.test(l))) === JSON.stringify(['    if: always()']), ymlLines.filter(l => /^\s*if:/.test(l)));
   ok('CI has no harness loop of its own', !/for f in test\/verify-/.test(yml));
   ok('CI calls no check directly', !/node tools\/ci_bans\.js|cmp index\.html|node tools\/build\.mjs|node --test test\//.test(yml));
   ok('the job name the branch rule requires is unchanged', /^  harnesses:/m.test(yml));
@@ -308,7 +319,7 @@ console.log('\n── #7 shards cover a phase exactly once ──');
   });
   ok('a step shard_seconds calls heavy runs alone', got.some(s => s.join() === 'c'), got);
   // Its hint is refreshed from this line, so it is listed however fast it ran.
-  ok('a hinted step is on the slowest: line even under 10 s', outs.some(o => /slowest: verify-c\.cjs 0 s/.test(o)), outs);
+  ok('a hinted step is on the slowest: line even under 10 s', outs.some(o => /slowest: verify-c\.cjs \d s/.test(o)), outs);
   ok('an unhinted step under 10 s is not', outs.every(o => !/slowest:.*verify-[abdefg]\.cjs/.test(o)), outs);
   ok('the other shares still cover the rest once', JSON.stringify(got.flat().sort()) === JSON.stringify(tags), got);
 

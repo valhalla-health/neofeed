@@ -7,6 +7,38 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (9) — The CI shards after a third review
+
+`test/verify-run-checks.cjs` (102 assertions), `test/README.md` (the last section), `STATUS.md`. Corrects the
+entry below:
+
+- **(6)'s estimate was not wrong, and (7) corrected nothing in (6) that was.** (8) said three shares of 4.5 to
+  5.0 min could not cover a 16.9 min compiled pass. That 16.9 min included calc-compare's 160 s compiled run,
+  which this PR removes; the rest, 14.2 min, fits within 13.5 to 15.0. (7) replaced (6)'s estimate with the
+  measured run; it did not show the estimate wrong.
+- (8) quoted "No check was dropped" from the STATUS line too; that line said "no check is dropped". Only the
+  workflow header had the first wording.
+- (8) said `|| true` on a `pre` or Center Point step would go green over a failing harness; those steps run the
+  build, shell, CI-ban and Center Point checks, so over a failing check.
+- (8) said calc-fuzz at 11 s was one second from dropping off the `slowest:` line; with the `s >= 10` cut it
+  was one second above it.
+- (8)'s file list left out `STATUS.md`, whose line 3 it changed.
+
+A third new agent read only `fc2e3f7`'s changed lines. Fixed from it:
+
+- **A fifth runner step written as a `run: |` block passed.** § 6 counted single-line `run:` values only. It now
+  counts every non-comment line that names `tools/run_checks.js`, and wants exactly the four.
+- **A continuation line or a step `if:` passed.** `          || true` on the line after a run line folds into the
+  YAML value, and `if: ${{ false }}` skips the step and leaves its job green. § 6 now wants a blank line after
+  each runner line and no `if:` in the workflow but the gate's `always()`.
+- **The hinted-step case pinned 0 s,** which a loaded machine could round to 1 s; it now takes any time under
+  10 s.
+- **The README's last section** now names the `slowest:` cases, the line count and the `if:` rule, and says
+  "one with no value" for the refused `--shard`.
+- **Tests.** `verify-run-checks.cjs` 102/102, and 25 of 25 mutations caught: the 21 in (8), a continuation
+  `|| true` after the `pre` and the sources run lines, a step `if: ${{ false }}` on `pre`, and a fifth
+  runner step as a `run: |` block.
+
 ## Session 2026-11-16 (8) — The CI shards after a second review
 
 `test/verify-run-checks.cjs` (97 assertions), `tools/run_checks.js`, `test/README.md` (§ CI and the last
