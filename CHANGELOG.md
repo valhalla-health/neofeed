@@ -24,8 +24,10 @@ only what is safe to print", tasks 2.6), `REFERENCE.md` § The TPN room's page, 
   รอหน่วย TPN"), never a guessed line. A half-filled set keeps the lines it has and is still a trial. The worksheet
   and the bag sticker are unchanged and unmarked. No figure, rule or backend change; every figure is still a
   `printJson` string.
-- **Kept.** A trial print goes in the print log like any print, so the row reads "พิมพ์แล้ว" and offers "พิมพ์ซ้ำ";
-  once the lines are in, a reprint gives the real label. The mark leaves the moment all three lines are filled in.
+- **The print log.** A trial print is logged with `trial: true`, so the row reads "พิมพ์แล้ว (ฉลากทดลอง)" and offers
+  "พิมพ์ซ้ำ". Once all three lines are filled in and released, a row whose last print was a trial says "ที่พิมพ์ไปเป็นฉลาก
+  PN ทดลอง กดพิมพ์ซ้ำเพื่อได้ฉลากจริง" (`trialReprintDue`; Vera, 2026-11-16). The mark leaves the moment all three lines
+  are filled in.
 - **Tests.** Core: blank lines give no reason, the row's note, placeholders in each blank line, a half-filled set,
   filled lines unmarked. Page: as shipped, a mapped order prints, one mark on the PN label only, three
   placeholders, the sheet fits under print; a filled sheet has no mark. `test/verify-tpn-room-page-1105.cjs` §8

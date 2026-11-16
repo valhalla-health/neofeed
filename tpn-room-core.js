@@ -230,6 +230,12 @@
     return fixedLinesReady(fixed) ? "" : "ฉลาก PN จะพิมพ์เป็นฉลากทดลอง ห้ามติดถุง เพราะยังไม่มีหัวฉลาก วิธีเก็บ และเบอร์ต่อจากหน่วย TPN";
   }
 
+  // The last print was a trial PN label, and the unit's lines are in now: the bag in the
+  // room still carries the trial label, so the row asks for a reprint (Vera, 2026-11-16).
+  function trialReprintDue(last, fixed) {
+    return !!(last && last.trial && fixedLinesReady(fixed));
+  }
+
   // ── What changed since the last print ──
   // The log holds one line per print, oldest first, so the last line for an ID and
   // date is what the room last printed. The entryId decides: an order deleted and
@@ -325,7 +331,7 @@
     PN_FIXED, PN_TRIAL, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
     wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy,
-    missingFigures, printReasons, fixedLinesReady, trialNote,
+    missingFigures, printReasons, fixedLinesReady, trialNote, trialReprintDue,
     lastPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
     recheck, stickerModel,
   };

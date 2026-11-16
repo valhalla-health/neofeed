@@ -116,6 +116,10 @@ section('§2 what may print');
   eq('a half-filled set keeps the line it has', Core.stickerModel(order(), MAP, DATE, half).heading, 'H');
   const fm = Core.stickerModel(order(), MAP, DATE, FIXED);
   eq('filled lines print as given, not a trial', [fm.trial, fm.heading, fm.storage, fm.extension], [false, 'H', 'S', 'E']);
+  // A trial print, then the unit's lines come: the row asks for the real label (Vera, 2026-11-16).
+  ok('a trial print with the lines now filled asks for a reprint', Core.trialReprintDue({ trial: true }, FIXED));
+  ok('…not while the lines are still blank', !Core.trialReprintDue({ trial: true }, Core.PN_FIXED));
+  ok('…nor after a real print, nor with no print', !Core.trialReprintDue({ trial: false }, FIXED) && !Core.trialReprintDue(null, FIXED));
   eq('every figure a sticker reads is present in the real figures', Core.missingFigures(pj()), []);
 }
 

@@ -430,7 +430,8 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
       )}
       {changed && <p className="warn">หมอแก้ order หลังพิมพ์ → ฉบับ {order.revision}</p>}
       {paper && !last && <p className="warn">เทียบกับ order กระดาษก่อน ไฟล์ชื่อเริ่มใหม่ จึงไม่รู้ว่าพิมพ์ไปแล้วหรือยัง</p>}
-      {last && !changed && <p className="muted">พิมพ์แล้ว {Core.wardTime(last.at)} โดย {last.by}</p>}
+      {last && !changed && <p className="muted">พิมพ์แล้ว{last.trial ? " (ฉลากทดลอง)" : ""} {Core.wardTime(last.at)} โดย {last.by}</p>}
+      {!changed && Core.trialReprintDue(last) && <p className="warn">ที่พิมพ์ไปเป็นฉลาก PN ทดลอง กดพิมพ์ซ้ำเพื่อได้ฉลากจริง</p>}
       {reasons.length === 0 && trial && <p className="warn trial-note">{trial}</p>}
       {reasons.length > 0 && (
         <ul className="reasons">{reasons.map((r) => <li key={r}>{r}</li>)}</ul>
@@ -652,6 +653,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         entry: {
           sessionId: order.sessionId, date: fresh.date, entryId: check.order.entryId,
           revision: check.order.revision, preparedDate, by: who, at: new Date().toISOString(),
+          trial: !Core.fixedLinesReady(),
         },
       });
     } catch (err) { setError(err.message); } finally { setBusy(false); }

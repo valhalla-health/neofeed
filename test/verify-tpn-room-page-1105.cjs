@@ -249,7 +249,7 @@ const INIT = `
     await page.emulateMedia({ media: null });
     await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     await row(page, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();
-    ok('a trial print is logged like any print', true);
+    ok('a trial print is logged, and the row says it was a trial', /พิมพ์แล้ว \(ฉลากทดลอง\)/.test(await row(page, 'AA-1').innerText()));
     await ctxA.close();
 
     section('§6 printing');
@@ -313,6 +313,7 @@ const INIT = `
     ok('the sheet leaves the page after the print dialog', true);
     await row(p2, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();
     ok('the row says who printed it', /Pharmacist Dev/.test(await row(p2, 'AA-1').innerText()));
+    eq('a print with the lines filled is not called a trial', /ฉลากทดลอง/.test(await row(p2, 'AA-1').innerText()), false);
     ok('and offers a reprint', await row(p2, 'AA-1').getByRole('button', { name: 'พิมพ์ซ้ำ' }).isVisible());
 
     section('§7 the order moves after printing');
