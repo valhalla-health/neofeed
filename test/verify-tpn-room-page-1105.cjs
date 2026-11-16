@@ -220,8 +220,8 @@ const INIT = `
     await dialog.getByRole('button', { name: 'บันทึก' }).click();
     await row(page, 'AA-1').getByText(SENTINEL_AN).waitFor();
 
-    section('§5 as shipped, blank fixed lines print a trial PN label (Pp, 2026-11-16)');
-    ok('the row says the PN label prints as a trial', /ฉลากทดลอง ห้ามติดถุง/.test(await row(page, 'AA-1').innerText()));
+    section('§5 as shipped, blank fixed lines print a trial sheet (Pp, 2026-11-16)');
+    ok('the row says the sheet prints as a trial', /แผ่นทดลอง ห้ามใช้จริง/.test(await row(page, 'AA-1').innerText()));
     const trialPrint = row(page, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' });
     await trialPrint.waitFor();
     ok('…and offers the print button', await trialPrint.isVisible());
@@ -234,12 +234,10 @@ const INIT = `
         marked: label.classList.contains('part-trial'),
         mark: [...sheet.querySelectorAll('[data-trial]')].map((e) => [e.closest('.part').className, e.textContent]),
         fixed: [...label.querySelectorAll('[data-fixed]')].map((e) => e.textContent),
-        otherParts: [...sheet.querySelectorAll('.part-worksheet [data-trial], .part-bag [data-trial]')].length,
       };
     });
-    ok('the PN label is the trial one', trialSheet.marked);
-    eq('one trial mark, on the PN label only', trialSheet.mark, [['part part-label part-trial', 'ฉลากทดลอง ห้ามติดถุง']]);
-    eq('the worksheet and the bag sticker carry no mark', trialSheet.otherParts, 0);
+    ok('the PN label is marked trial', trialSheet.marked);
+    eq('one trial mark on each of the three parts', trialSheet.mark, ['part-worksheet', 'part-label', 'part-bag'].map((c) => [`part ${c} part-trial`, 'ทดลองพิมพ์ ห้ามใช้จริง']));
     ok('each blank line prints a placeholder that waits for the TPN unit',
       trialSheet.fixed.length === 3 && /รอหัวฉลาก/.test(trialSheet.fixed[0]) && trialSheet.fixed.slice(1).every((t) => /รอหน่วย TPN/.test(t)));
     await page.emulateMedia({ media: 'print' });
@@ -249,7 +247,7 @@ const INIT = `
     await page.emulateMedia({ media: null });
     await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     await row(page, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();
-    ok('a trial print is logged, and the row says it was a trial', /พิมพ์แล้ว \(ฉลากทดลอง\)/.test(await row(page, 'AA-1').innerText()));
+    ok('a trial print is logged, and the row says it was a trial', /พิมพ์แล้ว \(แผ่นทดลอง\)/.test(await row(page, 'AA-1').innerText()));
     await ctxA.close();
 
     section('§6 printing');
@@ -313,7 +311,7 @@ const INIT = `
     ok('the sheet leaves the page after the print dialog', true);
     await row(p2, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();
     ok('the row says who printed it', /Pharmacist Dev/.test(await row(p2, 'AA-1').innerText()));
-    eq('a print with the lines filled is not called a trial', /ฉลากทดลอง/.test(await row(p2, 'AA-1').innerText()), false);
+    eq('a print with the lines filled is not called a trial', /ทดลอง/.test(await row(p2, 'AA-1').innerText()), false);
     ok('and offers a reprint', await row(p2, 'AA-1').getByRole('button', { name: 'พิมพ์ซ้ำ' }).isVisible());
 
     section('§7 the order moves after printing');

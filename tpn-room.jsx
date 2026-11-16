@@ -430,8 +430,8 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
       )}
       {changed && <p className="warn">หมอแก้ order หลังพิมพ์ → ฉบับ {order.revision}</p>}
       {paper && !last && <p className="warn">เทียบกับ order กระดาษก่อน ไฟล์ชื่อเริ่มใหม่ จึงไม่รู้ว่าพิมพ์ไปแล้วหรือยัง</p>}
-      {last && !changed && <p className="muted">พิมพ์แล้ว{last.trial ? " (ฉลากทดลอง)" : ""} {Core.wardTime(last.at)} โดย {last.by}</p>}
-      {!changed && Core.trialReprintDue(last) && <p className="warn">ที่พิมพ์ไปเป็นฉลาก PN ทดลอง กดพิมพ์ซ้ำเพื่อได้ฉลากจริง</p>}
+      {last && !changed && <p className="muted">พิมพ์แล้ว{last.trial ? " (แผ่นทดลอง)" : ""} {Core.wardTime(last.at)} โดย {last.by}</p>}
+      {!changed && Core.trialReprintDue(last) && <p className="warn">ที่พิมพ์ไปเป็นแผ่นทดลอง กดพิมพ์ซ้ำเพื่อได้สติกเกอร์จริง</p>}
       {reasons.length === 0 && trial && <p className="warn trial-note">{trial}</p>}
       {reasons.length > 0 && (
         <ul className="reasons">{reasons.map((r) => <li key={r}>{r}</li>)}</ul>
@@ -465,10 +465,14 @@ function sheetOverflows() {
 const Fig = ({ of, children }) => <span className="fig" data-fig={of}>{children}</span>;
 const Lbl = ({ children }) => <span className="lbl" data-lbl="">{children}</span>;
 
+// Across each part of a trial sheet (blank fixed lines, design D18), so no part passes for a real one.
+const TrialMark = () => <div className="trial-mark" data-trial="">{Core.PN_TRIAL.mark}</div>;
+
 function StickerSheet({ model: m }) {
   return (
     <div className="sheet" id="sticker-sheet">
-      <section className="part part-worksheet">
+      <section className={"part part-worksheet" + (m.trial ? " part-trial" : "")}>
+        {m.trial && <TrialMark />}
         <div className="part-head">
           <div className="big-name" data-mapped="name">{m.name}</div>
           <div><Lbl>Ward</Lbl> <span data-mapped="ward">{m.ward}</span></div>
@@ -503,7 +507,7 @@ function StickerSheet({ model: m }) {
       </section>
 
       <section className={"part part-label" + (m.trial ? " part-trial" : "")}>
-        {m.trial && <div className="trial-mark" data-trial="">{Core.PN_TRIAL.mark}</div>}
+        {m.trial && <TrialMark />}
         <div className="fixed-line heading" data-fixed="">{m.heading}</div>
         <div className="part-head">
           <div className="big-name" data-mapped="name">{m.name}</div>
@@ -539,7 +543,8 @@ function StickerSheet({ model: m }) {
         </div>
       </section>
 
-      <section className="part part-bag">
+      <section className={"part part-bag" + (m.trial ? " part-trial" : "")}>
+        {m.trial && <TrialMark />}
         <div className="bag-name" data-mapped="name">{m.name}</div>
         <div className="bag-ward" data-mapped="ward">{m.ward}</div>
         <div className="facts-line">

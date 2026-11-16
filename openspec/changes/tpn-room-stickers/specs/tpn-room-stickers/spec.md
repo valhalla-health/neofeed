@@ -80,9 +80,14 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 #### Scenario: The PN label's fixed lines are not filled in
 
 - **WHEN** an order can print, and any of the PN label's heading, storage line or extension is blank (design D18)
-- **THEN** the row says the PN label prints as a trial, the print button shows, and the printed PN label carries
-  "ฉลากทดลอง ห้ามติดถุง" across it and a placeholder that waits for the TPN unit in each blank line, never a
-  guessed line; the worksheet and the bag sticker carry no mark
+- **THEN** the row says the sheet prints as a trial, the print button shows, each of the three printed parts
+  carries "ทดลองพิมพ์ ห้ามใช้จริง" across it, each blank line of the PN label prints a placeholder that waits for
+  the TPN unit, never a guessed line, and the print log records the print as a trial
+
+#### Scenario: A trial print, then the fixed lines come
+
+- **WHEN** the last print for an order was a trial and all three fixed lines are now filled in
+- **THEN** the row says the sheet in the room is a trial and asks for a reprint
 
 #### Scenario: The order changed after printing
 

@@ -12,11 +12,12 @@
 
   // The unit's fixed lines on the PN label (tasks.md 0.3 i). The unit has not given
   // them yet. Until all three are filled in, the room may still print so it can see
-  // the sheet (Pp, 2026-11-16), but the PN label prints as a trial: a mark across it
-  // and a placeholder in each blank line, never a guessed line (design D18).
+  // the sheet (Pp, 2026-11-16), but the whole sheet prints as a trial: a mark across
+  // each of its three parts, and a placeholder in each blank line of the PN label,
+  // never a guessed line (design D18).
   const PN_FIXED = { heading: "", storage: "", extension: "" };
   const PN_TRIAL = {
-    mark: "ฉลากทดลอง ห้ามติดถุง",
+    mark: "ทดลองพิมพ์ ห้ามใช้จริง",
     heading: "ฉลากทดลอง ห้ามติดถุง · รอหัวฉลากจากหน่วย TPN",
     storage: "วิธีเก็บ: รอหน่วย TPN",
     extension: "เบอร์ต่อ: รอหน่วย TPN",
@@ -225,13 +226,13 @@
     const f = fixed || PN_FIXED;
     return !!(f.heading && f.storage && f.extension);
   }
-  // Said on the row, beside the print button, while the PN label prints as a trial.
+  // Said on the row, beside the print button, while the sheet prints as a trial.
   function trialNote(fixed) {
-    return fixedLinesReady(fixed) ? "" : "ฉลาก PN จะพิมพ์เป็นฉลากทดลอง ห้ามติดถุง เพราะยังไม่มีหัวฉลาก วิธีเก็บ และเบอร์ต่อจากหน่วย TPN";
+    return fixedLinesReady(fixed) ? "" : "จะพิมพ์เป็นแผ่นทดลอง ห้ามใช้จริง ทั้งใบผสม ฉลาก PN และสติกเกอร์ถุง เพราะยังไม่มีหัวฉลาก วิธีเก็บ และเบอร์ต่อจากหน่วย TPN";
   }
 
-  // The last print was a trial PN label, and the unit's lines are in now: the bag in the
-  // room still carries the trial label, so the row asks for a reprint (Vera, 2026-11-16).
+  // The last print was a trial sheet, and the unit's lines are in now: what the room
+  // holds is still the trial sheet, so the row asks for a reprint (Vera, 2026-11-16).
   function trialReprintDue(last, fixed) {
     return !!(last && last.trial && fixedLinesReady(fixed));
   }

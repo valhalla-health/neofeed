@@ -105,8 +105,8 @@ Built 2026-11-05 on branch `claude/tpn-room-page`, ahead of 0.1 and 0.3 i on Pp'
       real sheet, since the layout follows the design's table and the sample photo was not opened. **Blocked on
       0.3 i:** the PN label's heading, storage line and extension are blank in `tpn-room-core.js`, and the page
       refuses to print until all three are filled in (design D18). **Pp, 2026-11-16:** the room wants to see a print
-      first, so until then the PN label prints as a trial ("ฉลากทดลอง ห้ามติดถุง", placeholders in the blank lines).
-      0.3 i is still open: the trial mark goes only when all three lines are filled in.
+      first, so until then the whole sheet prints as a trial ("ทดลองพิมพ์ ห้ามใช้จริง" on each part, placeholders in
+      the PN label's blank lines). 0.3 i is still open: the mark goes only when all three lines are filled in.
 - [x] 2.7 The sentinel-name test: no request URL, header or body contains the mapped name.
 - [x] 2.8 Vera's report in the PR (#219); `CHANGELOG.md`; `STATUS.md`. Run 2026-11-05: NO BLOCK, findings 1–4 fixed
       with tests, 5 is the retention question below.

@@ -763,8 +763,8 @@ PR B of `openspec/changes/tpn-room-stickers`. Not live: `STATUS.md` says what ho
 - **`*.github.io`:** the page leaves for `moved.html` before it touches storage, on any such host. Use the Workers URL.
 - **Sign-in.** Google (gmail and Chula accounts, which have no NeoFeed password) or email and password; pharmacy or admin only. Google is a redirect to Google and back with no Google script on the page; its redirect URI, `https://neofeed.valhalla-health.workers.dev/tpn-room`, must be on the OAuth client's list (§ Deploying), so a real Google sign-in works on the Workers host only.
 - **Two things to fill in, in `tpn-room-core.js`:** `PN_FIXED`, the label's heading, storage line and extension, blank until
-  the unit gives them; until all three are set the PN label prints as a trial, "ฉลากทดลอง ห้ามติดถุง" across it and
-  `PN_TRIAL`'s placeholders in the blank lines (Pp, 2026-11-16); `CONTACTS`, who to call. A release follows either change.
+  the unit gives them; until all three are set the whole sheet prints as a trial, "ทดลองพิมพ์ ห้ามใช้จริง" across each part and
+  `PN_TRIAL`'s placeholders in the PN label's blank lines (Pp, 2026-11-16); `CONTACTS`, who to call. A release follows either change.
 - **`tpn-room-check.html`** checks a PC's browser: folder, rewrite, permission, device key, after a restart. Use it on a
   new PC too. It calls no server and holds no patient data.
 - **The name file** is `neofeed-tpn-room-names.nfenc`, in a folder the room picks: never OneDrive, never one a restore clears. A
