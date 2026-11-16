@@ -7,6 +7,203 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (12) — PR #277 merged into `main`; STATUS catches up on release #276
+
+`STATUS.md` only. Pp, 2026-11-16: "merge เมื่อ CI ผ่าน". PR #277's line now reads merged into `main` on her
+instruction; it needs no release, since a PR's run uses the workflow of its merge with `main`. **`STATUS.md`
+catches up:** #272 and #274 are live via release #276 (`release-2026-11-16-pr276`, `dcd2c84`; `verify-release`
+0 failures on both hosts, comment on #276). The tag `release-2026-11-16-pr275` is now on the remote, on
+`663b49f`; `verify-release` never ran on that commit itself, and #276, which carries it, passed.
+
+## Session 2026-11-16 (11) — A lone CR could hide a line from the pin; the reviews end here
+
+`test/verify-run-checks.cjs` (109 assertions), `test/README.md` (the last section), `STATUS.md`. Corrects the
+entry below in three places:
+
+- **(10) said the checks after the pin "now also take quoted keys, trailing comments, the job each runner step
+  sits in, and `shell:` or `defaults:` anywhere".** They read text, not YAML: an escaped key (`"i\x66"`,
+  `"sh\x65ll"`), a ` #` inside quotes before a runner call, a job key with a trailing comment or in quotes, and
+  run lines inside a `name: |` block all got past them in the fifth reader's tries. Only the pin caught those.
+  The README now says the pin is the guard and the checks after it are a second layer.
+- **(10) said "A comment may change freely".** Three checks after the pin read raw text, so a comment inside the
+  `harnesses` job or at the end of the file, between `concurrency:` and `group:`, or right after a runner line
+  failed them. They now read the same comment-free lines as the pin, and all four cases pass.
+- **(10) and the code said "after three reviews";** four had each found a YAML spelling that § 6 missed.
+
+The fifth new agent (on `0a7ce05`) found one way past the pin itself: a lone CR. The pin splits on LF, so
+`# note<CR>if: false` read as one comment line, while YAML, which breaks a line at CR too, read a step with
+`if: false`, and `.gitattributes` keeps a lone CR. § 6 now refuses any line break but LF (CR, U+0085,
+U+2028, U+2029) before the pin. When the pin fails on a removed last line it now names that index.
+
+Pp's decision, 2026-11-16, after this fifth review: "ปิด CR แล้วจบ". So no further new-agent review runs on
+this PR; the second-layer gaps above stay, documented, with the pin in front of them.
+
+- **Tests.** `verify-run-checks.cjs` 109/109. The 32 earlier mutations are still caught, and five more: a lone
+  CR hiding a step `if: false` and a job `if: false`, a U+2028 doing the same, a ` #` in quotes before a runner
+  call, and an escaped `if` key. Comment-only edits pass in five places: an existing comment reworded, a new
+  comment inside the `harnesses` job, at the end of the file, between `concurrency:` and `group:`, and right
+  after a runner line.
+
+## Session 2026-11-16 (10) — The workflow pinned line by line, after a fourth review
+
+`test/verify-run-checks.cjs` (108 assertions), `test/README.md` (the last section), `.github/workflows/test.yml`
+(one comment), `STATUS.md`. Corrects the entry below in three places:
+
+- **(6)'s compiled range was too narrow after all.** (9) said it was not wrong because the compiled pass
+  without calc-compare, 14.2 min, fits within three shares of 4.5 to 5.0 min. A fitting sum does not make the
+  shares: the runner's split on run 43864098626's step times gives 4.3, 4.8 and 5.2 min (two readers, each
+  re-running `shareOf` on the real config). (8)'s reason was wrong, but its conclusion stood. (7) replaced the
+  estimate with the measured run.
+- **(9)'s calc-fuzz correction was itself loose.** The runner rounds to whole seconds before the `s >= 10` cut,
+  so a step drops off below 9.5 s, and a printed 11 s is 1.0 to 2.0 s above that. Neither "one second from
+  dropping off" (8) nor "one second above it" (9) was exact.
+- **(9) and the README said § 6 allows no `if:` but the gate's and no fifth runner line;** the patterns behind
+  those claims missed `- if:` as a step's first key, a quoted `'if'` key and a runner called without `.js`.
+
+Pp's decision, 2026-11-16, after the fourth new agent (on `fb9668c`) still found ways past § 6: "ล็อก jobs ทั้งก้อน".
+§ 6 now pins every line of `test.yml` that is not blank or a whole-line comment, 77 lines, and fails on the
+first that differs. A comment may change freely; any other edit to the workflow changes the pinned list in the
+same commit, where a reviewer sees it. The checks after the pin stay, so the reason for each line that matters
+is stated, and they now also take `- if:`, quoted keys, `run_checks` without `.js`, trailing comments, the job
+each runner step sits in, and `shell:` or `defaults:` anywhere. A comment in the workflow's header says both
+must change together.
+
+- **Tests.** `verify-run-checks.cjs` 108/108. All 25 earlier mutations are still caught, and the fourth
+  reader's seven: `- if:` as a first key, a quoted `'if'`, a fifth step without `.js`, `shell: true {0}` on a
+  step, workflow `defaults` with that shell, the sources runner moved to a job outside `needs`, and a blank line
+  then `|| true`. Editing a whole-line comment still passes.
+
+## Session 2026-11-16 (9) — The CI shards after a third review
+
+`test/verify-run-checks.cjs` (102 assertions), `test/README.md` (the last section), `STATUS.md`. Corrects the
+entry below:
+
+- **(6)'s estimate was not wrong, and (7) corrected nothing in (6) that was.** (8) said three shares of 4.5 to
+  5.0 min could not cover a 16.9 min compiled pass. That 16.9 min included calc-compare's 160 s compiled run,
+  which this PR removes; the rest, 14.2 min, fits within 13.5 to 15.0. (7) replaced (6)'s estimate with the
+  measured run; it did not show the estimate wrong.
+- (8) quoted "No check was dropped" from the STATUS line too; that line said "no check is dropped". Only the
+  workflow header had the first wording.
+- (8) said `|| true` on a `pre` or Center Point step would go green over a failing harness; those steps run the
+  build, shell, CI-ban and Center Point checks, so over a failing check.
+- (8) said calc-fuzz at 11 s was one second from dropping off the `slowest:` line; with the `s >= 10` cut it
+  was one second above it.
+- (8)'s file list left out `STATUS.md`, whose line 3 it changed.
+
+A third new agent read only `fc2e3f7`'s changed lines. Fixed from it:
+
+- **A fifth runner step written as a `run: |` block passed.** § 6 counted single-line `run:` values only. It now
+  counts every non-comment line that names `tools/run_checks.js`, and wants exactly the four.
+- **A continuation line or a step `if:` passed.** `          || true` on the line after a run line folds into the
+  YAML value, and `if: ${{ false }}` skips the step and leaves its job green. § 6 now wants a blank line after
+  each runner line and no `if:` in the workflow but the gate's `always()`.
+- **The hinted-step case pinned 0 s,** which a loaded machine could round to 1 s; it now takes any time under
+  10 s.
+- **The README's last section** now names the `slowest:` cases, the line count and the `if:` rule, and says
+  "one with no value" for the refused `--shard`.
+- **Tests.** `verify-run-checks.cjs` 102/102, and 25 of 25 mutations caught: the 21 in (8), a continuation
+  `|| true` after the `pre` and the sources run lines, a step `if: ${{ false }}` on `pre`, and a fifth
+  runner step as a `run: |` block.
+
+## Session 2026-11-16 (8) — The CI shards after a second review
+
+`test/verify-run-checks.cjs` (97 assertions), `tools/run_checks.js`, `test/README.md` (§ CI and the last
+section), `REFERENCE.md` (§ The frontend build). Corrects the entry below in two places:
+
+- **It corrects one thing in (6), not three.** The compiled share estimate in (6) could not hold: three shares of
+  4.5 to 5.0 min cannot cover a 16.9 min pass. The 95 assertions in (6) were right for `28cbccf`; the count
+  rose to 96 with the new § 7 case. "No check was dropped" was never in (6): it was in the workflow header and
+  the STATUS line, both reworded in place to "every check still runs".
+- **`REFERENCE.md` never said CI runs on `release`;** only `test/README.md` § CI did. Both said every harness
+  runs twice.
+
+A second new agent read only `35c435b`'s changed lines. Fixed from it:
+
+- **The runner steps could swallow a failure.** § 6 matched the four `run_checks.js` run lines by substring, so
+  `|| true` on a shard, `pre` or Center Point step still passed, and that job, then `harnesses`, would go green
+  over a failing harness. Each run line is now matched whole, and no fifth step may call the runner.
+- **`test/README.md` § CI said CI installs no browser.** The compiled pass has installed Chromium since
+  2026-10-04 and runs `verify-sync-gate-and-poll.cjs`'s measurement; only the sources pass prints its SKIP.
+- **"Then" was wrong** in README § CI and `REFERENCE.md`: the shards do not wait for `pre`, and all seven jobs
+  start together. Both now say "alongside", and that calc-compare runs in the sources pass only.
+- **The `slowest:` line** now lists every hinted step however fast it ran, as well as every step of 10 s or
+  more: calc-fuzz, hinted 20 s, took 11 s in this PR's first run, one second from dropping off the line.
+- **The README's last section** said `harnesses` splits the passes; the shard jobs do. It now lists what § 6
+  checks, without a count that goes stale.
+- **Tests.** `verify-run-checks.cjs` 97/97, and 21 of 21 mutations caught: the 16 in (7), `|| true` on each of
+  the four runner steps, and a hinted step left off the `slowest:` line.
+
+## Session 2026-11-16 (7) — The CI shards after review, and their first run
+
+`test/verify-run-checks.cjs` (96 assertions), `tools/run_checks.js`, `.github/workflows/test.yml` (comments),
+`test/README.md`, `REFERENCE.md` (§ The frontend build, one line), `STATUS.md`. Corrects the entry below in
+three places: the assertion count (96, not 95), the compiled share estimate (replaced by the measured run
+below), and "No check was dropped" (every check still runs; calc-compare's repeat in the compiled pass was).
+
+- **This PR's first run** (43873848021, on `28cbccf`) took 6.1 min, against 33.7 for one job. `pre` 8 s;
+  sources shards 3.4, 3.6 and 5.9 min; compiled shards 5.3, 4.8 and 5.9 min; `harnesses` 2 s. The shards ran
+  45 + 46 + 52 = 143 sources steps and 32 + 55 + 55 = 142 compiled steps, every one once. Sources shard 1 ran
+  short because calc-compare took 86 s there, not the 158 s hinted; runner speed varies, so refresh the hints
+  from a few runs' `slowest:` lines, not one.
+- **New-agent review** of `28cbccf` (read-only, briefed with the files and Pp's four decisions): nothing lets
+  `harnesses` pass wrongly or drops or repeats a step. It re-ran the split on the real config (143 and 142
+  steps, each once) and found no harness that needs `tools/node_modules`, Center Point's build or another
+  harness's files. Fixed from it:
+  - two gate assertions that a substring match let pass on a broken gate (`|| true`, `continue-on-error`,
+    COMPILED read from the sources result, `cancel-in-progress: false`): the whole `harnesses` job is now
+    matched literally, `continue-on-error` is refused anywhere, and the concurrency block is matched with its
+    `cancel-in-progress: true`;
+  - `test/README.md` § CI and `REFERENCE.md` still said every harness runs twice and CI runs on `release`;
+  - `--shard` with no value ran the whole phase; it is now refused;
+  - the `slowest:` line stopped at five steps, so a hinted step could fall off it; it now lists every step of
+    10 s or more;
+  - a comment in the workflow now says a PR run cancelled by a newer push ends with a red `harnesses` on the
+    older commit, as `always()` must.
+- **A full local `--level ci` run without `--phase`** now labels a builtin or command step with its phase too
+  (`kcmh-factor-no-dead-space [sources]`), as harness steps already were. Hooks, `--validate` and single-phase
+  runs print what they printed before (the reviewer compared the two runners on a stub tree).
+- **Tests.** `verify-run-checks.cjs` 96/96, and 16 of 16 mutations caught: the 11 below, plus the four gate
+  mutations above and `--shard` with no value.
+
+## Session 2026-11-16 (6) — CI runs the harnesses in parallel jobs
+
+`.github/workflows/test.yml`, `tools/run_checks.js` (`--shard K/N`, `shareOf`, a `slowest:` line),
+`tools/checks.json` (`shard_seconds`; a `calc-compare` check, sources pass only), `test/verify-run-checks.cjs`
+(§ 7 new, § 5 and § 6 extended; 95 assertions), `test/README.md`, `STATUS.md`.
+
+- **Why.** Pp, 2026-11-16: "เช็ค harness NeoFeed ว่าต้องทำทั้งหมดนี้ไหม ทำไมใช้เวลานานมาก", then "ทำ PR ข้อ 1-4".
+  Main run 43864098626 took 33.7 min: one job ran every harness one after another, 16.3 min against the
+  sources and 16.9 min against `compiled/`, and everything else took under a minute. The median run grew from
+  19.7 to 26.8 min between 27 Oct and 16 Nov, as most PRs add a harness that then runs twice; the timeout is 45.
+- **What repeated** (398 runs, 27 Oct to 16 Nov, 147 runner-hours). Every push to `release` (30) tested the tree
+  of a main commit already passed: 11.2 h. A release PR's head is main's tip, already run by the push to main
+  (44 pairs, 19.1 h). A PR run kept going after a newer push to the same PR (73 runs, 15.8 h after the newer
+  one started). `verify-calc-compare.cjs` clears `NODE_OPTIONS`, so its compiled-pass run repeated the sources
+  run, about 160 s each time.
+- **1. Parallel jobs.** `pre` (build, shells, CI bans, then Center Point), three `sources` shards and three
+  `compiled` shards run side by side. `harnesses`, the check the rules on `main` and `release` require, keeps
+  its name; it needs all three jobs, runs `always()`, and is green only when each one's result is `success`
+  (a required check that is skipped would count as passed). Each shard calls the runner with
+  `--shard $(( job-index + 1 ))/job-total`, never the matrix values. Every shard computes the same split from
+  the same tree, longest step first onto the lightest share, weighed by `shard_seconds` (13 sources and 9
+  compiled steps of 20 s or more; any other counts 3 s). On run 43864098626's times that gives shares of 5.1
+  to 5.6 min (sources) and 4.5 to 5.0 min (compiled), against one 33.7 min job.
+- **2. calc-compare once.** It runs in the sources pass only. Its trees are built with Babel in a child whose
+  `NODE_OPTIONS` is empty, so the compiled pass never tested anything else.
+- **3. Older PR runs stop.** `concurrency` groups a PR's runs by its number and cancels the older one. A push
+  to main gets its run id as its group, so no post-merge run is cancelled or queued.
+- **4. No run on a push to `release`.** The release PR's run is the gate; Cloudflare deploys on the push either
+  way. The post-merge check stays the run on the push to main.
+- **Not done, Pp's call:** letting a release PR use the push-to-main result on the same commit (untested on
+  GitHub), and dropping the sources pass (the compiled pass tests what ships; with parallel jobs it no longer
+  costs waiting time).
+- **Tests.** `verify-run-checks.cjs` 95/95. Each new assertion was watched failing: the runner from
+  `origin/main`, a share that keeps every step, hints ignored, `harnesses` without `always()` or without the
+  compiled result, a shard from the matrix value, main pushes cancelled, no push to main, calc-compare in both
+  passes, a stale hint, a hint for an unknown phase (11 of 11 caught). Sources shard 2/3 ran here end to end.
+- **`STATUS.md` catches up:** #273 is live via release #275 (`663b49f`); #272 and #274 are merged into `main`
+  and in release PR #276.
+
 ## Session 2026-11-16 (5) — A DOL-1 length or head is read as a size at birth
 
 `data.js` (`FENTON_LENGTH_BIRTH_LMS`, `FENTON_HC_BIRTH_LMS`, new), `fenton.jsx` (`FentonChart`: a DOL-1
