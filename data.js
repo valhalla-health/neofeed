@@ -2771,6 +2771,42 @@ function isOnUnit(p) {
   return !!p && patientStatus(p) === "Active";
 }
 
+// Weekly length and head circumference (Pp, 2026-11-16: "ทุกเช้าวันอาทิตย์ตามเวลา
+// ประเทศไทย ให้เมื่อเข้าชื่อผู้ป่วย ให้เด้งหน้าไปกรอก HC and length weekly ด้วยเลย").
+// On a Sunday, Bangkok time, opening a patient goes to the growth page until
+// that day's DOL carries both a length and a head circumference. Her answers:
+// doctors and nurses both; all of Sunday from 00:00, not the morning only;
+// it can be put off, and then asks again the next time the patient is opened.
+// One value is not enough: the page keeps asking until both are there.
+function isSundayBangkok(now) {
+  // The calendar day in Bangkok (UTC+7, no daylight saving), whatever the
+  // device's own time zone is set to.
+  const ms = now == null ? Date.now() : (now instanceof Date ? now.getTime() : Number(now));
+  return new Date(ms + 7 * 3600e3).getUTCDay() === 0;
+}
+// Which of the two a patient already has on `dol`: a row of patient.lengths /
+// patient.hcs, or a weights row carrying l / hc (MeasurementLogger writes those).
+function growthOnDol(p, dol) {
+  const on = (rows, pick) => (Array.isArray(rows) ? rows : []).some((r) => {
+    if (!r || Number(r.dol) !== Number(dol)) return false;
+    const v = pick(r);
+    return v != null && v !== "" && Number(v) > 0;
+  });
+  return {
+    length: on(p && p.lengths, (r) => r.v) || on(p && p.weights, (r) => r.l),
+    hc: on(p && p.hcs, (r) => r.v) || on(p && p.weights, (r) => r.hc),
+  };
+}
+function weeklyGrowthDue(p, role, now) {
+  if (!p || (role !== "doctor" && role !== "nurse")) return false;
+  // A discharged infant is not measured, a test patient is saved nowhere, and
+  // a record with no bed in the system is read-only: a save would be refused.
+  if (!isOnUnit(p) || isTestSession(p.sessionId) || isReadOnlyOther(p)) return false;
+  if (!isSundayBangkok(now)) return false;
+  const have = growthOnDol(p, liveDol(p));
+  return !(have.length && have.hc);
+}
+
 // What a patient's status reads as, on every screen. A blank status is Active,
 // the rule isOnUnit applies, so no chip reads blank or "Active" while the
 // list it sits on says otherwise. A cell typed into the sheet by hand
@@ -3371,6 +3407,7 @@ window.NEOFEED_DATA = {
   // instead of trusting the stored (snapshot, goes stale) `dol` column;
   // admissionDol is the admission day's DOL, from the anchor.
   liveDol, dolAtDate, entryDol, admissionDol, daysBetweenDateStr,
+  isSundayBangkok, growthOnDol, weeklyGrowthDue,
   dobCredible, hasDolAnchor, dobFromAdmission, dobFromAdmitDol,
   // Growth-chart rows follow a corrected anchor (EditPatientModal)
   anchorShiftDays, moveGrowthRows,

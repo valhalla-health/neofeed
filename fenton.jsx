@@ -14,7 +14,7 @@ function Segmented({ value, onChange, options }) {
   );
 }
 
-function FentonChart({ patient, entries, currentDol, onUpdate }) {
+function FentonChart({ patient, entries, currentDol, onUpdate, printMetric, onPrint }) {
   // The reference tables are keyed "boys"/"girls" and nothing else. Any other
   // value — "M" typed into the sheet, a blank cell — made FENTON_WEIGHT[sex]
   // undefined, `.filter` threw, and with no error boundary the WHOLE app went
@@ -22,7 +22,11 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // what is still unknown gets a message here instead of a guessed curve set.
   const sex = patient?.sex;
   const sexValid = !!(sex && D_F.FENTON_WEIGHT[sex] && D_F.FENTON_LENGTH_GROWTH_LMS[sex] && D_F.FENTON_HC_GROWTH_LMS[sex]);
-  const [metric, setMetric] = React.useState("weight"); // weight | length | hc
+  const [metricState, setMetric] = React.useState("weight"); // weight | length | hc
+  // printMetric (GrowthPrintSheet below): one chart fixed on that measure,
+  // drawn at its design scale (on paper it fills the page's width, close to
+  // the 760 it was designed at), with no tab, zoom or entry controls.
+  const metric = printMetric || metricState;
   const [view, setView] = React.useState(null); // {x,y,w,h} viewBox override
   const dragRef = React.useRef(null);
 
@@ -214,7 +218,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   // scale <1 once the rendered SVG is narrower than its 760 design width;
   // px() inflates a coordinate-space size so it still renders at its intended
   // on-screen size (capped at 1 so desktop, which never shrinks, is untouched).
-  const chartScale = Math.min(1, Math.max(renderedWidth / W, 0.35));
+  const chartScale = printMetric ? 1 : Math.min(1, Math.max(renderedWidth / W, 0.35));
   const px = (v) => v / chartScale;
   // r has extra room (vs. the plot's own tick marks) to fit the percentile
   // labels ("97th" etc.) sitting just past the right edge — see
@@ -374,16 +378,19 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   })();
 
   return (
-    <div className="card">
+    <div className={printMetric ? "growth-print-chart" : "card"} data-metric={metric}>
       <div className="card-h fenton-card-h">
         <Icon name="chart" size={14} color="var(--brand)" />
         Fenton 2025 growth chart · <span className="mono">{sex === "boys" ? "Male" : "Female"}</span>
+        {printMetric && <span> · {yLabel}</span>}
         <span className="h-meta fenton-ctrl" style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Segmented value={metric} onChange={setMetric} options={[
             { value: "weight", label: "Weight" },
             { value: "length", label: "Length" },
             { value: "hc",     label: "HC" },
           ]} />
+          {/* Prints weight, length and HC together (GrowthPrintSheet). */}
+          {onPrint && <button type="button" className="btn sm fenton-print-btn" onClick={onPrint}>พิมพ์กราฟ</button>}
         </span>
       </div>
       <div className="card-b">
@@ -400,7 +407,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
         )}
         <div className="fenton-grid" style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 18 }}>
           <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 6 }}>
+            <div className="fenton-zoom" style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 6 }}>
               <button className="btn sm" onClick={() => {
                 const v = view || { x: 0, y: 0, w: W, h: H };
                 const cx = v.x + v.w / 2, cy = v.y + v.h / 2;
@@ -774,4 +781,71 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
   );
 }
 
+// The three charts on paper (Pp, 2026-11-16: "ให้มีปุ่ม ปริ้นท กราฟที่ plot fenton
+// ออกมาได้ด้วย เผื่อเอาออกมาดู"; all three in one go, and the header the printed
+// order carries). One chart to a page, as wide as the printable area so its labels
+// stay readable, and every page starts with the patient block: three charts
+// under one header ran onto pages that named nobody (Vera, 2026-11-16).
+// Hidden on screen; the print stylesheet in the two shells shows it and hides
+// the rest of the page. It adds no figure: each chart is FentonChart itself,
+// fixed on one measure.
+function GrowthPrintSheet({ patient, entries, currentDol }) {
+  if (!patient) return null;
+  const sexOk = !!(patient.sex && D_F.FENTON_WEIGHT[patient.sex]);
+  const cell = { padding: "1px 4px 1px 0", verticalAlign: "top" };
+  // The identity block of the printed order (calculator.jsx #print-form): name,
+  // NeoFeed ID, and boxes for the HN and AN that NeoFeed does not hold.
+  const idBlock = () => (
+    <>
+      <div style={{ textAlign: "center", borderBottom: "2px solid #000", paddingBottom: 4, marginBottom: 6 }}>
+        <div style={{ fontWeight: 700, fontSize: 13 }}>GROWTH CHART · FENTON 2025</div>
+        <div style={{ fontSize: 11 }}>Weight, length and head circumference by post-menstrual age</div>
+      </div>
+      <table className="growth-print-id" style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6, fontSize: 10.5 }}>
+        <tbody>
+          <tr>
+            <td style={{ ...cell, width: "45%" }}>ชื่อ: <strong>{D_F.patientName(patient) || "—"}</strong>
+              {patient.twinSuffix && <strong> (Twin {patient.twinSuffix})</strong>}</td>
+            <td style={{ ...cell, width: "30%" }}>NeoFeed ID: <strong>{patient.sessionId || "—"}</strong></td>
+            <td style={cell}>วันที่พิมพ์: <strong>{D_F.todayLocal()}</strong></td>
+          </tr>
+          <tr>
+            <td style={cell}>HN: ______________________</td>
+            <td style={cell} colSpan={2}>AN: ______________________ <span style={{ fontSize: 9, color: "#555" }}>(เขียน/ติดสติกเกอร์ — ตรวจตัวตนกับแฟ้มผู้ป่วย)</span></td>
+          </tr>
+          <tr>
+            <td style={cell}>อายุ: DOL <strong>{currentDol || "—"}</strong> &nbsp; ตึก: <strong>{patient.currentBed || "—"}</strong></td>
+            <td style={cell} colSpan={2}>GA แรกเกิด: <strong>{D_F.fmtGA(patient.ga)}</strong> &nbsp;
+              เพศ: <strong>{patient.sex === "boys" ? "Male" : patient.sex === "girls" ? "Female" : "—"}</strong> &nbsp;
+              น้ำหนักแรกเกิด: <strong>{!String(patient.bw == null ? "" : patient.bw).trim() || Number(patient.bw) === 0 ? "—" : Number.isFinite(Number(patient.bw)) ? `${D_F.displayNum(patient.bw, 0)} g` : String(patient.bw)}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </>
+  );
+  const foot = (
+    <div style={{ fontSize: 9, color: "#555", marginTop: 4 }}>
+      NeoFeed · Fenton TR et al. 2025 (PMID 40534585) · เส้น length และ HC คำนวณจาก fentongrowth.ca
+    </div>
+  );
+  return (
+    <div className="growth-print" data-session-id={patient.sessionId || ""}
+      style={{ fontFamily: "'IBM Plex Sans','Sarabun',serif", fontSize: 10.5, color: "#000" }}>
+      {sexOk
+        ? ["weight", "length", "hc"].map((m) => (
+            <div key={m} className="growth-print-page" data-metric={m}>
+              {idBlock()}
+              <FentonChart patient={patient} entries={entries} currentDol={currentDol} printMetric={m} />
+              {foot}
+            </div>
+          ))
+        : <div className="growth-print-page">
+            {idBlock()}
+            <div>เพศในทะเบียนไม่ถูกต้อง จึงพิมพ์กราฟ Fenton ไม่ได้ แก้ที่ Edit session</div>
+          </div>}
+    </div>
+  );
+}
+
 window.FentonChart = FentonChart;
+window.GrowthPrintSheet = GrowthPrintSheet;

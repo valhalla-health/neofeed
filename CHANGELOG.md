@@ -7,6 +7,71 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-16 (2) — Sunday asks for length and HC; the growth charts print
+
+`data.js` (`isSundayBangkok`, `growthOnDol`, `weeklyGrowthDue`, new), `app.jsx` (opening a patient, the banner
+on the growth page, the print sheet), `fenton.jsx` (`FentonChart`'s `printMetric` and `onPrint`,
+`GrowthPrintSheet`, new), the two shells' print rules, `compiled/`, the shells' `?v=`,
+`test/verify-growth-weekly-print-1116.cjs` (new, 99 assertions), `STATUS.md`, `test/README.md`. This
+branch sits on top of the Fenton length and HC change above (same file, `fenton.jsx`).
+
+- **Why.** Pp, 2026-11-16: "ทุกเช้าวันอาทิตย์ตามเวลาประเทศไทย ให้เมื่อเข้าชื่อผู้ป่วย ให้เด้งหน้าไปกรอก HC and length
+  weekly ด้วยเลย", and "ให้มีปุ่ม ปริ้นท กราฟที่ plot fenton ออกมาได้ด้วย เผื่อเอาออกมาดู".
+- **Sunday.** Her answers: doctors and nurses both; all of Sunday in Bangkok from 00:00, not the morning only;
+  it can be put off, and then asks again each time the patient is opened. So on a Sunday, opening a patient from
+  the ward list or the patient picker goes to the growth page when today's DOL has no length or no head
+  circumference, with a banner that names what is missing and a "ไว้ทีหลัง" button back to the log. One value
+  keeps it asking for the other; with both in, the banner goes and the next opening lands on the log as before.
+  Not asked: an admin, a discharged infant, a test patient, an infant with no bed in the system (read-only: the
+  save would be refused), and from the quick calc (its typed figures would be lost). An infant with no DOL
+  anchor is asked only until its last stored row carries both values (`liveDol` falls back to that row).
+  The day is Bangkok's whatever the device's time zone (`isSundayBangkok`). "Today" is the DOL every screen
+  shows (`liveDol`), which is where the growth page files a new measurement.
+- **Print.** A "พิมพ์กราฟ" button on the growth card prints weight, length and HC in one print job (Pp: all
+  three in one go), one chart to an A4 page as wide as the printable area, each page under the printed order's
+  patient block (name, NeoFeed ID, boxes for HN and AN, bed, DOL) with GA at birth, sex, birth weight and the
+  print date. Each printed chart is the screen's own chart fixed on one measure; the tabs, zoom buttons and
+  entry box do not print, and the legend prints as one row. A page is one unbreakable unit. The print sheet
+  is hidden on screen and is the only thing on paper (`.growth-print`,
+  in both shells). For the order form and the ward print batch nothing changes on paper: the one rule that
+  hides the rest of the work area gained an exception for the growth sheet, which exists only on the growth
+  page.
+- **Nothing is calculated here.** No dose, limit, table or `CONSTANTS_VERSION` moves; the backend is not touched.
+- **Review by an agent that had not seen the work (Vera's procedure): NO BLOCK, and the print was wrong.** As
+  first built, the three charts sat under one header at 128 mm wide: on A4 they ran to three pages, of which
+  two named nobody, with chart labels near 5 pt (the reviewer printed a dump of the page to PDF). Now one chart
+  to a page, as wide as the printable area, the patient block on every page. Also from the review: an infant with no bed is no
+  longer asked; the banner no longer says "the box to the right" (it is below the chart on a phone); and the
+  harness gained what four planted mutations had slipped past (the picker, the device's time zone, the print
+  rules).
+- **Printed to PDF from dev local** (Chromium through Playwright, made-up infant AA with a length and a head
+  circumference): three A4 pages, weight, length, HC; each page carries the patient block and its chart at the
+  page's width with the readout under it; the smallest text is 6.5 pt; no console error.
+- **Second and third readings by new agents.** The second found the shells' comment wrong (it gave the chart as
+  190 mm wide; in the PDF it is about 183 by 111 mm) and a page that ended at 267 mm from the top of the sheet,
+  where the printable area ends at 289 mm. It estimated 285 mm for an infant past 42 weeks, whose side panel
+  carries an extra note; nobody printed that infant. A printer with wider margins could then have sent the chart
+  to the next sheet without its patient block. Now a page is one unbreakable unit and the legend prints as one
+  row. The third reading caught the first fix's evidence: the "15 mm margin" PDF had been printed at the shells'
+  own margins, because their `@page` rule overrides the print option. Printed again with the `@page` margin
+  itself changed:
+
+  | Margins | Printable area ends at | Weight page ends at | Length and HC pages end at |
+  |---|---|---|---|
+  | the shells' 8 mm top and bottom | 289 mm | 249 mm | 243 mm |
+  | 15 mm all round | 282 mm | 250 mm | 244 mm |
+  | 20 mm all round | 277 mm | 249 mm | 243 mm |
+
+  Three pages every time, each with the patient block and the legend. **Not printed:** an infant past 42 weeks
+  (dev local seeds none). Also from these readings: a birth weight that is not a number prints as typed, and a
+  blank one as a dash; the harness reads the print block alone, checks that no rule naming a page hides it, and
+  covers an infant with no DOL anchor.
+- **For Pp to look at before it merges:** the banner's Thai wording, and a page from the ward's own printer.
+  The harness proves what each page holds and that both shells carry the rules; the PDF shows the layout in
+  Chromium, not what the ward's printer and browser do with it.
+- **Tests.** `verify-growth-weekly-print-1116.cjs` 99/99, seven scenarios, six of them with the
+  clock moved to the next Sunday or Monday.
+
 ## Session 2026-11-16 — Length and head circumference on Fenton's own curve
 
 `data.js` (`FENTON_LENGTH_GROWTH_LMS`, `FENTON_HC_GROWTH_LMS`, new; `FENTON_LENGTH`, `FENTON_HC` removed),
