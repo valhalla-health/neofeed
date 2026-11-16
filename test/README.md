@@ -244,15 +244,17 @@ It swaps a module only when the harness transforms the whole, unmodified `.jsx` 
 otherwise, and prints which modules it replaced. Source-text assertions (regexes over the `.jsx`)
 still read the sources, which is what they pin.
 
-**CI:** `.github/workflows/test.yml` first rebuilds with `npm ci --prefix tools && node tools/build.mjs`
-on the clean checkout and fails if that changes anything (stale or hand-edited `compiled/`, or
-shell tokens), then checks shell byte-identity, then runs every `verify-*.cjs` (plus `DEAD=0` for
-the Factor harness) **twice** — against the sources, then with the compiled preload, where a harness
-that mounts modules but swapped none fails the step. It runs on each pull request and on pushes to
-`main`/`release`.
-CI installs no browser, so `verify-sync-gate-and-poll.cjs`'s Chromium measurement prints a SKIP
-there and its static CSS assertions carry the section; run it locally (with `playwright`
-installed) to get the real measurement.
+**CI:** `.github/workflows/test.yml`'s `pre` job rebuilds with `npm ci --prefix tools && node tools/build.mjs`
+on its clean checkout and fails if that changes anything (stale or hand-edited `compiled/`, or
+shell tokens), and checks shell byte-identity. Alongside it, parallel shards (§ CI in parallel shards, the
+last section) run every `verify-*.cjs` (plus `DEAD=0` for the Factor harness) **twice**: against the
+sources, and with the compiled preload, where a harness that mounts modules but swapped none fails the step.
+`verify-calc-compare.cjs` alone runs once, in the sources pass, since it never loads `compiled/`. CI runs
+on each pull request and on pushes to `main`; a push to `release` runs nothing, since its tree is always a
+`main` commit already passed.
+The sources pass installs no browser, so there `verify-sync-gate-and-poll.cjs`'s Chromium measurement
+prints a SKIP and its static CSS assertions carry the section; the compiled pass installs Chromium and runs
+the measurement.
 
 ## Running
 
@@ -2317,4 +2319,49 @@ round-down or the no-dead-space decimal removed from the calculator, the check f
 
 ```
 node test/verify-tpn-sticker-1116.cjs
+```
+
+## CI in parallel shards, 2026-11-16 — one harness extended
+
+CI no longer runs the ~285 harness steps one after another in one job (33.7 min on main run 43864098626).
+`.github/workflows/test.yml` runs `pre` (with Center Point), three `sources` shards and three `compiled` shards
+side by side, and the `harnesses` job, the one the branch rules require, is green only when all seven are.
+Each shard calls `node tools/run_checks.js --level ci --phase <pass> --shard K/N`, with K and N taken from the
+job's index and the matrix size. Every job computes the same split from the same tree, so the shares cover a
+pass exactly once; `shard_seconds` in `tools/checks.json` only evens them out (longest step first, onto the
+lightest share; a step it does not name counts 3 s). Refresh it from the `slowest:` line each shard prints.
+
+`verify-calc-compare.cjs` now runs in the sources pass only. It clears `NODE_OPTIONS` for the trees it builds,
+so the compiled loader never reached them and its compiled-pass run repeated the sources one (about 160 s).
+
+`verify-run-checks.cjs` § 7 checks the shares on a made-up config: three cover every step once, none is empty, a
+heavy step runs alone, a bad `--shard`, or one with no value, or a bad hint is refused, and the `slowest:` line
+lists a fast hinted step but not a fast unhinted one. § 5 checks that every hint names a real step and that
+calc-compare runs once.
+
+§ 6 pins every line of `test.yml` that is not blank or a whole-line comment (Pp, 2026-11-16, after four reviews
+each found a way to write YAML that a pattern missed). **The pin is the guard.** A whole-line comment may change
+or move freely; any other edit to the workflow changes the pinned list in the same commit, where a reviewer sees
+it. The pin reads lines as LF splits them, so § 6 also refuses any other line break (a lone CR, U+0085, U+2028,
+U+2029): YAML breaks a line there, and `# note<CR>if: false` would be a comment to the pin and a skipped step to
+GitHub.
+
+The checks after the pin are a second layer. They say why the lines that matter are what they are and catch the
+plain mistakes, but they read text, not YAML, so an escaped or quoted key, a ` #` inside quotes or a commented
+job key can get past them (never past the pin). They check: the `harnesses` job (it waits for every job, runs
+after a failure or a cancel, and is green only when each one passed); each runner step's `run:` line, with a
+blank line after it, under a job key `pre`, `sources` or `compiled` (each shard's share comes from the job's
+index); four lines naming the runner and no more; one `if:`, the gate's `always()`; no `shell:`, `defaults:` or
+`continue-on-error`; and the `concurrency` block with its `cancel-in-progress: true`. No npm install.
+
+To change the workflow, edit `test.yml` and run `node test/verify-run-checks.cjs`. The pin's failure names the
+first differing line by index (`firstDiff`), with what the file has (`got`) and what the list has (`want`): edit
+`LIVE` in § 6 until they agree, or regenerate it from the file's non-blank, non-comment lines. A change to a
+runner line, the `harnesses` job or the `concurrency` block also changes `want`, `GATE` or the concurrency lines
+in the checks after the pin.
+
+To run one shard here as CI does (the jsdom set above, through `NODE_PATH` in a worktree):
+
+```bash
+node tools/run_checks.js --level ci --phase sources --shard 2/3
 ```
