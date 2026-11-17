@@ -7,6 +7,25 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (3) — The PN label prints the AN on its own line under the name, centred
+
+`tpn-room.jsx` (`StickerSheet`, the PN label: `.an-line` after the name in place of the `.part-head` row),
+`tpn-room.css` (`.an-line`), `compiled/tpn-room.js`, the room shells' `?v=`, `test/verify-tpn-room-page-1105.cjs` §6,
+`STATUS.md`.
+
+- **Why.** Pp, 2026-11-17, on the sample sheet (`TPN-sticker-sheet-sample-2026-11-16.pdf`, synthetic data): an arrow
+  from the AN at the PN label's far right toward the name, then "อยากให้อยู่บรรทัดใต้ชื่อ แต่เลื่อนเข้ามาตรงกลาง
+  ให้ไม่เกินบรรทัดอื่นๆ เพื่อติดสติ๊กเกอร". The AN sat at the right edge of the 200 mm label, past every other line. She
+  approved a before/after render of the label ("ใช้แบบนี้").
+- **What moved.** The name keeps its own line; the AN goes on the next line, centred, so it reaches no further right
+  than the label's other lines. Only the PN label: the worksheet keeps the name with the ward on its right, and the
+  bag sticker keeps the AN under the ward. No figure, no field, no rule.
+- **Tests.** `verify-tpn-room-page-1105.cjs` §6, 4 new checks in Chromium (the AN on its own line right under the
+  name, centred, no further right than the other lines, "AN" and the mapped AN): all 4 fail on `origin/main`
+  `0284ee0`, 119/119 here. The sheet and each part still fit under print, on one A4 page.
+- **Beside PR #280.** Both rebuild `compiled/tpn-room.js` and the room shells' `?v=`; whichever merges second takes
+  `main` and rebuilds.
+
 ## Session 2026-11-16 (13) — The TPN unit's answers: bag volume, whole mL, sticker sizes, label lines, a larger print
 
 `data.js` (`preparedVolFor`, `PRINT_FIT_STEPS`, `PRINT_AREA_MM`, `fitPrintSheet`, new; `stickerFigures` `deadMl`;

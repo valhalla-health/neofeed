@@ -316,6 +316,27 @@ const INIT = `
     eq('Buddhist-era dates; date made comes from the box', sheetCheck.dates, [be(today), be(today), be(made), be(today)]);
     eq('the TPN unit’s three fixed lines print as shipped', sheetCheck.fixed, [SHIPPED.heading, SHIPPED.storage, SHIPPED.extension]);
     eq('filled lines print no trial mark', await p2.evaluate(() => document.querySelectorAll('#sticker-sheet [data-trial], #sticker-sheet .part-trial').length), 0);
+    // The PN label's AN (Pp, 2026-11-17, from a render): on its own line under the name, centred,
+    // and reaching no further right than the label's other lines, so a stuck-on label keeps it.
+    const anLine = await p2.evaluate(() => {
+      const label = document.querySelector('#sticker-sheet .part-label');
+      const an = label && label.querySelector('[data-mapped="an"]');
+      const line = an && an.closest('.an-line');
+      if (!line) return null;
+      const rights = [...label.querySelectorAll('.facts-line > span')].map((s) => s.getBoundingClientRect().right);
+      const name = label.querySelector('[data-mapped="name"]');
+      return {
+        afterName: line.previousElementSibling === name,
+        centred: getComputedStyle(line).textAlign,
+        anBelowName: an.getBoundingClientRect().top >= name.getBoundingClientRect().bottom - 1,
+        withinOtherLines: an.getBoundingClientRect().right <= Math.max(...rights) + 0.5,
+        text: line.textContent.replace(/\s+/g, ' ').trim(),
+      };
+    });
+    eq('the PN label prints the AN on its own line right under the name', anLine && [anLine.afterName, anLine.anBelowName], [true, true]);
+    eq('…centred', anLine && anLine.centred, 'center');
+    ok('…reaching no further right than the label\'s other lines', anLine && anLine.withinOtherLines);
+    eq('…as "AN" and the mapped AN', anLine && anLine.text, `AN ${SENTINEL_AN}`);
     await p2.emulateMedia({ media: 'print' });
     const fits = await p2.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
     ok('the sheet and each part fit, measured under print', fits.length === 4 && fits.every(Boolean));

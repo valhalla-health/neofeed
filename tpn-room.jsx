@@ -512,10 +512,8 @@ function StickerSheet({ model: m }) {
       <section className={"part part-label" + (m.trial ? " part-trial" : "")}>
         {m.trial && <TrialMark />}
         <div className="fixed-line heading" data-fixed="">{m.heading}</div>
-        <div className="part-head">
-          <div className="big-name" data-mapped="name">{m.name}</div>
-          <div><Lbl>AN</Lbl> <span data-mapped="an">{m.an}</span></div>
-        </div>
+        <div className="big-name" data-mapped="name">{m.name}</div>
+        <div className="an-line"><Lbl>AN</Lbl> <span data-mapped="an">{m.an}</span></div>
         <div className="facts-line">
           <span><Lbl>DOL</Lbl> <Fig of="dol">{m.dol}</Fig></span>
           <span><Lbl>Ward</Lbl> <span data-mapped="ward">{m.ward}</span></span>
