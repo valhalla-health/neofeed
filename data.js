@@ -2369,6 +2369,45 @@ function wardTpnRows(patients, log, ward, today) {
     .filter(Boolean);
 }
 
+// The CONSTANTS_VERSION a saved row's figures were computed with. Saves stamp it
+// as calcInput.constantsVersion. The first 2026-09-18.1 frontend went live (PR
+// #77, 11:17 ICT on 2026-09-18) before the stamp shipped, so its rows carry none
+// — but it was the first release to save calcInput.aaProduct, and that key dates
+// them. Neither → null: a row from before 2026-09-18, which matches no version.
+// One rule for the Calculator's Print gate (calculator.jsx calcMoved) and the
+// ward list (orderHeldForResubmit); moved here from calculator.jsx on 2026-11-17.
+const FIRST_AA_PRODUCT_VERSION = "2026-09-18.1";
+function savedCalcVersionOf(entry) {
+  const ci = entry && entry.calcInput;
+  if (!ci) return null;
+  if (ci.constantsVersion) return String(ci.constantsVersion);
+  return Object.prototype.hasOwnProperty.call(ci, "aaProduct") ? FIRST_AA_PRODUCT_VERSION : null;
+}
+// A saved order the Calculator's Print gate holds until it is saved again,
+// because NeoFeed's calculation moved after it was saved (calcMoved): printed
+// now, its figures would differ from the order the doctor submitted.
+function orderHeldForResubmit(entry) {
+  return !!entry && savedCalcVersionOf(entry) !== CONSTANTS_VERSION;
+}
+// The order that tags an infant "ต้อง Submit ใหม่" on the ward list (Pp,
+// 2026-11-17, from a render: "ใช้แบบนี้"), or null: a Submitted order for
+// `today` or the day after that would print (orderPrints) and is held
+// (orderHeldForResubmit). A doctor opens it, checks the figures that moved and
+// Submits it again. An earlier day's order is not asked for: its bag has been
+// given, and a new Submit would only supersede the signed row.
+// Returns { entry, tomorrow }, today's order first.
+function resubmitDue(entries, today) {
+  const t = normalizeDateStr(today || todayLocal());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  const next = addDaysToDateStr(t, 1);
+  for (const day of [t, next]) {
+    const held = finalEntries(entries).find(e => normalizeDateStr(e && e.ts) === day
+      && orderPrints(e, previousFinalEntry(entries, day)) && orderHeldForResubmit(e));
+    if (held) return { entry: held, tomorrow: day === next };
+  }
+  return null;
+}
+
 // React hook form of todayLocal(): the current local date, re-rendering the
 // caller when the day rolls over. NICU workstations and the installed PWA stay
 // open for days, so without this "today"-derived UI (DOL, Logged today / Needs
@@ -3764,6 +3803,7 @@ window.NEOFEED_DATA = {
   // The ward's TPN page (Pp, 2026-11-14 and 2026-11-15): who is listed and the care flags.
   WARD_TPN_RECENT_DAYS, PRETERM_GA_WK, WARD_AA_FLAG, WARD_LIPID_FLAG_DOL, PN_STOP_EN_ML_KG,
   isPretermGa, pnStopEnFor, countedEnPerKg, orderSubmittedAt, wardTpnRow, wardTpnRows,
+  savedCalcVersionOf, orderHeldForResubmit, resubmitDue,
   // THE current weight — every screen calls it with the patient's Daily_Log
   // (see currentWeight) — and the joined series it reads.
   currentWeight, weightSeries,

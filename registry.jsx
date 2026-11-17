@@ -93,7 +93,7 @@ function BedChipButton({ p, stacked, onOpen }) {
 function StatusChipButton({ p, onOpen }) {
   const status = D_R.patientStatus(p);
   return (
-    <button type="button" className={"chip chip-tap" + (D_R.isOnUnit(p) ? " ok" : "")} aria-haspopup="dialog"
+    <button type="button" className={"chip chip-tap chip-unit" + (D_R.isOnUnit(p) ? " ok" : "")} aria-haspopup="dialog"
       aria-label={`Status ${status} — เปลี่ยนสถานะ ${D_R.patientName(p)}`.trim()}
       onClick={e => { e.stopPropagation(); onOpen(p); }}>
       <span className="d" />{status}<span className="chip-caret" aria-hidden="true">▾</span>
@@ -450,6 +450,24 @@ function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
   );
 }
 
+// "ต้อง Submit ใหม่" beside the today badge (Pp, 2026-11-17, from a render:
+// "ใช้แบบนี้"). Today's or tomorrow's Submitted order is held by the Calculator's
+// Print gate because NeoFeed's calculation moved after it was saved
+// (D.resubmitDue). Until then the row read ✓ LOGGED like any other, and the ward
+// learned of the hold only when Print refused. The title names the day and what
+// to do: a revision of an order with TPN, or one that stops it, is phoned to the
+// TPN room (Pp, 2026-11-03: "โทรด้วย").
+const RESUBMIT_HOW = "หมอเปิด order ดูตัวเลขที่เปลี่ยน กด Submit ใหม่";
+const resubmitHowFor = (entry) =>
+  RESUBMIT_HOW + (D_R.orderHadTpn(entry) || D_R.orderCancelsTpn(entry) ? " แล้วโทรบอกห้อง TPN" : "");
+function ResubmitTag({ p, entries, today }) {
+  if (!isActivePatient(p)) return null;
+  const due = D_R.resubmitDue(entries, today);
+  if (!due) return null;
+  return <span className="log-badge is-resubmit"
+    title={`order ${due.tomorrow ? "พรุ่งนี้" : "วันนี้"}บันทึกไว้ก่อน NeoFeed ปรับการคำนวณ ยังพิมพ์ไม่ได้ · ${resubmitHowFor(due.entry)}`}>ต้อง Submit ใหม่</span>;
+}
+
 // Today's submitted orders for one ward, for printing only (Pp, 2026-10-12:
 // "มีแค่แดชบอร์ดรายชื่อผู้ป่วย … ของแต่ละวอร์ดในวันนั้น เพื่อปริ้นอย่างเดียว").
 // Reached from the ward gate's Print order button. A tap opens that order in
@@ -483,8 +501,11 @@ function wardPrintableOrder(p, entries, ward, today) {
   const orders = todaysOrders(entries, today);
   // A No TPN order prints only for its oral orders, the day its TPN stopped, or
   // when it cancels a TPN order of the same day (Pp, 2026-11-01; D.orderPrints).
+  // An order held for a new Submit is left out (Pp, 2026-11-17): the Print gate
+  // would only hold it back mid-run, and its row says what to do instead.
   return orders.length === 1 && !isPendingRow(orders[0])
-    && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;
+    && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today))
+    && !D_R.orderHeldForResubmit(orders[0]) ? orders[0] : null;
 }
 
 // What one order's printed sheet is drawn from: the infant's record and every
@@ -713,8 +734,13 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
           // day its TPN stopped, and no TPN order of the day to cancel (Pp,
           // 2026-11-01; D.orderPrints).
           const noTpn = !!one && !pending && !D_R.orderPrints(one, D_R.previousFinalEntry(log[p.sessionId], today));
+          // Held until a doctor Submits it again (D.orderHeldForResubmit; Pp,
+          // 2026-11-17): the row says so and why, its button opens the order, where
+          // the Calculator lists the figures that moved, and Print ทั้งหมด leaves it
+          // out (wardPrintableOrder).
+          const resub = !!one && !pending && !noTpn && D_R.orderHeldForResubmit(one);
           const open = pending || noTpn ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
-          const action = pending ? "กำลังบันทึก…" : noTpn ? "No TPN — ไม่ต้องพิมพ์" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
+          const action = pending ? "กำลังบันทึก…" : noTpn ? "No TPN — ไม่ต้องพิมพ์" : resub ? "เปิด order เพื่อ Submit ใหม่" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
           const item = itemFor.get(p.sessionId);
           // The tick sits beside the card, not in it: the card is itself a
           // button (rowA11y), and a control inside a control is not reachable
@@ -736,12 +762,15 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
                 <span className="pr-name">{D_R.patientName(p) || "—"}<TestTag p={p} /></span>
                 {p.twinSuffix && <span className="chip" style={{ fontSize: 11, fontWeight: 700 }}>{multiplesLabel(p)}</span>}
                 <span className="pr-dol">DOL {D_R.liveDol(p)}</span>
-                <span className="log-badge is-logged">✓ SUBMITTED</span>
+                {resub
+                  ? <span className="log-badge is-resubmit">ต้อง Submit ใหม่</span>
+                  : <span className="log-badge is-logged">✓ SUBMITTED</span>}
+                {resub && <span className="pr-resub-note">NeoFeed ปรับการคำนวณหลังบันทึก order นี้ ยังพิมพ์ไม่ได้ · {resubmitHowFor(one)}</span>}
               </div>
-              <button type="button" className={"btn sm" + (one && !pending && !noTpn ? " primary" : "")} disabled={pending || noTpn}
+              <button type="button" className={"btn sm" + (one && !pending && !noTpn && !resub ? " primary" : "")} disabled={pending || noTpn}
                 tabIndex={-1} onClick={e => { e.stopPropagation(); open?.(); }}>
-                {one && !pending && !noTpn && <Icon name="pdf" size={12} color="#fff" />} {action}
-                {!pending && !noTpn && <Icon name="arrow" size={11} color={one ? "#fff" : undefined} />}
+                {one && !pending && !noTpn && !resub && <Icon name="pdf" size={12} color="#fff" />} {action}
+                {!pending && !noTpn && <Icon name="arrow" size={11} color={one && !resub ? "#fff" : undefined} />}
               </button>
             </div>
             </div>
@@ -1147,6 +1176,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
                 </span>
                 )}
                 <NoTpnTag p={p} entries={log[p.sessionId]} />
+                <ResubmitTag p={p} entries={log[p.sessionId]} today={today} />
               </div>
 
               {/* Actions. ⇄ opens the same TransferBedModal as the desktop
@@ -1332,6 +1362,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
                       </span>
                       )}
                       <NoTpnTag p={p} entries={log[p.sessionId]} />
+                      <ResubmitTag p={p} entries={log[p.sessionId]} today={today} />
                     </div>
                   </td>
                   <td>

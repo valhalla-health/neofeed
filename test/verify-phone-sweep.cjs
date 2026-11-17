@@ -127,10 +127,15 @@ const PATIENTS = [
   mk('ปพ-BW1100', 'ปพ', 'NICU 4', 1100, 'Sepsis', 9), mk('กข-BW2000', 'กค จด', 'NICU 5', 2000, 'Jaundice', 3),
   mk('ทก-BW2500', 'ทอ กล', 'SCN 4', 2500, 'Feeding', 25),
 ];
+// Every order is one saved under this release's CONSTANTS_VERSION, as a save today
+// stamps it: an unstamped row is one the Print gate holds, and since 2026-11-17 the
+// Print order list leaves it out of Print ทั้งหมด (verify-resubmit-tag-1117).
+const CONSTANTS_VERSION = read('data.js').match(/const CONSTANTS_VERSION = "([^"]+)"/)[1];
 const entry = (ts, dol, w, i) => ({ ts, dol, weight: w, fluid: 140, gir: 6.2, pro: 3.1, kcal: 95, na: 3, k: 2, ca: 60, p: 40,
   enVolPerKg: 60, route: 'TPN central', status: 'submitted', submittedBy: 'doc@x', entryId: 'e' + i, lastModified: 'lm' + i,
   lastModifiedBy: 'doc@x', ioInput: 170, ioOutput: 120, drainContent: 0,
-  calcInput: { curWtG: w, wtG: w, fluidTargetPerKg: 140, totalTPN_mL: 120, dexPct: 10, aaPerKg: 3, enVol: 8, enFreq: 8 } });
+  calcInput: { curWtG: w, wtG: w, fluidTargetPerKg: 140, totalTPN_mL: 120, dexPct: 10, aaPerKg: 3, enVol: 8, enFreq: 8,
+    constantsVersion: CONSTANTS_VERSION } });
 // สม จด has today's order Submitted, so the ward gate's Print order list
 // (2026-10-12) has a row to lay out.
 const LOG = { 'รท-BW1180': [entry(add(today, -3), 18, 1210, 1), entry(add(today, -2), 19, 1230, 2), entry(add(today, -1), 20, 1250, 3)],
