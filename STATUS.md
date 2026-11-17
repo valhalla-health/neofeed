@@ -1,5 +1,7 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-18 — QI: a `QI_SubmitTimes` tab, rebuilt every night from `Daily_Log`, gives each day's first, last and median TPN Submit for the whole unit and each ward, orders after the 14:00 cut-off, revised and after midnight; no patient field, editor and trigger only: PR #286, merged into `main` on Praew's instruction; not live.** Backend only, not reachable from the web app; needs Pp's `clasp push` (HEAD) and a time-driven trigger, no deploy and no new scope (`REFERENCE.md` § QI: submit times; `CHANGELOG.md` 2026-11-18 (3), (4)).
+>
 > ⏳ **2026-11-15, fixed 2026-11-18 — "TPN ทั้งหอ": one page per ward lists the Active infants on TPN or off it for at most 14 days, with the latest order's AA, lipid, GIR and EN, its Submit time and care flags (AA and lipid in preterm infants, a No TPN order counted as AA 0; GIR; PN still ordered at NICE's EN line; No TPN); no QI figure: PR #285, merged into `main` on Praew's instruction.** Frontend only, not live: the release waits for Pp; nothing printed or dosed moves, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-15 (3), 2026-11-18 (1), (2), (5)).
 >
 > ⏳ **2026-11-17 — A second maintainer's setup: `docs/MAINTAINER_SETUP.md` (Thai, Windows and Mac) and `tools/maintainer-doctor.mjs`, a read-only check of their computer: PR #287, merged into `main` on Praew's instruction.** Nothing either host serves changes, so no release is needed (`CHANGELOG.md` 2026-11-17 (11)).

@@ -2389,3 +2389,15 @@ Calculator says why, Print ทั้งหมด leaves it out) and the status c
 `constantsVersion`: an unstamped row is one the Print gate holds, and the ward list tags it. The same goes for
 `verify-phone-sweep.cjs`, whose print list needs one order that prints: unstamped, Print ทั้งหมด had nothing to
 tick and "เลือกทั้งหมด" was missing on every device.
+
+## QI submit times, 2026-11-18 — one harness added
+
+`verify-qi-submit-times-1118.cjs`: the `QI_SubmitTimes` tab. One day for the unit and each ward (first, last and
+median Submit, the 14:00 cut-off, drafts, "other" outside ALL; an erased infant, an EN order and a superseded row
+left out; an empty day still has its rows); a revision; a nurse's I/O-only revision through the real backend, read
+at the doctor's Submit, the same time the TPN room's page reads; a Submit after midnight and at exactly midnight;
+the ward at the moment of Submit from `bedHistory`; `no_time` and the cut-off by the minute shown; the tab written
+and rewritten whole, plain-text times, no patient field, yesterday as the last day; out of `doPost`'s reach, and a
+schema fault throws; a sticker-only revision read as the TPN room reads it (the run reads AM), and a grid grown past
+1000 rows. No npm dependencies. Red against `main`'s backend (`NEOFEED_GAS_SRC`); 18 planted rule changes each turn it
+red.
