@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-17 — A second maintainer's setup: `docs/MAINTAINER_SETUP.md` (Thai, Windows and Mac) and `tools/maintainer-doctor.mjs`, a read-only check of their computer: PR #NNN, not merged.** Nothing either host serves changes, so no release is needed (`CHANGELOG.md` 2026-11-17 (10)).
+> ⏳ **2026-11-17 — A second maintainer's setup: `docs/MAINTAINER_SETUP.md` (Thai, Windows and Mac) and `tools/maintainer-doctor.mjs`, a read-only check of their computer: PR #287, not merged.** Nothing either host serves changes, so no release is needed (`CHANGELOG.md` 2026-11-17 (10)).
 >
 > ⏳ **2026-11-17 — The TPN room's names page: "รายชื่อทั้งหมด" lists every infant in the name file, searchable, each name and AN editable, an infant with no order on the chosen date included (Pp, from a render: "ใช้แบบนี้"): PR #282, merged into `main` on Praew's instruction.** Frontend only, the TPN room's page alone; reads the open name file only, no request, no figure or rule changes (`CHANGELOG.md` 2026-11-17 (4)).
 >
