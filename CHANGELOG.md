@@ -7,6 +7,18 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (8) — Vera's third check: a page test that needs the print's `mappingAt`
+
+`test/verify-tpn-room-page-1105.cjs` §12d.
+
+- **Why.** Vera: the in-flight and clock-back fix of entry (7) rests on one line in `printOrder` (`mappingAt:
+  mapping.at`), and every check still passed without it, since the Node cases build the log by hand.
+- **The check.** After a print, the page's clock steps back an hour and the AN is corrected, so the edit's time is
+  earlier than the print's: the row and the names page are still flagged, from the mapping the print recorded. On a
+  copy without that line both checks fail ("got 0, want 1"); 134/134 here.
+- **Left to Pp:** Vera's other point. The names page names every day from today −7 to +1 whose bag predates the
+  mapping, and only a reprint for that day clears it, so bags already given stay listed for up to a week.
+
 ## Session 2026-11-17 (7) — Vera on the flag: the print records the mapping it used; every bag in the window is named
 
 `tpn-room-core.js` (`editedAfterPrint` reads `mappingAt`; `renamedBagDates`), `tpn-room.jsx` (the print log's

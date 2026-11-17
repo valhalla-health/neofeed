@@ -737,6 +737,21 @@ const INIT = `
       await pg.getByRole('button', { name: 'รายชื่อทั้งหมด' }).click();
       await names.locator('tr[data-session="AA-1"]').waitFor();
       eq('…and the names page\'s, with the page open', await names.locator('tr[data-session="AA-1"] .renamed').count(), 0);
+      // The PC clock steps back an hour after that print, and the AN is corrected: the edit's time is now
+      // earlier than the print's. Only the mapping the print recorded (mappingAt) shows the bag is stale
+      // (Vera's third check: without that line in printOrder this passes no more).
+      await names.getByRole('button', { name: 'กลับไปรายการ order' }).click();
+      await pg.clock.setSystemTime(new Date(Date.now() - 3600000));
+      await row(pg, 'AA-1').getByRole('button', { name: /ชื่อ \/ AN/ }).click();
+      await pg.getByLabel('AN', { exact: true }).fill('46444/69');
+      await pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).getByRole('button', { name: 'บันทึก' }).click();
+      await row(pg, 'AA-1').getByText('46444/69').waitFor();
+      eq('a clock stepped back before the edit: the row is still flagged, from the mapping the print used',
+        await row(pg, 'AA-1').locator('.renamed').count(), 1);
+      await pg.getByRole('button', { name: 'รายชื่อทั้งหมด' }).click();
+      await names.locator('tr[data-session="AA-1"]').waitFor();
+      ok('…and the names page names today\'s bag',
+        new RegExp(be(today).replace(/\//g, '\\/')).test(await names.locator('tr[data-session="AA-1"] .renamed').innerText().catch(() => '')));
       await c.close();
     }
 
