@@ -67,16 +67,20 @@ for (const f of ['icons.jsx', 'calculator.jsx']) {
 const D = window.NEOFEED_DATA;
 
 // A synthetic 1.8 kg order, 200 mL delivered + 30 mL dead space = 230 mL,
-// Factor 1.8 × 230/200 = 2.07. The calc values are what calculator.jsx's calc
-// returns for it, written out, so §1 needs no React. The calc carries the
-// weight and the amino-acid product its rows were built on; stickerFigures
-// reads both from it, so they cannot disagree with the rows.
+// rounded up to the next 10 mL above it, 240 mL (2026-11-16; it was 230 until
+// then), Factor 1.8 × 240/200 = 2.16. The calc values are what calculator.jsx's
+// calc returns for it, written out, so §1 needs no React: D50W 12.5 % × 240 =
+// 30 g = 60 mL and the amino acid 3 × 2.16 = 6.48 g = 64.8 → 65 mL are whole mL,
+// the WFI 240 − 146.1 = 93.9 → 94 mL too; the other stocks keep one decimal. The
+// dead space on the stickers is then 240 − 200 = 40 mL, not the 30 typed. The
+// calc carries the weight and the amino-acid product its rows were built on;
+// stickerFigures reads both from it, so they cannot disagree with the rows.
 const C = (extra) => Object.assign({
   wtKg: 1.8, aaStockKey: 'aminoven10',
-  totalTPN_mL: 200, deadVol_mL: 30, preparedVol: 230, factor: 2.07,
-  d50wVol: 57.5,
-  solVol: { aa: 62.1, naCl: 1.2, naAcet: 0, glycophos: 2.1, kCl: 1.6, k2hpo4: 0, mg: 0.8, ca: 9.2, heparin: 1.2, znso4: 0 },
-  soluvitVol: 2.1, peditrace_vol: 2.1, wfiVol: 90.1,
+  totalTPN_mL: 200, deadVol_mL: 30, preparedVol: 240, factor: 2.16,
+  d50wVol: 60,
+  solVol: { aa: 65, naCl: 1.3, naAcet: 0, glycophos: 2.2, kCl: 1.6, k2hpo4: 0, mg: 0.8, ca: 9.6, heparin: 1.2, znso4: 0 },
+  soluvitVol: 2.2, peditrace_vol: 2.2, wfiVol: 94,
   dexG: 25, aaG: 5.4, osmIn: { aaPct: 2.7 }, naKg: 4, kKg: 1.5, pTotal_mg: 55.8,
   znTotal_mg: 0.45, osm: 1021.9, dexKcal: 85, aaKcal: 21.6,
 }, extra);
@@ -93,12 +97,23 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     eq('schema version', D.STICKER_SCHEMA_VERSION, 1);
     const f = D.stickerFigures(O());
     eq('v and constants', [f.v, f.constantsVersion], [1, D.CONSTANTS_VERSION]);
-    eq('order date, dol, weight, factor', [f.orderDate, f.dol, f.dosingWeightKg, f.factor], ['2026-11-16', '7', '1.8', '2.07']);
-    eq('volumes: delivered, dead, prepared', [f.deliveredMl, f.deadMl, f.preparedMl], ['200', '30', '230']);
+    eq('order date, dol, weight, factor', [f.orderDate, f.dol, f.dosingWeightKg, f.factor], ['2026-11-16', '7', '1.8', '2.16']);
+    // Dead space is the printed prepared − the printed delivered since 2026-11-16,
+    // what the line and the round-up keep, so delivered + dead = prepared on the
+    // label (sheet G7 = C7 + G8). Until then it was the dead space typed.
+    eq('volumes: delivered, dead (prepared − delivered), prepared', [f.deliveredMl, f.deadMl, f.preparedMl], ['200', '40', '240']);
+    eq('…not the dead space typed', f.deadMl !== String(C().deadVol_mL), true);
+    eq('dead space with a decimal delivered: 182.5 + 30 → 220, dead 37.5',
+      D.stickerFigures(O({ calc: C({ totalTPN_mL: 182.5, preparedVol: 220 }) })).deadMl, '37.5');
+    eq('no dead space: prepared = delivered, dead 0', D.stickerFigures(O({ calc: C({ deadVol_mL: 0, preparedVol: 200 }) })).deadMl, '0');
+    // The dead space is taken from the two printed volumes, so the label adds up
+    // as printed: 47.55 + 30 → 80 prints 47.6 + 32.4 = 80 (32.45 would print 32.5).
+    { const f47 = D.stickerFigures(O({ calc: C({ totalTPN_mL: 47.55, preparedVol: 80 }) }));
+      eq('47.55 + 30 → 80: delivered 47.6 + dead 32.4 = prepared 80, as printed', [f47.deliveredMl, f47.deadMl, f47.preparedMl], ['47.6', '32.4', '80']); }
     eq('worksheet rows', f.stockMl, {
-      d50w: '57.5', aminoven10: '62.1', amiparen10: '0', aminoplasmal15: '0',
-      nacl20: '1.2', glycophos: '2.1', k2hpo4: '0', naAcetate: '0', kcl: '1.6', mgso4_10: '0.8',
-      caGluconate: '9.2', soluvit: '2.1', peditrace: '2.1', heparin: '1.2', wfi: '90.1',
+      d50w: '60', aminoven10: '65', amiparen10: '0', aminoplasmal15: '0',
+      nacl20: '1.3', glycophos: '2.2', k2hpo4: '0', naAcetate: '0', kcl: '1.6', mgso4_10: '0.8',
+      caGluconate: '9.6', soluvit: '2.2', peditrace: '2.2', heparin: '1.2', wfi: '94',
       znso4: '0', addamel: '0',
     });
     eq('PN label', f.delivered, {
@@ -122,7 +137,7 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     eq('no TPN volume → null', D.stickerFigures(O({ calc: C({ totalTPN_mL: 0 }) })), null);
     eq('no weight in the calc → null', D.stickerFigures(O({ calc: C({ wtKg: 0 }) })), null);
     const ap = D.stickerFigures(O({ calc: C({ aaStockKey: 'aminoplasmal15' }) }));
-    eq('Aminoplasmal: its rows, not Aminoven', [ap.stockMl.aminoven10, ap.stockMl.aminoplasmal15, ap.delivered.aminoAcidG.aminoplasmal15], ['0', '62.1', '5.4']);
+    eq('Aminoplasmal: its rows, not Aminoven', [ap.stockMl.aminoven10, ap.stockMl.aminoplasmal15, ap.delivered.aminoAcidG.aminoplasmal15], ['0', '65', '5.4']);
     eq('Na acetate 1 mEq/kg → acetate 1.8 mEq, 1 : 1', D.stickerFigures(O({ naAcet: 1 })).delivered.acetateMeq, '1.8');
     // The input boxes cannot type a minus sign, so only a damaged saved row can bring one here. The server
     // refuses a negative figure, and that would stop the doctor's save, so the order has no figures instead.
@@ -207,7 +222,11 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
   }
   const PT1600 = { sessionId: 'NF-900016', name: 'SY', bw: 1600, currentBed: 'NICU 3', diagnosis: '-',
     weights: [{ dol: 1, w: 1600 }], admissionDate: '2026-11-07' };
-  // 1.6 kg, 160 mL + 30 mL dead space = 190 mL, Factor 1.9. 20% NaCl 2 and
+  // 1.6 kg, 160 mL + 30 mL dead space = 190 mL, up to 200 mL since 2026-11-16
+  // (it was 190), Factor 1.6 × 200/160 = 2, so the stickers' dead space is 40 mL.
+  // D50W 10 % × 200 = 20 g = 40 mL and the amino acid 2 × 2 = 4 g = 40 mL are
+  // whole mL; NaCl 2 × 2 ÷ 3.42 = 1.17 → 1.2, KCl 2.5, MgSO₄ 0.8 ÷ 0.812 = 0.99 → 1,
+  // Soluvit, Peditrace and heparin 2 each; the WFI 200 − 90.7 = 109.3 → 109. 20% NaCl 2 and
   // KCl 2.5 mEq/kg, MgSO₄ 4.861 mg/kg (0.4 mEq), heparin 1 U/mL (the default),
   // Soluvit and Peditrace ticked (the default). No Ca or P, so no Ca:P alert.
   function order1600(box) {
@@ -230,9 +249,9 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     if (!tick) throw new Error('no "No TPN" tick');
     act(() => { tick.click(); });
   };
-  const WANT_STOCK = { d50w: '38', aminoven10: '38', amiparen10: '0', aminoplasmal15: '0', nacl20: '1.1', glycophos: '0',
-    k2hpo4: '0', naAcetate: '0', kcl: '2.4', mgso4_10: '0.9', caGluconate: '0', soluvit: '1.9', peditrace: '1.9',
-    heparin: '1.9', wfi: '103.9', znso4: '0', addamel: '0' };
+  const WANT_STOCK = { d50w: '40', aminoven10: '40', amiparen10: '0', aminoplasmal15: '0', nacl20: '1.2', glycophos: '0',
+    k2hpo4: '0', naAcetate: '0', kcl: '2.5', mgso4_10: '1', caGluconate: '0', soluvit: '2', peditrace: '2',
+    heparin: '2', wfi: '109', znso4: '0', addamel: '0' };
   let SAVED = null;   // the entry §2 sends, reopened in §2a and §2c
   const SENT = {};    // what §2b, §2b2 and §2a send, for the real server in §2d
   const haveSaved = () => { ok('§2 saved an order to reopen', !!SAVED); return !!SAVED; };
@@ -247,7 +266,7 @@ const tryFig = (o) => { try { return D.stickerFigures(o); } catch (e) { return '
     ok('entry.printJson is there', !!pj, box.entry && Object.keys(box.entry));
     if (!pj) return;
     eq('date, dol, weight, factor, volumes', [pj.orderDate, pj.dol, pj.dosingWeightKg, pj.factor, pj.deliveredMl, pj.deadMl, pj.preparedMl],
-      ['2026-11-16', '10', '1.6', '1.9', '160', '30', '190']);
+      ['2026-11-16', '10', '1.6', '2', '160', '40', '200']);
     eq('worksheet rows', pj.stockMl, WANT_STOCK);
     eq('PN label: Na K Mg Cl', [pj.delivered.naMeq, pj.delivered.kMeq, pj.delivered.mgMg, pj.delivered.clMeq], ['3.2', '4', '7.8', '7.2']);
     eq('PN label: dextrose, AA, vitamins, heparin, kcal',

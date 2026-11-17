@@ -92,7 +92,8 @@ section('§2 what may print');
   ok('a blank bed does not', has(order({ bed: '' }), ctx(), /เตียง/));
   ok('a free-text bed does not', has(order({ bed: 'หน้าห้อง' }), ctx(), /เตียง/));
   ok('an older constants version does not', has(order({ printJson: { ...pj(), constantsVersion: '2000-01-01.1' } }), ctx(), /ปรับการคำนวณ/));
-  ok('another sticker schema does not', has(order({ printJson: { ...pj(), v: 99 } }), ctx(), /คนละรุ่น/));
+  // Which side reloads (2026-11-17, verify § 2b): a newer schema is this page's to reload.
+  ok('another sticker schema does not', has(order({ printJson: { ...pj(), v: 99 } }), ctx(), /โหลดหน้านี้ใหม่/));
   ok('an empty orderDate does not', has(order({ printJson: { ...pj(), orderDate: '' } }), ctx(), /ไม่มีวันที่/));
   ok('another date does not', has(order(), ctx({ date: '2026-11-15' }), /ไม่ตรงกับวันที่เลือก/));
   ok('a blank entryId does not', has(order({ entryId: '' }), ctx(), /entryId/));
@@ -101,8 +102,37 @@ section('§2 what may print');
   ok('a null figure (Addamel ordered) does not', has(order({ printJson: addamel }), ctx(), /Addamel/));
   const holed = pj(); delete holed.delivered.kcal;
   ok('a missing figure does not', has(order({ printJson: holed }), ctx(), /ตัวเลขไม่ครบ/));
-  ok('blank fixed lines hold every print', has(order(), ctx({ fixed: Core.PN_FIXED }), /ข้อความคงที่/));
-  eq('the fixed lines ship blank until the unit gives them', Core.fixedLinesReady(), false);
+  // Blank fixed lines no longer hold a print: the PN label prints as a trial (Pp, 2026-11-16).
+  // The unit gave its three lines the same day, so PN_FIXED ships filled and the
+  // trial path is tested with PN_BLANK, the blank set tpn-room-core.js exports for it.
+  eq('PN_BLANK is the blank set', Core.PN_BLANK, { heading: '', storage: '', extension: '' });
+  eq('blank fixed lines do not hold a print', Core.printReasons(order(), ctx({ fixed: Core.PN_BLANK })), []);
+  eq('the fixed lines ship as the TPN unit wrote them (2026-11-16)', [Core.PN_FIXED.heading, Core.PN_FIXED.storage, Core.PN_FIXED.extension],
+    ['Parenteral nutrition กลุ่มงานเภสัชกรรม โรงพยาบาลจุฬาลงกรณ์', 'วิธีเก็บ: เก็บในตู้เย็นได้ 7 วัน, ถ้าใส่วิตามินแล้วจะเก็บ 1 วัน', 'เบอร์ต่อหน่วย TPN: 73602']);
+  eq('…so the shipped lines are ready', Core.fixedLinesReady(), true);
+  eq('…and the row says nothing about a trial', Core.trialNote(), '');
+  eq('blank lines are not ready', Core.fixedLinesReady(Core.PN_BLANK), false);
+  ok('…so the row says the whole sheet prints as a trial', /แผ่นทดลอง ห้ามใช้จริง/.test(Core.trialNote(Core.PN_BLANK)));
+  ok('…and to destroy it after, since it carries a name and AN', /ทำลาย/.test(Core.trialNote(Core.PN_BLANK)) && /เอกสารลับ/.test(Core.trialNote(Core.PN_BLANK)));
+  eq('filled lines say nothing about a trial', Core.trialNote(FIXED), '');
+  const half = { heading: 'H', storage: '', extension: 'E' };
+  ok('one blank line is still a trial', Core.fixedLinesReady(half) === false && Core.trialNote(half) !== '');
+  const sm = Core.stickerModel(order(), MAP, DATE);
+  eq('a label with the shipped lines is not a trial and prints them', [sm.trial, sm.heading, sm.storage, sm.extension],
+    [false, Core.PN_FIXED.heading, Core.PN_FIXED.storage, Core.PN_FIXED.extension]);
+  const tm = Core.stickerModel(order(), MAP, DATE, Core.PN_BLANK);
+  eq('a trial label is marked', tm.trial, true);
+  eq('…and each blank line holds a placeholder, never a guessed line',
+    [tm.heading, tm.storage, tm.extension], [Core.PN_TRIAL.heading, Core.PN_TRIAL.storage, Core.PN_TRIAL.extension]);
+  ok('…every placeholder says it waits for the TPN unit', [tm.storage, tm.extension].every((x) => /รอหน่วย TPN/.test(x)) && /รอหัวฉลาก/.test(tm.heading));
+  eq('a half-filled set keeps the line it has', Core.stickerModel(order(), MAP, DATE, half).heading, 'H');
+  const fm = Core.stickerModel(order(), MAP, DATE, FIXED);
+  eq('filled lines print as given, not a trial', [fm.trial, fm.heading, fm.storage, fm.extension], [false, 'H', 'S', 'E']);
+  // A trial print, then the unit's lines come: the row asks for the real label (Vera, 2026-11-16).
+  ok('a trial print with the lines now filled asks for a reprint', Core.trialReprintDue({ trial: true }, FIXED));
+  ok('…not while the lines are still blank', !Core.trialReprintDue({ trial: true }, Core.PN_BLANK));
+  ok('…and with the shipped lines, a trial print asks for one', Core.trialReprintDue({ trial: true }));
+  ok('…nor after a real print, nor with no print', !Core.trialReprintDue({ trial: false }, FIXED) && !Core.trialReprintDue(null, FIXED));
   eq('every figure a sticker reads is present in the real figures', Core.missingFigures(pj()), []);
 }
 

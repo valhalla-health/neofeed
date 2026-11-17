@@ -19,6 +19,54 @@ const fmt = (n, d = 1) => n === Infinity ? "!!" : D.displayNum(n, d);
 // decimals). displayNum clears the float tail before it rounds; toFixed(1)
 // read a KCl of 0.35 mL as 0.3, because 0.35 is stored as 0.34999….
 const roundMl = (n) => Number(D.displayNum(n, 1));
+// D50W, the amino acid and SWFI are drawn up with large syringes, so their mL
+// are whole numbers (TPN unit pharmacists, 2026-11-16: "Dextrose, amino, SWI
+// ขอไม่มีทศนิยม เพราะใช้ syringe scale ใหญ่ในการตวง ที่ผ่านมาถ้าได้ทศนิยมจะปัดให้").
+// Half up, as displayNum. The order, the screen and the printed doses keep the
+// ordered figures; the bag may hold up to half a mL of each stock more or less,
+// the tolerance pharmacy used by hand. D50W has two exceptions (see d50wVol).
+const roundWholeMl = (n) => Number(D.displayNum(n, 0));
+
+// Is the host serving another release than this tab loaded (2026-11-17)? A ward PC
+// keeps a tab open for days, and a sign-out remounts the app without loading new
+// code. On 2026-11-17 a tab opened before the 23:21 release went on saving the old
+// calculation: the doctor's own sheet printed, the TPN room refused the order and
+// asked for Submit again, the same tab sent the old calculation again, and it took a
+// third press, after a reload. So the form reads the served version file when it
+// opens, and warns before anyone types; a Submit then asks for a reload instead of
+// sending. A read less than RELEASE_FRESH_MS old decides the Submit by itself, so a
+// Submit waits on the network only when the form has been open longer than that.
+// It fails open: a read that fails, or a file it cannot read, lets the Submit go as
+// before, and the TPN room's page still refuses an order on other versions than its own.
+const RELEASE_CHECK_MS = 5000;
+const RELEASE_FRESH_MS = 60000;
+const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
+const RELEASE_SENT_TEXT = "order ที่เพิ่ง Submit ส่งจากแท็บรุ่นเก่า ห้อง TPN จะไม่รับ กดโหลดหน้าใหม่ แล้วเปิด order กด Submit อีกครั้ง";
+// true: the host serves another release. false: the same one. null: not known.
+async function tabIsBehindRelease() {
+  if (typeof fetch !== "function") return null;
+  const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), RELEASE_CHECK_MS) : null;
+  try {
+    const res = await fetch("compiled/tpn-room-version.js", { cache: "no-store", ...(ctrl ? { signal: ctrl.signal } : {}) });
+    if (!res || !res.ok) return null;
+    return D.tabDiffersFromServed(await res.text());
+  } catch {
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+// Every printed order is fitted just before the print dialog lays it out,
+// whatever opened it (Print order, Print ทั้งหมด, or Ctrl+P): up to 115 % with
+// larger figures, one A4 page (D.fitPrintSheet, 2026-11-16). A page with no
+// order on it (the growth charts) has nothing to fit.
+if (typeof window !== "undefined" && window.addEventListener) {
+  window.addEventListener("beforeprint", () => {
+    document.querySelectorAll("#print-form, .print-batch-sheet").forEach((sheet) => D.fitPrintSheet(sheet));
+  });
+}
 
 // A route's K⁺-in-bag limits as they are written: "<word> 120" for the red
 // tier and "max 200" for the maximum. Where red IS the maximum (peripheral 60
@@ -1202,6 +1250,27 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [published, setPublished] = useState(!!editEntry?.published);
   const [publishing, setPublishing] = useState(false);
   const [conflict, setConflict] = useState(null); // {lastModified, lastModifiedBy} of the row on the server
+  // The host serves another release than this tab loaded (tabIsBehindRelease):
+  // { on: "open" | "submit", draft }. "open" is the read when the form opened, before
+  // anyone typed; "submit" a Submit it refused, and `draft` whether what was typed went
+  // to the draft. Only a reload clears it.
+  const [releaseBehind, setReleaseBehind] = useState(null);
+  // The last read of the served release: { behind, at, pending }. A ref, so a read
+  // that lands renders nothing unless it finds the tab behind.
+  const releaseRead = React.useRef({ behind: null, at: 0, pending: null });
+  const readRelease = () => {
+    const r = releaseRead.current;
+    if (r.pending) return r.pending;
+    const pending = tabIsBehindRelease().then((behind) => {
+      releaseRead.current = { behind, at: Date.now(), pending: null };
+      if (behind === true) setReleaseBehind((prev) => prev || { on: "open", draft: false });
+      return behind;
+    });
+    releaseRead.current = { ...r, pending };
+    return pending;
+  };
+  // When the form opens. Center Point never reaches the TPN room; the quick calc saves nothing.
+  React.useEffect(() => { if (!centerPoint && !scratch) readRelease(); }, []);
 
   // ── "Is what's on screen what's saved?" ────────────────────────────
   // savedKey is the fingerprint of the inputs as last saved (or as loaded
@@ -1676,7 +1745,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         pTotal_mg:0, p_glycophos:0, p_k2hpo4:0, na_glycophos:0, isMEN,
         d50wVol:0, soluvitVol:0, peditrace_vol:0, solVol:sv0,
         componentVol:0, wfiVol:0, dexGPerKg:0, kMeqPerL:0,
-        preparedVol: totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0, deadVol_mL, overfill:1, factor:0,
+        preparedVol: D.preparedVolFor(totalTPN_mL, deadVol_mL), deadVol_mL, overfill:1, factor:0,
         deliveredFrac:1, dexG_bag:0, aaG_bag:0,
         bag:{ na_mEq:0, k_mEq:0, ca_mg:0, mg_mEq:0, p_mg:0, heparin_units:0 },
         znPeditrace_mg:0, znSO4_mg:0, znSO4_bag_mg:0, znTotal_mg:0,
@@ -1702,7 +1771,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // feeds-only day into a 30 mL bag of water and heparin on the pharmacy
     // form. The vitamins that go into that bag are zeroed below, for the same
     // reason.
-    const preparedVol = totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0;
+    // Since 2026-11-16 the sum is rounded up to the next 10 mL above it
+    // (D.preparedVolFor), so the line keeps more than the dead space typed.
+    // Everything below reads preparedVol, so the Factor carries the extra.
+    const preparedVol = D.preparedVolFor(totalTPN_mL, deadVol_mL);
     const overfill = totalTPN_mL > 0 ? preparedVol / totalTPN_mL : 1;   // G7/C7
     const factor = wtKg * overfill;                                     // H9
     const deliveredFrac = overfill > 0 ? 1 / overfill : 1;              // C7/G7
@@ -1829,7 +1901,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
     // D50W volume — how much 50% dextrose to add to reach target concentration
     // D50W (0.5 g/mL): mL needed = glucose g IN THE BAG ÷ 0.5
-    const d50wVol = dexG_bag > 0 ? roundMl(dexG_bag / S.d50w.gPerMl) : 0;
+    // Whole mL to the nearest (roundWholeMl, pharmacy 2026-11-16), with two
+    // exceptions Pp set the same day, after a cold reader showed the rounding
+    // moving the bag's dextrose: a bag with no dead space keeps one decimal (a
+    // 10 mL bag of D7.5 % takes 1.5 mL; 2 would make it 10 %), and a
+    // peripheral bag ordered at or under the peripheral limit is never rounded
+    // up past it (17.5 → 18 mL in a 70 mL bag is 12.9 %): it rounds down. Any
+    // route but "central" counts as peripheral, as the Central-only chip does.
+    const d50wExact = dexG_bag / S.d50w.gPerMl;
+    let d50wVol = 0;
+    if (dexG_bag > 0) {
+      if (!(deadVol_mL > 0)) {
+        d50wVol = roundMl(d50wExact);
+      } else {
+        d50wVol = roundWholeMl(d50wExact);
+        const bagPct = (ml) => ml * S.d50w.gPerMl / preparedVol * 100;
+        if (route !== "central" && dexPct <= D.DEX_PERIPHERAL_MAX_PCT && bagPct(d50wVol) > D.DEX_PERIPHERAL_MAX_PCT + 1e-9) {
+          d50wVol = Math.floor(d50wExact + 1e-9);
+        }
+      }
+    }
 
     // Vitamins + TE volumes (added to aqueous PN bag)
     // Both 1 mL/kg/day per the KCMH sheet (B43, B45), capped at 10 / 15 mL a
@@ -1876,7 +1967,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // Heparin is dosed per mL of bag (sheet G51 = F51 × G7), so prepared volume
       heparin:   heparinUmL > 0 ? roundMl(heparinUmL * preparedVol / S.heparin.unitsPerMl) : 0,
       znso4:     znPerKg > 0 ? roundMl(znSO4_bag_mg / S.znso4.znMgPerMl) : 0,     // ZnSO₄, mg elemental Zn ÷ mg/mL
-      aa:        roundMl(aaG_bag / S[aaStockKey].gPerMl),     // amino acid, chosen stock (aaStockKey)
+      aa:        roundWholeMl(aaG_bag / S[aaStockKey].gPerMl), // amino acid, chosen stock (aaStockKey), whole mL
       lipidSMOF: roundMl(lipidG / S.smof20.gPerMl),   // separate syringe — no overfill
     };
 
@@ -1909,7 +2000,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // WFI from the prepared volume as it is printed (D.displayNum, 1 decimal),
     // so the printed components + WFI = printed prepared exactly (NF-17, S7;
     // Pp, 2026-10-11). 130.45 mL used to print 87.5 + 42.9 = 130.5.
-    const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));
+    // Since 2026-11-16 the WFI is whole mL too (pharmacy: "SWI ขอไม่มีทศนิยม"),
+    // so components + WFI is the prepared volume to within half a mL, which is
+    // how pharmacy rounded it by hand; the other additives keep one decimal.
+    // A bag its components overfill keeps its exact negative WFI, so it is
+    // still refused: rounding must never turn −0.3 into 0.
+    const wfiExact = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));
+    const wfiVol = wfiExact < 0 ? wfiExact : roundWholeMl(wfiExact);
 
     // ── Sheet safety ceilings ────────────────────────────────────────────────
     // The sheet tests bag amounts against factor-scaled limits (F10 vs F9 = 18×H9,
@@ -1949,9 +2046,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,
   naCl, naAcet, glycophosP, kCl, k2hpo4, mgPerKg, caPerKg, extraP_mg_kg,
   enFeeds, isMEN,
-  // `route` is deliberately NOT a dependency — the memo never reads it. It is
-  // used afterwards for sOsm and the saved entry's route string. Listing it
-  // recomputed the whole memo on every central/peripheral toggle.
+  // `route` is a dependency since 2026-11-16: the D50W mL reads it (a
+  // peripheral bag never rounds up past the peripheral dextrose limit). Until
+  // then the memo never read it, and it was left out so a central/peripheral
+  // toggle did not recompute it.
+  route,
   inclSoluvit, inclPeditrace, znPerKg, heparinUmL]);
 
   // Keep ioInput tracking the computed prescribed-fluid total until the user
@@ -1959,7 +2058,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // rest of this form uses for smart prefills.
   React.useEffect(() => {
     if (ioInputTouchedRef.current) return;   // ref, not state — see markIoInputTouched
-    setIoInput(Math.round(calc.prescribedFluid) || 0);
+    setIoInput(Number(D.displayNum(calc.prescribedFluid, 0)) || 0);
   }, [calc.prescribedFluid, ioInputTouched]);
 
   // ── Intake / Output card ─────────────────────────────────────────
@@ -1979,7 +2078,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const ioDivisorGVal = ioDivisor.g;
   const ioDivisorKg = ioDivisorGVal ? ioDivisorGVal / 1000 : null;
   const ioInputPerKg = ioDivisorKg ? ioInput / ioDivisorKg : null;
-  const ioOutputPerKgH = ioDivisorKg ? Math.round((ioOutput / ioDivisorKg / 24) * 100) / 100 : null;
+  const ioOutputPerKgH = ioDivisorKg ? ioOutput / ioDivisorKg / 24 : null;
   const ioDrainPerKg = ioDivisorKg ? drainContent / ioDivisorKg : null;
   const ioBalance = ioInput - ioOutput - drainContent;
   // The nurses' record for this order's date, when there is one to offer (a
@@ -2250,7 +2349,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Each feed's own hint: alone, its interval; beside another, its share of
   // the one schedule, since 6 + 2 is not q4h beside q12h (they would meet at
   // 0 h and 12 h) but 6 and 2 of eight q3h feeds (Vera, 2026-10-28).
-  const feedFreqHint = (n) => !twoFeeds ? `q${Math.round(24 / Math.max(n, 1))}h`
+  const feedFreqHint = (n) => !twoFeeds ? `q${fmt(24 / Math.max(n, 1), 0)}h`
     : feedsIrregular || feedsOverMax ? "" : `${fmt(n, 1)} of ${fmt(feedsPerDay, 1)} feeds · q${fmt(24 / feedsPerDay, 1)}h`;
   // A feed given from a key EN_DB does not hold has no composition, so the
   // order cannot be submitted or printed until another milk is picked.
@@ -2271,7 +2370,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     [heparinUmL > 0, calc.solVol.heparin, "Heparin"],
   ].filter(([ordered, ml]) => ordered && ml === 0).map(([, , label]) => label) : [];
   const stockAtZeroMl = stocksAtZeroMl.length > 0;
-  const stockAtZeroMlText = `${stocksAtZeroMl.join(", ")} ปัดแล้วเหลือ 0 mL (น้อยกว่า 0.05 mL) ห้อง TPN ตวงไม่ได้ — ปรับขนาดยา หรือเอาออกจากถุง`;
+  const stockAtZeroMlText = `${stocksAtZeroMl.join(", ")} ปัดแล้วเหลือ 0 mL ห้อง TPN ตวงไม่ได้ — ปรับขนาดยา หรือเอาออกจากถุง`;
   // Oral vitamin D a day: Step 6's IU/kg/d × weight, plus Munti-vim's own.
   const vitDIuDay = (suppVitD > 0 && wtKg > 0 ? suppVitD * wtKg : 0)
     + (suppMTV ? D.SUPP_DB.MTV_MUNTIVIM.vitD_iu_per_ml * D.SUPP_DB.MTV_MUNTIVIM.dose_default : 0);
@@ -2457,7 +2556,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       + `${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""}`
       + ` — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
     ref: "Pp, 2026-11-01" });
-  if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
+  if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${fmt(calc.osm, 0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
   // CR-NO-TPN-PLAN (Pp, 2026-11-01): a day ticked "No TPN" whose counted feed is
   // more than 20 mL/kg/d below Step 1's plan is amber, in case the TPN was
   // forgotten ("เผื่อลืมสั่ง TPN"). Quiet when CR-NO-TPN-EN's red line already
@@ -2472,7 +2571,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Also on a day ticked "No TPN", whose feeds may reach CR-NO-TPN-EN's bar
   // and still be far from the day's plan (Vera, 2026-11-01); there, a shortfall
   // already said in red or amber above is not said again.
-  if ((calc.totalTPN_mL > 0 || (noTpnOn && !noTpnEnLow && !noTpnPlanLow)) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${calc.totalFluidPerKg.toFixed(0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
+  if ((calc.totalTPN_mL > 0 || (noTpnOn && !noTpnEnLow && !noTpnPlanLow)) && Math.abs(calc.totalFluidPerKg - fluidTargetPerKg) > 20) alerts.push({ level: "info", title: "Fluid: prescribed ≠ target", body: `Prescribed ${fmt(calc.totalFluidPerKg, 0)} vs plan ${fluidTargetPerKg} mL/kg/d — attending discretion`, ref: "Plan" });
   // The TPN pump runs 24 h with no volume limit, so a rate rounded up gives more (Q21).
   if (tpnOver) alerts.push({ level: "info", title: "TPN rate gives more than ordered", body: `${fmt(tpnPump.rate, 1)} mL/hr for 24 h gives ${fmt(tpnOver.givenMl, 1)} mL, ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct} %) more than the ${fmt(totalTPN_mL, 1)} mL ordered, from the bag's dead space. Glucose and every additive run ${tpnOver.pct} % above the figures shown.`, ref: "Pp, 2026-11-10" });
   // ── KCMH worksheet hard ceilings (G25) + compoundability ──────────────────
@@ -2509,7 +2608,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     ? `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} feeds a day — each feed's feeds a day must be a whole number. This order cannot be submitted.`
     : `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, and 24 h ÷ ${fmt(feedsPerDay, 1)} is not whole hours (8 is q3h, 6 q4h, 4 q6h, 3 q8h, 2 q12h). This order cannot be submitted.`, ref: "Pp, 2026-10-28" });
   if (feedsOverMax) alerts.push({ level: "crit", title: `Feeds above ${D.EN_FEEDS_PER_DAY_MAX} a day`, body: `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, at most ${D.EN_FEEDS_PER_DAY_MAX} (q3h; q4h is 6), so this order cannot be submitted.`, ref: "Pp, 2026-10-28" });
-  if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: under 0.05 mL, which prints as 0 mL — the TPN room measures to 0.1 mL, so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
+  if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: prints as 0 mL (under 0.05 mL at one decimal, or under 0.5 mL where the stock is drawn up in whole mL: the amino acid, and D50W in a bag with dead space), so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
   // Heparin above the usual 0.5–1 U/mL: a caution, so a tenfold 10 U/mL is seen.
   if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push({ level: "warn", title: "Heparin above the usual dose",
     body: `Heparin ${fmt(heparinUmL, 2)} U/mL — ปกติ 0.5–${D.HEPARIN_USUAL_MAX_U_ML} U/mL ตรวจว่าพิมพ์ถูกหลัก`, ref: "TPN team, 2026-10-25" });
@@ -2764,6 +2863,42 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // backend refuses a row without one, and every dose hangs off it). The
   // required-field gate, the no-volume stop and the critical-value reason are
   // all asked for at Submit instead — a draft can neither print nor count.
+  // Whether a Submit now is from a tab behind the served release: true or false when
+  // the last read decides it, null when it is too old and a new read must come first.
+  // A read less than RELEASE_FRESH_MS old decides, and so does one still in flight from
+  // the form opening (by the result before it: unknown, so the Submit goes). Answered
+  // without an await, so a Submit the last read decides stays synchronous up to its
+  // first save call, as it was before this check.
+  const releaseBehindNow = () => {
+    const r = releaseRead.current;
+    return r.pending || Date.now() - r.at < RELEASE_FRESH_MS ? r.behind === true : null;
+  };
+  // The same, reading again first when it must, under the given busy flag, so a
+  // second press waits for the read.
+  const releaseBehindForSubmit = (setBusy) => {
+    const now = releaseBehindNow();
+    if (now !== null) return now;
+    setBusy(true);
+    return readRelease().then((behind) => { setBusy(false); return behind === true; });
+  };
+  // What typed and unsaved goes to this user's draft before the reload, as on a save
+  // conflict, so the reloaded form offers it back (กู้คืน).
+  // A Submit that went out while the form's first read was still in flight, and the read
+  // then finds the tab behind: the order is saved, and the TPN room will not print it. The
+  // toast outlives a save that leaves this screen; the banner stays if it does not.
+  const warnIfSentBehind = () => {
+    readRelease().then((behind) => {
+      if (behind !== true) return;
+      setReleaseBehind({ on: "sent", draft: false });
+      showToast(RELEASE_SENT_TEXT, "error");
+    });
+  };
+  const refuseBehindRelease = () => {
+    if (dirty) writeDraft(currentInputs());
+    setReleaseBehind({ on: "submit", draft: !!dirty });
+    showToast(RELEASE_BEHIND_TEXT, "error");
+  };
+
   const handleSave = async (asDraft = false) => {
     asDraft = asDraft === true;
     if (saving) return;
@@ -2778,6 +2913,19 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // (nurseSubmitRefused), before any prompt can ask her for a reason.
     if (!asDraft && nurseSubmitRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
     if (asDraft && nurseDraftRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
+    // A tab older (or newer) than the release the host serves submits nothing: the TPN
+    // room would refuse what it sends, and pressing again here would send the same
+    // (2026-11-17). A draft still saves: the backend keeps any draft, and the room
+    // prints none. Center Point has its own review and publish step, and never
+    // reaches the TPN room.
+    // A Submit decided while the form's first read is still in flight goes unchecked; the
+    // read is followed up once the save lands (warnIfSentBehind, Vera 2026-11-17).
+    const releaseInFlight = !asDraft && !centerPoint && !!releaseRead.current.pending;
+    if (!asDraft && !centerPoint) {
+      let behind = releaseBehindForSubmit(setSaving);
+      if (behind !== true && behind !== false) behind = await behind;
+      if (behind) { refuseBehindRelease(); return; }
+    }
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
     // An order submitted before the lock existed and reopened unchanged is only
     // locked: a revision of identical numbers would tell pharmacy nothing.
@@ -2952,8 +3100,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     try { localStorage.setItem(`neofeed_calc_${patient.sessionId}`, JSON.stringify(captureState())); } catch {}
     const _suppPayload = {
       suppMTV:       suppMTV ? 1 : 0,
-      suppVitD_IU:   suppVitD > 0 && wtKg > 0 ? Math.round(suppVitD * wtKg) : 0,
-      suppCa_mg:     suppCa   > 0 && wtKg > 0 ? Math.round(suppCa   * wtKg) : 0,
+      suppVitD_IU:   suppVitD > 0 && wtKg > 0 ? Number(D.displayNum(suppVitD * wtKg, 0)) : 0,
+      suppCa_mg:     suppCa   > 0 && wtKg > 0 ? Number(D.displayNum(suppCa   * wtKg, 0)) : 0,
       suppCaType:    suppCa   > 0 ? suppCaType   : "",
       suppPO4_mmol:  suppPO4  > 0 && wtKg > 0 ? parseFloat((suppPO4  * wtKg / 31).toFixed(2)) : 0,
       suppPO4Type:   suppPO4  > 0 ? suppPO4Type  : "",
@@ -3063,6 +3211,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // is something unsaved to bring back.
     if (res.conflict) { if (dirty) writeDraft(currentInputs()); setConflict(res.current); return; }
     if (!res.ok) return; // gasPost already surfaced an error toast
+    if (releaseInFlight) warnIfSentBehind();
 
     if (res.revised) {
       // Editing a published row never overwrote it — the server appended a
@@ -3129,6 +3278,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Submit signs specific numbers — they must be the saved ones, held back
     // by nothing that also holds back printing (see printable).
     if (!printable) { showToast(printBlockMessage("ก่อนส่ง"), "error"); return; }
+    if (!centerPoint) {
+      let behind = releaseBehindForSubmit(setPublishing);
+      if (behind !== true && behind !== false) behind = await behind;
+      if (behind) { refuseBehindRelease(); return; }
+    }
     setPublishing(true);
     // savedLastModified makes Submit optimistic-locked (gas-backend.gs
     // publishDailyLog): if someone else saved this row since, it's refused.
@@ -3162,6 +3316,33 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
   return (
     <>
+      {/* The host serves another release (tabIsBehindRelease, 2026-11-17): found when the
+          form opened, or on a Submit it refused. Stays until the reload. */}
+      {releaseBehind && (
+        <div role="alert" className="release-behind" style={{ padding:"10px 12px", background:"var(--crit-bg)", border:"1px solid var(--crit-line)",
+             borderRadius:8, marginBottom:10, fontSize:12.5, color:"var(--crit)",
+             display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          <Icon name="info" size={13} color="var(--crit)" />
+          {releaseBehind.on === "sent" ? (
+            <span>{RELEASE_SENT_TEXT}</span>
+          ) : releaseBehind.on === "submit" ? (
+            <span>
+              NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN
+              กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง
+              {releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด"}
+            </span>
+          ) : (
+            <span>
+              NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า กดโหลดหน้าใหม่ก่อนกรอก order
+              ถ้ากด Submit จากแท็บนี้ order จะไม่ถึงห้อง TPN
+            </span>
+          )}
+          <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
+            <button className="btn sm primary" onClick={() => window.location.reload()}>โหลดหน้าใหม่</button>
+          </div>
+        </div>
+      )}
+
       {/* Conflict notice — someone else saved this entry after this page opened.
           The form is left untouched: only navigation/reload discards it, never this banner. */}
       {conflict && (
@@ -3424,7 +3605,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           Step 2 · Enteral feeding
           {!openSteps.has(5) && calc.enVolPerKg > 0 && (
             <div className="step-summary">
-              <span className="step-summary-chip">{calc.enVolPerKg.toFixed(0)} mL/kg/d</span>
+              <span className="step-summary-chip">{fmt(calc.enVolPerKg, 0)} mL/kg/d</span>
               {enFeeds.filter(f => f.mlPerDay > 0).map((f, i) => <span key={i} className="step-summary-chip">{D.EN_DB[f.key]?.label?.split(" — ")[0]}</span>)}
               {calc.en?.lf && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>LF <Icon name="check" size={12} stroke={2.4} /></span>}
               {calc.useEnteralTargets && <span className="step-summary-chip" style={{ color:"var(--ok)", display:"inline-flex", alignItems:"center", gap:3 }}>Full EN <Icon name="check" size={12} stroke={2.4} /></span>}
@@ -3593,7 +3774,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                  that needs none. warn/crit keep their status colours. */
               background: sOsm==="crit" ? "var(--crit-bg)" : sOsm==="warn" ? "var(--warn-bg)" : "var(--bg-2)",
               color:       sOsm==="crit" ? "var(--crit)"   : sOsm==="warn" ? "var(--warn)"   : "var(--ink-2)" }}>
-              Osm {calc.osm.toFixed(0)} mOsm/L{sOsm === "crit" && (
+              Osm {fmt(calc.osm, 0)} mOsm/L{sOsm === "crit" && (
                 <span title={`${D.OSM_PERIPHERAL_MAX} mOsm/L or more on a peripheral line`}
                   style={{ display:"inline-flex", verticalAlign:"-2px", marginLeft:4 }}>
                   <Icon name="warn" size={13} stroke={2.2} />
@@ -3656,7 +3837,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <NumField label="Volume" unit="mL/day"
                   value={totalTPN_mL}
                   onChange={setTotalTPN_mL} step={1}
-                  hint={totalTPN_mL > 0 ? `= ${(totalTPN_mL/wtKg).toFixed(0)} mL/kg/d` : ""} />
+                  hint={totalTPN_mL > 0 ? `= ${fmt(totalTPN_mL/wtKg, 0)} mL/kg/d` : ""} />
                 <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"center" }}>
                   <div style={{ fontSize:12, visibility:"hidden" }}>&nbsp;</div>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:44,
@@ -3670,7 +3851,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <NumField label="Rate" unit="mL/hr"
                   value={tpnPump ? tpnPump.rate : 0}
                   onChange={(r) => setTotalTPN_mL(parseFloat((r * 24).toFixed(2)))} step={0.1}
-                  hint={totalTPN_mL > 0 ? `= ${tpnOver ? fmt(totalTPN_mL, 1) : totalTPN_mL.toFixed(0)} mL/day${tpnOver ? ` · 24 ชม. ได้ ${fmt(tpnOver.givenMl, 1)} mL เกิน ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct}%)` : ""}` : "ใส่ rate pump"} />
+                  hint={totalTPN_mL > 0 ? `= ${tpnOver ? fmt(totalTPN_mL, 1) : fmt(totalTPN_mL, 0)} mL/day${tpnOver ? ` · 24 ชม. ได้ ${fmt(tpnOver.givenMl, 1)} mL เกิน ${fmt(tpnOver.extraMl, 1)} mL (${tpnOver.pct}%)` : ""}` : "ใส่ rate pump"} />
               </div>
 
               {/* ── Overfill: dead space → prepared volume ──────────────────
@@ -3695,7 +3876,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     {fmt(calc.preparedVol,1)} mL/day
                   </div>
                   <div style={{ color:"var(--ink-3)", fontSize:10, marginTop:1 }}>
-                    delivered {fmt(totalTPN_mL,1)} mL
+                    delivered {fmt(totalTPN_mL,1)} mL{deadVol_mL > 0 && totalTPN_mL > 0 ? ` + ${fmt(deadVol_mL,1)}, ปัดขึ้นหลักสิบ` : ""}
                   </div>
                 </div>
               </div>
@@ -4218,7 +4399,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   const totalMg = suppCa * wtKg;
                   const tabs = prod && totalMg > 0 ? totalMg / prod.ca_mg_per_unit : 0;
                   return suppCa > 0 && wtKg > 0
-                    ? `= ${Math.round(totalMg)} mg/day · ${fmt(tabs, 2)} tab/day (${prod?.label})`
+                    ? `= ${fmt(totalMg, 0)} mg/day · ${fmt(tabs, 2)} tab/day (${prod?.label})`
                     : `ESPGHAN 2022 target: ${D.ENTERAL_TARGETS.ca().join("–")} mg/kg/day · ${D.SUPP_DB[suppCaType]?.note || ""}`;
                 })()} />
               <PresetChips values={[50, 80, 100, 120]} current={suppCa} onSelect={setSuppCa} />
@@ -4229,7 +4410,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 <label>ผลิตภัณฑ์</label>
                 <select className="sel" style={{ height: 38 }} value={suppPO4Type} onChange={e => setSuppPO4Type(e.target.value)}>
                   {Object.entries(D.SUPP_DB).filter(([,v]) => v.category === "po4").map(([k,v]) =>
-                    <option key={k} value={k}>{v.label} · {v.unitVol} mL = {(v.po4_mg_per_ml * v.unitVol).toFixed(0)} mg P</option>
+                    <option key={k} value={k}>{v.label} · {v.unitVol} mL = {fmt(v.po4_mg_per_ml * v.unitVol, 0)} mg P</option>
                   )}
                 </select>
               </div>
@@ -4256,7 +4437,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="sub-h" style={{ marginTop: 14 }}>Vitamin D drops</div>
               <NumField label="Vitamin D" unit="IU/kg/day" value={suppVitD} onChange={setSuppVitD} step={100}
                 hint={suppVitD > 0 && wtKg > 0
-                  ? `= ${Math.round(suppVitD * wtKg)} IU/day · ESPGHAN 2022: ${D.ESPGHAN_TARGETS.en.vitD.range.join("–")} IU/kg`
+                  ? `= ${fmt(suppVitD * wtKg, 0)} IU/day · ESPGHAN 2022: ${D.ESPGHAN_TARGETS.en.vitD.range.join("–")} IU/kg`
                   : `ESPGHAN 2022: ${D.ESPGHAN_TARGETS.en.vitD.range.join("–")} IU/kg/day`} />
               <PresetChips values={[400, 500, 600, 700]} current={suppVitD} onSelect={setSuppVitD} suffix=" IU/kg" />
               {/* Munti-vim is a fixed 1 mL/day, so its D3 is 400 IU/DAY — not
@@ -4269,7 +4450,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               {suppMTV && suppVitD > 0 && (
                 <div className="vitd-total" style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 3, display: "flex", alignItems: "flex-start", gap: 4 }}>
                   <span style={{ display: "inline-flex", marginTop: 1 }}><Icon name="warn" size={12} stroke={2.2} /></span>
-                  Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น {Math.round(suppVitD * wtKg + 400)} IU/day
+                  Munti-vim มี D3 400 IU อยู่แล้ว — รวมเป็น {fmt(suppVitD * wtKg + 400, 0)} IU/day
                 </div>
               )}
 
@@ -4285,13 +4466,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     <MiniReadout label="Munti-vim Drop" value="1" unit="mL/day" color="var(--brand-2)" />
                   )}
                   {suppVitD > 0 && wtKg > 0 && (
-                    <MiniReadout label="Vitamin D" value={`${Math.round(suppVitD * wtKg)} IU`} unit="/day" color="var(--brand-2)" />
+                    <MiniReadout label="Vitamin D" value={`${fmt(suppVitD * wtKg, 0)} IU`} unit="/day" color="var(--brand-2)" />
                   )}
                   {suppCa > 0 && wtKg > 0 && (() => {
                     const prod = D.SUPP_DB[suppCaType];
                     const tabs = prod ? (suppCa * wtKg) / prod.ca_mg_per_unit : 0;
                     return <MiniReadout label={`Ca · ${prod?.label}`}
-                      value={`${Math.round(suppCa * wtKg)} mg`}
+                      value={`${fmt(suppCa * wtKg, 0)} mg`}
                       unit={`→ ${fmt(tabs, 2)} tab/day`} color="var(--brand-2)" />;
                   })()}
                   {suppPO4 > 0 && wtKg > 0 && (() => {
@@ -4377,7 +4558,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
           <div className="card-h">
             <Icon name="info" size={14} color="var(--brand)" />
             Energy distribution
-            <span className="h-meta">{calc.kcalKg.toFixed(0)} kcal/kg/d</span>
+            <span className="h-meta">{fmt(calc.kcalKg, 0)} kcal/kg/d</span>
           </div>
           <div className="card-b">
             <KcalBar cho={calc.kcalChoPct} pro={calc.kcalProtPct} fat={calc.kcalFatPct} />
@@ -4387,10 +4568,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <KcalLegend color="oklch(60% 0.11 25)" label="Fat" pct={calc.kcalFatPct} target="35–45%" />
             </div>
             <div style={{ marginTop: 12, borderTop: "1px solid var(--line-2)", paddingTop: 10, display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--ink-3)" }}>
-              <span>TPN <span className="num" style={{ color: "var(--ink)" }}>{calc.tpnKcal.toFixed(0)}</span></span>
-              <span>EN <span className="num" style={{ color: "var(--ink)" }}>{calc.enKcal.toFixed(0)}</span>
+              <span>TPN <span className="num" style={{ color: "var(--ink)" }}>{fmt(calc.tpnKcal, 0)}</span></span>
+              <span>EN <span className="num" style={{ color: "var(--ink)" }}>{fmt(calc.enKcal, 0)}</span>
                 {isMEN && calc.enVolTotal > 0 && <span style={{ marginLeft: 4 }}>(MEN — not counted)</span>}</span>
-              <span>EN share <span className="num" style={{ color: "var(--ink)" }}>{calc.totalKcal > 0 ? (calc.enKcal / calc.totalKcal * 100).toFixed(0) : 0}%</span></span>
+              <span>EN share <span className="num" style={{ color: "var(--ink)" }}>{calc.totalKcal > 0 ? fmt(calc.enKcal / calc.totalKcal * 100, 0) : 0}%</span></span>
             </div>
           </div>
         </div>
@@ -4581,7 +4762,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `FLUID: Target ${fluidTargetPerKg} mL/kg/d = ${fmt(fluidTargetPerKg*calc.wtKg, 0)} mL/day`,
                 `  TPN aqueous: ${fmt(totalTPN_mL, 1)} mL/day delivered → Rate ${tpnPump ? fmt(tpnPump.rate, 1) : "—"} mL/hr over 24 h`,
                 calc.overfill > 1.001
-                  ? `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (+${fmt(deadVol_mL, 1)} mL ปริมาตรคาสาย) · Factor ${fmt(calc.factor, 3)} = ${fmt(calc.wtKg, 2)} kg × ${fmt(calc.overfill, 3)}`
+                  ? `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (+${fmt(deadVol_mL, 1)} mL ปริมาตรคาสาย, ปัดขึ้นหลักสิบ) · Factor ${fmt(calc.factor, 3)} = ${fmt(calc.wtKg, 2)} kg × ${fmt(calc.overfill, 3)}`
                   : `  PREPARE:     ${fmt(calc.preparedVol, 1)} mL/day (no overfill)`,
                 `  Lipid bag:   ${fmt(calc.lipidBagVol, 1)} mL/day → Rate ${lipidPump ? fmt(lipidPump.rate, 1) : "—"} mL/hr, infusion ${pumpHoursText(lipidPump)}${lipidPerKg > 0 ? ` (${fmt(lipidGkgh, 2)} g/kg/h)` : ""}`,
                 `  Prescribed:  ${fmt(calc.prescribedFluid, 0)} mL/day | Remaining: ${fmt(calc.remaining, 1)} mL`,
@@ -4613,7 +4794,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 calc.znTotal_mg > 0 ? `  Zn total ${fmt(calc.znTotal_mg, 2)} mg/day delivered (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) · max ${D.MAX_ZN_MG_DAY} mg/day` : "",
                 `Heparin:        ${heparinUmL} U/mL = ${calc.solVol.heparin} mL of ${S.heparin.unitsPerMl} U/mL`,
                 `──────────────────────────────`,
-                `BAG MAKE-UP:  components ${fmt(calc.componentVol, 1)} mL + WFI q.s. ${fmt(calc.wfiVol, 1)} mL = ${fmt(calc.preparedVol, 1)} mL prepared`,
+                `BAG MAKE-UP:  components ${fmt(calc.componentVol, 1)} mL + WFI q.s. ${fmt(calc.wfiVol, 1)} mL (whole mL) → ${fmt(calc.preparedVol, 1)} mL prepared`,
                 calc.wfiVol < 0 ? `  !! COMPONENTS EXCEED BAG VOLUME by ${fmt(Math.abs(calc.wfiVol), 1)} mL — cannot compound` : "",
                 bagOverBottle ? `  !! ${fmt(calc.preparedVol, 1)} mL IS ABOVE THE ${D.TPN_BOTTLE_MAX_ML} mL LARGEST BOTTLE — cannot be ordered` : "",
                 stockAtZeroMl ? `  !! ${stocksAtZeroMl.join(", ")} ROUNDS TO 0 mL — cannot be measured` : "",
@@ -4633,8 +4814,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 `──────────────────────────────`,
                 (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) ? `ENTERAL SUPPLEMENTS:` : `SUPPLEMENTS: None`,
                 suppMTV    ? `  Munti-vim Drop: 1 mL/day  (D3 400 IU · Vit A 2000 IU)` : "",
-                suppVitD > 0 && wtKg > 0 ? `  Vit D: ${suppVitD} IU/kg/d = ${Math.round(suppVitD * wtKg)} IU/day` : "",
-                suppCa > 0 && wtKg > 0 ? `  Ca oral (${D.SUPP_DB[suppCaType]?.label}): ${suppCa} mg/kg/d = ${Math.round(suppCa * wtKg)} mg/day → ${fmt(suppCa * wtKg / (D.SUPP_DB[suppCaType]?.ca_mg_per_unit || 1), 2)} tab/day` : "",
+                suppVitD > 0 && wtKg > 0 ? `  Vit D: ${suppVitD} IU/kg/d = ${fmt(suppVitD * wtKg, 0)} IU/day` : "",
+                suppCa > 0 && wtKg > 0 ? `  Ca oral (${D.SUPP_DB[suppCaType]?.label}): ${suppCa} mg/kg/d = ${fmt(suppCa * wtKg, 0)} mg/day → ${fmt(suppCa * wtKg / (D.SUPP_DB[suppCaType]?.ca_mg_per_unit || 1), 2)} tab/day` : "",
                 suppPO4 > 0 && wtKg > 0 ? `  PO₄ oral (${D.SUPP_DB[suppPO4Type]?.label}): ${suppPO4} mg/kg/d = ${fmt(suppPO4 * wtKg, 1)} mg/day → ${fmt(suppPO4 * wtKg / (D.SUPP_DB[suppPO4Type]?.po4_mg_per_ml || 1), 1)} mL/day` : "",
                 suppFerdek > 0 && wtKg > 0 ? `  Fe oral (${D.SUPP_DB[suppFeType]?.label}): ${suppFerdek} mg/kg/d = ${fmt(suppFerdek * wtKg, 1)} mg/day → ${fmt(suppFerdek * wtKg / (D.SUPP_DB[suppFeType]?.fe_mg_per_ml || 1), 2)} mL/day` : "",
                 (mineral.hasOral || mineral.hasIV) ? `──────────────────────────────` : "",
@@ -4941,7 +5122,7 @@ function KcalLegend({ color, label, pct, target }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-3)" }}>
         <span style={{ width: 10, height: 10, background: color, borderRadius: 2 }} />{label}
       </div>
-      <div style={{ fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, fontSize: 16, marginTop: 2 }}>{pct.toFixed(0)}%</div>
+      <div style={{ fontFamily: "IBM Plex Mono, monospace", fontWeight: 500, fontSize: 16, marginTop: 2 }}>{fmt(pct, 0)}%</div>
       <div style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{target}</div>
     </div>);
 
@@ -5180,7 +5361,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   // Never a trailing zero on the pharmacy form (D.displayNum, 2026-09-22).
   const f  = (n, d=1) => (isFinite(n) && n > 0) ? D.displayNum(n, d) : "—";
   const printLipidPump = D.pumpRate(calc.lipidBagVol, lipidDripHours || 24);
-  const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";
+  const f0 = (n)      => f(n, 0);
   // WFI q.s. can legitimately be 0 or negative (over-filled bag) — must not print "—"
   const fSigned = (n, d=1) => D.displayNum(n, d);
   const normalizedOrderDate = D.normalizeDateStr(orderDate) || D.todayLocal();
@@ -5201,14 +5382,16 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   const aaKey = calc.aaStockKey || "aminoven10";
   const orals = [
     suppMTV && <span key="mtv">{chk(true)} Munti-vim Drop <strong>1</strong> mL/day</span>,
-    suppVitD > 0 && <span key="vd">{chk(true)} Vitamin D drops <strong>{suppVitD}</strong> IU/kg/d = <strong>{Math.round(suppVitD * (wtKg||0))}</strong> IU/day</span>,
+    suppVitD > 0 && <span key="vd">{chk(true)} Vitamin D drops <strong>{suppVitD}</strong> IU/kg/d = <strong>{f0(suppVitD * (wtKg||0))}</strong> IU/day</span>,
     suppCa > 0 && <span key="ca">{chk(true)} Ca oral ({D.SUPP_DB[suppCaType]?.label}) <strong>{suppCa}</strong> mg/kg/d = <strong>{f0(suppCa*(wtKg||0))}</strong> mg → {f(suppCa*(wtKg||0)/(D.SUPP_DB[suppCaType]?.ca_mg_per_unit||1),2)} tab/day</span>,
     suppPO4 > 0 && <span key="po4">{chk(true)} PO₄ oral ({D.SUPP_DB[suppPO4Type]?.label}) <strong>{suppPO4}</strong> mg/kg/d = <strong>{f0(suppPO4*(wtKg||0))}</strong> mg → {f(suppPO4*(wtKg||0)/(D.SUPP_DB[suppPO4Type]?.po4_mg_per_ml||1),1)} mL/day</span>,
     suppFerdek > 0 && <span key="fe">{chk(true)} Fe oral ({D.SUPP_DB[suppFeType]?.label}) <strong>{suppFerdek}</strong> mg/kg/d = <strong>{f(suppFerdek*(wtKg||0),1)}</strong> mg → {f(suppFerdek*(wtKg||0)/(D.SUPP_DB[suppFeType]?.fe_mg_per_ml||1),2)} mL/day</span>,
   ].filter(Boolean);
   // The paper form's amino-acid list, ours ticked.
   // PED AMINE is the same 10% product line for pharmacy (TPN team and Pp, 2026-10-28).
-  const AA_CHOICES = [["aminoven10", "10% Aminoven infant / PED AMINE (0-1 yr.)"], [null, "10% Amiparen (>1 Yr.)"], [null, "8% Aminoleban"],
+  // No age range after the two 10% products: the ward asked to drop "(0-1 yr.)" and
+  // "(>1 Yr.)" (ward request, 2026-11-16).
+  const AA_CHOICES = [["aminoven10", "10% Aminoven infant / PED AMINE"], [null, "10% Amiparen"], [null, "8% Aminoleban"],
     [null, "7% Nephrosteril"], ["aminoplasmal15", "15% Aminoplasmal"]];
 
   // Who signs — the paper form's own line, left blank for the doctor to write and sign
@@ -5349,11 +5532,23 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
       <table style={{ width:"100%", marginBottom:4, fontSize:10.5 }}><tbody>
         <tr>
           <td>Total Volume</td>
-          <td><strong>{f(totalTPN_mL, 1)}</strong> mL (Delivered Vol.) / <strong>{f(calc.preparedVol,1)}</strong> mL (Prepared Vol.) / Day</td>
+          <td><strong>{f(totalTPN_mL, 1)}</strong> mL (Delivered Vol.) / <strong>{f(calc.preparedVol,1)}</strong> mL (Prepared Vol.) / Day
+            {/* The bag's own osmolarity, small, on the front sheet (Pp,
+                2026-11-15: "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้"). On this line, not
+                the Route cell: there it wrapped in CI's wide font and pushed the
+                fullest order 3.8 mm onto a second page. Rounded as the
+                Osmolarity tile, its alert and CR-OSM-PERIPH read it (fmt →
+                displayNum), so all of them read one number. No bag volume,
+                or an estimate of 0 (no dextrose, AA or electrolyte), no figure;
+                nor with no dosing weight, where the calc returns a placeholder
+                osm of 300 that is not the bag's (Vera, PR #265). */}
+            {totalTPN_mL > 0 && wtKg > 0 && calc.osm > 0 && (
+              <span className="print-osm" style={{ fontSize:9, color:"#333" }}> · Bag osm {fmt(calc.osm, 0)} mOsm/L</span>
+            )}</td>
         </tr>
         <tr>
           <td>Dextrose</td>
-          <td>Final Conc. <strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG_bag,1)}</strong> g. (ในถุง) = <strong>{wtKg ? f(calc.dexGPerKg,2) : "—"}</strong> g/kg/d = <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)</td>
+          <td>Final Conc. <strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG_bag,1)}</strong> g. (ในถุง) = <strong>{wtKg ? f(calc.dexGPerKg,2) : "—"}</strong> g/kg/d → <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)</td>
         </tr>
         <tr>
           <td style={{ verticalAlign:"top" }}>Amino acid</td>
@@ -5491,10 +5686,14 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td style={tdr}><strong>{znPerKg > 0 ? znPerKg : "—"}</strong> mg Zn/kg</td>
             <td style={tdr}><strong>{znPerKg > 0 ? f(calc.znSO4_bag_mg, 2) : "—"}</strong> mg Zn</td>
           </tr>
-          {/* 7. Heparin — its mL is on the back */}
-          <tr>
+          {/* 7. Heparin: the U/mL ordered, then the mL of 100 U/mL stock the
+              prepared bag takes, the back sheet's heparin mL. Until
+              2026-11-16 its mL was on the back only, which has not printed since
+              2026-10-28, so the paper carried no heparin volume (ward, 2026-11-16). */}
+          <tr className="print-heparin">
             <td style={tdRx(heparinUmL > 0)}>7. Heparin ({S.heparin.unitsPerMl} unit/mL)</td>
-            <td style={tdr} colSpan={2}><strong>{heparinUmL}</strong> unit/mL</td>
+            <td style={tdr}><strong>{heparinUmL}</strong> unit/mL</td>
+            <td style={tdr}>{heparinUmL > 0 && bag ? <><strong>{f(calc.solVol?.heparin,1)}</strong> mL</> : "—"}</td>
             <td style={td}>0.5–{D.HEPARIN_USUAL_MAX_U_ML} unit/mL</td>
           </tr>
           {/* 8. Other — the oral orders, which the paper form has no line for */}
@@ -5574,7 +5773,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           <tr>
             <td>Total Volume:</td>
             <td><strong>{f(totalTPN_mL, 1)}</strong> mL delivered / <strong>{f(calc.preparedVol,1)}</strong> mL prepared
-              {calc.overfill > 1.001 && <> &nbsp;·&nbsp; ปริมาตรคาสาย <strong>{f(calc.deadVol_mL,1)}</strong> mL</>}</td>
+              {calc.overfill > 1.001 && <> &nbsp;·&nbsp; ปริมาตรคาสาย <strong>{f(calc.deadVol_mL,1)}</strong> mL, ปัดขึ้นหลักสิบ</>}</td>
           </tr>
           <tr>
             <td>Factor:</td>
@@ -5585,7 +5784,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           </tr>
           <tr>
             <td style={{ whiteSpace:"nowrap" }}>Dextrose Final Conc.</td>
-            <td><strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG_bag,1)}</strong> g in bag = <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)
+            <td><strong>{dexPct || "—"}%</strong> = <strong>{f(calc.dexG_bag,1)}</strong> g in bag → <strong>{f(calc.d50wVol,1)}</strong> mL (D50W)
               &nbsp;·&nbsp; delivered <strong>{f(calc.dexG,1)}</strong> g = <strong>{wtKg ? f(calc.dexGPerKg,2) : "—"}</strong> g/kg/d
               &nbsp;<span style={{ fontSize:9, color:"#555" }}>(max {D.MAX_DEXTROSE_G_KG} g/kg/d)</span></td>
           </tr>
@@ -5627,7 +5826,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
               <td style={{ ...td, fontWeight:700 }}>Water for injection q.s.</td>
               <td style={tdr} colSpan={2}>
                 Components <strong>{f(calc.componentVol,1)}</strong> mL + WFI <strong style={{ color: calc.wfiVol < 0 ? "#c00" : "#000" }}>{fSigned(calc.wfiVol,1)}</strong> mL
-                &nbsp;=&nbsp; <strong>{f(calc.preparedVol,1)}</strong> mL prepared
+                {/* WFI is whole mL since 2026-11-16, so the sum is the bag to within half a mL. */}
+                &nbsp;→&nbsp; <strong>{f(calc.preparedVol,1)}</strong> mL prepared
                 {calc.wfiVol < 0 && <div style={{ color:"#c00", fontWeight:700 }}>เกินปริมาตรถุง {f(Math.abs(calc.wfiVol),1)} mL</div>}
               </td>
             </tr>
@@ -5697,14 +5897,14 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           <tr>
             <td style={td}>Ca²⁺ <strong>{f0(caPerKg*(wtKg||0))}</strong> mg = <strong>{f0(caPerKg)}</strong> mg/kg</td>
             <td style={td}>Phosphate <strong>{f0(calc.pTotal_mg)}</strong> mg</td>
-            <td style={td}>Osmolarity <strong>{calc.osm ? calc.osm.toFixed(0) : "—"}</strong> mOsm/L</td>
+            <td style={td}>Osmolarity <strong>{f0(calc.osm)}</strong> mOsm/L</td>
           </tr>
         </tbody></table>
 
         {/* Summary bar */}
         <div style={{ marginTop:6, padding:"4px 8px", border:"1px solid #ccc", fontSize:10, background:"#fafafa" }}>
           GIR {f(calc.gir,1)} mg/kg/min · Protein {f(calc.proteinKg,2)} g/kg/d · Energy {f0(calc.kcalKg)} kcal/kg/d ·
-          Na {f(calc.naKg,2)} mEq/kg · Ca:P {f(calc.caP,2)}:1 (TPN+EN) · Osm {calc.osm ? calc.osm.toFixed(0) : "—"} mOsm/L
+          Na {f(calc.naKg,2)} mEq/kg · Ca:P {f(calc.caP,2)}:1 (TPN+EN) · Osm {f0(calc.osm)} mOsm/L
         </div>
 
         {/* Changes vs the previous order — the pharmacist's fastest cross-check */}

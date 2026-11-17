@@ -39,7 +39,7 @@ that moved a figure must reload first (Vera, 2026-11-05).
 | D15 | The backend deploys first, always. A later change to the sticker schema does too. | On an older backend a new frontend writes the marker with no figures behind it, so the doctor sees no notice and the room says "save again". And a backend on `v: 1` refuses a client on a new key or version, which stops the doctor's save. |
 | D16 | A cancelled or revised order is confirmed to the TPN room by phone (Pp, 2026-11-02 and 2026-11-03). A cancelled order not yet printed just leaves the page. One already printed keeps the warning any printed order gets when it leaves the reply. | When a doctor ticks No TPN over a submitted order the same day, the old row is superseded and the new one has no bag, so the order leaves the room's list. The doctor's short sheet says "TPN stopped today" as well. The warning costs nothing and covers a call that did not reach the room. |
 | D17 | The PN label's date made comes from a date box beside the print button, today by default, and the pharmacist can change it (Pp, 2026-11-05). It goes on the sticker and in the print log on this PC, never in a request. | The unit says it is the day the TPN is prepared (2026-11-03), which NeoFeed does not hold and the page cannot assume is the print day or the order's date. |
-| D18 | The PN label's heading, storage line and extension are constants in `tpn-room-core.js`, blank until the unit gives them, and the page refuses to print until all three are filled in (Pp, 2026-11-05). | The unit left 0.3 i blank. A label with a guessed storage line, or none, must not reach a bag. |
+| D18 | The PN label's heading, storage line and extension are constants in `tpn-room-core.js`, blank until the unit gives them. Until all three are filled in, the page prints a trial sheet: "ทดลองพิมพ์ ห้ามใช้จริง" across each of its three parts, and in each blank line of the PN label a placeholder that says it waits for the TPN unit; the row says so beside the print button, and the print log records the print as a trial (Pp, 2026-11-16, superseding her 2026-11-05 rule that nothing prints; all three parts marked on her answer to Vera's finding). | The unit left 0.3 i blank, the room wants to see a printed sheet before it answers, and no one has checked the layout against a real sticker sheet. A label with a guessed storage line must not reach a bag, so a blank line is never filled with a guess, and every part says on its face not to use it. |
 | D19 | The page does not hold an order after a birth-weight correction (Pp, 2026-11-05). The row shows BW beside the weight used to calculate, the doctor phones the room (D16), and the re-save shows as a changed order. | The page cannot see `dosingWeightChanged`: it lives in the calculator, and the reply has only BW and the saved weight, which differ for ordinary reasons (the weight is floored at birth weight until regained). A server flag would mean a backend deploy for a narrow window. **Residual risk:** between the correction and the re-save the room can print figures from the old weight. |
 | D20 | The page does not load `data.js`. `tools/build.mjs` writes the two versions it checks into `compiled/tpn-room-version.js`. | D1 holds by construction: the page has no dose code to call. A `CONSTANTS_VERSION` bump still reaches it in the same build, and CI fails on stale output. |
 
@@ -63,6 +63,11 @@ that moved a figure must reload first (Vera, 2026-11-05).
   the pharmacist maps the infant again from the paper order.
 - **Status line:** the number of infants in the table, whether the file is open, its folder, and who is
   signed in.
+- **Names page (2026-11-17):** with the file open, "รายชื่อทั้งหมด" lists every infant in it, searchable, each name
+  and AN editable. It reads the open file only. An edit there keeps the day last seen, so the purge still counts
+  from the orders. A name or AN that is not the one a print used (the print log keeps the mapping's time, no name)
+  is flagged on that day's order row, and the names page names every day in the window whose bag has the old one,
+  until that day's bag is printed again.
 - **A changed byte stops the file.** The payload's additional data covers the header, and the text must equal
   its canonical form. A wrong passphrase, a damaged file and a missing file each say so, and none opens an
   empty table.
@@ -118,15 +123,17 @@ One A4 sheet, three parts, cut by hand, as in the unit's current print.
 
   | Figure | At most |
   |---|---|
-  | D50W, amino acid stocks, WFI, prepared and delivered volumes | one decimal, as the doctor's form (Pp, 2026-10-30: the sample's whole mL rounded NeoFeed's 0.1 mL value a second time and was 1 mL off in 4–8 % of orders) |
+  | Prepared and delivered volumes | one decimal, as the doctor's form (Pp, 2026-10-30: the sample's whole mL rounded NeoFeed's 0.1 mL value a second time and was 1 mL off in 4–8 % of orders) |
+  | D50W, amino acid stocks, WFI | whole mL since 2026-11-16, as the doctor's form: rounded once, in the calculation, not a second time on the sticker (the unit's pharmacists draw them up with large syringes). D50W keeps one decimal in a bag with no dead space |
   | Every other stock row | one decimal |
-  | Dead space | two decimals |
+  | Dead space | one decimal: printed Prepared − printed Delivered (2026-11-16) |
   | Factor | two decimals |
   | PN label amounts | the sample's units: dextrose % and g, amino acid % and g per product, Na⁺ K⁺ Cl⁻ acetate in mEq, Ca²⁺ phosphate Zn²⁺ in mg, vitamin and trace mL, heparin units, osmolarity mOsm/L and kcal as whole numbers. One exception: **Mg²⁺ in mg**, in the same mg the order uses, where the sample shows mEq (Pp, 2026-10-30: the unit's own label moves to mg too) |
 
   Each figure is NeoFeed's calculated value rounded half up for display. No printed figure is derived
-  from another printed figure. Every mL row prints at #171's one decimal at most, so the worksheet adds up
-  to the prepared volume and matches the doctor's form row for row; the calculation is unchanged.
+  from another printed figure, except Dead space (Prepared − Delivered as printed, so the three add up). Every mL row prints at #171's one decimal at most, and since 2026-11-16 D50W, amino acid and SWFI print
+  whole mL (D50W keeps one decimal in a bag with no dead space), so the worksheet adds up to the prepared volume
+  to within half a mL and matches the doctor's form row for row.
 - **Known difference from the unit's Excel:** on the worksheet, Soluvit and Peditrace are × Factor (2.5 mL where the
   sheet gives 2.2 for a 2.20 kg infant at 280/250 mL). Pharmacy is told before the first real sticker.
 

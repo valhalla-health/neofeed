@@ -23,9 +23,10 @@
 //   §3  The edges. Before PMA 22+4 there is no reference to read against, so
 //       the readout says so instead of extrapolating; a measurement exactly at
 //       42+0 is still read.
-//   §4  Length and HC: the same half-week placement, and a note on both tabs
-//       that those curves are not verified against a numeric source (none is
-//       public). The weight tab carries no such note.
+//   §4  Length and HC (rewritten 2026-11-16): both tabs draw Fenton's own
+//       curve from FENTON_LENGTH_GROWTH_LMS / FENTON_HC_GROWTH_LMS at exact
+//       ages, starting at 24.0 and 23.0 weeks, and the not-verified note is
+//       gone from every tab (test/verify-fenton-length-hc-1116.cjs).
 //   §5  A measurement on DOL 1 is read at exact GA, as Fenton's own Birth size
 //       evaluation does (fentongrowth.ca; Pp, 2026-10-17). Under 36.5 weeks
 //       that is the same reading as any other day, which is what this section
@@ -47,7 +48,7 @@
 // Expected there: 52 FAILED (13 passed), 41 of them in §1–§5.
 // §1 reads the official p10 / p50 / p90 as about the 5th / 33rd–42nd / 70th–81st, §2 finds the 50th starting
 // at 22.0 and passing through row GA at GA.0, §3 finds 22+2 read as ~18th,
-// §4 finds no note on Length or HC, and §5 finds 740 g at 26+0 read as ~8th
+// §4 (as it was until 2026-11-16) found no note on Length or HC, and §5 finds 740 g at 26+0 read as ~8th
 // (row 26 at x = 26.0) and 22+2 read as a number. Of the 12 that pass, 8 are
 // controls (the point is still plotted, Weight has no note, the curve stays
 // inside the 42-week edge, the tab guard) and 4 are §5's same-reading checks,
@@ -239,39 +240,44 @@ const hasAnchor = (pts, x, y) => pts.some(p => near(p[0], x) && near(p[1], y));
   });
 
   // ══════════════════════════════════════════════════════════════════════
-  await section('§4 Length and HC: same placement, and a not-verified note on both tabs', async () => {
+  await section('§4 Length and HC: Fenton\'s own curve since 2026-11-16, and no not-verified note', async () => {
+    // Until 2026-11-16 this section pinned the five-centile rows FENTON_LENGTH
+    // and FENTON_HC at GA + 0.5 and a "not verified" note on both tabs. Those
+    // rows are gone: both tabs draw FENTON_LENGTH_GROWTH_LMS and
+    // FENTON_HC_GROWTH_LMS, whose first column is an exact age, so no half-week
+    // shift applies to them. test/verify-fenton-length-hc-1116.cjs holds the
+    // checks against the official z-scores; this section keeps the placement.
     const NOTE = 'ยังไม่ได้ตรวจเทียบกับตัวเลขต้นฉบับ';
     const noteText = () => {
       const el = [...probe().querySelectorAll('[role="note"]')].find(e => e.textContent.includes(NOTE));
       return el ? el.textContent : null;
     };
-    const L = D.FENTON_LENGTH.boys, H = D.FENTON_HC.boys;
-    const lrow = (ga) => L.find(r => r[0] === ga), hrow = (ga) => H.find(r => r[0] === ga);
+    const L = D.FENTON_LENGTH_GROWTH_LMS.boys, H = D.FENTON_HC_GROWTH_LMS.boys;
+    const lM = (age) => L.find(r => r[0] === age)[2], hM = (age) => H.find(r => r[0] === age)[2];
 
-    // On the official 50th at ~30.5 wk: the GA-30 row's own 50th, at PMA 30+4.
-    await chart(atPma('boys', 30, 4, { w: 1500, l: lrow(30)[3], hc: hrow(30)[3] }));
+    // On the official median at exactly 30+0 weeks.
+    await chart(atPma('boys', 30, 0, { w: 1500, l: Math.round(lM(30) * 10) / 10, hc: Math.round(hM(30) * 10) / 10 }));
     eq('the Weight tab carries no not-verified note', noteText(), null);
 
     await tab('Length');
-    ok('the Length tab says its curves are not verified', !!noteText() && /Length/.test(noteText()), noteText());
+    eq('the Length tab carries no not-verified note', noteText(), null);
     const ls = scales(10), lp = p50Anchors();
-    ok('the length 50th starts at 22.5 wk', near(lp[0][0], ls.x(22.5)), { x: lp[0][0], want: ls.x(22.5) });
-    ok(`the GA-30 length row's 50th (${lrow(30)[3]} cm) is drawn at 30.5 wk`, hasAnchor(lp, ls.x(30.5), ls.y(lrow(30)[3])), lp.map(p => p.map(v => +v.toFixed(1))));
-    const lEnd = lrow(38)[3] + (42 - 38.5) / 4 * (lrow(42)[3] - lrow(38)[3]);
-    ok('the length 50th ends at the 42-week edge, between the 38 and 42 rows', near(lp[lp.length - 1][0], ls.x(42)) && near(lp[lp.length - 1][1], ls.y(lEnd)), lp[lp.length - 1]);
+    ok('the length 50th starts at 24.0 wk, its first row', near(lp[0][0], ls.x(24)), { x: lp[0][0], want: ls.x(24) });
+    ok(`the 30-week length median (${lM(30)} cm) is drawn at 30.0 wk, not 30.5`, hasAnchor(lp, ls.x(30), ls.y(lM(30))) && !hasAnchor(lp, ls.x(30.5), ls.y(lM(30))), lp.map(p => p.map(v => +v.toFixed(1))));
+    ok('the length 50th ends at the 42-week edge, on the 42-week median', near(lp[lp.length - 1][0], ls.x(42)) && near(lp[lp.length - 1][1], ls.y(lM(42))), lp[lp.length - 1]);
     const lr = readout();
-    ok(`a boy at 30+4 wk on the GA-30 row's 50th (${lrow(30)[3]} cm) reads 50th ±2`, centile(lr) != null && Math.abs(centile(lr) - 50) <= 2, lr);
+    ok(`a boy at 30+0 wk on the length median reads 50th ±2`, centile(lr) != null && Math.abs(centile(lr) - 50) <= 2, lr);
 
     await tab('HC');
-    ok('the HC tab says its curves are not verified', !!noteText() && /HC/.test(noteText()), noteText());
+    eq('the HC tab carries no not-verified note', noteText(), null);
     const hs = scales(5), hp = p50Anchors();
-    ok('the HC 50th starts at 22.5 wk', near(hp[0][0], hs.x(22.5)), { x: hp[0][0], want: hs.x(22.5) });
-    ok(`the GA-30 HC row's 50th (${hrow(30)[3]} cm) is drawn at 30.5 wk`, hasAnchor(hp, hs.x(30.5), hs.y(hrow(30)[3])), hp.map(p => p.map(v => +v.toFixed(1))));
+    ok('the HC 50th starts at 23.0 wk, its first row', near(hp[0][0], hs.x(23)), { x: hp[0][0], want: hs.x(23) });
+    ok(`the 30-week HC median (${hM(30)} cm) is drawn at 30.0 wk, not 30.5`, hasAnchor(hp, hs.x(30), hs.y(hM(30))) && !hasAnchor(hp, hs.x(30.5), hs.y(hM(30))), hp.map(p => p.map(v => +v.toFixed(1))));
     const hr = readout();
-    ok(`a boy at 30+4 wk on the GA-30 row's 50th HC (${hrow(30)[3]} cm) reads 50th ±2`, centile(hr) != null && Math.abs(centile(hr) - 50) <= 2, hr);
+    ok(`a boy at 30+0 wk on the HC median reads 50th ±2`, centile(hr) != null && Math.abs(centile(hr) - 50) <= 2, hr);
 
     await tab('Weight');
-    eq('back on Weight, the note is gone', noteText(), null);
+    eq('back on Weight, still no note', noteText(), null);
   });
 
   // ══════════════════════════════════════════════════════════════════════
@@ -300,8 +306,7 @@ const hasAnchor = (pts, x, y) => pts.some(p => near(p[0], x) && near(p[1], y));
     eq('born 26+0 at 740 g reads ~16th (the exact-age p10 at 26+0 is 716 g)',
        await same('boy born 26+0, 740 g', 'boys', 26, 0, { w: 740 }), '~16th');
     await same('boy born 26+6, 790 g', 'boys', 26, 6, { w: 790 });
-    const L = D.FENTON_LENGTH.boys;
-    await same('boy born 30+0, length 40.2 cm', 'boys', 30, 0, { w: 1300, l: L.find(r => r[0] === 30)[3] }, 'Length');
+    await same('boy born 30+0, length 40.2 cm', 'boys', 30, 0, { w: 1300, l: 40.2 }, 'Length');
     await same('boy born 28+3, length 37.3 cm', 'boys', 28, 3, { w: 1100, l: 37.3 }, 'Length');
 
     // Born 22+2: before the first row's exact age (22.5), so no reading, and

@@ -7,6 +7,818 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (9) — Pp keeps the week on the names page's reprint flag
+
+`CHANGELOG.md` only. Entry (8) left Vera's point to Pp: the names page names every day from today −7 to +1 whose bag
+predates the name or AN, so a bag already given stays listed until that day leaves the window. Pp, 2026-11-17:
+"ห้อง TPN บอกชื่อคนไข้ย้อนหลังเจ็ดวัน". The window stays a week; no code changes.
+
+## Session 2026-11-17 (8) — Vera's third check: a page test that needs the print's `mappingAt`
+
+`test/verify-tpn-room-page-1105.cjs` §12d.
+
+- **Why.** Vera: the in-flight and clock-back fix of entry (7) rests on one line in `printOrder` (`mappingAt:
+  mapping.at`), and every check still passed without it, since the Node cases build the log by hand.
+- **The check.** After a print, the page's clock steps back an hour and the AN is corrected, so the edit's time is
+  earlier than the print's: the row and the names page are still flagged, from the mapping the print recorded. On a
+  copy without that line both checks fail ("got 0, want 1"); 134/134 here.
+- **Left to Pp:** Vera's other point. The names page names every day from today −7 to +1 whose bag predates the
+  mapping, and only a reprint for that day clears it, so bags already given stay listed for up to a week.
+
+## Session 2026-11-17 (7) — Vera on the flag: the print records the mapping it used; every bag in the window is named
+
+`tpn-room-core.js` (`editedAfterPrint` reads `mappingAt`; `renamedBagDates`), `tpn-room.jsx` (the print log's
+`mappingAt`; the names page's flag), `compiled/tpn-room.js`, the room shells' `?v=`, `test/verify-tpn-room-names-1117.cjs`
+§4, `test/verify-tpn-room-page-1105.cjs` §12d, `openspec/changes/tpn-room-stickers/design.md`. Corrects entry (6), on the
+same PR and not yet released.
+
+- **The mapping a sticker printed.** Entry (6) compared the edit's time with the print's. An AN saved while a print was
+  in flight lands before the print's time, so the sticker printed the old AN and nothing flagged it; a PC clock that
+  stepped back did the same. Each print now records the mapping's own time (`mappingAt`), and a row is flagged when the
+  mapping is no longer that one. A log line from before the field falls back to the times. The log still keeps no name.
+- **Every bag, not only the last.** The names page looked at the infant's last print on any date, so a print for
+  17/11 after the edit cleared the flag while the 16/11 bag still carried the old AN. It now names every day in the
+  room's window (today −7 to +1) whose last print predates the mapping. Vera left the choice to Pp (the earlier bag may
+  be gone by then); this takes the side that shows more, and the room judges from the dates.
+- **The test.** §12d's last check counted flags right after the click that opens the names page; it now waits for the
+  page first.
+- **Tests.** `verify-tpn-room-names-1117.cjs` §4, 13 checks (31/31): 5 new fail on `44a5aa5`. `verify-tpn-room-page-1105.cjs`
+  132/132.
+
+## Session 2026-11-17 (6) — A name or AN edited after its sticker printed is flagged until a reprint
+
+`tpn-room-core.js` (`lastPrintOf`, `editedAfterPrint`), `tpn-room.jsx` (the order row's and the names page's flag;
+`saveMapping` writes nothing when nothing changed), `compiled/tpn-room.js`, the room shells' `?v=`,
+`test/verify-tpn-room-names-1117.cjs` §4, `test/verify-tpn-room-page-1105.cjs` §12d,
+`openspec/changes/tpn-room-stickers/design.md` (the name file).
+
+- **Why.** Vera's finding 1 on this PR, which entry (5) left to Pp: an AN corrected after the sticker printed leaves the
+  bag with the old one, and no screen asked for a reprint; the names page adds a route to that edit and shows no print
+  status. Pp, 2026-11-17: "เพิ่มเลย".
+- **The flag.** When the mapping's time is later than the last print's, the order row for that date says
+  "แก้ชื่อหรือ AN หลังพิมพ์ ถุงที่พิมพ์ไปยังมีชื่อหรือ AN เดิม กดพิมพ์ซ้ำ", and the names page row says which day's bag:
+  "แก้หลังพิมพ์ ถุงของวันที่ 17/11/2569 ยังมีชื่อหรือ AN เดิม". The print log keeps no name: the two times decide. A
+  reprint clears it. The order row was missing this too before the names page.
+- **บันทึก with nothing changed writes nothing.** A new edit time on an unchanged name would raise the flag for nothing
+  and add an empty history line.
+- **Tests.** `verify-tpn-room-names-1117.cjs` §4, 7 checks (25/25): all 7 fail on `affa29d`. `verify-tpn-room-page-1105.cjs`
+  §12d, 6 checks in Chromium (132/132): on a copy without this change the two flags and the no-change save fail; the
+  two "a reprint clears it" checks hold there because nothing is flagged, and here they follow the flags raised above
+  them.
+
+## Session 2026-11-17 (5) — Vera on the names page: a test that tells an edit from a sighting, the PDPA note
+
+`test/verify-tpn-room-page-1105.cjs` §4b, `REFERENCE.md` (§ Thai PDPA compliance posture). Corrects entry (4)'s tests,
+on the same PR and not yet released.
+
+- **The test.** §4b edited SS-1 on yesterday's list. SS-1 was last seen today and `mapInfant` keeps the later day, so
+  the old wiring (the list's day as the sighting) passed it too. §4b now uses tomorrow, the last day the room may pick,
+  and checks that SS-1's day last seen stays today after the edit: 11 checks, 126/126; the new one fails on a copy whose
+  `saveMapping` passes the list's day ("18/11/2569", want "17/11/2569").
+- **PDPA.** The names page lists on one screen every name the open file holds, with its AN and edit history, a name
+  kept after an erasure included until the purge. `REFERENCE.md` says so beside the two gaps already there, and names
+  a remove action on the page as the manual erasure step for Pp and the DPO to weigh.
+- **Not in this PR, Pp's call:** Vera's finding 1. A name or AN edited after its sticker printed leaves the printed bag
+  with the old one, and no screen asks for a reprint; the names page adds a route to that edit.
+
+## Session 2026-11-17 (4) — The TPN room's names page: every infant in the name file, each name and AN editable
+
+`tpn-room.jsx` (`NamesPage`; the "รายชื่อทั้งหมด" button; `MappingDialog` from the list shows the ID and the day last
+seen; its history in ward time), `tpn-room-core.js` (`namesList`, `mappingSeenOn`, `wardDateTime`), `tpn-room.css`,
+`compiled/tpn-room.js`, the room shells' `?v=`, `test/verify-tpn-room-names-1117.cjs` (new),
+`test/verify-tpn-room-page-1105.cjs` §4b, `openspec/changes/tpn-room-stickers/design.md` (the name file), `STATUS.md`.
+
+- **Why.** Pp, 2026-11-17: "ในหน้าจอของห้อง TPN Room อันที่ให้แก้ไขชื่อให้สามารถแก้ไขชื่อของแต่ละคนได้จากบนแดชบอร์ดของห้อง
+  TPN". A name could be changed only from an order row, so only for an infant with an order on the chosen date, and
+  only with the name file open. Of two forms she chose a page of everyone ("หน้ารวมชื่อทุกคน"), and approved it from
+  a render ("ใช้แบบนี้").
+- **The page.** With the name file open, "รายชื่อทั้งหมด" opens a sheet over the order list: every infant in the file,
+  the one seen in an order most recently first, with NeoFeed ID, the name to print, AN, the day last seen in an order,
+  and who changed it last and when; a search by ID, name or AN; "แก้ชื่อ / AN" on each row opens the same dialog as an
+  order row, with the ID and the day last seen in place of the order's bed, BW and DOL. The page reads the open name
+  file only: no request, no new storage, nothing leaves the PC (design D7).
+- **An edit from the page is no sighting.** It keeps the day the infant was last seen in an order
+  (`mappingSeenOn`), so the 30-day purge still counts from the orders; an edit from an order row takes that order's
+  date as before.
+- **Also.** The dialog's edit history printed raw ISO times ("2026-11-17T11:59:56.983Z"); it reads "17/11/2569 18:59",
+  ward time (`wardDateTime`).
+- **Tests.** `verify-tpn-room-names-1117.cjs`, 18 checks in Node, all fail on `origin/main` `0284ee0`.
+  `verify-tpn-room-page-1105.cjs` §4b, 10 checks in Chromium (on a day with no orders both mapped infants are on the
+  page; the search; the edit from the list shows no order facts; the saved name on the page and on the order row;
+  back): on `0284ee0` the run stops at the missing button; 125/125 here. `verify-tpn-room-core-1105` 127/127,
+  `verify-tpn-room-store-1105` 51/51, `verify-build-shells` 78/78.
+- **Beside PRs #280 and #281.** All three rebuild `compiled/tpn-room.js` and the room shells' `?v=`; each one merged
+  after another takes `main` and rebuilds.
+## Session 2026-11-17 (3) — The PN label prints the AN on its own line under the name, centred
+
+`tpn-room.jsx` (`StickerSheet`, the PN label: `.an-line` after the name in place of the `.part-head` row),
+`tpn-room.css` (`.an-line`), `compiled/tpn-room.js`, the room shells' `?v=`, `test/verify-tpn-room-page-1105.cjs` §6,
+`STATUS.md`.
+
+- **Why.** Pp, 2026-11-17, on the sample sheet (`TPN-sticker-sheet-sample-2026-11-16.pdf`, synthetic data): an arrow
+  from the AN at the PN label's far right toward the name, then "อยากให้อยู่บรรทัดใต้ชื่อ แต่เลื่อนเข้ามาตรงกลาง
+  ให้ไม่เกินบรรทัดอื่นๆ เพื่อติดสติ๊กเกอร". The AN sat at the right edge of the 200 mm label, past every other line. She
+  approved a before/after render of the label ("ใช้แบบนี้").
+- **What moved.** The name keeps its own line; the AN goes on the next line, centred, so it reaches no further right
+  than the label's other lines. Only the PN label: the worksheet keeps the name with the ward on its right, and the
+  bag sticker keeps the AN under the ward. No figure, no field, no rule.
+- **Tests.** `verify-tpn-room-page-1105.cjs` §6, 4 new checks in Chromium (the AN on its own line right under the
+  name, centred, no further right than the other lines, "AN" and the mapped AN): all 4 fail on `origin/main`
+  `0284ee0`, 119/119 here. The sheet and each part still fit under print, on one A4 page.
+- **Beside PR #280.** Both rebuild `compiled/tpn-room.js` and the room shells' `?v=`; whichever merges second takes
+  `main` and rebuilds.
+## Session 2026-11-17 (2) — The stale-tab check reads the release when the form opens; the room judges an order against the served release (Vera)
+
+`calculator.jsx` (`releaseRead`, `readRelease`, `releaseBehindNow`, `releaseBehindForSubmit`, `warnIfSentBehind`, `RELEASE_FRESH_MS`, the
+banner's two texts), `tpn-room-core.js` (`versionsOf`, `versionReasons`; `ctx.served` in place of `ctx.pageStale`),
+`tpn-room.jsx` (`reply.served`, passed to the rows and to Print), `compiled/`, the shells' `?v=`,
+`test/verify-stale-tab-1117.cjs`, `test/verify-tpn-room-page-1105.cjs` §12b, `REFERENCE.md`, `STATUS.md`. It corrects
+entry (1), on the same PR and not yet released.
+
+- **The form reads the release when it opens.** Entry (1) read the version file at every Submit, behind an `await`.
+  That broke `verify-bed-dol-io.cjs` (4 checks): its re-save reads `onUpdate` in the same tick as the press, which is
+  how Submit behaved until then. Now the form reads the file when it opens and, on another release, shows the banner
+  at once ("กดโหลดหน้าใหม่ก่อนกรอก order"), before anyone types. A read under a minute old, or one still in flight,
+  decides a Submit with no `await`, so the save call keeps its tick; an older read is done again first, under
+  `saving`. A Submit pressed while the first read is still in flight goes, as on a failed read; once it is saved,
+  the form waits for that read, and if it finds another release a toast and the banner say the order sent will not
+  print, and to reload and Submit again (`warnIfSentBehind`, Vera's second review: the in-flight Submit had no
+  warning of its own, and a save that leaves the screen took the banner with it).
+- **Vera's two findings.** With the page behind, every row said "หมอไม่ต้อง Submit ใหม่", also for an order on the
+  page's own old version, which the doctor does have to submit again (finding 1). An order newer than a current page
+  sent the room to reload a page that was already current, as after a rollback (finding 2). Now the room judges an
+  order against the release the host serves, read with the list: on it, the doctor has nothing to do and a page
+  behind reloads; off it, older or newer, the doctor reloads NeoFeed and submits, and a page behind reloads too
+  ("กดโหลดหน้านี้ใหม่ด้วย"). With no served read, the page's own versions stand in, as in entry (1). Print passes the
+  served release too.
+- **Tests.** `verify-stale-tab-1117.cjs`, 67 checks: 42 fail on `origin/main` `0284ee0`; the 25 that pass there guard
+  what stays (a current order prints, the backend takes both tabs, the same release, a failed read and a 404 still
+  Submit, a Submit while the first read is in flight saves in the same tick, two presses send one save). Vera's
+  two first-review cases fail on `a7f1fa8` and her second-review case (2 checks) on `14889f2`.
+  `verify-bed-dol-io.cjs` 85/85 again. `verify-tpn-room-page-1105.cjs` §12b: on a page behind, the row on the old
+  release asks the doctor and the room both.
+
+## Session 2026-11-17 (1) — A tab left open across a release: Submit reads the served release first; the TPN room says who reloads
+
+`calculator.jsx` (`tabIsBehindRelease`, `RELEASE_BEHIND_TEXT`, `refuseBehindRelease`, the `releaseBehind` banner, in
+`handleSave` and `handlePublish`), `data.js` (`tabDiffersFromServed`), `tpn-room-core.js` (`compareVersions`;
+`printReasons` with `ctx.pageStale` and which side reloads), `tpn-room.jsx` (`servedVersionText`; `fetchDay` reads the
+served version file with the orders; the `stale-page` banner), `compiled/`, the shells' `?v=`,
+`test/verify-stale-tab-1117.cjs` (new), `test/verify-tpn-room-page-1105.cjs` §12b, `test/verify-tpn-room-core-1105.cjs`
+§2, `REFERENCE.md`, `STATUS.md`.
+
+- **Why.** Pp, 2026-11-17: an order took three Submits to reach the TPN room ("ทุกวันนี้ต้องกดซับมิตไปสามครั้ง ผลถึงจะเข้าห้อง
+  ทีพีเอ็น"). A ward tab opened before release #279 (23:21 the night before) still ran `CONSTANTS_VERSION` 2026-11-15.1,
+  because a sign-out remounts the app and loads no new code. The backend took its order (`MIN_SUBMIT_CONSTANTS_VERSION`
+  is still 2026-10-28.1), the doctor's own sheet printed, and the room refused it: "NeoFeed ปรับการคำนวณหลัง order นี้
+  ให้หมอเปิดแล้วกด Submit อีกครั้ง". The same tab sent the same version again, and the order printed after a reload.
+  Reproduced on release `63e4226` with the real `gas-backend.gs` and `tpn-room-core.js`. A room page left open across
+  the release gives the same line for every new order, and no Submit helps. Which of the two it was on the ward that
+  day is not known: the rows' version is in the Sheet, which was not opened.
+- **Submit reads the served release.** Before a Submit (and the publish step, off while `ENABLE_PUBLISH_GATE` is false)
+  the calculator fetches `compiled/tpn-room-version.js` with `cache: "no-store"`. Other versions than the tab's, newer
+  (a release) or older (a rollback): nothing is sent; a banner with a reload button stays until the reload, and a toast
+  says the same; what was typed goes to the draft and is offered back after the reload. It fails open: a failed
+  request, a reply that is not 2xx or a file it cannot read lets the Submit go as before, and the room still refuses an
+  order on other versions. Save draft is not checked: the backend keeps any draft and the room prints none. Center Point
+  is not checked: it never reaches the room. `saving` covers the read, so two presses during it send one save.
+- **The room says who reloads.** An order on an older calculation or sticker schema: "ให้หมอกดโหลดหน้า NeoFeed ใหม่ก่อน
+  แล้วเปิด order กด Submit อีกครั้ง". An order newer than the page means the page is the one left open: "กดโหลดหน้านี้ใหม่ก่อน
+  หมอไม่ต้อง Submit ใหม่". Each list load (opening, รีเฟรช, another date) reads the served version file beside
+  `pharmacyOrders`; a page behind it shows a reload banner above the list, and its rows give no version reason but
+  that one. A file it cannot read changes nothing on the list. Print already refused a page behind the release
+  (2026-11-05).
+- **Not changed.** No figure, dose, rule or backend line. `CONSTANTS_VERSION` stays 2026-11-16.1, so this release leaves
+  no open tab behind. `MIN_SUBMIT_CONSTANTS_VERSION` stays: the check now runs in the frontend on every release, with
+  no `clasp` step. A tab opened before this release has none of it, so the first release after this one that moves
+  `CONSTANTS_VERSION` is the first the check can catch.
+- **Tests.** `verify-stale-tab-1117.cjs`, 45 checks: 29 fail on `origin/main` `0284ee0`; the 16 that pass there guard
+  what stays (a current order prints, the backend takes both tabs, a current tab, a failed request and a 404 still
+  Submit, two presses send one save). `verify-tpn-room-page-1105.cjs` §12b, 4 new checks in Chromium: 3 fail on
+  `0284ee0` (the fourth, no banner after a matching refresh, holds there too). `verify-tpn-room-core-1105.cjs` §2: a newer
+  sticker schema now asks the room to reload its page.
+
+## Session 2026-11-16 (13) — The TPN unit's answers: bag volume, whole mL, sticker sizes, label lines, a larger print
+
+`data.js` (`preparedVolFor`, `PRINT_FIT_STEPS`, `PRINT_AREA_MM`, `fitPrintSheet`, new; `stickerFigures` `deadMl`;
+`CONSTANTS_VERSION` `2026-11-16.1`), `calculator.jsx` (`roundWholeMl`; the bag's prepared volume, D50W, amino acid
+and WFI; a `beforeprint` listener), `NeoFeed.html` and `index.html` (the probe's CSS and two print rules),
+`tpn-room-core.js` (`PN_FIXED` filled in, `PN_BLANK`), `tpn-room.jsx`, `tpn-room.css`, `compiled/`, the shells' `?v=`,
+`test/verify-tpn-sticker-1116.cjs` (new), `test/verify-print-one-page-1102.cjs` (§2d), `test/verify-tpn-room-page-1105.cjs`,
+`test/tpn-room-fixture.cjs`, the 14 harnesses whose own worksheet models the bag rules moved (`calc-sum`, `clinical-rules`,
+`calc-oracle`, `calc-fuzz`, `kcmh-factor`, `stock-ml-1027`, `review-0917-calc`, `tpn-team-0922`, `tpn-meeting-0928`,
+`tpn-answers-1027`, `sticker-figures-1030`, `tpn-room-core-1105`, `ward-requests-0918`, `wfi-stop-1028`; each models the new
+rules itself, edge fixtures re-tuned onto the same edge, no assertion removed), `.claude/skills/neofeed-clinical-rules/SKILL.md`
+(CR-U-FACTOR, CR-R-BAG-SUM, CR-R-STOCK-ML, CR-BOTTLE-MAX, CR-BAG-OVERFULL and their cases), `docs/CLINICAL_CONSTANTS.md`,
+`REFERENCE.md`, `STATUS.md`, `openspec/changes/tpn-room-stickers/design.md` and `tasks.md`.
+
+- **Why.** The TPN unit and the ward sent their notes on the trial sheet through Pp on 2026-11-16, with Base's rescaled
+  sheet (`tpn_A4.pdf`) and a photo of a printed order. Pp: "work all". PR #278; Pp checked the sticker PDF against the
+  room's paper ("ตรงแล้ว") and said "merge แล้ว release เลย".
+- **The bag rounds up.** The TPN set holds exactly 30 mL, so a bag of delivered + 30 left nothing over. The nurses asked
+  for "เลขกลมๆหรือเผื่อสายมากกว่า 30 mL"; Pp chose the next 10 mL above delivered + dead space, so 30 mL of dead space
+  leaves more than 30 and at most 40 mL. The Factor carries the extra, so the infant still gets the dose ordered. No dead
+  space, no rounding.
+- **Whole mL for D50W, amino acid and SWFI** ("ใช้ syringe scale ใหญ่ในการตวง ที่ผ่านมาถ้าได้ทศนิยมจะปัดให้"). Half up. The
+  rest keep one decimal, so components + WFI is the bag to within half a mL, the tolerance pharmacy used by hand. The
+  printed "=" before the prepared volume and before the D50W mL became "→".
+- **D50W's two exceptions** (Pp, after the cold reader showed whole mL moving the bag's dextrose: a 70 mL peripheral
+  bag of D12.5 % took 18 mL, 12.9 %; a 10 mL bag of D7.5 % with no dead space took 2 mL, 10 %): a bag with no dead
+  space keeps one decimal, and a peripheral bag ordered at or under 12.5 % never rounds up past it; it rounds down.
+- **The stickers.** The worksheet is 150 × 85 mm with each figure beside its name and the NeoFeed ID under the SWFI box;
+  the PN label is 200 × 80 mm; each part has a dashed outline to cut along. The PN label's heading, storage line and
+  extension are the unit's (`PN_FIXED`), so the trial mark goes (Pp: "เอาออก Pp เช็ก PDF ก่อน merge"). The label's Dead
+  space is prepared − delivered, so its three volumes add up.
+- **A larger print, one A4 page.** "ตอนกด print ตั้งค่า scale 115% ใหญ่กำลังดี ไม่ล้น", and Pp asked for the figures to be
+  larger as well, "โดยคงให้เป็น 1 หน้า A4 เท่าเดิม". Before the print dialog, `fitPrintSheet` lays a copy out off-screen
+  at 190 mm and gives the sheet the first step that fits 279 mm: 115 %, 110 %, 105 %, then 100 %, the bold values at
+  1.15 em; the last step is the sheet as it printed before. In Chromium with the wide test font, the order with no
+  critical alert prints at 110 %, the one-alert order at 100 % with larger figures.
+- **Answered, no code.** Osmolarity counts the sodium from Glycophos and Na acetate (0.3 e): NeoFeed already did. The
+  acetate line leaves out Aminoven Infant's (0.3 m): it already did. Twins carry the ward's usual sticker (0.3 j).
+  Soluvit and Peditrace take decimals, as they already did; Pp kept Peditrace's 15 mL maximum from its leaflet (the
+  unit wrote 10; no infant up to NeoFeed's 8 kg reaches either).
+- **Cold reader** (one pass, on a frozen snapshot). Fixed: the D50W rounding above; `fitPrintSheet` measured the zoomed
+  copy, right only from Chromium 128, so it measures the unzoomed wrapper; the D50W "=" chain; the label's Dead space
+  from the printed volumes (47.6 + 32.4 = 80, not 32.5); the back sheet's dead space says "ปัดขึ้นหลักสิบ"; weak checks
+  in the new harness; stale wording. Kept: printJson stays v 1 although `deadMl` changed meaning, because the row's
+  `constantsVersion` marks it and a bump needs a backend deploy first; Center Point shows the dead space typed, an input.
+- **Found, not fixed here.** On `main` before this change, `verify-print-one-page-1102.cjs` §2 already prints the
+  14-alert order on two pages in the wide test font (281.3 mm of 281), and the Print ทั้งหมด job of the fullest sheets
+  on four pages. CI does not run §2. This change leaves that order at its old size (the floor step).
+
+## Session 2026-11-16 (12) — PR #277 merged into `main`; STATUS catches up on release #276
+
+`STATUS.md` only. Pp, 2026-11-16: "merge เมื่อ CI ผ่าน". PR #277's line now reads merged into `main` on her
+instruction; it needs no release, since a PR's run uses the workflow of its merge with `main`. **`STATUS.md`
+catches up:** #272 and #274 are live via release #276 (`release-2026-11-16-pr276`, `dcd2c84`; `verify-release`
+0 failures on both hosts, comment on #276). The tag `release-2026-11-16-pr275` is now on the remote, on
+`663b49f`; `verify-release` never ran on that commit itself, and #276, which carries it, passed.
+
+## Session 2026-11-16 (11) — A lone CR could hide a line from the pin; the reviews end here
+
+`test/verify-run-checks.cjs` (109 assertions), `test/README.md` (the last section), `STATUS.md`. Corrects the
+entry below in three places:
+
+- **(10) said the checks after the pin "now also take quoted keys, trailing comments, the job each runner step
+  sits in, and `shell:` or `defaults:` anywhere".** They read text, not YAML: an escaped key (`"i\x66"`,
+  `"sh\x65ll"`), a ` #` inside quotes before a runner call, a job key with a trailing comment or in quotes, and
+  run lines inside a `name: |` block all got past them in the fifth reader's tries. Only the pin caught those.
+  The README now says the pin is the guard and the checks after it are a second layer.
+- **(10) said "A comment may change freely".** Three checks after the pin read raw text, so a comment inside the
+  `harnesses` job or at the end of the file, between `concurrency:` and `group:`, or right after a runner line
+  failed them. They now read the same comment-free lines as the pin, and all four cases pass.
+- **(10) and the code said "after three reviews";** four had each found a YAML spelling that § 6 missed.
+
+The fifth new agent (on `0a7ce05`) found one way past the pin itself: a lone CR. The pin splits on LF, so
+`# note<CR>if: false` read as one comment line, while YAML, which breaks a line at CR too, read a step with
+`if: false`, and `.gitattributes` keeps a lone CR. § 6 now refuses any line break but LF (CR, U+0085,
+U+2028, U+2029) before the pin. When the pin fails on a removed last line it now names that index.
+
+Pp's decision, 2026-11-16, after this fifth review: "ปิด CR แล้วจบ". So no further new-agent review runs on
+this PR; the second-layer gaps above stay, documented, with the pin in front of them.
+
+- **Tests.** `verify-run-checks.cjs` 109/109. The 32 earlier mutations are still caught, and five more: a lone
+  CR hiding a step `if: false` and a job `if: false`, a U+2028 doing the same, a ` #` in quotes before a runner
+  call, and an escaped `if` key. Comment-only edits pass in five places: an existing comment reworded, a new
+  comment inside the `harnesses` job, at the end of the file, between `concurrency:` and `group:`, and right
+  after a runner line.
+
+## Session 2026-11-16 (10) — The workflow pinned line by line, after a fourth review
+
+`test/verify-run-checks.cjs` (108 assertions), `test/README.md` (the last section), `.github/workflows/test.yml`
+(one comment), `STATUS.md`. Corrects the entry below in three places:
+
+- **(6)'s compiled range was too narrow after all.** (9) said it was not wrong because the compiled pass
+  without calc-compare, 14.2 min, fits within three shares of 4.5 to 5.0 min. A fitting sum does not make the
+  shares: the runner's split on run 43864098626's step times gives 4.3, 4.8 and 5.2 min (two readers, each
+  re-running `shareOf` on the real config). (8)'s reason was wrong, but its conclusion stood. (7) replaced the
+  estimate with the measured run.
+- **(9)'s calc-fuzz correction was itself loose.** The runner rounds to whole seconds before the `s >= 10` cut,
+  so a step drops off below 9.5 s, and a printed 11 s is 1.0 to 2.0 s above that. Neither "one second from
+  dropping off" (8) nor "one second above it" (9) was exact.
+- **(9) and the README said § 6 allows no `if:` but the gate's and no fifth runner line;** the patterns behind
+  those claims missed `- if:` as a step's first key, a quoted `'if'` key and a runner called without `.js`.
+
+Pp's decision, 2026-11-16, after the fourth new agent (on `fb9668c`) still found ways past § 6: "ล็อก jobs ทั้งก้อน".
+§ 6 now pins every line of `test.yml` that is not blank or a whole-line comment, 77 lines, and fails on the
+first that differs. A comment may change freely; any other edit to the workflow changes the pinned list in the
+same commit, where a reviewer sees it. The checks after the pin stay, so the reason for each line that matters
+is stated, and they now also take `- if:`, quoted keys, `run_checks` without `.js`, trailing comments, the job
+each runner step sits in, and `shell:` or `defaults:` anywhere. A comment in the workflow's header says both
+must change together.
+
+- **Tests.** `verify-run-checks.cjs` 108/108. All 25 earlier mutations are still caught, and the fourth
+  reader's seven: `- if:` as a first key, a quoted `'if'`, a fifth step without `.js`, `shell: true {0}` on a
+  step, workflow `defaults` with that shell, the sources runner moved to a job outside `needs`, and a blank line
+  then `|| true`. Editing a whole-line comment still passes.
+
+## Session 2026-11-16 (9) — The CI shards after a third review
+
+`test/verify-run-checks.cjs` (102 assertions), `test/README.md` (the last section), `STATUS.md`. Corrects the
+entry below:
+
+- **(6)'s estimate was not wrong, and (7) corrected nothing in (6) that was.** (8) said three shares of 4.5 to
+  5.0 min could not cover a 16.9 min compiled pass. That 16.9 min included calc-compare's 160 s compiled run,
+  which this PR removes; the rest, 14.2 min, fits within 13.5 to 15.0. (7) replaced (6)'s estimate with the
+  measured run; it did not show the estimate wrong.
+- (8) quoted "No check was dropped" from the STATUS line too; that line said "no check is dropped". Only the
+  workflow header had the first wording.
+- (8) said `|| true` on a `pre` or Center Point step would go green over a failing harness; those steps run the
+  build, shell, CI-ban and Center Point checks, so over a failing check.
+- (8) said calc-fuzz at 11 s was one second from dropping off the `slowest:` line; with the `s >= 10` cut it
+  was one second above it.
+- (8)'s file list left out `STATUS.md`, whose line 3 it changed.
+
+A third new agent read only `fc2e3f7`'s changed lines. Fixed from it:
+
+- **A fifth runner step written as a `run: |` block passed.** § 6 counted single-line `run:` values only. It now
+  counts every non-comment line that names `tools/run_checks.js`, and wants exactly the four.
+- **A continuation line or a step `if:` passed.** `          || true` on the line after a run line folds into the
+  YAML value, and `if: ${{ false }}` skips the step and leaves its job green. § 6 now wants a blank line after
+  each runner line and no `if:` in the workflow but the gate's `always()`.
+- **The hinted-step case pinned 0 s,** which a loaded machine could round to 1 s; it now takes any time under
+  10 s.
+- **The README's last section** now names the `slowest:` cases, the line count and the `if:` rule, and says
+  "one with no value" for the refused `--shard`.
+- **Tests.** `verify-run-checks.cjs` 102/102, and 25 of 25 mutations caught: the 21 in (8), a continuation
+  `|| true` after the `pre` and the sources run lines, a step `if: ${{ false }}` on `pre`, and a fifth
+  runner step as a `run: |` block.
+
+## Session 2026-11-16 (8) — The CI shards after a second review
+
+`test/verify-run-checks.cjs` (97 assertions), `tools/run_checks.js`, `test/README.md` (§ CI and the last
+section), `REFERENCE.md` (§ The frontend build). Corrects the entry below in two places:
+
+- **It corrects one thing in (6), not three.** The compiled share estimate in (6) could not hold: three shares of
+  4.5 to 5.0 min cannot cover a 16.9 min pass. The 95 assertions in (6) were right for `28cbccf`; the count
+  rose to 96 with the new § 7 case. "No check was dropped" was never in (6): it was in the workflow header and
+  the STATUS line, both reworded in place to "every check still runs".
+- **`REFERENCE.md` never said CI runs on `release`;** only `test/README.md` § CI did. Both said every harness
+  runs twice.
+
+A second new agent read only `35c435b`'s changed lines. Fixed from it:
+
+- **The runner steps could swallow a failure.** § 6 matched the four `run_checks.js` run lines by substring, so
+  `|| true` on a shard, `pre` or Center Point step still passed, and that job, then `harnesses`, would go green
+  over a failing harness. Each run line is now matched whole, and no fifth step may call the runner.
+- **`test/README.md` § CI said CI installs no browser.** The compiled pass has installed Chromium since
+  2026-10-04 and runs `verify-sync-gate-and-poll.cjs`'s measurement; only the sources pass prints its SKIP.
+- **"Then" was wrong** in README § CI and `REFERENCE.md`: the shards do not wait for `pre`, and all seven jobs
+  start together. Both now say "alongside", and that calc-compare runs in the sources pass only.
+- **The `slowest:` line** now lists every hinted step however fast it ran, as well as every step of 10 s or
+  more: calc-fuzz, hinted 20 s, took 11 s in this PR's first run, one second from dropping off the line.
+- **The README's last section** said `harnesses` splits the passes; the shard jobs do. It now lists what § 6
+  checks, without a count that goes stale.
+- **Tests.** `verify-run-checks.cjs` 97/97, and 21 of 21 mutations caught: the 16 in (7), `|| true` on each of
+  the four runner steps, and a hinted step left off the `slowest:` line.
+
+## Session 2026-11-16 (7) — The CI shards after review, and their first run
+
+`test/verify-run-checks.cjs` (96 assertions), `tools/run_checks.js`, `.github/workflows/test.yml` (comments),
+`test/README.md`, `REFERENCE.md` (§ The frontend build, one line), `STATUS.md`. Corrects the entry below in
+three places: the assertion count (96, not 95), the compiled share estimate (replaced by the measured run
+below), and "No check was dropped" (every check still runs; calc-compare's repeat in the compiled pass was).
+
+- **This PR's first run** (43873848021, on `28cbccf`) took 6.1 min, against 33.7 for one job. `pre` 8 s;
+  sources shards 3.4, 3.6 and 5.9 min; compiled shards 5.3, 4.8 and 5.9 min; `harnesses` 2 s. The shards ran
+  45 + 46 + 52 = 143 sources steps and 32 + 55 + 55 = 142 compiled steps, every one once. Sources shard 1 ran
+  short because calc-compare took 86 s there, not the 158 s hinted; runner speed varies, so refresh the hints
+  from a few runs' `slowest:` lines, not one.
+- **New-agent review** of `28cbccf` (read-only, briefed with the files and Pp's four decisions): nothing lets
+  `harnesses` pass wrongly or drops or repeats a step. It re-ran the split on the real config (143 and 142
+  steps, each once) and found no harness that needs `tools/node_modules`, Center Point's build or another
+  harness's files. Fixed from it:
+  - two gate assertions that a substring match let pass on a broken gate (`|| true`, `continue-on-error`,
+    COMPILED read from the sources result, `cancel-in-progress: false`): the whole `harnesses` job is now
+    matched literally, `continue-on-error` is refused anywhere, and the concurrency block is matched with its
+    `cancel-in-progress: true`;
+  - `test/README.md` § CI and `REFERENCE.md` still said every harness runs twice and CI runs on `release`;
+  - `--shard` with no value ran the whole phase; it is now refused;
+  - the `slowest:` line stopped at five steps, so a hinted step could fall off it; it now lists every step of
+    10 s or more;
+  - a comment in the workflow now says a PR run cancelled by a newer push ends with a red `harnesses` on the
+    older commit, as `always()` must.
+- **A full local `--level ci` run without `--phase`** now labels a builtin or command step with its phase too
+  (`kcmh-factor-no-dead-space [sources]`), as harness steps already were. Hooks, `--validate` and single-phase
+  runs print what they printed before (the reviewer compared the two runners on a stub tree).
+- **Tests.** `verify-run-checks.cjs` 96/96, and 16 of 16 mutations caught: the 11 below, plus the four gate
+  mutations above and `--shard` with no value.
+
+## Session 2026-11-16 (6) — CI runs the harnesses in parallel jobs
+
+`.github/workflows/test.yml`, `tools/run_checks.js` (`--shard K/N`, `shareOf`, a `slowest:` line),
+`tools/checks.json` (`shard_seconds`; a `calc-compare` check, sources pass only), `test/verify-run-checks.cjs`
+(§ 7 new, § 5 and § 6 extended; 95 assertions), `test/README.md`, `STATUS.md`.
+
+- **Why.** Pp, 2026-11-16: "เช็ค harness NeoFeed ว่าต้องทำทั้งหมดนี้ไหม ทำไมใช้เวลานานมาก", then "ทำ PR ข้อ 1-4".
+  Main run 43864098626 took 33.7 min: one job ran every harness one after another, 16.3 min against the
+  sources and 16.9 min against `compiled/`, and everything else took under a minute. The median run grew from
+  19.7 to 26.8 min between 27 Oct and 16 Nov, as most PRs add a harness that then runs twice; the timeout is 45.
+- **What repeated** (398 runs, 27 Oct to 16 Nov, 147 runner-hours). Every push to `release` (30) tested the tree
+  of a main commit already passed: 11.2 h. A release PR's head is main's tip, already run by the push to main
+  (44 pairs, 19.1 h). A PR run kept going after a newer push to the same PR (73 runs, 15.8 h after the newer
+  one started). `verify-calc-compare.cjs` clears `NODE_OPTIONS`, so its compiled-pass run repeated the sources
+  run, about 160 s each time.
+- **1. Parallel jobs.** `pre` (build, shells, CI bans, then Center Point), three `sources` shards and three
+  `compiled` shards run side by side. `harnesses`, the check the rules on `main` and `release` require, keeps
+  its name; it needs all three jobs, runs `always()`, and is green only when each one's result is `success`
+  (a required check that is skipped would count as passed). Each shard calls the runner with
+  `--shard $(( job-index + 1 ))/job-total`, never the matrix values. Every shard computes the same split from
+  the same tree, longest step first onto the lightest share, weighed by `shard_seconds` (13 sources and 9
+  compiled steps of 20 s or more; any other counts 3 s). On run 43864098626's times that gives shares of 5.1
+  to 5.6 min (sources) and 4.5 to 5.0 min (compiled), against one 33.7 min job.
+- **2. calc-compare once.** It runs in the sources pass only. Its trees are built with Babel in a child whose
+  `NODE_OPTIONS` is empty, so the compiled pass never tested anything else.
+- **3. Older PR runs stop.** `concurrency` groups a PR's runs by its number and cancels the older one. A push
+  to main gets its run id as its group, so no post-merge run is cancelled or queued.
+- **4. No run on a push to `release`.** The release PR's run is the gate; Cloudflare deploys on the push either
+  way. The post-merge check stays the run on the push to main.
+- **Not done, Pp's call:** letting a release PR use the push-to-main result on the same commit (untested on
+  GitHub), and dropping the sources pass (the compiled pass tests what ships; with parallel jobs it no longer
+  costs waiting time).
+- **Tests.** `verify-run-checks.cjs` 95/95. Each new assertion was watched failing: the runner from
+  `origin/main`, a share that keeps every step, hints ignored, `harnesses` without `always()` or without the
+  compiled result, a shard from the matrix value, main pushes cancelled, no push to main, calc-compare in both
+  passes, a stale hint, a hint for an unknown phase (11 of 11 caught). Sources shard 2/3 ran here end to end.
+- **`STATUS.md` catches up:** #273 is live via release #275 (`663b49f`); #272 and #274 are merged into `main`
+  and in release PR #276.
+
+## Session 2026-11-16 (5) — A DOL-1 length or head is read as a size at birth
+
+`data.js` (`FENTON_LENGTH_BIRTH_LMS`, `FENTON_HC_BIRTH_LMS`, new), `fenton.jsx` (`FentonChart`: a DOL-1
+length or head circumference from 35.0 weeks is read and drawn on them), `compiled/`, the shells' `?v=`,
+`test/fenton-official-birth-1116.json` (new), `test/verify-fenton-birth-length-hc-1116.cjs` (new, 63
+assertions), `test/verify-fenton-length-hc-1116.cjs` (its DOL-1 check moved from 40+0 to 34+0),
+`docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `STATUS.md`, `test/README.md`.
+
+- **Why.** Pp, 2026-11-16: "length หรือ HC ของ DOL 1 ในทารกตั้งแต่ 36 สัปดาห์ ตอนนี้อ่านบนเส้น growth ลองปรับดูว่าจะ
+  ทำอะไรได้บ้าง". A DOL-1 weight was read on the size-at-birth rows; a DOL-1 length or head on the
+  growth-monitoring curve. Fenton publishes no length or head table at birth, and says the size-at-birth values
+  differ from the growth chart after 36 weeks. Asked for the way, Pp chose "ถามเครื่องคิดเลข Fenton".
+- **From Fenton's calculator.** One round to fentongrowth.ca in "Birth size evaluation" mode, both sexes:
+  sex, data type and per row GA, head and length, made-up values read off the monitoring curve near its 10th,
+  50th and 90th at 33 to 42 weeks, plus a half-week point near the 3rd or 97th. No name, number, date of birth,
+  GA at birth or weight. The rows were pasted into the page's paste box as CSV. The raw result tables are in
+  the fixture, and their SHA-256, taken in the page, matches the file.
+- **The evaluation ends at 41 4/7.** Every 42-week row came back empty. Probes found the last GA it answers:
+  41 3/7 and 41 4/7 came back; 41 5/7, 41 6/7, 41.8, 41.99, 42, 42 0/7 and 42 1/7 did not. So three more rows
+  a sex were asked at 41 4/7 to close the curve.
+- **What it said.** Solved as the monitoring rows were (`tools/fenton-lms-solve.cjs`, L fixed at 1; solved
+  freely L is 0.98 to 1.02): at 33, 34 and 35 weeks the birth-size curve is the monitoring curve (M within
+  0.002 cm, S within 0.00003). From 36 weeks they part. Length's spread narrows faster (boys at 41 weeks: S
+  0.0389 at birth, 0.0434 monitoring). From 38 weeks head's median grows more slowly (boys at 41 weeks: 35.28 cm at
+  birth, 35.86 monitoring). Read on screen the old way, the first DOL-1 points more than a centile point off
+  were at 39+0. A boy born at 41+0 with a 35.9 cm head, the monitoring 50th, is the 69th at birth. A girl born at
+  40+0 at 50.2 cm, the monitoring 50th, is the 56th.
+- **What changes on screen.** A length or head circumference whose newest point is DOL 1 is read on the
+  birth-size L, M, S from 35.0 weeks, and the chart draws that curve, as it already did for weight. Before 35.0
+  the monitoring rows serve, since the two agree there. From 41+5 to 42+0 there is no birth-size answer: the
+  reading holds the 41 4/7 row and the drawn lines run flat to 42 (Pp, 2026-11-16: "ใช้แถว 41+4 ต่อ", with no note on screen). From DOL 2 nothing
+  changes.
+- **Nothing printed or saved moves, and no dose.** Only `fenton.jsx` reads these tables, so
+  `CONSTANTS_VERSION` stays (`docs/CLINICAL_CONSTANTS.md`, When to bump).
+- **No second clinician has reviewed this change;** Pp's request only.
+- **Tests.** `verify-fenton-birth-length-hc-1116.cjs` 63/63; against `302dae6` it fails §3 from 39+0 and stops
+  at the missing tables in §2, §4 and §5. `verify-fenton-length-hc-1116.cjs` 57/57 with its DOL-1 check at 34+0.
+- **`STATUS.md` catches up:** #265, #269 and #270 are live (release #271, `release-2026-11-16-pr271`,
+  `4794318`).
+## Session 2026-11-16 (4) — The front sheet prints the heparin mL; no age range after the two 10% amino acids
+
+`calculator.jsx` (the print form's heparin row and `AA_CHOICES`), `compiled/`, the shells' `?v=`,
+`test/verify-calc-sum.cjs`, `test/verify-calc-oracle.cjs`, `test/verify-print-one-page-1102.cjs`,
+`test/verify-review-0917-calc.cjs`, the `neofeed-clinical-rules` skill (`CR-HEPARIN`), `REFERENCE.md` § The
+printed order (Vera), `STATUS.md`.
+
+- **Why.** Ward feedback on the printed order, 2026-11-16: "ไม่มีปริมาตร Heparin ที่เติม" (the sheet carries no
+  heparin volume), and a request to drop the age range in brackets after "10% Aminoven infant / PED AMINE" and
+  "10% Amiparen".
+- **Heparin.** The front sheet's "7. Heparin (100 unit/mL)" line printed the U/mL alone; its mL was on the
+  pharmacy back sheet, which renders but has not printed since 2026-10-28. The line now prints the U/mL in the
+  per-kg column and the mL of 100 U/mL stock in the pharmacist's column, the back sheet's own
+  `calc.solVol.heparin` (`CR-R-STOCK-ML`, 1 decimal); "—" with no bag or 0 U/mL. The units a day were left off:
+  Center Point's sheet has no slot for them (`verify-center-point-print-parity`), and they are U/mL × the
+  prepared volume, both printed. No figure is computed differently and no limit moves; `CONSTANTS_VERSION` stays.
+- **Amino acids.** `AA_CHOICES` reads "10% Aminoven infant / PED AMINE" and "10% Amiparen". The product, its
+  stock and every figure are unchanged. `D.AA_PRODUCTS`' labels keep their brackets: nothing renders them.
+- **Checks (NF-17).** `verify-calc-sum` adds, on every printed order, that the front's heparin mL is the back's
+  heparin stock mL (none at 0 U/mL); `verify-calc-oracle` reads the front's heparin mL against its own
+  expected mL; `CR-HEPARIN`'s inside case prints "1.8 mL". The two print harnesses that matched
+  the bracketed labels read the new ones. `verify-review-0917-calc` §6's five printed-figure pins are
+  recaptured: compared figure by figure with `main`, each order gains exactly the heparin mL and nothing else
+  moves.
+
+## Session 2026-11-16 (3) — The TPN room prints a trial sheet until the unit's three PN lines come
+
+`tpn-room-core.js` (`PN_TRIAL`, `trialNote`, `trialReprintDue`, new; `printReasons`, `stickerModel`), `tpn-room.jsx`
+(the row's notes, `TrialMark` on each part, `trial` in the print-log entry), `tpn-room.css`, `compiled/tpn-room.js`
+and the room shells' `?v=`, `test/verify-tpn-room-core-1105.cjs` (§2), `test/verify-tpn-room-page-1105.cjs` (§5
+prints a trial sheet, §6 checks a filled sheet carries no mark), `openspec/changes/tpn-room-stickers` (design D18,
+the spec's "Print only what is safe to print", tasks 2.6), `REFERENCE.md` § The TPN room's page, `STATUS.md`.
+
+- **Why.** The TPN room signed in, mapped a bed and found no print button (LINE, 2026-11-16): the page held every
+  print until `PN_FIXED` had the PN label's heading, storage line and extension (D18, Pp 2026-11-05), and the unit
+  has not given them (0.3 i). Pp, 2026-11-16: "เขาอยากเห็นการปริ้นออกมาก่อน แล้วค่อยว่ากันอีกที ให้เขาปริ้นได้ก่อน".
+- **What.** Blank fixed lines no longer hold a print. The row says the sheet prints as a trial ("จะพิมพ์เป็นแผ่นทดลอง
+  ห้ามใช้จริง …") beside the button. Each of the three parts, the worksheet, the PN label and the bag sticker, carries
+  "ทดลองพิมพ์ ห้ามใช้จริง" across it in light grey; each blank PN line prints a placeholder that waits for the unit
+  ("ฉลากทดลอง ห้ามติดถุง · รอหัวฉลากจากหน่วย TPN", "วิธีเก็บ: รอหน่วย TPN", "เบอร์ต่อ: รอหน่วย TPN"), never a guessed
+  line. A half-filled set keeps the lines it has and is still a trial. No figure, rule or backend change; every
+  figure is still a `printJson` string, and stays legible under the mark (checked on the harness's PDF).
+- **All three parts, not the PN label alone.** Vera's finding 1: the first cut marked only the PN label, leaving
+  the worksheet and bag sticker unmarked from a layout no one has checked against a real sheet (tasks 2.6). Pp chose
+  to mark all three.
+- **The print log.** Vera's finding 2: a trial print is logged with `trial: true`, so the row reads "พิมพ์แล้ว
+  (แผ่นทดลอง)" and offers "พิมพ์ซ้ำ". Once all three lines are filled in and released, a row whose last print was a
+  trial says "ที่พิมพ์ไปเป็นแผ่นทดลอง กดพิมพ์ซ้ำเพื่อได้สติกเกอร์จริง" (`trialReprintDue`). The mark leaves the moment
+  all three lines are filled in.
+- **Disposal.** Vera's second run: a trial sheet carries a real name and AN, so the row's note says to shred it or
+  use the confidential-waste bin, and `REFERENCE.md` § Thai PDPA names trial sheets beside the name-file gaps.
+- **Tests.** Core: blank lines give no reason, the row's note and its disposal line, placeholders, a half-filled
+  set, filled lines unmarked, `trialReprintDue`. Page: as shipped, a mapped order prints; on the trial sheet every
+  figure is its `printJson` string and no other digit appears, the mark and placeholders included; one mark on
+  each part, three placeholders, it fits under print on one A4 page, and the row says the print was a trial; a
+  filled sheet and its row carry no trial. Not in the page harness: the reprint prompt after a trial print once
+  the lines are filled (it needs the name file reopened, the step §8 cannot pass in this container); the core
+  harness covers `trialReprintDue`.
+  `test/verify-tpn-room-page-1105.cjs` §8 ("reopening") stops at its first step in this container on `main` too,
+  before and after this change.
+
+## Session 2026-11-16 (2) — Sunday asks for length and HC; the growth charts print
+
+`data.js` (`isSundayBangkok`, `growthOnDol`, `weeklyGrowthDue`, new), `app.jsx` (opening a patient, the banner
+on the growth page, the print sheet), `fenton.jsx` (`FentonChart`'s `printMetric` and `onPrint`,
+`GrowthPrintSheet`, new), the two shells' print rules, `compiled/`, the shells' `?v=`,
+`test/verify-growth-weekly-print-1116.cjs` (new, 99 assertions), `STATUS.md`, `test/README.md`. This
+branch sits on top of the Fenton length and HC change above (same file, `fenton.jsx`).
+
+- **Why.** Pp, 2026-11-16: "ทุกเช้าวันอาทิตย์ตามเวลาประเทศไทย ให้เมื่อเข้าชื่อผู้ป่วย ให้เด้งหน้าไปกรอก HC and length
+  weekly ด้วยเลย", and "ให้มีปุ่ม ปริ้นท กราฟที่ plot fenton ออกมาได้ด้วย เผื่อเอาออกมาดู".
+- **Sunday.** Her answers: doctors and nurses both; all of Sunday in Bangkok from 00:00, not the morning only;
+  it can be put off, and then asks again each time the patient is opened. So on a Sunday, opening a patient from
+  the ward list or the patient picker goes to the growth page when today's DOL has no length or no head
+  circumference, with a banner that names what is missing and a "ไว้ทีหลัง" button back to the log. One value
+  keeps it asking for the other; with both in, the banner goes and the next opening lands on the log as before.
+  Not asked: an admin, a discharged infant, a test patient, an infant with no bed in the system (read-only: the
+  save would be refused), and from the quick calc (its typed figures would be lost). An infant with no DOL
+  anchor is asked only until its last stored row carries both values (`liveDol` falls back to that row).
+  The day is Bangkok's whatever the device's time zone (`isSundayBangkok`). "Today" is the DOL every screen
+  shows (`liveDol`), which is where the growth page files a new measurement.
+- **Print.** A "พิมพ์กราฟ" button on the growth card prints weight, length and HC in one print job (Pp: all
+  three in one go), one chart to an A4 page as wide as the printable area, each page under the printed order's
+  patient block (name, NeoFeed ID, boxes for HN and AN, bed, DOL) with GA at birth, sex, birth weight and the
+  print date. Each printed chart is the screen's own chart fixed on one measure; the tabs, zoom buttons and
+  entry box do not print, and the legend prints as one row. A page is one unbreakable unit. The print sheet
+  is hidden on screen and is the only thing on paper (`.growth-print`,
+  in both shells). For the order form and the ward print batch nothing changes on paper: the one rule that
+  hides the rest of the work area gained an exception for the growth sheet, which exists only on the growth
+  page.
+- **Nothing is calculated here.** No dose, limit, table or `CONSTANTS_VERSION` moves; the backend is not touched.
+- **Review by an agent that had not seen the work (Vera's procedure): NO BLOCK, and the print was wrong.** As
+  first built, the three charts sat under one header at 128 mm wide: on A4 they ran to three pages, of which
+  two named nobody, with chart labels near 5 pt (the reviewer printed a dump of the page to PDF). Now one chart
+  to a page, as wide as the printable area, the patient block on every page. Also from the review: an infant with no bed is no
+  longer asked; the banner no longer says "the box to the right" (it is below the chart on a phone); and the
+  harness gained what four planted mutations had slipped past (the picker, the device's time zone, the print
+  rules).
+- **Printed to PDF from dev local** (Chromium through Playwright, made-up infant AA with a length and a head
+  circumference): three A4 pages, weight, length, HC; each page carries the patient block and its chart at the
+  page's width with the readout under it; the smallest text is 6.5 pt; no console error.
+- **Second and third readings by new agents.** The second found the shells' comment wrong (it gave the chart as
+  190 mm wide; in the PDF it is about 183 by 111 mm) and a page that ended at 267 mm from the top of the sheet,
+  where the printable area ends at 289 mm. It estimated 285 mm for an infant past 42 weeks, whose side panel
+  carries an extra note; nobody printed that infant. A printer with wider margins could then have sent the chart
+  to the next sheet without its patient block. Now a page is one unbreakable unit and the legend prints as one
+  row. The third reading caught the first fix's evidence: the "15 mm margin" PDF had been printed at the shells'
+  own margins, because their `@page` rule overrides the print option. Printed again with the `@page` margin
+  itself changed:
+
+  | Margins | Printable area ends at | Weight page ends at | Length and HC pages end at |
+  |---|---|---|---|
+  | the shells' 8 mm top and bottom | 289 mm | 249 mm | 243 mm |
+  | 15 mm all round | 282 mm | 250 mm | 244 mm |
+  | 20 mm all round | 277 mm | 249 mm | 243 mm |
+
+  Three pages every time, each with the patient block and the legend. **Not printed:** an infant past 42 weeks
+  (dev local seeds none). Also from these readings: a birth weight that is not a number prints as typed, and a
+  blank one as a dash; the harness reads the print block alone, checks that no rule naming a page hides it, and
+  covers an infant with no DOL anchor.
+- **For Pp to look at before it merges:** the banner's Thai wording, and a page from the ward's own printer.
+  The harness proves what each page holds and that both shells carry the rules; the PDF shows the layout in
+  Chromium, not what the ward's printer and browser do with it.
+- **Tests.** `verify-growth-weekly-print-1116.cjs` 99/99, seven scenarios, six of them with the
+  clock moved to the next Sunday or Monday.
+
+## Session 2026-11-16 — Length and head circumference on Fenton's own curve
+
+`data.js` (`FENTON_LENGTH_GROWTH_LMS`, `FENTON_HC_GROWTH_LMS`, new; `FENTON_LENGTH`, `FENTON_HC` removed),
+`fenton.jsx` (`FentonChart`: both tabs drawn and read from the LMS tables; the not-verified note removed),
+`compiled/`, the shells' `?v=`, `tools/fenton-lms-solve.cjs` (new), `test/fenton-official-1116.json` (new),
+`test/verify-fenton-length-hc-1116.cjs` (new, 57 assertions), `test/verify-fenton-half-week-1017.cjs` (§4
+rewritten), `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `AI_SDLC.md`, `STATUS.md`, `test/README.md`.
+
+- **Why.** `BACKLOG.md` carried the two tables as a safety item: five centiles every 4 weeks, never checked
+  against a source, shown on screen with a "not verified" note since 2026-10-17. Pp, 2026-11-16: "จัดการเรื่อง
+  fenton ต่อให้หน่อย", and for the scope "ทำครบจนเปิด PR".
+- **From Fenton's calculator.** One round to fentongrowth.ca that Pp approved ("ส่งได้ ทั้งสองเพศ"): two
+  submissions, sex and data type Growth Monitoring, 75 made-up rows each of GA, head and length, typed into the
+  page's grid. No name, number, date of birth, GA at birth or weight. It returned a head z-score for 72 rows a
+  sex and a length z-score for 69: it did not accept 22 weeks, and gave no length z-score at 23.0. `test/fenton-official-1116.json` holds what was
+  returned, taken from the result table the page showed (the browser tool returned no response body).
+- **L is 1.** Solved freely at each week (three points near the old rows' 10th, 50th and 90th), L came out
+  0.97–1.04, the noise of a z printed to three decimals. So length and head circumference are normal at a given
+  age in Fenton's model. The tables store L = 1 and the least-squares M and S; the three points of each week read
+  back within 0.001 z and the half-week points no row was built from within 0.017 z, under one centile point. The
+  24 length and head points of 2026-10-17 (`test/fenton-official-1017.json`: 12 between whole weeks, 8 on DOL 1)
+  read within 0.4 centile points.
+- **What the old rows were.** Read on the new curve as the app drew them (row GA + 0.5): at its rows, up to
+  38.5 weeks, the 50th was right (it read 48 to 51), and between rows 34.5 and 38.5 it read as low as the 44th
+  centile for head and the 47th for length. Head's other lines were right at its rows too; length's outer lines
+  were too narrow from about 33 weeks (boys at 38.5 weeks: the old 3rd/10th/90th/97th read 7/16/84/94). Past 38.5 both ran
+  straight to a 42-week row that was wrong, in opposite directions. **Length too high:** at 42 weeks the old "50th" is the
+  82nd centile for boys and the 79th for girls, so a term infant read short. **Head too low:** at 42 weeks the
+  old "50th" is the 26th centile for boys and the 32nd for girls, and the old "3rd" line is below the 1st, so a
+  small head near term could read as normal. `BACKLOG.md` had named only length.
+- **What changes on screen.** The Length and HC tabs draw the five centile lines from the LMS tables and read a
+  measurement as an LMS z-score, as weight has been read from 36.5 weeks since 2026-10-19. The curves start at
+  24.0 weeks (length) and 23.0 (head); before that there is no percentile and the panel says where the
+  reference starts, as it already did for weight before 22.5. The "not verified" note is gone. A DOL-1 length or
+  head circumference is read on the same curve: Fenton's Birth size evaluation agrees with it for the 8 DOL-1
+  points asked on 2026-10-17, up to 35+4, and has not been asked from 36 weeks.
+- **Nothing printed or saved moves, and no dose.** Only `fenton.jsx` reads these tables, so
+  `CONSTANTS_VERSION` stays (`docs/CLINICAL_CONSTANTS.md`, When to bump).
+- **No second clinician has reviewed this change;** Pp's request only. The numbers are the calculator's, and the
+  harness holds them to it.
+- **Open** (`BACKLOG.md`): the first weeks, a DOL-1 reading from 36 weeks (Vera: a caveat on screen or a round
+  of birth-mode points, Pp's call), and Fenton's own LMS by email.
+- **Review by an agent that had not seen the work (Vera's procedure, and its own re-fit of the fixture without
+  the repo's solver): NO BLOCK.** No wrong number in `data.js`, no behaviour bug, the weight tab identical to
+  before on 54 made-up patients. Fixed from it: five statements that said more than the evidence (the old rows
+  "right to 38.5 weeks" was true only at the rows, and for length of the 50th only; "not asked" about DOL 1 ignored the 2026-10-17 points; "within
+  0.0005 z" is 0.0007 with the rows as stored; "69 rows" is 72 for head; what was asked below 23.5), and three
+  holes in the harness (only the 50th line was checked; nothing read on screen between whole weeks; two
+  assertions passed on a blank readout).
+- **Tests.** `verify-fenton-length-hc-1116.cjs` 57/57, and 16 failed against `e1d99cd`. The
+  three older Fenton harnesses pass (65, 93, 81).
+- **`STATUS.md` catches up:** #266 and #267 are live (release #268, `release-2026-11-16-pr268`, `00eb15d`;
+  backend `@75`).
+
+## Session 2026-11-15 (5) — Sheet backup: 14 rotating backup books, a nightly copy, a restore drill
+
+`gas-backend.gs` (§ Sheet backup and restore drill: `setupSheetBackups`, `repairSheetBackups`,
+`backupSheetNightly`, `sheetRestoreDrill`, `sheetBackupStatus`), `test/gas-vm-sandbox.cjs` (more than one book,
+`copyTo`, `setName`, `create`, time zone and locale, `flush`, a book that will not open),
+`test/verify-sheet-backup-1115.cjs` (new, 208 assertions), `test/mutate-sheet-backup.cjs` (new),
+`REFERENCE.md` (§ Sheet backup and restore drill,
+§ Thai PDPA compliance posture), `BACKLOG.md`, `STATUS.md`, `test/README.md`.
+
+- **Why.** Pp's read-only survey of NeoFeed against SWEBOK v4 (2026-11-15) put this first: every record is in one
+  spreadsheet, a backend deploy runs against it with no staging, and the only way back was naming a Sheet version
+  by hand, which lives in the same file and had never been used to restore. `gas-backend.gs` had no backup code.
+- **Pp's two choices (2026-11-15).** Overwrite a fixed set of backup books (no Drive scope, a fixed number of
+  books holding patient data), and keep **14 nights**.
+- **What.** 14 backup spreadsheets, made once by `setupSheetBackups()`. Each night `backupSheetNightly()` (a
+  time-driven trigger Pp adds by hand) deletes the tabs of any backup older than 14 days, then copies every tab of
+  the live book over an empty slot or the oldest one with `Sheet.copyTo`, under the script lock, and marks the
+  slot good only after the check. `sheetRestoreDrill()` does the same and then compares every cell; a drill that
+  finds a difference is not kept as a backup. `sheetBackupStatus()` reads the state and tries to open each
+  backup book. `repairSheetBackups()`
+  gives a new book to a slot whose book no longer opens and that holds no listed backup. A real restore is by hand: copy a backup, point `SPREADSHEET_ID`
+  at the copy (`REFERENCE.md`, nine steps).
+- **No new scope, no new doPost action, nothing in the frontend.** The log lines carry slot numbers, counts and
+  ages. A thrown message has every book id cut out first, because Google's failure text names the document id.
+- **Erasure and backups.** While the trigger runs nightly, an erased infant is out of every listed backup in
+  about 15 days, and stays in each backup book's version history after that, which the backend cannot clear. Both are in the PDPA section and
+  open with the DPO (`BACKLOG.md`).
+- **Review by an agent that had not seen the work (Vera's procedure plus Pp's requirements): NO BLOCK, and
+  seven errors, all fixed in this entry's code and text.** (1) `Audit_Log` and `Usage_Log` are appended outside
+  the script lock, so a sync's audit row landing mid-copy failed the count check, on any night a sync landed
+  during the copy: those two tabs are now checked as "at least the rows they had when their copy began". (2) The text
+  said a backup past 14 days is emptied and left out each backup book's version history. (3) The restore steps
+  named only erasures; deletions, disabled accounts and old passwords come back too. (4) The restore left the
+  app half-switched: the 300 s sync cache, and `onEdit`, which stays with the bound Sheet. (5) A drill that found
+  differing cells still marked its slot good. (6) "Never a book id" did not hold for a thrown message. (7) The
+  lock text left out the 5 s sign-in wait and the quiet hour. Also fixed: a slot id equal to the live Sheet's
+  would have deleted every live tab; an unreadable state read as "not set up" and would have orphaned 14 books;
+  one lost backup book stalled every later night; a backup book's time zone was never set to the Sheet's;
+  hand-built tabs were judged by the count check.
+- **A second reviewer read only those fixes and found four more errors, fixed here too.** (1) The live-Sheet
+  check ran slot by slot, so another book could be cleared before the bad slot was reached: every slot id is now
+  checked before any book is touched. (2) A slot marked broken after one failed open stayed out of the rotation
+  for good, in silence, with its old tabs: nothing is remembered now, and a run that could not open a book fails
+  after its backup is written, so a mail goes out. (3) `repairSheetBackups()` could replace a slot holding a good
+  backup after one failed open and orphan that book: it now replaces only a slot with no listed backup, and the
+  text says the replaced file must be deleted by hand. (4) Eight wrong versions of the code still passed the
+  harness: each has an assertion now, and the mutations are in `test/mutate-sheet-backup.cjs`.
+- **A third reviewer read only that second round and found four more, fixed here.** (1) and (2) The count of
+  books that would not open was kept in the stored state: it was lost when a run threw part-way, and reset by a
+  run that never tried the lost book. Nothing is stored now; `sheetBackupStatus()` tries every book itself. (3)
+  `REFERENCE.md` said a missing scope would show as a consent prompt, which nothing here supports: it now says the
+  setters were not looked up. (4) Restore step 2 said a slot the app is pointed at "would be overwritten", which
+  the new id check had made false. Also: setup and repair now hold the script lock; a book's time zone and locale
+  are matched before each copy and no longer at creation, where a failure would have orphaned the new book; an id
+  that is not a string is refused; a failed run on a dated slot has a test.
+- **That third read left two wrong sentences in `REFERENCE.md`, fixed in the commit after `6b77f95`:** "the first run in
+  the editor shows whether [the setters] work" (setup no longer calls them, and a setter runs only when a
+  setting differs), and "a new book starts in the account's zone" (only the sandbox says so). With them: the
+  quiet-hour line now names setup and repair, which hold the lock too; the id-check line names setup and status;
+  the sandbox records every open, which pins "status, the run and repair check every id before they open a
+  book"; setup's id check has its own assertions. A last read of that commit found one more sentence stated as
+  fact, "a date cell read from a book in another zone comes back shifted": it now says "is expected to", and
+  setup step 2 says how to tell whether the drill exercised the setters. These last wording edits were not read
+  again by another agent.
+- **Not proven here.** The sandbox's `copyTo` is a deep copy and its lock has no clock, so the harness proves the
+  rotation, the purge, the failure paths and the logs. It does not prove that Google's `copyTo` keeps every cell,
+  how long the copy holds the lock, or which source a trigger runs. The first `sheetRestoreDrill()` on the real
+  Sheet answers the first two. The restore steps have not been rehearsed on production.
+- **Tests.** `verify-sheet-backup-1115.cjs` 208/208; red against `a7b9f6e`'s backend.
+  `node test/mutate-sheet-backup.cjs` breaks the new block 57 ways and the harness turns red on each.
+
+## Session 2026-11-15 (4) — one figure, one number: every whole number through `displayNum`
+
+`calculator.jsx`, `data.js` (`CONSTANTS_VERSION` `2026-11-15.1`), `compiled/`, the shells' `?v=`,
+`tools/ci_bans.js` (`raw-round-display`, new) and its fixtures, `test/verify-calc-sum.cjs` (§ 4, new; negative
+controls 7 and 8), `test/verify-stock-ml-1027.cjs` (the version it pins), `test/verify-calc-compare.cjs` (a planted
+line's anchor follows the vitamin D readout's new text), the neofeed-clinical-rules skill
+(`CR-R-DISPLAY`, `CR-OSM-PERIPH`), `docs/CLINICAL_CONSTANTS.md`, `REFERENCE.md` § Numbers a person reads,
+`BACKLOG.md`, `STATUS.md`. Numbered (4) because the open PR #265 holds (3).
+
+- **Why.** The BACKLOG item from the sticker calc check (2026-10-30): osmolarity, energy, Ca and P could read
+  one lower at a .5 tie than the tile and the sticker. The tile, the grading and the sticker already used
+  `displayNum`; the alert line, Step 3's Osm chip, the energy card and the printed sheet used `toFixed(0)` or
+  `Math.round`, which read the float. A figure that is a half on paper is often a float just under it:
+  1 kg, 80 mL of D9.04 with AA 3.58 on a peripheral line is 452 + 447.5 = 899.5 mOsm/L, 899.4999999999999 in
+  JS. The tile read 900 and red, and the red line read "899 mOsm/L — a peripheral line takes under 900". Pp,
+  2026-11-15: "ปรับทุกอย่างให้ตรงกัน และปลอดภัยกับผู้ป่วย".
+- **What.** Every whole number a person reads goes through `displayNum(v, 0)` (`fmt`, or `f0` on the sheet,
+  which is now `f(n, 0)`): the peripheral osmolarity alert, the fluid info line, Step 2's EN chip, Step 3's Osm
+  chip and TPN volume hints, the oral phosphate product list, the energy card (kcal/kg/d, TPN and EN kcal, EN share,
+  the three % legends), the oral phosphate, vitamin D and Ca lines on screen and in the copied order, the
+  single-feed interval hint, and the whole printed sheet: front (Ca gluconate mg in the bag, oral vitamin D
+  IU/day, oral Ca and PO₄ mg/day) and back (Energy, Ca²⁺, phosphate, the mineral table, both osmolarity lines).
+  The I/O card's Input prefill and its Output mL/kg/h hint round the same way, and so does the TPN pump's
+  over-delivery percent (`tpnOverDelivery`), the figure its info line prints and gates on (Vera, finding 3). The saved oral vitamin D IU/day and
+  Ca mg/day (Daily_Log R, S) are `Number(displayNum(v, 0))`, so the row holds what the sheet prints.
+- **Grading moved nowhere.** Osmolarity was already graded on `displayNum(osm, 0)` (`CR-OSM-PERIPH`, Pp
+  2026-10-27); every other band reads the unrounded figure as before. No constant changed.
+- **`CONSTANTS_VERSION` `2026-11-11.1` → `2026-11-15.1`**, because calculator logic moves printed figures (the
+  bump rule since 2026-09-18): the front sheet's Ca gluconate mg (1.5 kg, 150 + 30 mL, Ca 42.5 mg/kg: 76.5 mg
+  printed 76, now 77, which the saved `printedFigures` already said) and the oral vitamin D / Ca / PO₄ per day,
+  each only at a tie. The cost falls on every order saved on `2026-11-11.1`, not only those at a tie: the
+  doctor's sheet prints only after the order is saved again (`calcMoved`), and the TPN room's sticker page
+  refuses it until a doctor submits it again ("NeoFeed ปรับการคำนวณหลัง order นี้ ให้หมอเปิดแล้วกด Submit อีกครั้ง",
+  `tpn-room-core.js`), though no sticker figure moves (Vera, finding 4). When to release is Pp's call. The back
+  sheet renders but has not printed since 2026-10-28.
+- **Held by.** `verify-calc-sum.cjs` § 4: six tie orders (osmolarity 899.5 peripheral, energy 43.5 kcal/kg/d,
+  P 15.5 mg/kg/d at 760 g, Ca gluconate 76.5 mg), each read on the tile, the alert line, the chip or card, the
+  sheet front and back, the saved `printedFigures` and the sticker figures, with the wanted number from the
+  paper arithmetic; then oral vitamin D 502.5 IU/day (1,005 g) and oral Ca 56.5 mg/day (1,130 g) on Step 6, the
+  front sheet and the saved `suppVitD_IU` / `suppCa_mg` (Vera, finding 2). Against `main`'s `calculator.jsx` it
+  fails 16 checks; here it passes. Negative controls 7
+  (the alert back on `toFixed(0)`) and 8 (`f0` back on `Math.round`) fail as they must. `tools/ci_bans.js`
+  `raw-round-display` fails any `.toFixed(0)`, wrapped in `Number()` or not, and any `{Math.round(` in the
+  sources (none left); `CR-OSM-PERIPH` and `CR-R-DISPLAY` have the tie as cases.
+- **Not changed.** `Math.round` inside calculations (the bag sum's hundredths, weight comparisons, Vitalipid,
+  the fluid band's midpoint), the Growth tab's centiles, and log.jsx's whole-gram weights.
+- **Review.** No second clinician has reviewed this change; Pp's request only (change protocol step 3).
+- **Vera: NO BLOCK, four findings, all fixed.** (1) 🟠 no second-clinician line: added above. (2) 🟡 the saved oral
+  vitamin D and Ca had no tie test, and `raw-round-display` cannot see a `Math.round` outside `{`: T5 and T6. Her
+  proposed fixture (a bare `? Math.round(suppCa * wtKg)` failing the rule) is not added: a rule that matches a
+  bare `Math.round(` cannot tell a stored figure from the calculations above, and T5/T6 fail on the old code. (3)
+  🟡 `tpnOverDelivery`'s percent was `Math.round`: now `displayNum`. (4) 🟡 the TPN room's refusal of every
+  pre-release order: in the cost bullet above and the STATUS line. Left for Pp, from her not-reviewed list: a
+  band graded on the unrounded figure can read its own limit at a tie (energy 89.5 on paper shows 90, Low,
+  beside 90–120). That was so before this change, on the tile; only osmolarity is graded on the printed figure.
+
+## Session 2026-11-15 (3) — "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้": the bag's osmolarity on the front sheet
+
+`calculator.jsx` (`PrintOrderForm`'s Route of Delivery cell), `compiled/`, the neofeed-clinical-rules skill
+(CR-OSM-PERIPH: prose and three `prints` cases), `test/verify-calc-sum.cjs` (an on-screen check, NF-17).
+
+- **Why.** The stakeholder walk of 2026-11-07 (insight 2) found a 1,104 mOsm/L peripheral bag printed as
+  "☑ Peripheral (<900 mOsm/L)" with no value: the front sheet, the one that prints, showed only the route's
+  limit, and the bag's own figure sat on the back sheet, which never prints (`.print-back`). Pp, 2026-11-15:
+  "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้".
+- **What.** At the end of the front sheet's Total Volume line, in 9 px grey: "· Bag osm N mOsm/L". N is `fmt(calc.osm, 0)`, the rounding the
+  Osmolarity tile shows and CR-OSM-PERIPH grades, so an 899.6 estimate prints 900 and is graded critical. Since #266
+  (session (4)) the alert body, Step 3's chip and the back sheet round the same way, so all of them read one number
+  (Vera's finding 1 on the first commit, closed by that merge). A No TPN
+  sheet (which has no Total Volume line), a day with no bag volume, or a bag whose estimate is 0 (no dextrose, amino acid or electrolyte) prints no
+  figure. Nor does an order with no dosing weight, where the calc returns a placeholder osm of 300 (Vera's second
+  review).
+- **Placement.** The first commit put it beside the route boxes. In CI's wide print font (DejaVu Sans) that cell
+  wrapped, and the fullest order in `verify-print-one-page-1102.cjs` grew from 277.4 to 281.2 mm, 0.2 mm past the
+  page. The Total Volume line is short and has room. A local run on Windows cannot show this: Verdana measures
+  281.3 mm on `main`'s own code, so only CI's figure counts here.
+- **Feeds stay off the sheet** on purpose (Pp, 2026-11-15: the TPN room does not need them), which closes the walk's
+  other print question about feeds. The aqueous pump rate is still a question for pharmacy.
+- **Tests.** CR-OSM-PERIPH gains three `prints` cases: 899 prints 899, an 899.6 estimate prints 900 and asks for a
+  reason, and a central bag prints 800. `verify-calc-sum.cjs` checks on every saved order that the printed figure
+  equals the Osmolarity tile, or is absent when the tile reads 0.
+- **`CONSTANTS_VERSION` stays `2026-11-15.1`** (#266's). No constant and no printed figure moves; one figure is new, read from
+  the same `calc.osm` the order is graded on. A bump would make the ward re-save every old order before reprinting it, for a figure that adds
+  information and changes no dose. Pp confirmed it in the PR, 2026-11-16: "คงไว้".
+
 ## Session 2026-11-15 (3) — "TPN ทั้งหอ": one ward's infants on TPN on one page, with care flags
 
 `data.js` (`wardTpnRow`, `wardTpnRows`, `WARD_TPN_RECENT_DAYS`, `PRETERM_GA_WK`, `WARD_AA_FLAG`, `WARD_LIPID_FLAG_DOL`,

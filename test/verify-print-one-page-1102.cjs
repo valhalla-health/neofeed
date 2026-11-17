@@ -331,10 +331,10 @@ const topStrings = (form) => {
     const aa = [...form.querySelectorAll('td')].find(td => td.textContent.trim() === 'Amino acid')?.nextElementSibling;
     const picked = aa?.querySelector('.print-aa-picked'), others = aa?.querySelector('.print-aa-others');
     ok('the amino-acid cell is two lines: the ticked product with its dose, then the other choices', !!picked && !!others && aa.children.length === 2);
-    ok('…the ticked line carries the product ☑ and its dose', /^☑ 10% Aminoven infant \/ PED AMINE \(0-1 yr\.\)\s*= 4\.6 g\/kg\/d = [\d.]+ mL$/.test(squash(picked?.textContent)), squash(picked?.textContent));
+    ok('…the ticked line carries the product ☑ and its dose', /^☑ 10% Aminoven infant \/ PED AMINE\s*= 4\.6 g\/kg\/d = [\d.]+ mL$/.test(squash(picked?.textContent)), squash(picked?.textContent));
     eq('…the other four choices and "Other" follow, all unticked',
       [...(others?.children || [])].map(c => squash(c.textContent)),
-      ['☐ 10% Amiparen (>1 Yr.)', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 15% Aminoplasmal', '☐ Other ........']);
+      ['☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ 15% Aminoplasmal', '☐ Other ........']);
 
     // A figure is a <strong>: its size is the nearest inline font size going up, else the form's own 10.5.
     const sizeOf = (el) => { for (let e = el; e && e !== form.parentElement; e = e.parentElement) { if (e.style?.fontSize) return parseFloat(e.style.fontSize); } return 10.5; };
@@ -357,7 +357,7 @@ const topStrings = (form) => {
       ok('the ticked line reads ☑ 15% Aminoplasmal with its dose', /^☑ 15% Aminoplasmal\s*= 3 g\/kg\/d = [\d.]+ mL$/.test(squash(picked?.textContent)), squash(picked?.textContent));
       eq('…the other choices start with the ten-percent Aminoven, unticked, and none is ticked',
         [...(others?.children || [])].map(c => squash(c.textContent)),
-        ['☐ 10% Aminoven infant / PED AMINE (0-1 yr.)', '☐ 10% Amiparen (>1 Yr.)', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ Other ........']);
+        ['☐ 10% Aminoven infant / PED AMINE', '☐ 10% Amiparen', '☐ 8% Aminoleban', '☐ 7% Nephrosteril', '☐ Other ........']);
       ok('…and the product is ticked once on the sheet', (squash(aa?.textContent).match(/☑/g) || []).length === 1);
     } finally { D.aaProductsFor = realGate; }
   });
@@ -521,6 +521,46 @@ const topStrings = (form) => {
       ok(`the job's ${jobInfo.n} fullest sheets show in print, their pharmacy sheets hidden`, jobInfo.n === fullest.length && jobInfo.n >= 3 && jobInfo.shown && jobInfo.backHidden, jobInfo);
       eq(`…and print as ${jobInfo.n} A4 pages`, res.pages, jobInfo.n);
       eq('…each sheet\'s signature line on its own page, in order', fullest.map((_, i) => res.on['sign' + i]), fullest.map((_, i) => [i + 1]));
+
+      // §2d Larger print (TPN unit and the ward, 2026-11-16). Just before the dialog, data.js fitPrintSheet lays a
+      // copy out off-screen (screen media, as in the app) and gives the sheet the first PRINT_FIT_STEPS step that fits
+      // one A4 page: up to 115 %, the bold values 1.15 em on top, and the sheet as it printed before as the floor.
+      // The probe gets the same wide font as print here, so it measures what prints.
+      const dataJs = R('data.js');
+      const wideProbe = `.print-probe, .print-probe * { font-family: 'DejaVu Sans', Verdana, sans-serif !important; }`;
+      const fitted = {};
+      for (const [label, html] of Object.entries(forms)) {
+        if (label === 'overflow' || /layout only/.test(label)) continue;
+        const page = await open(html, wideProbe);
+        await page.addScriptTag({ content: dataJs });
+        await page.emulateMedia({ media: 'screen' });
+        const got = await page.evaluate(() => {
+          const form = document.getElementById('print-form');
+          const step = window.NEOFEED_DATA.fitPrintSheet(form);
+          return { step, probes: document.querySelectorAll('.print-probe').length,
+            vars: [form.style.getPropertyValue('--print-zoom'), form.style.getPropertyValue('--print-fig')] };
+        });
+        await page.emulateMedia({ media: 'print' });
+        const used = await page.evaluate(() => {
+          const form = document.getElementById('print-form');
+          const strong = form.querySelector('table td strong');
+          return { zoom: getComputedStyle(form).zoom, figPx: parseFloat(getComputedStyle(strong).fontSize), cellPx: parseFloat(getComputedStyle(strong.parentElement).fontSize) };
+        });
+        const pages = pagesOfMarkers(await page.pdf({ format: 'A4', preferCSSPageSize: true, printBackground: true })).pages;
+        await page.close();
+        fitted[label] = { ...got.step, pages, before: measured[label].pages };
+        eq(`${label}: the probe leaves the page, and the sheet carries the step it chose`, [got.probes, got.vars], [0, [String(got.step.zoom), got.step.fig + 'em']]);
+        ok(`${label}: …print reads it: zoom ${used.zoom}, bold values ${Math.round(used.figPx / used.cellPx * 100)} % of their cell`,
+          Number(used.zoom) === got.step.zoom && Math.abs(used.figPx / used.cellPx - got.step.fig) < 0.01, used);
+        if (measured[label].pages === 1) eq(`${label}: …and it prints on one A4 page (it did before)`, pages, 1);
+      }
+      console.log('  info  fitted in DejaVu Sans / Verdana:', JSON.stringify(fitted));
+      // In this wide font it lands a step under 115 %; in the ward's narrower IBM Plex it has more room.
+      const plain = fitted['no critical alert'];
+      ok(`an order with no critical alert prints larger than before, bold values 1.15 em (here ${plain.zoom * 100} %)`, plain.zoom > 1 && plain.fig === 1.15 && plain.pages === 1, plain);
+      const steps = D.PRINT_FIT_STEPS;
+      eq('the last step is the sheet as it printed before 2026-11-16', JSON.parse(JSON.stringify(steps[steps.length - 1])), { zoom: 1, fig: 1 });
+      ok('every step is that size or larger, largest first', steps.every((s, i) => s.zoom >= 1 && s.fig >= 1 && (i === 0 || s.zoom * s.fig <= steps[i - 1].zoom * steps[i - 1].fig)), steps);
     } finally { await browser.close(); }
   });
 

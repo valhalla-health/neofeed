@@ -69,33 +69,51 @@ button.google { width: 100%; margin: 14px 0 4px; padding: 9px 14px; font-weight:
 .facts dd { margin: 0; font-weight: 700; }
 .twin-big { font-size: 26px; font-weight: 700; text-align: center; background: var(--warn-wash); border-radius: 6px; padding: 6px; }
 .history { margin-top: 12px; border-top: 1px solid var(--line); font-size: 13px; }
+/* The names page (2026-11-17): a wide sheet over the order list. */
+.dialog.names-page { max-width: 960px; }
+.names-top { justify-content: space-between; }
+.names-top h2 { margin: 0; }
+.names-page input[type=search] { width: 280px; }
+.names { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 15px; }
+.names th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 400; border-bottom: 2px solid var(--moss); padding: 4px 8px; }
+.names td { border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: middle; }
+.names td:last-child { text-align: right; }
 
-/* ── The sheet: one A4 page, three parts, cut by hand along the dashed lines. It is laid
-   out off-screen before the print dialog, at its printed size, so the page can measure
-   whether it fits. Its overflow is hidden, so nothing else would notice. ── */
+/* ── The sheet: one A4 page, three parts, each cut by hand along its dashed outline. The
+   TPN unit's sizes (2026-11-16): the mixing worksheet 150 × 85 mm with each figure beside
+   its name, and the PN label 200 × 80 mm. The worksheet sits where Base's rescaled sheet
+   put it, 5 mm from the left and 10 mm from the top; the bag sticker takes the rest. The
+   sheet is laid out off-screen before the print dialog, at its printed size, so the page
+   can measure whether it fits. Its overflow is hidden, so nothing else would notice. ── */
 @page { size: A4; margin: 0; }
-.sheet { position: fixed; left: -400mm; top: 0; visibility: hidden; display: flex; flex-direction: column; width: 210mm; height: 296mm; overflow: hidden; padding: 6mm 9mm; background: #fff; color: #000; font-size: 11pt; line-height: 1.45; }
-.part { padding: 3mm 0; border-bottom: 1px dashed #000; min-height: 0; overflow: hidden; }
-.part:last-child { border-bottom: 0; }
-.part-worksheet { flex: 0 0 136mm; }
-.part-label { flex: 0 0 90mm; }
-.part-bag { flex: 1 1 auto; }
+.sheet { position: fixed; left: -400mm; top: 0; visibility: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 4mm; width: 210mm; height: 296mm; overflow: hidden; padding: 10mm 5mm 5mm; background: #fff; color: #000; font-size: 10pt; line-height: 1.35; }
+.part { position: relative; border: 1px dashed #000; padding: 1.5mm 3mm; min-height: 0; overflow: hidden; }
+.part-worksheet { flex: 0 0 85mm; width: 150mm; font-size: 9pt; line-height: 1.2; }
+.part-label { flex: 0 0 80mm; width: 200mm; font-size: 11pt; }
+.part-bag { flex: 1 1 auto; width: 200mm; }
 .part-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
-.big-name { font-size: 16pt; font-weight: 700; overflow-wrap: anywhere; }
-.facts-line { display: flex; flex-wrap: wrap; gap: 1mm 7mm; margin: 1mm 0; }
+.big-name { font-size: 15pt; font-weight: 700; overflow-wrap: anywhere; }
+.an-line { text-align: center; }
+.part-worksheet .big-name { font-size: 13pt; }
+.facts-line { display: flex; flex-wrap: wrap; gap: .5mm 6mm; margin: .5mm 0; }
 .fig { font-weight: 700; }
-.worksheet-body { display: flex; gap: 8mm; margin-top: 1mm; }
-.stock { flex: 1 1 auto; border-collapse: collapse; }
-.stock td { padding: .4mm 1.5mm; border-bottom: 1px solid #999; line-height: 1.2; }
-.stock .tick { width: 6mm; }
-.stock .num { text-align: right; width: 22mm; font-size: 12pt; }
-.stock .unit { width: 9mm; }
-.wfi { flex: 0 0 42mm; align-self: flex-start; border: 2px solid #000; padding: 3mm; text-align: center; }
-.wfi-value { font-size: 26pt; line-height: 1.2; }
-.small-id { font-size: 8pt; margin-top: 1mm; }
+.worksheet-body { display: flex; align-items: flex-start; gap: 10mm; margin-top: .5mm; }
+/* Each figure beside its name, not across the part (TPN unit, 2026-11-16). */
+.stock { flex: 0 0 auto; border-collapse: collapse; }
+.stock td { padding: .2mm 1mm; border-bottom: 1px solid #999; line-height: 1.15; white-space: nowrap; }
+.stock .tick { width: 5mm; }
+.stock .name { width: 34mm; }
+.stock .num { text-align: right; width: 12mm; }
+.stock .unit { width: 7mm; }
+.wfi-col { flex: 0 0 34mm; }
+.wfi { border: 2px solid #000; padding: 1.5mm; text-align: center; }
+.wfi-value { font-size: 22pt; line-height: 1.15; }
+.small-id { font-size: 7pt; margin-top: 1.5mm; }
 .fixed-line { min-height: 1.2em; }
 .heading { font-weight: 700; text-align: center; }
-.amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5mm 5mm; margin: 1.5mm 0; }
+/* A trial sheet (blank fixed lines): a mark across each part, so none passes for a real one. */
+.trial-mark { position: absolute; left: 50%; top: 50%; padding: 0 4mm; font-size: 30pt; font-weight: 700; color: rgba(0, 0, 0, .18); border: 3px solid rgba(0, 0, 0, .18); transform: translate(-50%, -50%) rotate(-12deg); pointer-events: none; white-space: nowrap; }
+.amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .3mm 5mm; margin: 1mm 0; }
 .bag-name { font-size: 24pt; font-weight: 700; text-align: center; overflow-wrap: anywhere; }
 .bag-ward { font-size: 34pt; font-weight: 700; text-align: center; border: 3px solid #000; margin: 2mm 25mm; padding: 1mm; }
 .part-bag .facts-line { justify-content: center; }

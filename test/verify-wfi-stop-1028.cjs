@@ -8,6 +8,8 @@
 //       disabled, the save panel says why, and a draft may still be kept. Each save sends
 //       the stops that hold as calcInput.stops, which gas-backend.gs checks
 //       (verify-backend-stops-1028.cjs)
+//   §1b since the WFI went whole mL (2026-11-16), a bag with dead space 0.3 mL over is
+//       still refused: the shortfall stays exact, it is never rounded to WFI 0
 //   §2  a row saved before the change, with a reason naming the alert, does not print (and, since
 //       PR #180, a patient's order has no Copy Order button at all)
 //   §3  Center Point's save refuses it too
@@ -18,7 +20,9 @@
 //       the app's stop list, so every print path must refuse each stop on its own, this one too
 // The orders are verify-calc-sum.cjs's S8 (components fill the bag exactly, WFI 0), with its
 // 1.3 mL of Ca gluconate swapped for 1.3 mL of Glycophos so no Ca-without-P alert asks for a
-// reason, and the same order with KCl 1.1 instead of 1, which adds 0.1 mL of stock. Mounts the real <Calculator> in jsdom: the
+// reason, and the same order with KCl 1.1 instead of 1, which adds 0.1 mL of stock. S8 has no
+// dead space, so since 2026-11-16 its D50W keeps one decimal (52.2 mL) and its components are
+// still 130.5 mL: WFI 0 and −0.1 sit where they did. Mounts the real <Calculator> in jsdom: the
 // deps in test/README.md. Synthetic infants only.
 const fs = require('fs');
 const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
@@ -160,6 +164,39 @@ function fill(order, { io = true } = {}) {
     eq('…as a draft', box.entry?.status, 'draft');
     eq('…and no reason was asked', asked, null);
     eq('…carrying the stop it holds, by its rule ID', box.entry?.calcInput?.stops, ['CR-BAG-OVERFULL']);
+  });
+
+  // Since 2026-11-16 the WFI is whole mL, half up, from what the bag has left.
+  // An over-full bag keeps its exact shortfall, so a bag with dead space that is
+  // 0.3 mL over must not round to WFI 0 (Pp: rounding must never turn −0.3 into 0).
+  // 1 kg, 20 mL + 30 mL dead space → prepared 60 mL (the next 10 above 50),
+  // Factor 3: D12.5 % is 7.5 g = 15 mL of D50W (12.5 % in the bag, so no
+  // peripheral round-down), amino acid 1.5 × 3 = 4.5 g = 45 mL, heparin
+  // 0.5 U/mL × 60 = 0.3 mL, no vitamins: 60.3 mL of stock in a 60 mL bag.
+  await section('§1b a bag with dead space 0.3 mL over is refused, not rounded to WFI 0 (2026-11-16)', async () => {
+    const p1000 = { ...patient, sessionId: 'WF-1000', bw: 1000, weights: [{ dol: 1, w: 1000 }] };
+    const box = mountNew({ patient: p1000 });
+    click(routeBtn('Central'));
+    setField('Current weight', 1000);
+    for (const l of ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content'])
+      setField(l, l === 'Target fluid' ? 150 : 0);
+    setField('Volume(mL/day)', 20); setField('ปริมาตรคาสาย (dead space)', 30);
+    setField('Dextrose final', 12.5); setField('Amino acid', 1.5); setField('Heparin', 0.5);
+    for (const name of ['Soluvit N', 'Peditrace']) {
+      const lab = [...container.querySelectorAll('label.chk-label')].find(l => l.textContent.trim().startsWith(name));
+      const tick = lab && lab.querySelector('input[type=checkbox]');
+      if (!tick) throw new Error('no checkbox ' + name);
+      if (tick.checked) act(() => { tick.click(); });
+    }
+    const body = text(container);
+    ok('prepared 60 mL, components 60.3 mL on screen', /Components60\.3 mL/.test(body) && /Bag total \(prepared\)60 mL/.test(body),
+      [(body.match(/Components[-\d.]+ mL/) || [])[0], (body.match(/Bag total \(prepared\)[-\d.]+ mL/) || [])[0]]);
+    ok(`"${TITLE}" is a red line`, critTitles().includes(TITLE), critTitles());
+    eq('Submit is disabled', buttonNamed('Submit')?.disabled, true);
+    const panel = text(container.querySelector('.bag-cannot-be-made'));
+    ok('the save panel says why: 60.3 mL of stock in a 60 mL bag, 0.3 mL over', /60\.3 mL/.test(panel) && /0\.3 mL/.test(panel) && /บันทึก\/พิมพ์ไม่ได้/.test(panel), panel);
+    await clickAsync(draftBtn());
+    eq('a draft is kept, carrying the stop', [box.calls, box.entry?.status, box.entry?.calcInput?.stops], [1, 'draft', ['CR-BAG-OVERFULL']]);
   });
 
   await section('§2 a row saved before the change, with a reason for the alert, is held', async () => {

@@ -141,8 +141,10 @@ above every source found**: Q1, which Pp answered on 2026-10-28: keep as is for 
 
 ### CR-BOTTLE-MAX · the 1,250 mL bottle
 
-A prepared volume (delivered + dead space) above 1,250 mL cannot be ordered; 1,250 itself can. Graded
-on the prepared volume as printed (1 decimal), so 1,250.04 mL passes. On screen it is one stop with
+A prepared volume (delivered + dead space, rounded up to the next 10 mL since 2026-11-16, `CR-U-FACTOR`)
+above 1,250 mL cannot be ordered; 1,250 itself can. Graded on the prepared volume as printed (1 decimal),
+so with no dead space 1,250.04 mL passes and 1,250.05 does not. With the ward's 30 mL of dead space a
+delivered volume under 1,220 mL fits (1,210 + 30 = 1,240 → 1,250); 1,220 + 30 = 1,250 goes up to 1,260. On screen it is one stop with
 `CR-BAG-OVERFULL`, "Bag cannot be made (ใส่ถุงไม่ได้)", which names whichever limit holds, each with its own
 fix, or, when both hold, both steps (a lower dose, and the bag down to 1,250 mL); the two rules and their IDs are unchanged.
 Source: KCMH TPN team, 2026-10-25 (the TPN room's largest bottle); Pp, 2026-10-27: "ห้ามสั่ง". One stop on
@@ -150,15 +152,17 @@ screen: Pp, 2026-11-01: "ใส่ถุงไม่ได้ คือรวม
 
 ```rule
 {"rule": "CR-BOTTLE-MAX", "kind": "stop", "coded": {"TPN_BOTTLE_MAX_ML": 1250}, "where": [{"file": "data.js", "line": 925, "has": "const TPN_BOTTLE_MAX_ML = 1250;"}, {"file": "calculator.jsx", "line": 2229, "has": "const bagOverBottle = calc.totalTPN_mL > 0 && Number(D.displayNum(calc.preparedVol, 1)) > D.TPN_BOTTLE_MAX_ML;"}]}
-{"case": "1,220.04 + 30 = 1,250.04 mL prints 1,250 and saves", "side": "inside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1220.04, "Dextrose final": 10, "Amino acid": 2.5}, "expect": {"no_alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "submit": "no_reason"}}
-{"case": "1,221 + 30 = 1,251 mL is refused", "side": "outside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1221, "Dextrose final": 10, "Amino acid": 2.5}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": "ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม 1251 mL เกินขวดใหญ่สุด 1250 mL ของห้อง TPN — ลดปริมาตรหรือ dead space — บันทึก/พิมพ์ไม่ได้", "hides": "ส่วนประกอบรวม"}}
-{"case": "1,251 mL of D45 with amino acid 3.5: over the bottle and over-full, one stop naming both, and both steps", "side": "outside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1221, "Dextrose final": 45, "Amino acid": 3.5}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": ["ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม 1251 mL เกินขวดใหญ่สุด 1250 mL และส่วนประกอบรวม", "เกินถุงไป", "mL — ลดขนาดยา และลด dead space หรือปริมาตรให้ไม่เกิน 1250 mL — บันทึก/พิมพ์ไม่ได้", "Lower a dose, and lower the dead space or the volume until the bag is 1250 mL or less. This order cannot be submitted."], "hides": ["เพิ่มปริมาตร TPN", "Raise the volume"]}}
+{"case": "1,210 + 30 = 1,240 → 1,250 mL, the bottle itself, saves", "side": "inside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1210, "Dextrose final": 10, "Amino acid": 2.5}, "expect": {"no_alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "submit": "no_reason", "shows": "Prepared (เตรียมจริง)1250 mL/day"}}
+{"case": "no dead space: 1,250.04 mL prints 1,250 and saves", "side": "inside", "infant": {"g": 7500}, "route": "Central", "fluid": 170, "order": {"Volume(mL/day)": 1250.04, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 2.5}, "expect": {"no_alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "submit": "no_reason"}}
+{"case": "1,220 + 30 = 1,250 → 1,260 mL is refused", "side": "outside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1220, "Dextrose final": 10, "Amino acid": 2.5}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": "ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม 1260 mL เกินขวดใหญ่สุด 1250 mL ของห้อง TPN — ลดปริมาตรหรือ dead space — บันทึก/พิมพ์ไม่ได้", "hides": "ส่วนประกอบรวม"}}
+{"case": "no dead space: 1,250.05 mL prints 1,250.1 and is refused", "side": "outside", "infant": {"g": 7500}, "route": "Central", "fluid": 170, "order": {"Volume(mL/day)": 1250.05, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 2.5}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": "ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม 1250.1 mL เกินขวดใหญ่สุด 1250 mL ของห้อง TPN"}}
+{"case": "1,221 + 30 → 1,260 mL of D45 with amino acid 3.5: over the bottle and over-full, one stop naming both, and both steps", "side": "outside", "infant": {"g": 7500}, "route": "Central", "fluid": 160, "order": {"Volume(mL/day)": 1221, "Dextrose final": 45, "Amino acid": 3.5}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": ["ใส่ถุงไม่ได้: ถุง TPN ต้องเตรียม 1260 mL เกินขวดใหญ่สุด 1250 mL และส่วนประกอบรวม", "เกินถุงไป", "mL — ลดขนาดยา และลด dead space หรือปริมาตรให้ไม่เกิน 1250 mL — บันทึก/พิมพ์ไม่ได้", "Lower a dose, and lower the dead space or the volume until the bag is 1250 mL or less. This order cannot be submitted."], "hides": ["เพิ่มปริมาตร TPN", "Raise the volume"]}}
 ```
 
 ### CR-STOCK-ZERO · an ordered stock that rounds to 0 mL
 
-When a stock the order holds rounds to 0 mL at the 0.1 mL the TPN room measures (under 0.05 mL,
-`CR-R-STOCK-ML`), the order cannot be submitted; a draft can. Soluvit, Peditrace and the lipid syringe
+When a stock the order holds rounds to 0 mL as it prints (under 0.05 mL at one decimal, or under 0.5 mL
+for a stock printed in whole mL: the amino acid, and D50W on a bag with dead space; `CR-R-STOCK-ML`), the order cannot be submitted; a draft can. Soluvit, Peditrace and the lipid syringe
 cannot get there (1 mL/kg at 200 g is 0.2 mL).
 Source: Pp, 2026-10-27 (PR #171): the back sheet must never ask for 0 mL of a drug the order holds.
 
@@ -174,7 +178,8 @@ When the stock volumes add up to more than the prepared volume as printed (WFI b
 cannot be submitted or printed, on Center Point too, and no reason clears it; a draft can be
 kept. A row saved before 2026-10-28 with a reason for it is held the same way. Center Point refuses to
 save, confirm or print such a packet, a revision confirmed before then included (`tpnBagOverfull`). WFI is graded as printed
-(`CR-R-BAG-SUM`), so a bag its components fill exactly (WFI 0) can be ordered. On screen it is one stop
+(`CR-R-BAG-SUM`), so a bag its components fill exactly (WFI 0) can be ordered. A shortfall is never
+rounded: since the WFI went whole mL (2026-11-16), a bag 0.3 mL over is still refused. On screen it is one stop
 with `CR-BOTTLE-MAX`, "Bag cannot be made (ใส่ถุงไม่ได้)" (Pp, 2026-11-01); its alert was titled "Bag cannot be
 compounded" until then, the title a reason saved before 2026-10-28 names, and such a row is held all the
 same.
@@ -187,6 +192,7 @@ so pharmacy could receive a form with a negative WFI.
 {"case": "2 kg, 130.45 mL: 130.5 mL of stock fills the bag (WFI 0) and saves", "side": "inside", "infant": {"g": 2000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 130.45, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 20, "Amino acid": 3.5, "20% NaCl": 2, "KCl": 1, "Glycophos": 1.3, "Heparin": 0.6}, "expect": {"no_alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "submit": "no_reason"}}
 {"case": "KCl 1.1 adds 0.1 mL: WFI −0.1 is refused", "side": "outside", "infant": {"g": 2000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 130.45, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 20, "Amino acid": 3.5, "20% NaCl": 2, "KCl": 1.1, "Glycophos": 1.3, "Heparin": 0.6}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": "ใส่ถุงไม่ได้: ส่วนประกอบรวม 130.6 mL เกินถุง 130.5 mL ไป 0.1 mL", "hides": "เกินขวดใหญ่สุด"}}
 {"case": "10 mL of D25 with amino acid 3 and no dead space: refused", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 10, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 25, "Amino acid": 3}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "submit": "blocked"}}
+{"case": "1 kg, 20 + 30 → 60 mL of D12.5 %, amino acid 1.5, heparin 0.5, no vitamins: 60.3 mL of stock, WFI −0.3 is refused, not rounded to 0", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 20, "Dextrose final": 12.5, "Amino acid": 1.5, "Heparin": 0.5}, "tick": {"Soluvit N": false, "Peditrace": false}, "expect": {"alert": "Bag cannot be made (ใส่ถุงไม่ได้)", "level": "crit", "submit": "blocked", "shows": "ใส่ถุงไม่ได้: ส่วนประกอบรวม 60.3 mL เกินถุง 60 mL ไป 0.3 mL", "hides": "เกินขวดใหญ่สุด"}}
 ```
 
 ### CR-EN-FEEDS-MAX · two feeds, at most 8 a day
@@ -302,17 +308,23 @@ and Fanaroff give no mOsm figure, only dextrose above 12.5 % on a central line (
 ch 42 p. 10). The 850 caution and the central 1,800 warning had no source and are gone. Dextrose above
 12.5 % on a peripheral line, or with no route yet, adds a "Central only!" flag under the dextrose field
 (`DEX_PERIPHERAL_MAX_PCT`, 2026-11-10); it is not an alert and changes nothing at Submit. The printed form's
-route line prints `OSM_PERIPHERAL_MAX`, not the paper form's fixed "<900" (Pp, 2026-11-10, PR #240).
+route line prints `OSM_PERIPHERAL_MAX`, not the paper form's fixed "<900" (Pp, 2026-11-10, PR #240). On the Total Volume line, in small type, the front sheet prints the bag's own estimate, "Bag osm N mOsm/L", rounded as the
+Osmolarity tile shows and this rule grades it, so the sheet, the tile, the alert and the grade read one number. No bag volume, or a
+bag whose estimate is 0 (no dextrose, amino acid or electrolyte), prints no figure (Pp, 2026-11-15).
 
 ```rule
 {"rule": "CR-OSM-PERIPH", "kind": "critical", "coded": {"OSM_PERIPHERAL_MAX": 900, "DEX_PERIPHERAL_MAX_PCT": 12.5}, "where": [{"file": "calculator.jsx", "line": 3718, "has": "route!==\"central\" && dexPct > D.DEX_PERIPHERAL_MAX_PCT && ("}, {"file": "data.js", "line": 1206, "has": "const OSM_PERIPHERAL_MAX = 900;"}, {"file": "calculator.jsx", "line": 2150, "has": "? (Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? \"crit\" : \"ok\")"}, {"file": "calculator.jsx", "line": 2460, "has": "if (bagOrdered && sOsm === \"crit\") alerts.push"}]}
 {"case": "peripheral, prints 899: no alert", "side": "inside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.49}, "expect": {"no_alert": "Osmolarity > peripheral limit", "shows": "Osm 899 mOsm/L"}}
 {"case": "peripheral, 899.6 prints 900: critical", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"alert": "Osmolarity > peripheral limit", "level": "crit", "submit": "asks_reason"}}
+{"case": "peripheral, 899.5 on paper (899.4999999999999 in JS, 80 mL of D9.04 with AA 3.58): critical, and its line and chip read 900", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 80, "Dextrose final": 9.04, "Amino acid": 3.58}, "expect": {"alert": "Osmolarity > peripheral limit", "level": "crit", "shows": ["900 mOsm/L — a peripheral line takes under 900 mOsm/L", "Osm 900 mOsm/L"], "hides": "899 mOsm/L"}}
 {"case": "peripheral D12.5: no Central only! flag", "side": "inside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 12.5, "Amino acid": 2}, "expect": {"hides": "Central only!"}}
 {"case": "peripheral D12.6: Central only!", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 12.6, "Amino acid": 2}, "expect": {"shows": "Central only!"}}
 {"case": "central D12.6: no flag", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12.6, "Amino acid": 2}, "expect": {"hides": "Central only!"}}
 {"case": "the same bag on a central line: no limit", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"no_alert": "Osmolarity > peripheral limit"}}
 {"case": "no route yet is graded as peripheral", "side": "outside", "infant": {"g": 1000}, "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"alert": "Osmolarity > peripheral limit", "level": "crit"}}
+{"case": "the front sheet prints the bag's 899", "side": "inside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.49}, "expect": {"prints": "Bag osm 899 mOsm/L"}}
+{"case": "899.6 prints 900 on the sheet, as the alert grades it", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"submit": "asks_reason", "prints": "Bag osm 900 mOsm/L"}}
+{"case": "a central bag prints its osmolarity too", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Bag osm 800 mOsm/L"}}
 ```
 
 ### CR-K-BAG-RED · K⁺ in the bag, amber and red
@@ -539,13 +551,15 @@ for now. The 20 is `NPE_IV_WARN_LO` since 2026-11-10; it had been a literal in `
 ### CR-HEPARIN · heparin above the usual dose
 
 Amber above 1 U/mL of the aqueous bag (usual 0.5–1, KCMH default 1), so a tenfold 10 U/mL is seen. No
-bag, no caution.
+bag, no caution. The front sheet's heparin line prints the U/mL, then the mL of 100 U/mL stock the prepared bag
+takes, the back sheet's figure (ward, 2026-11-16: until then the mL was on the back only, which
+does not print).
 Source: KCMH TPN team, 2026-10-25. ESPGHAN 2018, Kolaček: 0.5–1.0 U/mL is unlikely to destabilise the
 lipid emulsion; Fanaroff ch Therapeutic Agents p. 8: 0.5–1 unit/mL for central-line patency.
 
 ```rule
 {"rule": "CR-HEPARIN", "kind": "caution", "coded": {"HEPARIN_USUAL_MAX_U_ML": 1, "KCMH_STOCK.heparin.unitsPerMl": 100}, "where": [{"file": "data.js", "line": 932, "has": "const HEPARIN_USUAL_MAX_U_ML = 1;"}, {"file": "calculator.jsx", "line": 2514, "has": "if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push"}]}
-{"case": "1 U/mL: no caution", "side": "inside", "infant": {"g": 1500}, "route": "Central", "order": {"Volume(mL/day)": 150, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1, "Heparin": 1}, "expect": {"no_alert": "Heparin above the usual dose"}}
+{"case": "1 U/mL: no caution; the front sheet prints 1.9 mL for the 190 mL prepared (150 + 30, up to the next 10)", "side": "inside", "infant": {"g": 1500}, "route": "Central", "order": {"Volume(mL/day)": 150, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1, "Heparin": 1}, "expect": {"no_alert": "Heparin above the usual dose", "prints": "7. Heparin (100 unit/mL)1 unit/mL1.9 mL"}}
 {"case": "1.5 U/mL: caution", "side": "outside", "infant": {"g": 1500}, "route": "Central", "order": {"Volume(mL/day)": 150, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 1, "Heparin": 1.5}, "expect": {"alert": "Heparin above the usual dose", "level": "warn"}}
 ```
 
@@ -706,7 +720,7 @@ uses actual weight).
 
 ```rule
 {"rule": "CR-SOLUVIT-CAP", "kind": "cap", "coded": {"KCMH_STOCK.soluvit.mlPerKg": 1, "KCMH_STOCK.soluvit.maxMl": 10}, "where": [{"file": "data.js", "line": 908, "has": "mlPerKg: 1.0, maxMl: 10 },"}, {"file": "data.js", "line": 2671, "has": "return Math.min(s.mlPerKg * wtKg, s.maxMl);"}, {"file": "calculator.jsx", "line": 1846, "has": "roundMl(D.vitaminMlPerDay(\"soluvit\",   wtKg) * overfill)"}]}
-{"case": "1 kg, 100 + 30 mL: 1.3 mL in the bag", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Soluvit N1.3 mL/day", "hides": "Soluvit N (water-sol.)1.3"}}
+{"case": "1 kg, 100 + 30 → 140 mL: 1.4 mL in the bag", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Soluvit N1.4 mL/day", "hides": "Soluvit N (water-sol.)1.4"}}
 {"case": "8 kg, no dead space: 8 mL", "side": "inside", "infant": {"g": 8000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 800, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "Soluvit N8 mL/day"}}
 {"case": "10 kg (refused by CR-WT-RANGE): 10 mL, the cap itself", "side": "inside", "fn": "vitaminMlPerDay", "args": ["soluvit", 10], "want": 10}
 {"case": "11 kg (refused by CR-WT-RANGE): capped at 10 mL", "side": "outside", "fn": "vitaminMlPerDay", "args": ["soluvit", 11], "want": 10}
@@ -991,18 +1005,29 @@ Source: NeoFeed's own Step 1 fluid plan, not a guideline.
 
 ### CR-U-FACTOR · delivered, prepared and the Factor
 
-The TPN volume is what the pump delivers in 24 h. Pharmacy prepares delivered + dead space. Factor =
+The TPN volume is what the pump delivers in 24 h. Pharmacy prepares delivered + dead space, rounded up to
+the next 10 mL above that sum since 2026-11-16 (100 + 30 = 130 → 140; 48 + 30 = 78 → 80), so a 30 mL
+dead space leaves more than 30 and at most 40 mL in the line; with no dead space the bag is the delivered volume, not rounded
+(`D.preparedVolFor`). The dead space on the TPN room's stickers is then prepared − delivered. Factor =
 kg × prepared ÷ delivered, and every per-kg dose in the bag is × Factor, so the infant receives the dose
 as ordered while the bag holds more. GIR, osmolarity and K⁺ mEq/L do not move with the dead space. Lipid is a
 separate syringe with no overfill. Heparin is per mL of the prepared bag. Since 2026-11-06 the Calculator
 shows the prepared volume, not the Factor (Pp: doctors and nurses do not need it on screen). The Factor is
 still on the pharmacy back sheet, which renders but has not printed since 2026-10-28, and in the quick
 calc's copied text; pharmacy works it out from the front (REFERENCE.md § The printed order).
-Source: the KCMH worksheet (C7 delivered, G7 prepared, G8 dead space, H9 Factor).
+Source: the KCMH worksheet (C7 delivered, G7 prepared, G8 dead space, H9 Factor). The round-up: Pp,
+2026-11-16, for the TPN unit and the ward ("ปัดขึ้นเป็นเลขกลมๆหรือเผื่อสายมากกว่า 30 mL"; she chose the
+next ten, always above).
 
 ```rule
-{"rule": "CR-U-FACTOR", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1705, "has": "const preparedVol = totalTPN_mL > 0 ? totalTPN_mL + deadVol_mL : 0;"}, {"file": "calculator.jsx", "line": 1707, "has": "const factor = wtKg * overfill;                                     // H9"}]}
-{"case": "1 kg, 100 mL + 30 mL dead space: Factor 1.3", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": ["Prepared (เตรียมจริง)130 mL/daydelivered 100 mL", "Lipid volume10 mL/day"], "hides": "Factor1.3", "prints": ["Dextrose Final Conc.10% = 13 g in bag = 26 mL (D50W) · delivered 10 g = 10 g/kg/d", "Factor:1.3"]}}
+{"rule": "CR-U-FACTOR", "kind": "unit", "where": [{"file": "calculator.jsx", "line": 1725, "has": "const preparedVol = D.preparedVolFor(totalTPN_mL, deadVol_mL);"}, {"file": "data.js", "line": 2889, "has": "return Math.floor(sum / 10) * 10 + 10;"}, {"file": "calculator.jsx", "line": 1727, "has": "const factor = wtKg * overfill;                                     // H9"}]}
+{"case": "1 kg, 100 mL + 30 mL dead space → 140 mL: Factor 1.4", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10, "Amino acid": 3, "20% lipid": 2}, "expect": {"shows": ["Prepared (เตรียมจริง)140 mL/daydelivered 100 mL + 30, ปัดขึ้นหลักสิบ", "Lipid volume10 mL/day"], "hides": "Factor1.4", "prints": ["Dextrose Final Conc.10% = 14 g in bag → 28 mL (D50W) · delivered 10 g = 10 g/kg/d", "Factor:1.4", "100 mL delivered / 140 mL prepared · ปริมาตรคาสาย 30 mL, ปัดขึ้นหลักสิบ"]}}
+{"case": "1 kg, 110 + 30 = 140 → 150 mL: the next ten above, never the sum itself", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 110, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Prepared (เตรียมจริง)150 mL/day"}}
+{"case": "no dead space: 100 mL is the bag, Factor 1", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3}, "expect": {"shows": "Prepared (เตรียมจริง)100 mL/day", "prints": ["Factor:1 = weight (no overfill)", "100 mL delivered / 100 mL prepared"]}}
+{"case": "48 + 30 = 78 → 80", "fn": "preparedVolFor", "args": [48, 30], "want": 80}
+{"case": "1,220.04 + 30 = 1,250.04 → 1,260", "fn": "preparedVolFor", "args": [1220.04, 30], "want": 1260}
+{"case": "no dead space: 130.45 stays 130.45", "fn": "preparedVolFor", "args": [130.45, 0], "want": 130.45}
+{"case": "no volume: no bag", "fn": "preparedVolFor", "args": [0, 30], "want": 0}
 ```
 
 ### CR-U-DEAD-SPACE · dead space default
@@ -1021,7 +1046,7 @@ Source: Pp, 2026-09-18: "ใน SCN+NICU แก้เป็น +30 ml อัต�
 
 GIR (mg/kg/min) = TPN delivered mL × dextrose % ÷ 100 × 1,000 ÷ (1,440 × kg). The dextrose % is the
 final concentration of the prepared bag, so the infant receives it in the delivered volume. D50W mL =
-dextrose g in the prepared bag ÷ 0.5. g/kg/d = GIR × 1.44.
+dextrose g in the prepared bag ÷ 0.5, rounded as `CR-R-STOCK-ML` says. g/kg/d = GIR × 1.44.
 Source: standard; matches the KCMH worksheet (D10, F10).
 
 ```rule
@@ -1265,8 +1290,17 @@ limit gets the decimals it needs to read differently from the limit (`vsLimit`, 
 
 At most 2 decimals (or the count given), never a trailing zero ("18.0" can be read as 180), half away
 from zero after clearing the float tail at 6 decimals (1.5 × 0.7 is 1.0499999999999998 and prints 1.1),
-never "-0"; blank, NaN and Infinity print "—".
-Source: Pp, 2026-09-22: "ห้ามมี .0 เช่น 18.0 คือ 18"; the ISMP rule. The float tail: Vera on PR #171.
+never "-0"; blank, NaN and Infinity print "—". Whole numbers too: every tile, alert line, chip, card, the
+sheet (front and back, `f0`) and the copied order show a figure through `displayNum(v, 0)` (`fmt`, `f0`), so
+a figure that is a half on paper and just under it in JS reads one number everywhere: osmolarity 899.5
+(899.4999999999999) is 900 on the tile, in its red line, on the chip, on the sheet and on the sticker. Until
+2026-11-15 the alert line, the chip, the energy card and the sheet used `toFixed(0)` or `Math.round`, which
+read the float (899 beside a red 900). `tools/ci_bans.js` `raw-round-display` fails a `.toFixed(0)` or a
+`{Math.round(` in the sources; `verify-calc-sum.cjs` § 4 checks four such orders on screen and on paper.
+Two whole numbers stored with the order round the same way: oral vitamin D IU/day and Ca mg/day.
+Source: Pp, 2026-09-22: "ห้ามมี .0 เช่น 18.0 คือ 18"; the ISMP rule. The float tail: Vera on PR #171. Whole
+numbers everywhere: the BACKLOG item found by the sticker calc check (2026-10-30); Pp, 2026-11-15:
+"ปรับทุกอย่างให้ตรงกัน และปลอดภัยกับผู้ป่วย".
 
 ```rule
 {"rule": "CR-R-DISPLAY", "kind": "round", "where": [{"file": "data.js", "line": 1028, "has": "function displayNum(value, maxDecimals = 2) {"}]}
@@ -1275,35 +1309,51 @@ Source: Pp, 2026-09-22: "ห้ามมี .0 เช่น 18.0 คือ 18"; 
 {"case": "1.25 at 1 decimal prints 1.3", "fn": "displayNum", "args": [1.25, 1], "want": "1.3"}
 {"case": "1.5 × 0.7 (1.0499999999999998) at 1 decimal prints 1.1", "fn": "displayNum", "args": [1.0499999999999998, 1], "want": "1.1"}
 {"case": "899.6 at 0 decimals prints 900", "fn": "displayNum", "args": [899.6, 0], "want": "900"}
+{"case": "899.4999999999999 (899.5 on paper) at 0 decimals prints 900", "fn": "displayNum", "args": [899.4999999999999, 0], "want": "900"}
+{"case": "43.49999999999999 (43.5 kcal/kg/d on paper) prints 44", "fn": "displayNum", "args": [43.49999999999999, 0], "want": "44"}
 {"case": "-0.004 prints 0", "fn": "displayNum", "args": [-0.004], "want": "0"}
 {"case": "blank prints —", "fn": "displayNum", "args": [null], "want": "—"}
 ```
 
 ### CR-R-STOCK-ML · stock volumes
 
-Every stock mL is rounded once, by `roundMl`: one decimal, half up (`displayNum(n, 1)`, so the float tail
-is cleared first and 0.35 mL prints 0.4). That covers D50W, amino acid, NaCl, Na acetate, Glycophos, KCl,
-K₂HPO₄, MgSO₄, Ca gluconate, ZnSO₄, heparin, SMOF, Soluvit and Peditrace. Until 2026-10-27 the code used
-`toFixed`, at 2 decimals for K₂HPO₄, MgSO₄, ZnSO₄ and heparin, and read 0.35 mL as 0.3. A stock that
-rounds to 0 mL is `CR-STOCK-ZERO`.
-Source: Pp, 2026-10-27: "ของจริง นับทศนิยม 1 ตำแหน่ง เช่น 1.25 > 1.3 ml" (PR #171).
+Every stock mL is rounded once. Most go through `roundMl`: one decimal, half up (`displayNum(n, 1)`, so the
+float tail is cleared first and 0.35 mL prints 0.4). That covers NaCl, Na acetate, Glycophos, KCl, K₂HPO₄, MgSO₄,
+Ca gluconate, ZnSO₄, heparin, SMOF, Soluvit, Peditrace, and D50W on a bag with no dead space. Until
+2026-10-27 the code used `toFixed`, at 2 decimals for K₂HPO₄, MgSO₄, ZnSO₄ and heparin, and read 0.35 mL
+as 0.3. A stock that rounds to 0 mL is `CR-STOCK-ZERO`.
+Since 2026-11-16 the amino acid, the WFI (`CR-R-BAG-SUM`) and D50W on a bag with dead space are whole mL,
+half up (`roundWholeMl`, `displayNum(n, 0)`). One exception for D50W: on any route but central, an order
+at or under the peripheral 12.5 % whose whole mL would put the bag above 12.5 % takes the whole mL below
+(17.5 mL in a 70 mL bag is 17, not 18, which is 12.9 %). A bag with no dead space keeps D50W at one
+decimal (1.5 mL of D50W in a 10 mL bag of D7.5 %; 2 mL would make it 10 %).
+Source: Pp, 2026-10-27: "ของจริง นับทศนิยม 1 ตำแหน่ง เช่น 1.25 > 1.3 ml" (PR #171). Whole mL: the TPN
+unit's pharmacists, 2026-11-16: "Dextrose, amino, SWI ขอไม่มีทศนิยม เพราะใช้ syringe scale ใหญ่ในการตวง";
+the two D50W exceptions are Pp's, the same day.
 
 ```rule
-{"rule": "CR-R-STOCK-ML", "kind": "round", "where": [{"file": "calculator.jsx", "line": 21, "has": "const roundMl = (n) => Number(D.displayNum(n, 1));"}]}
+{"rule": "CR-R-STOCK-ML", "kind": "round", "where": [{"file": "calculator.jsx", "line": 21, "has": "const roundMl = (n) => Number(D.displayNum(n, 1));"}, {"file": "calculator.jsx", "line": 28, "has": "const roundWholeMl = (n) => Number(D.displayNum(n, 0));"}, {"file": "calculator.jsx", "line": 1868, "has": "d50wVol = Math.floor(d50wExact + 1e-9);"}]}
 {"case": "700 g, no dead space: KCl 0.35 mL prints 0.4, K₂HPO₄ 0.4, MgSO₄ 0.3, ZnSO₄ 0.3", "infant": {"g": 700}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "KCl": 1, "K₂HPO₄": 0.5, "MgSO₄": 4.861, "ZnSO₄": 0.4, "Heparin": 0.5, "10% Ca gluconate": 40}, "expect": {"prints": ["0.7 mEq = 0.4 mL", "P 7.8 mg0.4 mEq = 0.4 mL", "3.4 mg (0.28 mEq) = 0.3 mL (10%)", "ZnSO₄ (Zn 1 mg/mL)0.28 mg Zn0.3"]}}
+{"case": "1 kg, 100 + 30 → 140 mL of D10.25 % with amino acid 3.35: D50W 28.7 → 29 mL and amino acid 46.9 → 47 mL, whole", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 10.25, "Amino acid": 3.35}, "expect": {"prints": ["14.4 g in bag → 29 mL (D50W)", "4.7 g in bag = 47 mL"]}}
+{"case": "2 kg, 130.45 mL of D20 with no dead space: D50W 52.18 → 52.2 mL, one decimal", "infant": {"g": 2000}, "route": "Central", "fluid": 120, "order": {"Volume(mL/day)": 130.45, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 20, "Amino acid": 3.5}, "expect": {"prints": "26.1 g in bag → 52.2 mL (D50W)"}}
+{"case": "1 kg, 35 + 30 → 70 mL of D12.5 % peripheral: D50W 17.5 mL is 17, not 18 (12.9 % in the bag)", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 35, "Dextrose final": 12.5, "Amino acid": 0.5}, "expect": {"prints": "8.8 g in bag → 17 mL (D50W)"}}
+{"case": "…the same order on a central line: 18 mL", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 35, "Dextrose final": 12.5, "Amino acid": 0.5}, "expect": {"prints": "8.8 g in bag → 18 mL (D50W)"}}
 ```
 
 ### CR-R-BAG-SUM · components and water
 
 Components are summed in whole hundredths, then rounded half up to 1 decimal. WFI q.s. = the prepared
-volume as printed (1 decimal) − components, so the printed components + WFI equal the printed prepared
-volume exactly.
-Source: NF-17, Pp, 2026-10-11 (130.45 mL used to print 87.5 + 42.9 = 130.5).
+volume as printed (1 decimal) − components. Until 2026-11-16 the printed components + WFI equalled the
+printed prepared volume exactly. Since then that remainder is whole mL, half up, so components + WFI is
+the prepared volume to within half a mL, and the line reads "→", not "="; a remainder below 0 keeps its
+exact value, so an over-full bag is still refused (`CR-BAG-OVERFULL`), never rounded to 0.
+Source: NF-17, Pp, 2026-10-11 (130.45 mL used to print 87.5 + 42.9 = 130.5). Whole mL: the TPN unit,
+2026-11-16: "SWI ขอไม่มีทศนิยม".
 
 ```rule
-{"rule": "CR-R-BAG-SUM", "kind": "round", "where": [{"file": "calculator.jsx", "line": 1908, "has": "const componentVol = Math.round(componentHundredths / 10) / 10;"}, {"file": "calculator.jsx", "line": 1912, "has": "const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));"}]}
-{"case": "80.45 + 50 mL: 87.5 + 43 = 130.5", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 80.45, "ปริมาตรคาสาย (dead space)": 50, "Dextrose final": 10, "Amino acid": 3, "20% NaCl": 2, "KCl": 1, "10% Ca gluconate": 40, "Heparin": 0.5}, "expect": {"prints": "Components 87.5 mL + WFI 43 mL = 130.5 mL prepared"}}
-{"case": "700 g: ten stocks of 47.4 mL, WFI 52.6", "infant": {"g": 700}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "KCl": 1, "K₂HPO₄": 0.5, "MgSO₄": 4.861, "ZnSO₄": 0.4, "Heparin": 0.5, "10% Ca gluconate": 40}, "expect": {"prints": "Components 47.4 mL + WFI 52.6 mL = 100 mL prepared"}}
+{"rule": "CR-R-BAG-SUM", "kind": "round", "where": [{"file": "calculator.jsx", "line": 1947, "has": "const componentVol = Math.round(componentHundredths / 10) / 10;"}, {"file": "calculator.jsx", "line": 1956, "has": "const wfiExact = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));"}, {"file": "calculator.jsx", "line": 1957, "has": "const wfiVol = wfiExact < 0 ? wfiExact : roundWholeMl(wfiExact);"}]}
+{"case": "130.45 mL, no dead space, Ca 37: 64 + 67 → 130.5 (66.5 left of the printed 130.5, not 66.45 of 130.45)", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 130.45, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "20% NaCl": 2, "KCl": 1, "10% Ca gluconate": 37, "Heparin": 0.5}, "expect": {"prints": "Components 64 mL + WFI 67 mL → 130.5 mL prepared"}}
+{"case": "700 g: ten stocks of 47.4 mL, 52.6 left, WFI 53", "infant": {"g": 700}, "route": "Central", "order": {"Volume(mL/day)": 100, "ปริมาตรคาสาย (dead space)": 0, "Dextrose final": 10, "Amino acid": 3, "KCl": 1, "K₂HPO₄": 0.5, "MgSO₄": 4.861, "ZnSO₄": 0.4, "Heparin": 0.5, "10% Ca gluconate": 40}, "expect": {"prints": "Components 47.4 mL + WFI 53 mL → 100 mL prepared"}}
 ```
 
 ### CR-R-LIPID-WHOLE-ML · the lipid syringe to a whole mL, on a tap

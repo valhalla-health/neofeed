@@ -7,8 +7,8 @@
 // storage and the encryption are all the browser's own. What this cannot prove is the
 // real PC's folder and permission: that is tasks.md 0.1, tpn-room-check.html.
 //
-// Set TPN_ROOM_PDF_OUT=<file> to keep the sample sheet (made-up infant, placeholder
-// fixed lines) for checking against a real sticker sheet (tasks.md 2.6).
+// Set TPN_ROOM_PDF_OUT=<file> to keep the sample sheet (made-up infant, the unit's own
+// fixed lines as shipped) for checking against a real sticker sheet (tasks.md 2.6).
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -26,8 +26,14 @@ const section = (t) => console.log(`\n── ${t} ──`);
 const SENTINEL = 'SENTINEL-NAME-7Q';
 const SENTINEL_AN = '98765/69';
 const PASSPHRASE = 'synthetic-room-passphrase';
-const FIXED_FILLED = 'const PN_FIXED = { heading: "ฉลากตัวอย่าง TPN", storage: "ข้อความตัวอย่างการเก็บรักษา", extension: "โทรภายในตัวอย่าง" };';
 const FIXED_BLANK = 'const PN_FIXED = { heading: "", storage: "", extension: "" };';
+// The shipped declaration, whatever its lines: the unit's since 2026-11-16, blank before.
+const FIXED_DECL = /const PN_FIXED = \{[\s\S]*?\};/;
+const SHIPPED = {
+  heading: 'Parenteral nutrition กลุ่มงานเภสัชกรรม โรงพยาบาลจุฬาลงกรณ์',
+  storage: 'วิธีเก็บ: เก็บในตู้เย็นได้ 7 วัน, ถ้าใส่วิตามินแล้วจะเก็บ 1 วัน',
+  extension: 'เบอร์ต่อหน่วย TPN: 73602',
+};
 
 const INIT = `
   window.__prints = 0;
@@ -57,8 +63,9 @@ const INIT = `
   const requests = [];
   const problems = [];
 
-  // One browser profile. `fill` swaps in made-up fixed lines, as the unit's real ones will be.
-  async function newRoom({ fill = true, fixed = FIXED_FILLED, versionFile = null } = {}) {
+  // One browser profile. `fixed` swaps another PN_FIXED in for the shipped one (the unit's
+  // lines since 2026-11-16): FIXED_BLANK for the trial sheet, or made-up lines; null keeps it.
+  async function newRoom({ fixed = null, versionFile = null } = {}) {
     const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 } });
     await ctx.addInitScript(INIT);
     await ctx.route('**/*', async (route) => {
@@ -66,9 +73,11 @@ const INIT = `
       requests.push({ url: req.url(), headers: await req.allHeaders(), body: req.postData() || '' });
       const u = new URL(req.url());
       if (u.hostname !== '127.0.0.1') return route.abort();
-      if (fill && u.pathname === '/tpn-room-core.js') {
+      if (fixed && u.pathname === '/tpn-room-core.js') {
         const res = await route.fetch();
-        const body = (await res.text()).replace(FIXED_BLANK, fixed);
+        const text = await res.text();
+        if (!FIXED_DECL.test(text)) throw new Error('tpn-room-core.js has no PN_FIXED declaration to swap');
+        const body = text.replace(FIXED_DECL, fixed);
         return route.fulfill({ response: res, body });
       }
       if (versionFile && versionFile.body && u.pathname === '/compiled/tpn-room-version.js') {
@@ -120,7 +129,7 @@ const INIT = `
     logRowOf('SS-1')[38] = JSON.stringify(ssPj);
 
     section('§1 the shell');
-    const ctxA = await newRoom({ fill: false });
+    const ctxA = await newRoom({ fixed: FIXED_BLANK });
     const raw = await ctxA.request.get(url + '/tpn-room.html');
     ok('served under the hosts\' CSP', /connect-src/.test(raw.headers()['content-security-policy'] || ''));
     const page = await open(ctxA);
@@ -220,13 +229,95 @@ const INIT = `
     await dialog.getByRole('button', { name: 'บันทึก' }).click();
     await row(page, 'AA-1').getByText(SENTINEL_AN).waitFor();
 
-    section('§5 as shipped, the fixed lines hold every print');
-    ok('the reason shows on a mapped order', /ข้อความคงที่/.test(await row(page, 'AA-1').innerText()));
-    eq('no print button', await row(page, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' }).count(), 0);
+    section('§4b the names page (Pp, 2026-11-17: "หน้ารวมชื่อทุกคน")');
+    {
+      // A day with no orders on the list: the names page still lists everyone in the file. Tomorrow,
+      // the last day the room may pick, is after the day both infants were last seen (today), so an
+      // edit that counted as a sighting would move SS-1's day forward (Vera on this PR, 2026-11-17).
+      const day = page.locator('input[type=date]').first();
+      const tomorrow = new Date(Date.parse(today + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+      const be = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}`;
+      await day.fill(tomorrow);
+      await page.locator('.note').filter({ hasText: 'รายการด้านล่าง' }).waitFor({ state: 'detached' }).catch(() => {});
+      await page.waitForFunction(() => !document.querySelector('li[data-session="AA-1"]'), null, { timeout: 5000 }).catch(() => {});
+      ok('the list for a day with no orders shows neither mapped infant', (await row(page, 'AA-1').count()) === 0 && (await row(page, 'SS-1').count()) === 0);
+      await page.getByRole('button', { name: 'รายชื่อทั้งหมด' }).click();
+      const names = page.getByRole('dialog', { name: 'รายชื่อในไฟล์ชื่อ' });
+      await names.waitFor();
+      const nameRow = (id) => names.locator(`tr[data-session="${id}"]`);
+      ok('the names page heading counts the file', /รายชื่อในไฟล์ชื่อ 2 คน/.test(await names.innerText()));
+      eq('…and lists both infants, with no order on this day', await names.locator('tbody tr').count(), 2);
+      ok('…each with the name and AN from the file', /SENTINEL-NAME-7Q/.test(await nameRow('AA-1').innerText()) && /98765\/69/.test(await nameRow('AA-1').innerText())
+        && /ทารกสังเคราะห์ บี/.test(await nameRow('SS-1').innerText()) && /11111\/69/.test(await nameRow('SS-1').innerText()));
+      await names.getByPlaceholder('NeoFeed ID ชื่อ หรือ AN').fill('บี');
+      eq('the search keeps the matching row', await names.locator('tbody tr').count(), 1);
+      await names.getByPlaceholder('NeoFeed ID ชื่อ หรือ AN').fill('');
+      await nameRow('SS-1').getByRole('button', { name: 'แก้ชื่อ / AN' }).click();
+      const edit = page.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' });
+      await edit.waitFor();
+      const etext = await edit.innerText();
+      ok('the edit from the list shows the ID and the day last seen, and no order facts', /SS-1/.test(etext) && /เห็นใน order ล่าสุด/.test(etext) && !/เตียง/.test(etext) && !/BW/.test(etext));
+      await edit.getByLabel('ชื่อที่จะพิมพ์').fill('ทารกสังเคราะห์ บี แก้จากหน้ารวม');
+      await edit.getByRole('button', { name: 'บันทึก' }).click();
+      await nameRow('SS-1').getByText('ทารกสังเคราะห์ บี แก้จากหน้ารวม').waitFor();
+      ok('the saved name shows on the names page', true);
+      ok('…and "แก้ล่าสุด" names who changed it, in ward time', /Pharmacist Dev \d{2}\/\d{2}\/25\d\d \d{2}:\d{2}/.test(await nameRow('SS-1').innerText()));
+      eq('an edit from the names page is no sighting: the day last seen stays today, not the list\'s tomorrow',
+        await nameRow('SS-1').locator('td').nth(3).innerText(), be(today));
+      await names.getByRole('button', { name: 'กลับไปรายการ order' }).click();
+      eq('back to the order list closes the page', await names.count(), 0);
+      await day.fill(today);
+      await row(page, 'SS-1').getByText('ทารกสังเคราะห์ บี แก้จากหน้ารวม').waitFor();
+      ok('the order row on today\'s list shows the name changed there', true);
+      // Put the name back for the sections after this one.
+      await row(page, 'SS-1').getByRole('button', { name: /ชื่อ \/ AN/ }).click();
+      await page.getByLabel('ชื่อที่จะพิมพ์').fill('ทารกสังเคราะห์ บี');
+      await page.getByRole('dialog').getByRole('button', { name: 'บันทึก' }).click();
+      await row(page, 'SS-1').getByText('ทารกสังเคราะห์ บี', { exact: true }).waitFor();
+    }
+
+    section('§5 blank fixed lines print a trial sheet (Pp, 2026-11-16)');
+    ok('the row says the sheet prints as a trial', /แผ่นทดลอง ห้ามใช้จริง/.test(await row(page, 'AA-1').innerText()));
+    const trialPrint = row(page, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' });
+    await trialPrint.waitFor();
+    ok('…and offers the print button', await trialPrint.isVisible());
+    await trialPrint.click();
+    await page.waitForFunction(() => window.__prints === 1);
+    const trialSheet = await page.evaluate((pj) => {
+      const sheet = document.getElementById('sticker-sheet');
+      const label = sheet.querySelector('.part-label');
+      const get = (p) => p.split('.').reduce((o, k) => (o ? o[k] : undefined), pj);
+      const figs = [...sheet.querySelectorAll('[data-fig]')].map((e) => [e.dataset.fig, e.textContent]);
+      // The mark and the placeholders stay in the swept text, so a digit in either shows.
+      const copy = sheet.cloneNode(true);
+      copy.querySelectorAll('[data-fig],[data-lbl],[data-mapped],[data-date]').forEach((e) => e.remove());
+      return {
+        figures: figs.length, wrong: figs.filter(([p, v]) => get(p) !== v), rest: copy.textContent,
+        marked: label.classList.contains('part-trial'),
+        mark: [...sheet.querySelectorAll('[data-trial]')].map((e) => [e.closest('.part').className, e.textContent]),
+        fixed: [...label.querySelectorAll('[data-fixed]')].map((e) => e.textContent),
+      };
+    }, pjOf('AA-1'));
+    ok(`every figure on the trial sheet (${trialSheet.figures}) is its printJson string`, trialSheet.figures > 30 && trialSheet.wrong.length === 0);
+    eq('…and no number sits anywhere else on it, the mark and placeholders included', /\d/.test(trialSheet.rest), false);
+    ok('the PN label is marked trial', trialSheet.marked);
+    eq('one trial mark on each of the three parts', trialSheet.mark, ['part-worksheet', 'part-label', 'part-bag'].map((c) => [`part ${c} part-trial`, 'ทดลองพิมพ์ ห้ามใช้จริง']));
+    ok('each blank line prints a placeholder that waits for the TPN unit',
+      trialSheet.fixed.length === 3 && /รอหัวฉลาก/.test(trialSheet.fixed[0]) && trialSheet.fixed.slice(1).every((t) => /รอหน่วย TPN/.test(t)));
+    await page.emulateMedia({ media: 'print' });
+    const trialFits = await page.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
+    ok('the trial sheet and each part fit, measured under print', trialFits.length === 4 && trialFits.every(Boolean));
+    const trialPdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+    eq('the trial sheet is one A4 page', (trialPdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length, 1);
+    if (process.env.TPN_ROOM_TRIAL_PDF_OUT) fs.writeFileSync(process.env.TPN_ROOM_TRIAL_PDF_OUT, trialPdf);
+    await page.emulateMedia({ media: null });
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    await row(page, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();
+    ok('a trial print is logged, and the row says it was a trial', /พิมพ์แล้ว \(แผ่นทดลอง\)/.test(await row(page, 'AA-1').innerText()));
     await ctxA.close();
 
     section('§6 printing');
-    const ctxB = await newRoom({ fill: true });
+    const ctxB = await newRoom();
     const p2 = await open(ctxB);
     await signIn(p2, pharmacy.email, pharmacy.password);
     await row(p2, 'AA-1').waitFor();
@@ -270,7 +361,29 @@ const INIT = `
     eq('the name on all three parts', sheetCheck.names, 3);
     const be = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}`;
     eq('Buddhist-era dates; date made comes from the box', sheetCheck.dates, [be(today), be(today), be(made), be(today)]);
-    eq('the fixed lines print', sheetCheck.fixed.length, 3);
+    eq('the TPN unit’s three fixed lines print as shipped', sheetCheck.fixed, [SHIPPED.heading, SHIPPED.storage, SHIPPED.extension]);
+    eq('filled lines print no trial mark', await p2.evaluate(() => document.querySelectorAll('#sticker-sheet [data-trial], #sticker-sheet .part-trial').length), 0);
+    // The PN label's AN (Pp, 2026-11-17, from a render): on its own line under the name, centred,
+    // and reaching no further right than the label's other lines, so a stuck-on label keeps it.
+    const anLine = await p2.evaluate(() => {
+      const label = document.querySelector('#sticker-sheet .part-label');
+      const an = label && label.querySelector('[data-mapped="an"]');
+      const line = an && an.closest('.an-line');
+      if (!line) return null;
+      const rights = [...label.querySelectorAll('.facts-line > span')].map((s) => s.getBoundingClientRect().right);
+      const name = label.querySelector('[data-mapped="name"]');
+      return {
+        afterName: line.previousElementSibling === name,
+        centred: getComputedStyle(line).textAlign,
+        anBelowName: an.getBoundingClientRect().top >= name.getBoundingClientRect().bottom - 1,
+        withinOtherLines: an.getBoundingClientRect().right <= Math.max(...rights) + 0.5,
+        text: line.textContent.replace(/\s+/g, ' ').trim(),
+      };
+    });
+    eq('the PN label prints the AN on its own line right under the name', anLine && [anLine.afterName, anLine.anBelowName], [true, true]);
+    eq('…centred', anLine && anLine.centred, 'center');
+    ok('…reaching no further right than the label\'s other lines', anLine && anLine.withinOtherLines);
+    eq('…as "AN" and the mapped AN', anLine && anLine.text, `AN ${SENTINEL_AN}`);
     await p2.emulateMedia({ media: 'print' });
     const fits = await p2.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
     ok('the sheet and each part fit, measured under print', fits.length === 4 && fits.every(Boolean));
@@ -285,6 +398,7 @@ const INIT = `
     ok('the sheet leaves the page after the print dialog', true);
     await row(p2, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();
     ok('the row says who printed it', /Pharmacist Dev/.test(await row(p2, 'AA-1').innerText()));
+    eq('a print with the lines filled is not called a trial', /ทดลอง/.test(await row(p2, 'AA-1').innerText()), false);
     ok('and offers a reprint', await row(p2, 'AA-1').getByRole('button', { name: 'พิมพ์ซ้ำ' }).isVisible());
 
     section('§7 the order moves after printing');
@@ -572,6 +686,33 @@ const INIT = `
       eq('…and does not print', await pg.evaluate(() => window.__prints), 0);
       await c.close();
     }
+    {
+      // The same, seen when the list loads, before anyone presses Print (2026-11-17): a page
+      // left open across a release judged new orders against its old versions and told the
+      // room to ask the doctor for another Submit, which could not help.
+      // The page loads this release's file; the host serves a newer one from then on.
+      const versionFile = { body: null };
+      const c = await newRoom({ versionFile });
+      const pg = await open(c);
+      await pg.locator('input[type=email]').waitFor();
+      versionFile.body = '"use strict";\nwindow.TPN_ROOM_VERSIONS = { constantsVersion: "2099-01-01.1", stickerSchema: 1 };\n';
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await row(pg, 'AA-1').waitFor();
+      const stale = pg.locator('.stale-page');
+      ok('on load, a page older than the release says so above the list', await within(stale.filter({ hasText: 'หน้านี้ยังเป็นรุ่นเก่า' })));
+      ok('…with a reload button', await within(stale.getByRole('button', { name: 'โหลดหน้านี้ใหม่' })));
+      // AA-1 is on this page's release, which the host no longer serves: the doctor submits
+      // again on the new release, and the page reloads too (Vera on this PR, 2026-11-17).
+      const rowText = await row(pg, 'AA-1').innerText();
+      ok('…and an order on the old release asks the doctor to reload NeoFeed and Submit, and the room to reload',
+        /ให้หมอกดโหลดหน้า NeoFeed ใหม่ก่อน/.test(rowText) && /กดโหลดหน้านี้ใหม่ด้วย/.test(rowText) && !/หมอไม่ต้อง Submit ใหม่/.test(rowText), rowText);
+      versionFile.body = null;
+      await pg.getByRole('button', { name: 'รีเฟรช' }).click();
+      await pg.locator('.counts').waitFor();
+      await pg.waitForFunction(() => !document.querySelector('.stale-page'), null, { timeout: 5000 }).catch(() => {});
+      eq('a refresh that reads this page\'s own release clears it', await stale.count(), 0);
+      await c.close();
+    }
 
     section('§12c Vera on the ward split, 2026-11-14: failed on its first commit');
     {
@@ -595,6 +736,70 @@ const INIT = `
       eq('top counts are the sums of the ward headings', [num(top, /(\d+)\s*Submit แล้ว/), num(top, /(\d+)\s*ฉบับร่าง/)],
         [sum(/Submit แล้ว (\d+)/), sum(/ฉบับร่าง (\d+)/)]);
       log.splice(log.indexOf(extra), 1);
+      await c.close();
+    }
+
+    section('§12d a name or AN edited after its sticker printed (Vera on the names page; Pp: "เพิ่มเลย")');
+    {
+      const c = await newRoom();
+      const pg = await open(c);
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await row(pg, 'AA-1').waitFor();
+      await createNameFile(pg);
+      await mapInfant(pg, 'AA-1', 'ทารกสังเคราะห์ ดี', '44444/69');
+      await row(pg, 'AA-1').getByText('44444/69').waitFor();
+      const printAndClose = async (label, n) => {
+        await row(pg, 'AA-1').getByRole('button', { name: label }).click();
+        await pg.waitForFunction((k) => window.__prints === k, n);
+        await pg.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+        await pg.waitForFunction(() => !document.getElementById('sticker-sheet'));
+      };
+      await printAndClose('พิมพ์สติกเกอร์', 1);
+      await row(pg, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();
+      eq('a print with the mapping before it: no flag', await row(pg, 'AA-1').locator('.renamed').count(), 0);
+      // The AN corrected from the names page after the print.
+      await pg.getByRole('button', { name: 'รายชื่อทั้งหมด' }).click();
+      const names = pg.getByRole('dialog', { name: 'รายชื่อในไฟล์ชื่อ' });
+      await names.locator('tr[data-session="AA-1"]').getByRole('button', { name: 'แก้ชื่อ / AN' }).click();
+      await pg.getByLabel('AN', { exact: true }).fill('45444/69');
+      await pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).getByRole('button', { name: 'บันทึก' }).click();
+      await names.locator('tr[data-session="AA-1"]').getByText('45444/69').waitFor();
+      const be = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}`;
+      ok('the names page flags the row: that day\'s bag has the old name or AN',
+        new RegExp(`แก้หลังพิมพ์ ถุงของวันที่ ${be(today).replace(/\//g, '\\/')}`).test(await names.locator('tr[data-session="AA-1"] .renamed').innerText().catch(() => '')));
+      await names.getByRole('button', { name: 'กลับไปรายการ order' }).click();
+      ok('…and the order row says so, and to reprint', /แก้ชื่อหรือ AN หลังพิมพ์.*กดพิมพ์ซ้ำ/.test(await row(pg, 'AA-1').locator('.renamed').innerText().catch(() => '')));
+      // บันทึก with nothing changed writes nothing: no new history line.
+      await row(pg, 'AA-1').getByRole('button', { name: /ชื่อ \/ AN/ }).click();
+      const historyLines = async () => pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).locator('.history p').count();
+      const before = await historyLines();
+      await pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).getByRole('button', { name: 'บันทึก' }).click();
+      await pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).waitFor({ state: 'detached' });
+      await row(pg, 'AA-1').getByRole('button', { name: /ชื่อ \/ AN/ }).click();
+      eq('บันทึก with nothing changed adds no history line', await historyLines(), before);
+      await pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).getByRole('button', { name: 'ยกเลิก' }).click();
+      // A reprint after the edit clears it.
+      await printAndClose('พิมพ์ซ้ำ', 2);
+      await pg.waitForFunction(() => !document.querySelector('li[data-session="AA-1"] .renamed'), null, { timeout: 5000 }).catch(() => {});
+      eq('a reprint after the edit clears the row\'s flag', await row(pg, 'AA-1').locator('.renamed').count(), 0);
+      await pg.getByRole('button', { name: 'รายชื่อทั้งหมด' }).click();
+      await names.locator('tr[data-session="AA-1"]').waitFor();
+      eq('…and the names page\'s, with the page open', await names.locator('tr[data-session="AA-1"] .renamed').count(), 0);
+      // The PC clock steps back an hour after that print, and the AN is corrected: the edit's time is now
+      // earlier than the print's. Only the mapping the print recorded (mappingAt) shows the bag is stale
+      // (Vera's third check: without that line in printOrder this passes no more).
+      await names.getByRole('button', { name: 'กลับไปรายการ order' }).click();
+      await pg.clock.setSystemTime(new Date(Date.now() - 3600000));
+      await row(pg, 'AA-1').getByRole('button', { name: /ชื่อ \/ AN/ }).click();
+      await pg.getByLabel('AN', { exact: true }).fill('46444/69');
+      await pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).getByRole('button', { name: 'บันทึก' }).click();
+      await row(pg, 'AA-1').getByText('46444/69').waitFor();
+      eq('a clock stepped back before the edit: the row is still flagged, from the mapping the print used',
+        await row(pg, 'AA-1').locator('.renamed').count(), 1);
+      await pg.getByRole('button', { name: 'รายชื่อทั้งหมด' }).click();
+      await names.locator('tr[data-session="AA-1"]').waitFor();
+      ok('…and the names page names today\'s bag',
+        new RegExp(be(today).replace(/\//g, '\\/')).test(await names.locator('tr[data-session="AA-1"] .renamed').innerText().catch(() => '')));
       await c.close();
     }
 

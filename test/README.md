@@ -244,15 +244,17 @@ It swaps a module only when the harness transforms the whole, unmodified `.jsx` 
 otherwise, and prints which modules it replaced. Source-text assertions (regexes over the `.jsx`)
 still read the sources, which is what they pin.
 
-**CI:** `.github/workflows/test.yml` first rebuilds with `npm ci --prefix tools && node tools/build.mjs`
-on the clean checkout and fails if that changes anything (stale or hand-edited `compiled/`, or
-shell tokens), then checks shell byte-identity, then runs every `verify-*.cjs` (plus `DEAD=0` for
-the Factor harness) **twice** — against the sources, then with the compiled preload, where a harness
-that mounts modules but swapped none fails the step. It runs on each pull request and on pushes to
-`main`/`release`.
-CI installs no browser, so `verify-sync-gate-and-poll.cjs`'s Chromium measurement prints a SKIP
-there and its static CSS assertions carry the section; run it locally (with `playwright`
-installed) to get the real measurement.
+**CI:** `.github/workflows/test.yml`'s `pre` job rebuilds with `npm ci --prefix tools && node tools/build.mjs`
+on its clean checkout and fails if that changes anything (stale or hand-edited `compiled/`, or
+shell tokens), and checks shell byte-identity. Alongside it, parallel shards (§ CI in parallel shards, the
+last section) run every `verify-*.cjs` (plus `DEAD=0` for the Factor harness) **twice**: against the
+sources, and with the compiled preload, where a harness that mounts modules but swapped none fails the step.
+`verify-calc-compare.cjs` alone runs once, in the sources pass, since it never loads `compiled/`. CI runs
+on each pull request and on pushes to `main`; a push to `release` runs nothing, since its tree is always a
+`main` commit already passed.
+The sources pass installs no browser, so there `verify-sync-gate-and-poll.cjs`'s Chromium measurement
+prints a SKIP and its static CSS assertions carry the section; the compiled pass installs Chromium and runs
+the measurement.
 
 ## Running
 
@@ -1587,8 +1589,8 @@ instead of GA + 0.5 (`CHANGELOG.md` 2026-10-17). **`verify-fenton-half-week-1017
 tolerance (±2 / ±3 / ±4 points) is the digitiser's ±10–15 g. §2: the weight 50th passes through each
 row at GA + 0.5, starts at 22.5 and ends at the 42-week edge between the 41 and 42 rows, and nothing lies
 past it. §3: before PMA 22+4 the readout is "—" and says where the reference starts; at 42+0 it still
-reads. §4: the same placement for length and HC, and a not-verified note on both tabs and not on
-Weight. §5: a measurement on DOL 1 reads exactly as the same measurement at the same exact PMA on a
+reads. §4 (rewritten 2026-11-16): length and HC are drawn from their LMS tables at exact ages, from
+24.0 and 23.0 weeks, with no not-verified note on any tab. §5: a measurement on DOL 1 reads exactly as the same measurement at the same exact PMA on a
 later day, with no "size at birth" label, as Fenton's own calculator reads it (Pp, 2026-10-17); before
 22+4 it is "—" like any other day. Against `main` before it, 41 fail; against `ea0abe0`, which read DOL 1
 by completed week, §5 fails 7 of 8.
@@ -1604,7 +1606,8 @@ is a cell of the returned table at the GA it was sent with, and a point carries 
 (10 points): linear reading between the p10, p50 and p90 curves strays at most 4.0 points from the
 normal curve, plus 0.5 for rounding. DOL 1 is read at exact GA, as the official Birth size evaluation
 reads it (Pp, 2026-10-17). §3 records, without failing, the gaps where the app is known to be off: weight
-from 37 weeks, and length and HC, DOL 1 included, whose 4-weekly rows no numeric source verifies; a
+from 37 weeks, and length and HC, DOL 1 included (4-weekly rows no numeric source verified, until
+2026-11-16; `verify-fenton-length-hc-1116.cjs` now asserts those 24 points within ±1); a
 DOL-1 point there must still carry no size-at-birth label. §4 prints every point, worst gap first in
 each group; `--md` prints the same as Markdown tables. Against 55d893d, before the half-week fix, 30
 fail (24 weights under 37 weeks, 6 DOL-1 weights); against `ea0abe0`, which read DOL 1 by completed
@@ -2255,3 +2258,120 @@ the jsdom set above.
 the heparin hint and printed line, the printed route line, the quick calc's Copy, the NPE:AA alerts and the
 "Central only!" flag; then the real values print the same words as before (GIR, route line, NPE:AA, heparin hint,
 dextrose alert). 12 of its 23 checks fail on `e555695`. Needs the jsdom set above.
+
+**`verify-sheet-backup-1115.cjs`** (208 assertions; no npm dependencies, through `gas-vm-sandbox.cjs`) — the
+Sheet backup and the restore drill. Setup makes 14 books once; a backup equals the live book cell for cell and
+holds the script lock for every tab; 14 nights rotate; a backup past 14 days has its tabs deleted and an erased
+infant is in no backup after 14 nightly runs; a failed run or a failed drill leaves its slot listed as empty; an
+audit row landing mid-copy fails nothing; every slot id is checked before any book is touched; a book that will
+not open is skipped and reported; no id, sessionId or name in a log line, and no book id in a thrown message.
+`node test/mutate-sheet-backup.cjs` (by hand, not in CI) breaks the backend block one small change at a time and
+expects this harness to turn red each time. The sandbox's `copyTo` is a deep copy and its lock
+has no clock, so Google's own copy and the lock's duration are proven only by the first drill on the real Sheet.
+
+```
+node test/verify-sheet-backup-1115.cjs
+```
+
+**`verify-fenton-birth-length-hc-1116.cjs`** (63 assertions; jsdom, the same dev-only dependencies as the
+other Fenton harnesses): a DOL-1 length or head circumference is read as a size at birth. §1: the fixture
+`fenton-official-birth-1116.json` is what fentongrowth.ca's Birth size evaluation returned. Its raw text
+hashes to the SHA-256 taken in the page. 164 points, each a cell of a returned table. The 42-week rows and
+the probes past 41 4/7 are named. §2: `FENTON_LENGTH_BIRTH_LMS` and `FENTON_HC_BIRTH_LMS` are the solver's
+answer from 35.0. At 33–35 weeks the birth-size curve is the monitoring curve, and at 41 weeks it is not.
+§3: on screen every DOL-1 knot and probe point at 33+0 to 41+4 reads within ±1 centile point. The same
+35.9 cm head at 41+0 reads ~69th on DOL 1 and ~51st on DOL 15. §4: from 41+5 to 42+0 a DOL-1 point reads
+the 41 4/7 row. §5: on DOL 1 the drawn 50th is the birth-size M; on DOL 15 it is the monitoring M. Against
+`302dae6` it fails 8 checks.
+
+```
+node test/verify-fenton-birth-length-hc-1116.cjs
+```
+
+**`verify-fenton-length-hc-1116.cjs`** (57 assertions; jsdom, the same dev-only dependencies as the other
+Fenton harnesses) — length and head circumference on Fenton's own growth-monitoring curve. §1: the fixture
+`fenton-official-1116.json` is what fentongrowth.ca returned (two submissions of 75 made-up rows, 282 points,
+12 cells it did not answer named). §2: `FENTON_LENGTH_GROWTH_LMS` and `FENTON_HC_GROWTH_LMS` are the
+solver's answer on it (`tools/fenton-lms-solve.cjs`): L is 1, the knots read back within 0.001 z, the
+held-out points within 0.02 z. §3: on screen all 234 knot points read within ±1 centile point of the
+official percentile, and so do the 24 length and head points of `fenton-official-1017.json` (12 between
+whole weeks, 8 on DOL 1), and a DOL-1 length at 34+0 (from 35.0 a DOL-1 point has its own curve). §4: before 24.0 (length) or 23.0 (head) there is no percentile and the chart says
+where the reference starts. §5: each of the five drawn lines passes through its centile at every week.
+§6: the old rows are gone. Against `e1d99cd` it fails 16 checks.
+
+```
+node test/verify-fenton-length-hc-1116.cjs
+```
+
+**`verify-growth-weekly-print-1116.cjs`** (99 assertions; jsdom, through `review-0917-boot.cjs`, one
+child process per scenario) — Sunday's length and head circumference, and the growth charts on paper.
+`data`: the two Bangkok midnights, the two stores a measurement can be in, who is asked, an infant with no
+DOL anchor. `sunday`: a doctor
+opens a patient and lands on the growth page with the banner; "ไว้ทีหลัง" goes to the log; opening again asks
+again; one value keeps it asking; both end it. `picker`: the patient picker asks too, and the quick calc is
+left alone. `monday`, `nurse`, `admin`: the log on a Monday, a nurse is asked, an admin is not. `print`: the
+button calls `window.print`, the sheet is three pages, each with the patient block and one chart with no
+control in it, and both shells carry each print rule. It cannot show the printed page.
+
+```
+node test/verify-growth-weekly-print-1116.cjs
+```
+
+**`verify-tpn-sticker-1116.cjs`** (45 assertions; jsdom, the real Calculator on saved orders) — the TPN unit's
+answers of 2026-11-16 that move the bag. §1: `D.preparedVolFor` rounds delivered + dead space up to the next 10 mL
+above the sum, every whole mL from 1 to 1200 keeping more than 30 and at most 40 mL over; no dead space is not
+rounded. §2: the printed form's prepared volume, Factor, whole-mL D50W, amino acid and WFI, a one-decimal Ca
+gluconate, and the "→" lines; §2b a bag with no dead space keeps D50W at one decimal; §2d a peripheral bag at
+12.5 % rounds D50W down (17 mL, central 18), one above 12.5 % does not (19). §3: a bag over-full by 0.3 mL is
+refused, not rounded to WFI 0. §4: `stickerFigures` Dead space is printed Prepared − printed Delivered. §5: the
+unit's three PN lines ship. Against `fabe44a` it fails 24 checks; with the negative-WFI guard, the peripheral
+round-down or the no-dead-space decimal removed from the calculator, the check for each fails.
+
+```
+node test/verify-tpn-sticker-1116.cjs
+```
+
+## CI in parallel shards, 2026-11-16 — one harness extended
+
+CI no longer runs the ~285 harness steps one after another in one job (33.7 min on main run 43864098626).
+`.github/workflows/test.yml` runs `pre` (with Center Point), three `sources` shards and three `compiled` shards
+side by side, and the `harnesses` job, the one the branch rules require, is green only when all seven are.
+Each shard calls `node tools/run_checks.js --level ci --phase <pass> --shard K/N`, with K and N taken from the
+job's index and the matrix size. Every job computes the same split from the same tree, so the shares cover a
+pass exactly once; `shard_seconds` in `tools/checks.json` only evens them out (longest step first, onto the
+lightest share; a step it does not name counts 3 s). Refresh it from the `slowest:` line each shard prints.
+
+`verify-calc-compare.cjs` now runs in the sources pass only. It clears `NODE_OPTIONS` for the trees it builds,
+so the compiled loader never reached them and its compiled-pass run repeated the sources one (about 160 s).
+
+`verify-run-checks.cjs` § 7 checks the shares on a made-up config: three cover every step once, none is empty, a
+heavy step runs alone, a bad `--shard`, or one with no value, or a bad hint is refused, and the `slowest:` line
+lists a fast hinted step but not a fast unhinted one. § 5 checks that every hint names a real step and that
+calc-compare runs once.
+
+§ 6 pins every line of `test.yml` that is not blank or a whole-line comment (Pp, 2026-11-16, after four reviews
+each found a way to write YAML that a pattern missed). **The pin is the guard.** A whole-line comment may change
+or move freely; any other edit to the workflow changes the pinned list in the same commit, where a reviewer sees
+it. The pin reads lines as LF splits them, so § 6 also refuses any other line break (a lone CR, U+0085, U+2028,
+U+2029): YAML breaks a line there, and `# note<CR>if: false` would be a comment to the pin and a skipped step to
+GitHub.
+
+The checks after the pin are a second layer. They say why the lines that matter are what they are and catch the
+plain mistakes, but they read text, not YAML, so an escaped or quoted key, a ` #` inside quotes or a commented
+job key can get past them (never past the pin). They check: the `harnesses` job (it waits for every job, runs
+after a failure or a cancel, and is green only when each one passed); each runner step's `run:` line, with a
+blank line after it, under a job key `pre`, `sources` or `compiled` (each shard's share comes from the job's
+index); four lines naming the runner and no more; one `if:`, the gate's `always()`; no `shell:`, `defaults:` or
+`continue-on-error`; and the `concurrency` block with its `cancel-in-progress: true`. No npm install.
+
+To change the workflow, edit `test.yml` and run `node test/verify-run-checks.cjs`. The pin's failure names the
+first differing line by index (`firstDiff`), with what the file has (`got`) and what the list has (`want`): edit
+`LIVE` in § 6 until they agree, or regenerate it from the file's non-blank, non-comment lines. A change to a
+runner line, the `harnesses` job or the `concurrency` block also changes `want`, `GATE` or the concurrency lines
+in the checks after the pin.
+
+To run one shard here as CI does (the jsdom set above, through `NODE_PATH` in a worktree):
+
+```bash
+node tools/run_checks.js --level ci --phase sources --shard 2/3
+```

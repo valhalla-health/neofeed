@@ -13,7 +13,9 @@
 //   §3  ZnSO₄ 0.05 mg/kg at Factor 0.7 is 0.035 mL, which prints as 0: a red
 //       line, Submit disabled, the save panel says why, a draft may be kept;
 //       0.1 mg/kg (0.07 → 0.1 mL) is orderable;
-//   §4  no stock mL in calculator.jsx is rounded by toFixed any more;
+//   §4  no stock mL in calculator.jsx is rounded by toFixed any more; since
+//       2026-11-16 the amino acid and the WFI are whole mL (roundWholeMl), and
+//       D50W is too on a bag with dead space;
 //   §5  a row saved with mgStrength "50" carries over as 10%: no 50% on the
 //       card, Submit enabled, MgSO₄ 10% printed (Pp: every order was 10%,
 //       and the 50% path is gone);
@@ -158,7 +160,15 @@ function order700(box, zn, k2 = 0.5) {
       eq(`roundMl(${v})`, roundMl(v), want);
     }
     ok('…where toFixed(1) read 0.35 as 0.3', (0.35).toFixed(1) === '0.3');
-    eq('CONSTANTS_VERSION (2026-10-27.2 here; moved on by 2026-10-28.1, then 2026-11-06.1, the pumps at 0.1 mL/hr, then 2026-11-11.1, preterm formulas at 20/22/24/27)', window.NEOFEED_DATA.CONSTANTS_VERSION, '2026-11-11.1');
+    // Since 2026-11-16 the amino acid, the WFI and (on a bag with dead space)
+    // D50W are whole mL (TPN unit: big syringes), half up through displayNum,
+    // so a float tie rounds up too.
+    const roundWholeMl = vm.runInThisContext('roundWholeMl');
+    for (const [v, want] of [[46.5, 47], [46.8, 47], [46.49, 46], [0.5, 1], [0.4, 0],
+      [1.5 * 0.7 * 10, 11], [25.5, 26], [36, 36]]) {
+      eq(`roundWholeMl(${v})`, roundWholeMl(v), want);
+    }
+    eq('CONSTANTS_VERSION (2026-10-27.2 here; moved on by 2026-10-28.1, then 2026-11-06.1, the pumps at 0.1 mL/hr, then 2026-11-11.1, preterm formulas at 20/22/24/27, then 2026-11-15.1, whole numbers through displayNum, then 2026-11-16.1, prepared up to the next 10 mL and whole-mL D50W, amino acid and WFI)', window.NEOFEED_DATA.CONSTANTS_VERSION, '2026-11-16.1');
     const D = window.NEOFEED_DATA;
     eq('displayNum(1.5 × 0.7, 1): the float tie 1.0499999999999998 is 1.1', D.displayNum(1.5 * 0.7, 1), '1.1');
     eq('displayNum(1.005, 2)', D.displayNum(1.005, 2), '1.01');
@@ -219,8 +229,22 @@ function order700(box, zn, k2 = 0.5) {
     const src = R('calculator.jsx');
     const block = src.slice(src.indexOf('const solVol = {'), src.indexOf('};', src.indexOf('const solVol = {')));
     ok('the solVol block rounds through roundMl only', /roundMl\(/.test(block) && !/toFixed/.test(block));
-    ok('D50W, Soluvit and Peditrace go through roundMl', /const d50wVol = .*roundMl\(/.test(src)
-      && /const soluvitVol .*roundMl\(/.test(src) && /const peditrace_vol .*roundMl\(/.test(src));
+    ok('Soluvit and Peditrace go through roundMl', /const soluvitVol .*roundMl\(/.test(src) && /const peditrace_vol .*roundMl\(/.test(src));
+    // The amino acid and the WFI went whole mL on 2026-11-16, through
+    // roundWholeMl, which is displayNum at 0 decimals (half up, no toFixed).
+    // D50W too, but only on a bag with dead space: with none it keeps roundMl's
+    // one decimal, and a peripheral bag at or under 12.5 % rounds down instead
+    // of past the limit (Pp, the same day).
+    ok('the amino acid and the WFI go through roundWholeMl (whole mL, 2026-11-16)',
+      /^\s*aa:\s+roundWholeMl\(/m.test(block)
+      && /const wfiVol = wfiExact < 0 \? wfiExact : roundWholeMl\(wfiExact\)/.test(src));
+    {
+      const d = src.slice(src.indexOf('const d50wExact = '), src.indexOf('const d50wExact = ') + 700);
+      ok('D50W: roundMl with no dead space, roundWholeMl with one, floor on the peripheral limit',
+        /if \(!\(deadVol_mL > 0\)\) \{\s*d50wVol = roundMl\(d50wExact\);/.test(d) && /d50wVol = roundWholeMl\(d50wExact\);/.test(d)
+        && /d50wVol = Math\.floor\(d50wExact \+ 1e-9\);/.test(d) && !/toFixed/.test(d), d.slice(0, 120));
+    }
+    ok('roundWholeMl is displayNum at 0 decimals', /const roundWholeMl = \(n\) => Number\(D\.displayNum\(n, 0\)\);/.test(src));
     ok('compiled/calculator.js carries roundMl', /roundMl/.test(R('compiled/calculator.js')));
   });
 

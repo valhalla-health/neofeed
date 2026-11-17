@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-11-11.1";
+const CONSTANTS_VERSION = "2026-11-16.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -1035,6 +1035,53 @@ function displayNum(value, maxDecimals = 2) {
   return String(r === 0 ? 0 : r);   // never "-0"
 }
 
+// ── The printed order, larger (TPN unit and the ward, 2026-11-16) ──
+// Pharmacy and the ward's older nurses asked for a bigger print: the print
+// dialog's Scale at 115 % "ใหญ่กำลังดี ไม่ล้น" for an ordinary order. Pp then
+// asked for the figures to stand out too, "โดยคงให้เป็น 1 หน้า A4 เท่าเดิม". So
+// just before the print dialog lays a sheet out (calculator.jsx, beforeprint),
+// a copy of it is laid out off-screen at the page's width and the sheet gets the
+// first of these steps that fits one A4 page: `zoom` scales the whole sheet and
+// `fig` its bold values (<strong>: the figures, the name, the ID, the date) on
+// top of that. The last step is the sheet as it printed before, so a long order
+// (several critical alerts, a long reason) is never printed smaller than it was
+// (Pp: "115% แต่ย่อให้พอดีหน้าเดียว"). The shells' CSS reads the two values as
+// --print-zoom and --print-fig, with that last step as the default.
+const PRINT_FIT_STEPS = [
+  { zoom: 1.15, fig: 1.15 }, { zoom: 1.1, fig: 1.15 }, { zoom: 1.05, fig: 1.15 },
+  { zoom: 1, fig: 1.15 }, { zoom: 1, fig: 1 },
+];
+// A4 inside the shells' @page margins (8 mm top and bottom, 10 mm each side),
+// less 2 mm in case the printer's layout runs a little longer than the screen's.
+const PRINT_AREA_MM = { width: 190, height: 279 };
+function fitPrintSheet(sheet) {
+  const doc = sheet.ownerDocument;
+  const probe = doc.createElement("div");
+  probe.className = "print-probe";   // the shells' CSS: off-screen, 190 mm wide, the print rules
+  const copy = sheet.cloneNode(true);
+  copy.removeAttribute("id");
+  probe.appendChild(copy);
+  doc.body.appendChild(probe);
+  let pick = PRINT_FIT_STEPS[PRINT_FIT_STEPS.length - 1];
+  try {
+    for (const step of PRINT_FIT_STEPS) {
+      copy.style.setProperty("--print-zoom", String(step.zoom));
+      copy.style.setProperty("--print-fig", step.fig + "em");
+      // The unzoomed wrapper, not the zoomed copy: a zoomed element's own box
+      // reads at its zoomed size only since Chromium 128 (standardized CSS
+      // zoom), and the ward's PCs may run older. The wrapper holds the copy at
+      // its printed height in both (cold reader, 2026-11-16).
+      const mm = probe.getBoundingClientRect().height * 25.4 / 96;
+      if (mm <= PRINT_AREA_MM.height) { pick = step; break; }
+    }
+  } finally {
+    probe.remove();
+  }
+  sheet.style.setProperty("--print-zoom", String(pick.zoom));
+  sheet.style.setProperty("--print-fig", pick.fig + "em");
+  return pick;
+}
+
 // ── Sticker figures (TPN room, Pp 2026-10-30) ─────────────────
 // What the TPN unit's three stickers print, computed once, here, and saved
 // with the order (Daily_Log AM, printJson). The TPN-room page copies these
@@ -1078,7 +1125,7 @@ function stickerFigures(o) {
     // rounded the calc's 0.1 mL value a second time and was 1 mL off in 4–8 %
     // of orders.
     deliveredMl: n(c.totalTPN_mL, 1),
-    deadMl: n(c.deadVol_mL, 2),
+    deadMl: null,   // filled in below, from the two printed volumes
     preparedMl: n(c.preparedVol, 1),
     stockMl: {
       d50w: n(c.d50wVol, 1),
@@ -1138,6 +1185,14 @@ function stickerFigures(o) {
       kcal: n(c.dexKcal + c.aaKcal, 0),
     },
   };
+  // Dead space on the PN label is Prepared − Delivered as both are printed, so
+  // the label's three volumes always add up (47.55 + 30 prints 47.6 + 32.4 = 80,
+  // not 47.6 + 32.5). It is what the line and the round-up keep (preparedVolFor,
+  // 2026-11-16), as on the KCMH sheet (G7 = C7 + G8); before 2026-11-16 it was the
+  // dead space typed. The meaning moved under printJson v 1: a row's
+  // constantsVersion (2026-11-16.1 on) says which, and the TPN room refuses any
+  // other version, so the schema version stays (a bump needs the backend first).
+  figures.deadMl = n(Number(figures.preparedMl) - Number(figures.deliveredMl), 1);
   // displayNum prints "—" for a missing or non-numeric input. The sticker must
   // never carry one, so the order has no figures and the page says "save again".
   // A negative figure is the same, and so is one past 12 characters. The input
@@ -1153,6 +1208,24 @@ function stickerFigures(o) {
       ? { alerts: (o.critOverride.alerts || []).map(String), reason: String(o.critOverride.reason || "") }
       : null,
   };
+}
+
+// ── A tab left open across a release (2026-11-17) ─────────────
+// compiled/tpn-room-version.js is the release's own CONSTANTS_VERSION and
+// STICKER_SCHEMA_VERSION, written by tools/build.mjs from this file, and both
+// hosts serve it. `tabDiffersFromServed(text)` reads that file's text as the host
+// serves it now: true when it names other versions than this tab loaded, false
+// when they are the same, null when the text is not that file. A ward PC keeps a
+// tab open for days and a sign-out does not load new code, so on 2026-11-17 a tab
+// opened before the 23:21 release went on saving the old calculation, and the
+// TPN room asked for Submit three times. Other versions either way is a reload:
+// newer is a release, older a rollback.
+function tabDiffersFromServed(text) {
+  const m = /constantsVersion: ("[^"]*"), stickerSchema: (\d+)/.exec(String(text == null ? "" : text));
+  if (!m) return null;
+  let served;
+  try { served = JSON.parse(m[1]); } catch { return null; }
+  return served !== CONSTANTS_VERSION || Number(m[2]) !== STICKER_SCHEMA_VERSION;
 }
 
 // ── Traffic-light status helper ───────────────────────────────
@@ -1256,7 +1329,7 @@ function tpnOverDelivery(volMl) {
   if (!pump) return null;
   const givenMl = Number((pump.rate * 24).toFixed(1));
   const extraMl = Number((givenMl - volMl).toFixed(1));
-  const pct = Math.round(extraMl / volMl * 100);
+  const pct = Number(displayNum(extraMl / volMl * 100, 0));   // as every whole number a person reads
   return pct >= TPN_OVER_NOTE_PCT ? { givenMl, extraMl, pct } : null;
 }
 // The 20% lipid syringe to a whole mL/day (Pp, 2026-11-06: "ถ้ากดที่ลิพิตโวลุ่มจะ
@@ -1487,8 +1560,9 @@ const ESPGHAN_TARGETS = {
 // Corrected p3/p10/p90/p97 to v2; p50 (LMS median) is NOT in the v2 table
 // (it only carries the SGA/LGA cutoffs) and was left untouched — GA 42 and
 // the unaffected weeks show p50 was already fine, so there's no evidence it
-// needs revisiting. FENTON_LENGTH/FENTON_HC have no equivalent public
-// numeric table to re-check against; see BACKLOG.md.
+// needs revisiting. Length and head circumference have no public numeric
+// table either; since 2026-11-16 they are FENTON_LENGTH_GROWTH_LMS and
+// FENTON_HC_GROWTH_LMS below, solved from Fenton's own calculator.
 const FENTON_WEIGHT = {
   boys: [
     [22,  367,  411,  505,  599,  643],
@@ -1599,51 +1673,194 @@ const FENTON_WEIGHT_GROWTH_LMS = {
   ],
 };
 
-// Length (cm) — every 4 weeks 22–50
-const FENTON_LENGTH = {
+// Length and head circumference (cm): Fenton's growth-monitoring curves as
+// L, M, S at each whole week, [exact PMA, L, M, S], the shape of
+// FENTON_WEIGHT_GROWTH_LMS above. Fenton's LMS are not published; M and S were
+// solved from fentongrowth.ca's z-scores (API 2.1.3.0, 2026-11-16) for three
+// made-up values per week (test/fenton-official-1116.json;
+// tools/fenton-lms-solve.cjs). L is 1: solved freely it came out 0.97–1.04 at
+// every week, the noise of a 3-decimal z, so both sizes are normal at a given
+// age in Fenton's model, and with L fixed at 1 the three points of each week
+// read back within 0.001 z. The half-week points no row was built from read
+// back within 0.02 z (under one centile point), and so do the 24 length and
+// head points of 2026-10-17 (test/fenton-official-1017.json): 12 of them
+// between whole weeks, 8 on DOL 1 (up to 35+4).
+//
+// What was asked of the calculator: 22 weeks (not accepted), 23.0 (a head
+// z-score, none for length), 23.5 and later (both). So head starts at 23.0
+// and length at 24.0, the first week with three points. fenton.jsx reads a
+// measurement before the first row as having no reference, and says so.
+//
+// These replace FENTON_LENGTH and FENTON_HC (five centiles every 4 weeks, never
+// checked against a source). At their rows (26.5, 30.5, 34.5, 38.5 as drawn)
+// the old 50th matched this curve; between rows 34.5 and 38.5 it read as low
+// as the 44th centile for head and the 47th for length. Length's outer lines
+// were too narrow from about 33 weeks (at 38.5 the old boys' 3rd/10th/90th/
+// 97th read 7/16/84/94). Past 38.5 both ran
+// straight to a 42-week row that was wrong: at 42 weeks the old length "50th"
+// is this curve's 82nd centile (boys) and 79th (girls), and the old head
+// "50th" is its 26th (boys) and 32nd (girls), with the old head "3rd" below
+// the 1st (2026-11-16).
+const FENTON_LENGTH_GROWTH_LMS = {
   boys: [
-    [22, 24.2, 25.6, 28.7, 31.7, 33.1],
-    [26, 29.8, 31.2, 34.4, 37.6, 39.0],
-    [30, 35.5, 37.0, 40.2, 43.4, 44.9],
-    [34, 41.3, 42.7, 45.5, 48.3, 49.6],
-    [38, 46.2, 47.3, 49.7, 52.0, 53.2],
-    [42, 52.1, 53.3, 55.5, 57.7, 58.9],
-    [46, 53.5, 54.8, 57.0, 59.3, 60.5],
-    [50, 55.0, 56.3, 58.5, 60.8, 62.1],
+    [24.0, +1.000, 30.792, 0.07768],
+    [25.0, +1.000, 32.221, 0.07520],
+    [26.0, +1.000, 33.663, 0.07273],
+    [27.0, +1.000, 35.144, 0.07028],
+    [28.0, +1.000, 36.626, 0.06789],
+    [29.0, +1.000, 38.085, 0.06552],
+    [30.0, +1.000, 39.526, 0.06320],
+    [31.0, +1.000, 40.929, 0.06093],
+    [32.0, +1.000, 42.280, 0.05876],
+    [33.0, +1.000, 43.597, 0.05664],
+    [34.0, +1.000, 44.874, 0.05461],
+    [35.0, +1.000, 46.073, 0.05270],
+    [36.0, +1.000, 47.209, 0.05086],
+    [37.0, +1.000, 48.256, 0.04915],
+    [38.0, +1.000, 49.204, 0.04759],
+    [39.0, +1.000, 50.117, 0.04610],
+    [40.0, +1.000, 51.003, 0.04472],
+    [41.0, +1.000, 51.868, 0.04342],
+    [42.0, +1.000, 52.715, 0.04220],
   ],
   girls: [
-    [22, 23.8, 25.2, 28.1, 31.0, 32.4],
-    [26, 29.3, 30.7, 33.7, 36.8, 38.2],
-    [30, 35.0, 36.4, 39.5, 42.6, 44.1],
-    [34, 40.5, 41.8, 44.7, 47.6, 48.9],
-    [38, 45.4, 46.5, 48.9, 51.2, 52.3],
-    [42, 51.0, 52.2, 54.3, 56.4, 57.6],
-    [46, 52.5, 53.7, 55.9, 58.1, 59.3],
-    [50, 54.0, 55.3, 57.5, 59.8, 61.0],
+    [24.0, +1.000, 30.197, 0.07598],
+    [25.0, +1.000, 31.592, 0.07367],
+    [26.0, +1.000, 33.013, 0.07134],
+    [27.0, +1.000, 34.460, 0.06904],
+    [28.0, +1.000, 35.918, 0.06678],
+    [29.0, +1.000, 37.358, 0.06454],
+    [30.0, +1.000, 38.797, 0.06235],
+    [31.0, +1.000, 40.206, 0.06021],
+    [32.0, +1.000, 41.551, 0.05818],
+    [33.0, +1.000, 42.812, 0.05617],
+    [34.0, +1.000, 44.061, 0.05430],
+    [35.0, +1.000, 45.303, 0.05251],
+    [36.0, +1.000, 46.446, 0.05081],
+    [37.0, +1.000, 47.500, 0.04923],
+    [38.0, +1.000, 48.456, 0.04776],
+    [39.0, +1.000, 49.344, 0.04638],
+    [40.0, +1.000, 50.191, 0.04512],
+    [41.0, +1.000, 51.022, 0.04394],
+    [42.0, +1.000, 51.846, 0.04284],
   ],
 };
 
-// Head circumference (cm) — every 4 weeks 22–50
-const FENTON_HC = {
+const FENTON_HC_GROWTH_LMS = {
   boys: [
-    [22, 17.5, 18.2, 19.9, 21.5, 22.3],
-    [26, 21.5, 22.3, 24.1, 26.0, 26.8],
-    [30, 25.4, 26.3, 28.2, 30.2, 31.1],
-    [34, 29.2, 30.0, 31.9, 33.8, 34.7],
-    [38, 31.9, 32.8, 34.5, 36.2, 37.0],
-    [42, 33.2, 34.0, 35.7, 37.4, 38.2],
-    [46, 35.2, 36.0, 37.8, 39.5, 40.4],
-    [50, 36.4, 37.2, 39.0, 40.8, 41.6],
+    [23.0, +1.000, 20.436, 0.06384],
+    [24.0, +1.000, 21.522, 0.06179],
+    [25.0, +1.000, 22.587, 0.06037],
+    [26.0, +1.000, 23.622, 0.05940],
+    [27.0, +1.000, 24.674, 0.05851],
+    [28.0, +1.000, 25.741, 0.05762],
+    [29.0, +1.000, 26.789, 0.05545],
+    [30.0, +1.000, 27.762, 0.05366],
+    [31.0, +1.000, 28.698, 0.05323],
+    [32.0, +1.000, 29.667, 0.05184],
+    [33.0, +1.000, 30.600, 0.04975],
+    [34.0, +1.000, 31.499, 0.04738],
+    [35.0, +1.000, 32.328, 0.04511],
+    [36.0, +1.000, 33.039, 0.04319],
+    [37.0, +1.000, 33.669, 0.04132],
+    [38.0, +1.000, 34.264, 0.03966],
+    [39.0, +1.000, 34.825, 0.03811],
+    [40.0, +1.000, 35.355, 0.03665],
+    [41.0, +1.000, 35.857, 0.03529],
+    [42.0, +1.000, 36.335, 0.03398],
   ],
   girls: [
-    [22, 17.0, 17.8, 19.4, 21.1, 21.9],
-    [26, 21.1, 21.9, 23.7, 25.4, 26.3],
-    [30, 25.0, 25.9, 27.8, 29.6, 30.5],
-    [34, 28.7, 29.5, 31.4, 33.2, 34.1],
-    [38, 31.4, 32.2, 33.9, 35.6, 36.4],
-    [42, 32.7, 33.5, 35.2, 36.9, 37.7],
-    [46, 34.8, 35.6, 37.4, 39.1, 40.0],
-    [50, 36.0, 36.8, 38.5, 40.3, 41.2],
+    [23.0, +1.000, 19.969, 0.06587],
+    [24.0, +1.000, 21.040, 0.06259],
+    [25.0, +1.000, 22.109, 0.05991],
+    [26.0, +1.000, 23.164, 0.05843],
+    [27.0, +1.000, 24.214, 0.05750],
+    [28.0, +1.000, 25.257, 0.05632],
+    [29.0, +1.000, 26.315, 0.05465],
+    [30.0, +1.000, 27.292, 0.05323],
+    [31.0, +1.000, 28.238, 0.05241],
+    [32.0, +1.000, 29.199, 0.05079],
+    [33.0, +1.000, 30.103, 0.04895],
+    [34.0, +1.000, 30.972, 0.04696],
+    [35.0, +1.000, 31.789, 0.04478],
+    [36.0, +1.000, 32.533, 0.04315],
+    [37.0, +1.000, 33.165, 0.04129],
+    [38.0, +1.000, 33.717, 0.03965],
+    [39.0, +1.000, 34.229, 0.03838],
+    [40.0, +1.000, 34.714, 0.03709],
+    [41.0, +1.000, 35.175, 0.03595],
+    [42.0, +1.000, 35.613, 0.03492],
+  ],
+};
+
+// Length and head circumference AT BIRTH (cm), for a DOL-1 measurement:
+// Fenton's "Birth size evaluation" as L, M, S, [exact GA, L, M, S], the shape
+// of the growth-monitoring rows above. Solved as they were (tools/
+// fenton-lms-solve.cjs, L fixed at 1) from that calculator's z-scores for three
+// made-up values per week (API 2.1.3.0, 2026-11-16;
+// test/fenton-official-birth-1116.json). Pp asked for this round on
+// 2026-11-16: a DOL-1 length or head from 36 weeks was read on the monitoring
+// curve, which Fenton says differs from size at birth after 36 weeks.
+//
+// What the calculator said: at 33, 34 and 35 weeks the birth-size curve IS
+// the monitoring curve (M within 0.002 cm, S within 0.00003), so these rows
+// start at 35.0 and a DOL-1 point before that is read on the monitoring rows.
+// From 36 weeks they part: length's S falls faster (at 41 weeks 0.0389 against
+// 0.0434 for boys), and from 38 weeks head's M grows more slowly (at 41
+// weeks 35.28 cm against 35.86 for boys). A boy born at 41+0 with a 35.9 cm head, the
+// monitoring 50th, is the 69th centile at birth.
+//
+// The Birth size evaluation ends at 41 4/7 (41.5714): rows at 41 5/7, 41 6/7,
+// 41.8, 41.99, 42, 42 0/7 and 42 1/7 came back empty. So the last row is
+// 41.5714, and fenton.jsx reads a DOL-1 point from 41+5 to 42+0 on that last
+// row (held, not extrapolated). Past 41 4/7 there is no reference to prove which
+// is closer; holding moves M by about 0.1 cm over those days, the monitoring
+// curve sits about 0.5 SD away for head. The three points of each week read
+// back within 0.001 z (0.0007 at worst, rows as stored), and the 8 half-week
+// and probe points a sex no row was built from within 0.015 z.
+const FENTON_LENGTH_BIRTH_LMS = {
+  boys: [
+    [35.0, +1.000, 46.073, 0.05269],
+    [36.0, +1.000, 47.207, 0.05005],
+    [37.0, +1.000, 48.261, 0.04743],
+    [38.0, +1.000, 49.228, 0.04506],
+    [39.0, +1.000, 50.066, 0.04288],
+    [40.0, +1.000, 50.763, 0.04085],
+    [41.0, +1.000, 51.362, 0.03891],
+    [41.5714, +1.000, 51.666, 0.03782],
+  ],
+  girls: [
+    [35.0, +1.000, 45.303, 0.05249],
+    [36.0, +1.000, 46.445, 0.05017],
+    [37.0, +1.000, 47.504, 0.04757],
+    [38.0, +1.000, 48.441, 0.04491],
+    [39.0, +1.000, 49.217, 0.04218],
+    [40.0, +1.000, 49.903, 0.03940],
+    [41.0, +1.000, 50.494, 0.03659],
+    [41.5714, +1.000, 50.768, 0.03498],
+  ],
+};
+
+const FENTON_HC_BIRTH_LMS = {
+  boys: [
+    [35.0, +1.000, 32.328, 0.04510],
+    [36.0, +1.000, 33.039, 0.04319],
+    [37.0, +1.000, 33.669, 0.04131],
+    [38.0, +1.000, 34.240, 0.03967],
+    [39.0, +1.000, 34.687, 0.03818],
+    [40.0, +1.000, 35.000, 0.03699],
+    [41.0, +1.000, 35.276, 0.03615],
+    [41.5714, +1.000, 35.431, 0.03574],
+  ],
+  girls: [
+    [35.0, +1.000, 31.789, 0.04478],
+    [36.0, +1.000, 32.533, 0.04314],
+    [37.0, +1.000, 33.164, 0.04127],
+    [38.0, +1.000, 33.696, 0.03963],
+    [39.0, +1.000, 34.079, 0.03808],
+    [40.0, +1.000, 34.350, 0.03699],
+    [41.0, +1.000, 34.636, 0.03591],
+    [41.5714, +1.000, 34.810, 0.03525],
   ],
 };
 
@@ -2796,6 +3013,22 @@ function vitaminMlPerDay(stockKey, wtKg) {
 function defaultDeadVolFor(patient) {
   return isNewbornUnit(patient) ? NEWBORN_DEAD_VOL_ML : 0;
 }
+// The volume pharmacy prepares, mL/day (sheet G7): delivered plus the dead
+// space, rounded UP to the next 10 mL above that sum. The TPN set holds exactly
+// 30 mL, so a bag of delivered + 30 left nothing over for the line; the ward's
+// nurses asked for a round number with more than 30 mL to spare (Pp, 2026-11-16:
+// "ปัดขึ้นเป็นเลขกลมๆหรือเผื่อสายมากกว่า 30 mL", and she chose "next ten,
+// always above"). 48 + 30 = 78 → 80, and 110 + 30 = 140 → 150, so a 30 mL dead
+// space leaves more than 30 and at most 40 mL. The Factor is still prepared ÷ delivered × weight, so
+// every additive is scaled up with the bag and the infant gets the dose ordered.
+// No dead space (0 = no overfill) is not rounded, and no volume is no bag.
+function preparedVolFor(totalTPN_mL, deadVol_mL) {
+  const delivered = Number(totalTPN_mL) || 0, dead = Number(deadVol_mL) || 0;
+  if (!(delivered > 0)) return 0;
+  if (!(dead > 0)) return delivered;
+  const sum = Math.round((delivered + dead) * 100) / 100;   // clear a float tail first
+  return Math.floor(sum / 10) * 10 + 10;
+}
 
 // The four statuses a session can carry, in the order every picker lists
 // them: Edit session's select and the ward list's status chip (Pp,
@@ -2819,6 +3052,42 @@ const PN_INDICATIONS = [
 // longer lists, and nothing on screen explains why it can't be picked.
 function isOnUnit(p) {
   return !!p && patientStatus(p) === "Active";
+}
+
+// Weekly length and head circumference (Pp, 2026-11-16: "ทุกเช้าวันอาทิตย์ตามเวลา
+// ประเทศไทย ให้เมื่อเข้าชื่อผู้ป่วย ให้เด้งหน้าไปกรอก HC and length weekly ด้วยเลย").
+// On a Sunday, Bangkok time, opening a patient goes to the growth page until
+// that day's DOL carries both a length and a head circumference. Her answers:
+// doctors and nurses both; all of Sunday from 00:00, not the morning only;
+// it can be put off, and then asks again the next time the patient is opened.
+// One value is not enough: the page keeps asking until both are there.
+function isSundayBangkok(now) {
+  // The calendar day in Bangkok (UTC+7, no daylight saving), whatever the
+  // device's own time zone is set to.
+  const ms = now == null ? Date.now() : (now instanceof Date ? now.getTime() : Number(now));
+  return new Date(ms + 7 * 3600e3).getUTCDay() === 0;
+}
+// Which of the two a patient already has on `dol`: a row of patient.lengths /
+// patient.hcs, or a weights row carrying l / hc (MeasurementLogger writes those).
+function growthOnDol(p, dol) {
+  const on = (rows, pick) => (Array.isArray(rows) ? rows : []).some((r) => {
+    if (!r || Number(r.dol) !== Number(dol)) return false;
+    const v = pick(r);
+    return v != null && v !== "" && Number(v) > 0;
+  });
+  return {
+    length: on(p && p.lengths, (r) => r.v) || on(p && p.weights, (r) => r.l),
+    hc: on(p && p.hcs, (r) => r.v) || on(p && p.weights, (r) => r.hc),
+  };
+}
+function weeklyGrowthDue(p, role, now) {
+  if (!p || (role !== "doctor" && role !== "nurse")) return false;
+  // A discharged infant is not measured, a test patient is saved nowhere, and
+  // a record with no bed in the system is read-only: a save would be refused.
+  if (!isOnUnit(p) || isTestSession(p.sessionId) || isReadOnlyOther(p)) return false;
+  if (!isSundayBangkok(now)) return false;
+  const have = growthOnDol(p, liveDol(p));
+  return !(have.length && have.hc);
 }
 
 // What a patient's status reads as, on every screen. A blank status is Active,
@@ -3390,7 +3659,8 @@ window.NEOFEED_DATA = {
   // Comprehensive ESPGHAN reference object (for display panels)
   ESPGHAN_TARGETS,
   // Growth charts
-  FENTON_WEIGHT, FENTON_WEIGHT_GROWTH_LMS, FENTON_LENGTH, FENTON_HC,
+  FENTON_WEIGHT, FENTON_WEIGHT_GROWTH_LMS, FENTON_LENGTH_GROWTH_LMS, FENTON_HC_GROWTH_LMS,
+  FENTON_LENGTH_BIRTH_LMS, FENTON_HC_BIRTH_LMS,
   // Patient data (mock — replace with GAS fetch)
   MOCK_PATIENTS, MOCK_DAILY_LOG,
   // Utility functions
@@ -3404,11 +3674,15 @@ window.NEOFEED_DATA = {
   lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt, lipidRateGrade, tpnOverDelivery, TPN_OVER_NOTE_PCT,
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
+  // A tab left open across a release: Submit reloads first (calculator.jsx)
+  tabDiffersFromServed,
+  // The printed order at up to 115 %, shrunk a step at a time to one A4 page
+  PRINT_FIT_STEPS, PRINT_AREA_MM, fitPrintSheet,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
   KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, GLYCO_NA_HABIT_MEQ, GLYCO_P_HABIT_MG, MEN_MAX_ML_KG, FULL_EN_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
-  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, vitaminMlPerDay,
+  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, preparedVolFor, vitaminMlPerDay,
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.
@@ -3421,6 +3695,7 @@ window.NEOFEED_DATA = {
   // instead of trusting the stored (snapshot, goes stale) `dol` column;
   // admissionDol is the admission day's DOL, from the anchor.
   liveDol, dolAtDate, entryDol, admissionDol, daysBetweenDateStr,
+  isSundayBangkok, growthOnDol, weeklyGrowthDue,
   dobCredible, hasDolAnchor, dobFromAdmission, dobFromAdmitDol,
   // Growth-chart rows follow a corrected anchor (EditPatientModal)
   anchorShiftDays, moveGrowthRows,

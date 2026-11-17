@@ -2169,6 +2169,19 @@
   }
 
   /* ============ PRINT STYLES ============ */
+  /* data.js fitPrintSheet's probe: a copy of a printed order laid out off-screen at the
+     page's printable width, under the print rules that set its height (the zoom and figure
+     size it is trying, the cells' line height, the back sheet left out), so what it
+     measures is what will print. Keep these in step with the #print-form rules below. */
+  .print-probe { position: absolute; left: -10000px; top: 0; width: 190mm; visibility: hidden; }
+  .print-probe > * { display: block !important; zoom: var(--print-zoom, 1); }
+  .print-probe td, .print-probe th { line-height: 1.35; }
+  .print-probe strong { font-size: var(--print-fig, 1em); }
+  .print-probe .print-back { display: none !important; }
+
+  /* The growth charts' print sheet exists only on paper (@media print below). */
+  .growth-print { display: none; }
+
   @media print {
     /* Hide all UI — show only Ramathibodi print form */
     .topbar, .rail, #toast-host, .picker-backdrop,
@@ -2177,7 +2190,24 @@
     /* Everything in the workspace except the order form itself — the edit/
        back-fill/prefill/lock/draft banners and the staleness banner sit
        outside .card and used to print above the pharmacy form. */
-    .work-inner > :not(#print-form):not(.print-batch), .bottom-nav, .quick-fab, .app > [role="status"] { display: none !important; }
+    .work-inner > :not(#print-form):not(.print-batch):not(.growth-print), .bottom-nav, .quick-fab, .app > [role="status"] { display: none !important; }
+
+    /* พิมพ์กราฟ (fenton.jsx GrowthPrintSheet): the three Fenton charts in
+       place of the growth page, one to an A4 page, each page under its own
+       patient block. Each chart is the screen's own, without its tabs, zoom
+       buttons or print button, as wide as the page's printable area (about
+       183 mm wide and 111 mm tall in a Chromium PDF), with its readout panel
+       under it. The legend prints as one row, not a column of four, so its
+       "Patient" marker stays explained and a page keeps room to spare. A page
+       is one unbreakable unit, so a wider printer margin cannot part the
+       patient block from its chart. Colours print as drawn. */
+    .growth-print { display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .growth-print-page + .growth-print-page { break-before: page; page-break-before: always; }
+    .growth-print-page, .growth-print-chart { break-inside: avoid; page-break-inside: avoid; }
+    .growth-print .legend { flex-direction: row !important; flex-wrap: wrap; justify-content: flex-end; gap: 4px 14px !important; }
+    .growth-print .fenton-grid { grid-template-columns: 1fr !important; }
+    .growth-print-chart svg { max-width: 100% !important; }
+    .growth-print .fenton-ctrl, .growth-print .fenton-zoom { display: none !important; }
 
     html, body { height: auto; background: #fff; }
     .app { display: block; height: auto; min-height: auto; overflow: visible; }
@@ -2197,6 +2227,11 @@
        red box and the signature line never split across a page break. */
     #print-form td, #print-form th { line-height: 1.35; }
     #print-form .print-crit-box, #print-form .print-sign { break-inside: avoid; page-break-inside: avoid; }
+    /* Larger for the TPN room and the ward (2026-11-16): up to 115 %, the bold figures a
+       step larger again, each set just before printing to the largest that fits one A4
+       page (data.js fitPrintSheet). Unset, the sheet prints as it did before. */
+    #print-form, .print-batch-sheet { zoom: var(--print-zoom, 1); }
+    #print-form strong, .print-batch-sheet strong { font-size: var(--print-fig, 1em); }
 
     /* Print ทั้งหมด (registry.jsx WardPrintBatch): each order's sheet as its
        calculator rendered it, the same rules as #print-form, one per page. */
@@ -2223,13 +2258,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=a7063f5dbf"></script>
+  <script src="data.js?v=e120bb37c3"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
-  <script src="compiled/calculator.js?v=4f6f01882e"></script>
-  <script src="compiled/fenton.js?v=196ab85f3a"></script>
+  <script src="compiled/calculator.js?v=e65f599b13"></script>
+  <script src="compiled/fenton.js?v=a2d86c5d15"></script>
   <script src="compiled/registry.js?v=d3f6da0325"></script>
   <script src="compiled/log.js?v=dfd0cae3e3"></script>
-  <script src="compiled/app.js?v=257f756905"></script>
+  <script src="compiled/app.js?v=bf8651c6ce"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

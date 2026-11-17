@@ -5,10 +5,11 @@ function Segmented({ value, onChange, options }) {
     (o) => /* @__PURE__ */ React.createElement("button", { key: o.value, className: value === o.value ? "on" : "", onClick: () => onChange(o.value) }, o.label)
   ));
 }
-function FentonChart({ patient, entries, currentDol, onUpdate }) {
+function FentonChart({ patient, entries, currentDol, onUpdate, printMetric, onPrint }) {
   const sex = patient?.sex;
-  const sexValid = !!(sex && D_F.FENTON_WEIGHT[sex] && D_F.FENTON_LENGTH[sex] && D_F.FENTON_HC[sex]);
-  const [metric, setMetric] = React.useState("weight");
+  const sexValid = !!(sex && D_F.FENTON_WEIGHT[sex] && D_F.FENTON_LENGTH_GROWTH_LMS[sex] && D_F.FENTON_HC_GROWTH_LMS[sex]);
+  const [metricState, setMetric] = React.useState("weight");
+  const metric = printMetric || metricState;
   const [view, setView] = React.useState(null);
   const dragRef = React.useRef(null);
   const svgWrapRef = React.useRef(null);
@@ -37,8 +38,8 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   }
   const GA_MAX = 42;
   const REF_AGE_OFFSET = 0.5;
-  const table = metric === "weight" ? D_F.FENTON_WEIGHT[sex] : metric === "length" ? D_F.FENTON_LENGTH[sex] : D_F.FENTON_HC[sex];
-  const birthDataset = (() => {
+  const table = metric === "weight" ? D_F.FENTON_WEIGHT[sex] : [];
+  const sizeAtBirthRows = (() => {
     const rows = table.map((r) => [r[0] + REF_AGE_OFFSET, ...r.slice(1)]);
     const inside = rows.filter((r) => r[0] <= GA_MAX);
     const last = inside[inside.length - 1];
@@ -47,7 +48,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
     const f = (GA_MAX - last[0]) / (next[0] - last[0]);
     return [...inside, [GA_MAX, ...last.slice(1).map((v, i) => v + f * (next[i + 1] - v))]];
   })();
-  const growthLms = metric === "weight" ? D_F.FENTON_WEIGHT_GROWTH_LMS?.[sex] : null;
+  const growthLms = (metric === "weight" ? D_F.FENTON_WEIGHT_GROWTH_LMS?.[sex] : metric === "length" ? D_F.FENTON_LENGTH_GROWTH_LMS?.[sex] : D_F.FENTON_HC_GROWTH_LMS?.[sex]) || null;
   const lmsStart = growthLms ? growthLms[0][0] : Infinity;
   const lmsAt = (t) => {
     if (!growthLms || t < lmsStart || t > growthLms[growthLms.length - 1][0]) return null;
@@ -60,9 +61,29 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const lmsValue = ([L, M, S], z) => Math.abs(L) < 1e-6 ? M * Math.exp(S * z) : M * Math.pow(1 + L * S * z, 1 / L);
   const CENTILE_Z = [-1.88079, -1.28155, 0, 1.28155, 1.88079];
   const monitorDataset = growthLms ? [
-    ...birthDataset.filter((r) => r[0] < lmsStart),
+    ...sizeAtBirthRows.filter((r) => r[0] < lmsStart),
     ...growthLms.filter((r) => r[0] <= GA_MAX).map(([t, ...lms]) => [t, ...CENTILE_Z.map((z) => lmsValue(lms, z))])
-  ] : birthDataset;
+  ] : sizeAtBirthRows;
+  const birthLms = (metric === "length" ? D_F.FENTON_LENGTH_BIRTH_LMS?.[sex] : metric === "hc" ? D_F.FENTON_HC_BIRTH_LMS?.[sex] : null) || null;
+  const birthLmsStart = birthLms ? birthLms[0][0] : Infinity;
+  const birthLmsAt = (t) => {
+    if (!birthLms || t < birthLmsStart || t > GA_MAX) return null;
+    const last = birthLms[birthLms.length - 1];
+    if (t >= last[0]) return last.slice(1);
+    const i = Math.max(0, birthLms.findIndex((r) => r[0] >= t) - 1);
+    const lo = birthLms[i], hi = birthLms[i + 1];
+    const f = (t - lo[0]) / (hi[0] - lo[0]);
+    return [1, 2, 3].map((j) => lo[j] + f * (hi[j] - lo[j]));
+  };
+  const birthDataset = metric === "weight" ? sizeAtBirthRows : !birthLms ? monitorDataset : (() => {
+    const rows = birthLms.map(([t, ...lms]) => [t, ...CENTILE_Z.map((z) => lmsValue(lms, z))]);
+    const last = rows[rows.length - 1];
+    return [
+      ...monitorDataset.filter((r) => r[0] < birthLmsStart),
+      ...rows,
+      ...last[0] < GA_MAX ? [[GA_MAX, ...last.slice(1)]] : []
+    ];
+  })();
   const xMin = 22, xMax = GA_MAX;
   const pma0 = D_F.gaToDecimalWeeks(patient?.ga || 28);
   const allPoints = (() => {
@@ -90,7 +111,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const yMin = 0;
   const yMax = Math.max(...yVals) * 1.05;
   const W = 760, H = 460;
-  const chartScale = Math.min(1, Math.max(renderedWidth / W, 0.35));
+  const chartScale = printMetric ? 1 : Math.min(1, Math.max(renderedWidth / W, 0.35));
   const px = (v) => v / chartScale;
   const pad = { l: px(64), r: px(42), t: px(24), b: px(44) };
   const xScale = (x) => pad.l + (x - xMin) / (xMax - xMin) * (W - pad.l - pad.r);
@@ -181,8 +202,9 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
   const currentPercentile = (() => {
     if (points.length === 0) return null;
     const last = points[points.length - 1];
-    const lms = last.dol !== 1 ? lmsAt(last.pma) : null;
+    const lms = last.dol !== 1 ? lmsAt(last.pma) : metric === "weight" ? null : birthLmsAt(last.pma) || lmsAt(last.pma);
     if (lms) return centileOfZ(lmsZ(lms, last.value));
+    if (metric !== "weight") return null;
     const vals = rowAt(dataset, last.pma);
     return vals ? centileAmong(vals, last.value) : null;
   })();
@@ -202,11 +224,11 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
     }
     return ys;
   })();
-  return /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h fenton-card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "chart", size: 14, color: "var(--brand)" }), "Fenton 2025 growth chart · ", /* @__PURE__ */ React.createElement("span", { className: "mono" }, sex === "boys" ? "Male" : "Female"), /* @__PURE__ */ React.createElement("span", { className: "h-meta fenton-ctrl", style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(Segmented, { value: metric, onChange: setMetric, options: [
+  return /* @__PURE__ */ React.createElement("div", { className: printMetric ? "growth-print-chart" : "card", "data-metric": metric }, /* @__PURE__ */ React.createElement("div", { className: "card-h fenton-card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "chart", size: 14, color: "var(--brand)" }), "Fenton 2025 growth chart · ", /* @__PURE__ */ React.createElement("span", { className: "mono" }, sex === "boys" ? "Male" : "Female"), printMetric && /* @__PURE__ */ React.createElement("span", null, " · ", yLabel), /* @__PURE__ */ React.createElement("span", { className: "h-meta fenton-ctrl", style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(Segmented, { value: metric, onChange: setMetric, options: [
     { value: "weight", label: "Weight" },
     { value: "length", label: "Length" },
     { value: "hc", label: "HC" }
-  ] }))), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, hiddenPastMax > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+  ] }), onPrint && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm fenton-print-btn", onClick: onPrint }, "พิมพ์กราฟ"))), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, hiddenPastMax > 0 && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 12px",
     background: "var(--warn-bg)",
     border: "1px solid var(--warn-line)",
@@ -217,18 +239,7 @@ function FentonChart({ patient, entries, currentDol, onUpdate }) {
     display: "flex",
     alignItems: "center",
     gap: 8
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--warn)" }), /* @__PURE__ */ React.createElement("span", null, "มีค่าที่วัดหลัง PMA ", GA_MAX, " สัปดาห์ ", /* @__PURE__ */ React.createElement("strong", null, hiddenPastMax), " ค่า ไม่ได้แสดงบนกราฟ — Fenton 2025 มีข้อมูลอ้างอิงถึง ", GA_MAX, " สัปดาห์เท่านั้น")), metric !== "weight" && /* @__PURE__ */ React.createElement("div", { role: "note", style: {
-    padding: "10px 12px",
-    background: "var(--warn-bg)",
-    border: "1px solid var(--warn-line)",
-    borderRadius: 8,
-    marginBottom: 10,
-    fontSize: 12.5,
-    color: "var(--warn-ink)",
-    lineHeight: 1.5,
-    display: "flex",
-    gap: 8
-  } }, /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, marginTop: 2 } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--warn)" })), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, "เส้น ", metric === "length" ? "Length" : "HC", " ยังไม่ได้ตรวจเทียบกับตัวเลขต้นฉบับ"), /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontSize: 12 } }, "Fenton 2025 เผยแพร่ length และ HC เป็นกราฟเท่านั้น เส้นในแอปมีจุดทุก 4 สัปดาห์ เลยอ่าน percentile ได้แค่คร่าว ๆ", metric === "length" && " ช่วงใกล้ 42 สัปดาห์ เส้นนี้สูงกว่ากราฟต้นฉบับ ทารกเลยดูตัวสั้นกว่าจริง"))), /* @__PURE__ */ React.createElement("div", { className: "fenton-grid", style: { display: "grid", gridTemplateColumns: "1fr 200px", gap: 18 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: () => {
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--warn)" }), /* @__PURE__ */ React.createElement("span", null, "มีค่าที่วัดหลัง PMA ", GA_MAX, " สัปดาห์ ", /* @__PURE__ */ React.createElement("strong", null, hiddenPastMax), " ค่า ไม่ได้แสดงบนกราฟ — Fenton 2025 มีข้อมูลอ้างอิงถึง ", GA_MAX, " สัปดาห์เท่านั้น")), /* @__PURE__ */ React.createElement("div", { className: "fenton-grid", style: { display: "grid", gridTemplateColumns: "1fr 200px", gap: 18 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fenton-zoom", style: { display: "flex", justifyContent: "flex-end", gap: 4, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: () => {
     const v = view || { x: 0, y: 0, w: W, h: H };
     const cx = v.x + v.w / 2, cy = v.y + v.h / 2;
     const nw = v.w * 0.75, nh = v.h * 0.75;
@@ -429,4 +440,21 @@ function MeasurementLogger({ patient, currentDol, onUpdate }) {
     /* @__PURE__ */ React.createElement("span", null, x.hc ? x.hc + "cm" : "—")
   )))));
 }
+function GrowthPrintSheet({ patient, entries, currentDol }) {
+  if (!patient) return null;
+  const sexOk = !!(patient.sex && D_F.FENTON_WEIGHT[patient.sex]);
+  const cell = { padding: "1px 4px 1px 0", verticalAlign: "top" };
+  const idBlock = () => /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", borderBottom: "2px solid #000", paddingBottom: 4, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 13 } }, "GROWTH CHART · FENTON 2025"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11 } }, "Weight, length and head circumference by post-menstrual age")), /* @__PURE__ */ React.createElement("table", { className: "growth-print-id", style: { width: "100%", borderCollapse: "collapse", marginBottom: 6, fontSize: 10.5 } }, /* @__PURE__ */ React.createElement("tbody", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { style: { ...cell, width: "45%" } }, "ชื่อ: ", /* @__PURE__ */ React.createElement("strong", null, D_F.patientName(patient) || "—"), patient.twinSuffix && /* @__PURE__ */ React.createElement("strong", null, " (Twin ", patient.twinSuffix, ")")), /* @__PURE__ */ React.createElement("td", { style: { ...cell, width: "30%" } }, "NeoFeed ID: ", /* @__PURE__ */ React.createElement("strong", null, patient.sessionId || "—")), /* @__PURE__ */ React.createElement("td", { style: cell }, "วันที่พิมพ์: ", /* @__PURE__ */ React.createElement("strong", null, D_F.todayLocal()))), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { style: cell }, "HN: ______________________"), /* @__PURE__ */ React.createElement("td", { style: cell, colSpan: 2 }, "AN: ______________________ ", /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, color: "#555" } }, "(เขียน/ติดสติกเกอร์ — ตรวจตัวตนกับแฟ้มผู้ป่วย)"))), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { style: cell }, "อายุ: DOL ", /* @__PURE__ */ React.createElement("strong", null, currentDol || "—"), "   ตึก: ", /* @__PURE__ */ React.createElement("strong", null, patient.currentBed || "—")), /* @__PURE__ */ React.createElement("td", { style: cell, colSpan: 2 }, "GA แรกเกิด: ", /* @__PURE__ */ React.createElement("strong", null, D_F.fmtGA(patient.ga)), "   เพศ: ", /* @__PURE__ */ React.createElement("strong", null, patient.sex === "boys" ? "Male" : patient.sex === "girls" ? "Female" : "—"), "   น้ำหนักแรกเกิด: ", /* @__PURE__ */ React.createElement("strong", null, !String(patient.bw == null ? "" : patient.bw).trim() || Number(patient.bw) === 0 ? "—" : Number.isFinite(Number(patient.bw)) ? `${D_F.displayNum(patient.bw, 0)} g` : String(patient.bw)))))));
+  const foot = /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "#555", marginTop: 4 } }, "NeoFeed · Fenton TR et al. 2025 (PMID 40534585) · เส้น length และ HC คำนวณจาก fentongrowth.ca");
+  return /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      className: "growth-print",
+      "data-session-id": patient.sessionId || "",
+      style: { fontFamily: "'IBM Plex Sans','Sarabun',serif", fontSize: 10.5, color: "#000" }
+    },
+    sexOk ? ["weight", "length", "hc"].map((m) => /* @__PURE__ */ React.createElement("div", { key: m, className: "growth-print-page", "data-metric": m }, idBlock(), /* @__PURE__ */ React.createElement(FentonChart, { patient, entries, currentDol, printMetric: m }), foot)) : /* @__PURE__ */ React.createElement("div", { className: "growth-print-page" }, idBlock(), /* @__PURE__ */ React.createElement("div", null, "เพศในทะเบียนไม่ถูกต้อง จึงพิมพ์กราฟ Fenton ไม่ได้ แก้ที่ Edit session"))
+  );
+}
 window.FentonChart = FentonChart;
+window.GrowthPrintSheet = GrowthPrintSheet;

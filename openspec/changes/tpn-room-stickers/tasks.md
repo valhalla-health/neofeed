@@ -7,6 +7,8 @@
       browser and restarting the PC; whether the page installs as an app.
       **Pp, 2026-11-05: build first, spike after, and no release until it passes.** The test page is
       `tpn-room-check.html`. It has no patient data and calls no server.
+      **Pp, 2026-11-16:** the release that takes the trial mark off (the unit's lines, 0.3 i) does not wait for 0.1
+      or 0.2 ("release ได้เลย"), though from then on the names in the room's file go onto real bags. Both stay open.
 - [ ] 0.2 Ask IT whether that PC runs Deep Freeze or a similar restore, or clears browser data on exit, and
       which local folder is neither restored nor synced. Put the new store of names in the planned change
       request so the DPO can add it to the record of processing.
@@ -29,6 +31,7 @@
          **Not answered as written.** The list the unit saw asked instead where the sodium error it once
          mentioned was, and whether Excel had been fixed. Reply: "เดิมคำนวณถูกแล้ว", so there was no error.
          **Whether Excel counts Glycophos and Na acetate sodium was not asked, and stays open.**
+         **Answered 2026-11-16: count it** ("osmol คิด Na จาก glycophos + sodium acetate ด้วย"), as NeoFeed does.
       Format and practice:
       f. The sample's decimals are the rule for every sticker, printed without trailing zeros (`3`, not
          `3.0`). Dextrose keeps what was typed (`12.25`), as on the doctor's sheet.
@@ -42,7 +45,12 @@
          **Answered: bw is the weight the calculation used. วันที่ผลิต is the day the TPN is prepared**
          ("วันที่เตรียม TPN"), not the day the sticker prints. See 2.6.
       i. The printer model, whether the A4 sheet is cut by hand, and the PN label's fixed lines (heading,
-         storage line, extension). **The reply left this blank.**
+         storage line, extension). **The reply left this blank.** **Answered 2026-11-16, through Pp:** the heading
+         "Parenteral nutrition กลุ่มงานเภสัชกรรม โรงพยาบาลจุฬาลงกรณ์", the storage line "เก็บในตู้เย็นได้ 7 วัน, ถ้าใส่วิตามินแล้วจะเก็บ
+         1 วัน", the extension 73602, and the sizes: the worksheet 15 × 8.5 cm with each figure beside its name, the PN
+         label 20 × 8 cm (Base rescaled the trial sheet to show it). In `PN_FIXED` (after NeoFeed's own "วิธีเก็บ: " and
+         "เบอร์ต่อหน่วย TPN: ", as `PN_TRIAL` had them) and `tpn-room.css`. The printer model
+         was not given.
       j. Twins share BW and DOL: print the twin letter (A, B) on all three stickers, or does the name the
          room maps already carry it?
       k. An order written in the evening for the next bag carries that day's date in NeoFeed (the ward app
@@ -53,6 +61,9 @@
       m. Acetate on the PN label is the Na acetate ordered. It leaves out Aminoven Infant's lysine acetate, as
          the sample does. Is that right?
       j, k, l and m were not on the list the unit answered.
+      **2026-11-16:** j answered, twins carry the ward's usual sticker ("แฝดติด sticker ตามปกติ"), so no letter is added;
+      m answered, Aminoven Infant's acetate is not counted ("ไม่นับ acetate ใน aminoven infant"). k and l stay open.
+      The same note: Soluvit and Peditrace take decimals, "max 10 mL/day"; Pp kept Peditrace's 15 mL from its leaflet.
       Still to tell them: Soluvit and Peditrace are × Factor on the worksheet (2.5 mL where their Excel gives
       2.2), and Mg on the label is in mg.
 
@@ -104,7 +115,11 @@ Built 2026-11-05 on branch `claude/tpn-room-page`, ahead of 0.1 and 0.3 i on Pp'
       other dates stay the order's date until 0.3 k is answered. **Still to do, Pp:** check the PDF against a
       real sheet, since the layout follows the design's table and the sample photo was not opened. **Blocked on
       0.3 i:** the PN label's heading, storage line and extension are blank in `tpn-room-core.js`, and the page
-      refuses to print until all three are filled in (design D18).
+      refuses to print until all three are filled in (design D18). **Pp, 2026-11-16:** the room wants to see a print
+      first, so until then the whole sheet prints as a trial ("ทดลองพิมพ์ ห้ามใช้จริง" on each part, placeholders in
+      the PN label's blank lines). 0.3 i is still open: the mark goes only when all three are filled in.
+      **Later on 2026-11-16** the unit gave the three lines and the sizes (0.3 i), and the mark goes in that PR, after Pp
+      checks its PDF against the room's sticker paper.
 - [x] 2.7 The sentinel-name test: no request URL, header or body contains the mapped name.
 - [x] 2.8 Vera's report in the PR (#219); `CHANGELOG.md`; `STATUS.md`. Run 2026-11-05: NO BLOCK, findings 1–4 fixed
       with tests, 5 is the retention question below.

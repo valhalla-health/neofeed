@@ -15,8 +15,12 @@
 //     Ca gluconate, Soluvit N, Peditrace, heparin; lipid and Vitalipid are a
 //     separate syringe and are not in this table) plus the printed WFI q.s. and
 //     the printed prepared volume. Asserted:
-//       a. Σ(printed stock mL) + printed WFI = printed prepared, within TOL
-//       b. printed Components + printed WFI = printed prepared, exactly
+//       a. Σ(printed stock mL) + printed WFI = printed prepared, within the
+//          WFI's rounding (more than −0.5, at most +0.5 mL) and TOL
+//       b. the printed WFI is whole mL, printed prepared − printed Components
+//          rounded half up (2026-11-16: "SWI ขอไม่มีทศนิยม"; until then
+//          Components + WFI = prepared exactly), so the line reads "→", and
+//          Components + WFI is the prepared volume to within that rounding
 //       c. Σ(printed stock mL) = printed Components and on-screen Components,
 //          within TOL; on-screen Components and Bag total (prepared) equal the
 //          printed ones
@@ -29,9 +33,10 @@
 // 1b · THE QUICK CALC'S COPY. The same order is typed into the quick calc, the
 //     one place NeoFeed still copies from (Pp: "test quick calc copies text"),
 //     and its Copy's BAG MAKE-UP line must carry the quick calc's own on-screen
-//     Components and Bag total, close exactly (components + WFI = prepared),
-//     and say COMPONENTS EXCEED BAG VOLUME exactly when the screen says the bag
-//     cannot be compounded.
+//     Components and Bag total, carry the WFI the rule gives (whole mL from
+//     prepared − components since 2026-11-16, the exact shortfall when below
+//     0; it closed exactly before), and say COMPONENTS EXCEED BAG VOLUME
+//     exactly when the screen says the bag cannot be compounded.
 //
 // THE TOLERANCE, from the app's rounding chain (calculator.jsx, solVol and the
 // bag make-up block):
@@ -48,12 +53,20 @@
 //   TOL = 0.05 mL (+1e-9 for float noise) when any printed part has a non-zero
 //   hundredths digit; 0 (+1e-9) when every part is a whole tenth, since then
 //   S = C. Check (b) is exact (1e-9). Nothing looser is justified.
+//   Since 2026-11-16 (Pp, for the TPN unit): D50W on a bag with dead space,
+//   the amino acid and the WFI are whole mL, half up; every other part keeps
+//   one decimal. W = P − C rounded to the whole mL when P − C ≥ 0 (the exact
+//   shortfall when below: refused), so C + W − P lies in (−0.5, +0.5]. Check (b)
+//   is that rounding, exactly (wholeWfi, in tenths), and (a) is |S + W − P|
+//   inside the same half mL, plus TOL. Still nothing looser.
 //
 // 2 · WIRED-IN CHECK. After the first save each order changes one input the
 //     way a person does — a click on a dead-space preset chip, or a new TPN
 //     volume typed a character at a time — and the harness asserts that the
-//     on-screen Bag total (prepared) moves to the new delivered + dead volume
-//     (input arithmetic, not the app's formula), that Components moves when it
+//     on-screen Bag total (prepared) moves to the new delivered + dead volume,
+//     rounded up to the next 10 mL above it when there is dead space (input
+//     arithmetic from the 2026-11-16 rule, preparedOf, not the app's formula;
+//     the chip picked is one that moves the bag), that Components moves when it
 //     must (a dead-space change on a bag with dextrose), that the stale print
 //     form is withdrawn while unsaved, and that after the second save the
 //     reprinted form carries the new figures and its parts still add up.
@@ -83,12 +96,27 @@
 //     A feeds-only order without its feeds is an empty day, which cannot be
 //     submitted; its row is then all zeros.
 //
+// 4 · ONE FIGURE, ONE NUMBER (BACKLOG: osmolarity, energy, Ca and P .5 ties;
+//     2026-11-15). Four orders whose figure is a half on paper and a float
+//     just under it in JS: osmolarity 899.5 on a peripheral line (computed
+//     899.4999999999999), energy 43.5 kcal/kg/d, P 15.5 mg/kg/d and a bag's
+//     Ca gluconate 76.5 mg. Each must read the same whole number, rounded half
+//     up from the paper figure, everywhere it is shown: the tile, Step 3's
+//     chip, the alert line, the energy card, the printed sheet (front and back),
+//     the front's saved printedFigures and the TPN room's sticker figures. Two
+//     more (Vera) put oral vitamin D (502.5 IU/day) and oral Ca (56.5 mg/day) on
+//     a tie: Step 6, the front sheet and the saved suppVitD_IU / suppCa_mg.
+//     toFixed(0) and Math.round read the float, so before this check the alert
+//     said "899 mOsm/L" beside a red 900 tile. The wanted figures are the
+//     paper arithmetic, written into each order, not the app's formula.
+//
 // Orders: the oracle's 12 scenarios (copied, not imported), eight written for
 // this check — a 900 g infant on day 3 of TPN, a term infant, a bag a few mL
 // short of its prepared volume, one that overflows it, K₂HPO₄ and MgSO₄ under
 // 0.05 mL (0 mL, so not orderable since 2026-10-27), hundredths that carry across the sum, a prepared volume with a
-// second decimal (typed 80.45 mL), and components that fill such a bag
-// exactly (WFI 0, no over-full alert) — and SUM_N seeded random orders (default 40,
+// second decimal (130.45 mL with no dead space since 2026-11-16; it was
+// 80.45 + 50), components that fill such a bag exactly (WFI 0, no over-full
+// alert), and a bag 0.3 mL short whose whole-mL WFI is 0 (S10) — and SUM_N seeded random orders (default 40,
 // seed SUM_SEED 20261011; the seed and the whole order print with a failure).
 // Then 3's three two-feed orders: 6 + 2 beside a bag, 4 + 4 feeds only, and
 // 5 + 3 on a peripheral line.
@@ -103,6 +131,8 @@
 //   5  both feeds costed as feed 1's milk
 //   6  enVol2 dropped from the feeds' useMemo dependencies, so feed 2's
 //      volume typed changes the input but not the figures on screen
+//   7  the peripheral osmolarity alert back on toFixed(0) (899 beside a red 900)
+//   8  the printed sheet's f0 back on Math.round (Ca gluconate 76 mg, not 77)
 // The patched text is transformed under another file name, so the compiled
 // loader cannot swap compiled/calculator.js in for it (and says nothing was
 // swapped for calculator).
@@ -164,8 +194,8 @@ const PATCHES = {
   1: ['soluvitVol + peditrace_vol + solVol.znso4 + solVol.heparin\n',
       'soluvitVol + peditrace_vol + solVol.znso4\n',
       'heparin dropped from componentVol'],
-  2: ['const wfiVol = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));',
-      'const wfiVol = parseFloat((Number(D.displayNum(totalTPN_mL, 1)) - componentVol).toFixed(1));',
+  2: ['const wfiExact = parseFloat((Number(D.displayNum(preparedVol, 1)) - componentVol).toFixed(1));',
+      'const wfiExact = parseFloat((Number(D.displayNum(totalTPN_mL, 1)) - componentVol).toFixed(1));',
       'WFI from the delivered volume, not the prepared one'],
   3: ['totalTPN_mL, deadVol_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,',
       'totalTPN_mL, dexPct, aaPerKg, aaStockKey, lipidPerKg,',
@@ -179,6 +209,12 @@ const PATCHES = {
   6: ['], [enType, enVol, enFreq, enType2, enVol2, enFreq2, !centerPoint]);',
       '], [enType, enVol, enFreq, enType2, enFreq2, !centerPoint]);',
       'enVol2 dropped from the feeds\' useMemo dependencies'],
+  7: ['body: `${fmt(calc.osm, 0)} mOsm/L — a peripheral',
+      'body: `${calc.osm.toFixed(0)} mOsm/L — a peripheral',
+      'the peripheral osmolarity alert reads the float with toFixed(0)'],
+  8: ['const f0 = (n)      => f(n, 0);',
+      'const f0 = (n)      => (isFinite(n) && n > 0) ? Math.round(n).toString() : "—";',
+      'the printed sheet\'s whole numbers from Math.round'],
 };
 const transform = (code, filename) => babel.transformSync(code, {
   presets: [[require('@babel/preset-react'), { runtime: 'classic' }]], filename, configFile: false, babelrc: false }).code;
@@ -238,8 +274,11 @@ const OWN = [
   { name: 'S2 term infant 3.4 kg, central, every bag stock', bw: 3400, cur: 3350, dol: 5, fluid: 100, ioOut: 120,
     tpn: 300, dead: 50, dex: 12.5, aa: 3, lip: 3, naCl: 2, naAc: 1, glyNa: 2, kCl: 1.5, k2: 0.5, mg: 0.4, ca: 60, hep: 1,
     weights: [{ dol: 1, w: 3400 }] },
-  { name: 'S3 near the bag volume limit (WFI under 1 mL)', bw: 1000, cur: 1000, dol: 8, fluid: 150, ioOut: 50,
-    tpn: 50, dead: 0, dex: 20, aa: 2.3, naCl: 3, kCl: 2, ca: 20, hep: 0.6, weights: [{ dol: 1, w: 1000 }] },
+  // S3 leaves 0.6 mL, which prints as 1 mL of WFI since 2026-11-16 (49.4 + 1 → 50,
+  // 0.4 mL over, inside the half mL the whole-mL WFI allows). S10 below leaves 0.3.
+  { name: 'S3 near the bag volume limit (0.6 mL left, WFI 1 mL)', bw: 1000, cur: 1000, dol: 8, fluid: 150, ioOut: 50,
+    tpn: 50, dead: 0, dex: 20, aa: 2.3, naCl: 3, kCl: 2, ca: 20, hep: 0.6, weights: [{ dol: 1, w: 1000 }],
+    expectMake: { components: 49.4, wfi: 1, prepared: 50 } },
   { name: 'S4 over the bag volume limit (cannot be compounded)', bw: 1000, cur: 1000, dol: 8, fluid: 150, ioOut: 50,
     tpn: 50, dead: 0, dex: 20, aa: 2.6, naCl: 3, kCl: 2, ca: 20, hep: 0.6, weights: [{ dol: 1, w: 1000 }], overflow: true },
   // S5 printed K₂HPO₄ and MgSO₄ as 0.01 mL until 2026-10-27; at one decimal
@@ -252,14 +291,28 @@ const OWN = [
   // prepared printed "87.5 + WFI 42.9 = 130.5": displayNum rounded the tie up and toFixed
   // rounded 42.94999… down. WFI now comes from the printed prepared volume (87.5 + 43 = 130.5).
   // CHANGELOG.md, 2026-10-11 (8). Do not loosen the tolerance to make it pass.
-  { name: 'S7 prepared volume with a second decimal (80.45 + 50 mL)', bw: 1000, cur: 1000, dol: 10, fluid: 150, ioOut: 50,
-    tpn: 80.45, dead: 50, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 40, hep: 0.5, weights: [{ dol: 1, w: 1000 }] },
+  // Until 2026-11-16 S7 was 80.45 + 50 mL. A bag with dead space is now prepared
+  // at a multiple of 10 mL, so a second decimal comes only with no dead space:
+  // 130.45 mL delivered is the bag. Ca 37 mg/kg makes the components 64.0 mL
+  // (D50W 26.1, amino acid 30, NaCl 0.6, KCl 0.5, Ca 4.1, heparin 0.7, Soluvit
+  // and Peditrace 1 each), so the printed 130.5 leaves 66.5 → 67 mL of whole-mL
+  // WFI, where the unrounded 130.45 would leave 66.45 → 66.
+  { name: 'S7 prepared volume with a second decimal (130.45 mL, no dead space)', bw: 1000, cur: 1000, dol: 10, fluid: 150, ioOut: 50,
+    tpn: 130.45, dead: 0, dex: 10, aa: 3, naCl: 2, kCl: 1, ca: 37, hep: 0.5, weights: [{ dol: 1, w: 1000 }],
+    expectMake: { components: 64, wfi: 67, prepared: 130.5 } },
   // S8: the over-full alert at the same tie (Vera, NF-17 review). 130.45 mL prepared prints 130.5;
   // the components (130.48 → 130.5) fill it exactly. WFI is 0 and no alert fires. Before the fix the
   // WFI was 130.45 − 130.5 → −0.1 and the bag was called over-full by 0.1 mL.
   { name: 'S8 components fill the printed bag exactly at the tie (WFI 0)', bw: 2000, cur: 2000, dol: 10, fluid: 120,
     ioOut: 80, tpn: 130.45, dead: 0, dex: 20, aa: 3.5, naCl: 2, kCl: 1, ca: 6, hep: 0.6, weights: [{ dol: 1, w: 2000 }],
     expectMake: { components: 130.5, wfi: 0, prepared: 130.5 } },
+  // S8 still sits on its tie after 2026-11-16: a bag with no dead space keeps
+  // D50W at one decimal (52.2), so the components are 130.5 and the WFI 0.
+  // S10 (2026-11-16): S3 with Ca 22.5 mg/kg (2.5 mL) leaves 0.3 mL, which whole-
+  // mL WFI prints as 0 (49.7 + 0 → 50). It is not over-full and must still order.
+  { name: 'S10 0.3 mL left: whole-mL WFI 0, still orderable', bw: 1000, cur: 1000, dol: 8, fluid: 150, ioOut: 50,
+    tpn: 50, dead: 0, dex: 20, aa: 2.3, naCl: 3, kCl: 2, ca: 22.5, hep: 0.6, weights: [{ dol: 1, w: 1000 }],
+    expectMake: { components: 49.7, wfi: 0, prepared: 50 } },
   // S9: Glycophos typed by P (Pp, 2026-11-06). 20 mg P/kg is 20/31 mL/kg, a dose
   // with no end to its decimals: the printed bag must still add up. glyNa is the
   // same dose in mEq Na, for stocksAtZero and expectedLines.
@@ -370,7 +423,13 @@ const screenFigures = () => ({
   overGiven: grabT(/· 24 ชม\. ได้ ([\d.]+) mL เกิน/),
   pumpRate: (() => { const v = [...container.querySelectorAll('.field')].find(d => d.querySelector('label')?.textContent.startsWith('Rate'))?.querySelector('input')?.value; return v ? Number(v) : null; })(),
   cannotOnScreen: /cannot be compounded/.test(bodyText()),
+  // The Osmolarity tile's value, as the doctor reads it (2026-11-15: the front sheet prints it too).
+  osm: (() => { const m = [...container.querySelectorAll('.metric')].find(d => d.querySelector('.lbl')?.textContent.trim() === 'Osmolarity'); return m ? numOrDash(m.querySelector('.val')?.firstChild?.textContent) : null; })(),
 });
+// The front sheet's small "Bag osm N mOsm/L" on the Total Volume line (null when it is not printed).
+// The front sheet's heparin line: its mL (null when it prints "—" or is missing). Ward, 2026-11-16.
+const printedFrontHeparinMl = () => { const t = __printFormTicked(container)?.querySelector('.print-heparin')?.textContent.replace(/\s+/g, ' '); const m = t && t.match(/unit\/mL ?(-?[\d.]+) mL/); return m ? Number(m[1]) : null; };
+const printedOsm = () => { const t = __printFormTicked(container)?.querySelector('.print-osm')?.textContent; const m = t && t.match(/Bag osm (-?[\d.]+) mOsm\/L/); return m ? Number(m[1]) : null; };
 
 // The pharmacy back page's "Aqueous bag — stock" table, line by line.
 function readPrintBag() {
@@ -389,7 +448,9 @@ function readPrintBag() {
       parts.push({ name, ml: numOrDash(strong.textContent), text: strong.textContent.trim() });
     } else if (/^Water for injection q\.s\./.test(name || '')) {
       const t = tds[1].textContent.replace(/\s+/g, ' ');
-      const m = t.match(/Components (-?[\d.]+|—) mL \+ WFI (-?[\d.]+|—) mL = (-?[\d.]+|—) mL prepared/);
+      // "→", not "=", since 2026-11-16: with a whole-mL WFI the two sides are
+      // equal only to within half a mL.
+      const m = t.match(/Components (-?[\d.]+|—) mL \+ WFI (-?[\d.]+|—) mL → (-?[\d.]+|—) mL prepared/);
       make = m ? { components: numOrDash(m[1]), wfi: numOrDash(m[2]), prepared: numOrDash(m[3]), overflowNote: /เกินปริมาตรถุง/.test(t) } : { error: t };
     }
   }
@@ -411,9 +472,27 @@ const r1 = (x) => Math.round(x * 10) / 10;
 // strengths, not read off the app. Dextrose, amino acid, Soluvit and
 // Peditrace cannot get there at the doses these orders use.
 const rMl = (x) => Math.round(+(x * 10).toPrecision(12)) / 10;
+// The prepared volume, restated from the rule (Pp, 2026-11-16), not read off
+// the app: with a dead space, delivered + dead rounded UP to the next 10 mL
+// strictly above the sum (48 + 30 = 78 → 80, 110 + 30 = 140 → 150); with none,
+// the delivered volume as it is; no volume, no bag.
+function preparedOf(Vd, dead) {
+  if (!(Vd > 0)) return 0;
+  if (!(dead > 0)) return Vd;
+  const sum = Math.round((Vd + dead) * 100) / 100;
+  return (Math.floor(sum / 10) + 1) * 10;
+}
+// The WFI as printed since 2026-11-16: what the printed prepared volume P leaves
+// after the printed Components C, in whole mL, half up, from a non-negative
+// remainder (an over-full bag is not printed). Worked in tenths so 50 − 49.4
+// is 6 tenths, not 0.6000000000000014.
+function wholeWfi(P, C) {
+  const tenths = Math.round(P * 10) - Math.round(C * 10);
+  return tenths < 0 ? tenths / 10 : Math.floor((tenths + 5) / 10);
+}
 function stocksAtZero(sc, dosingG, Vd, dead) {
   if (!(Vd > 0)) return [];
-  const S = window.NEOFEED_DATA.KCMH_STOCK, Vp = Vd + dead, F = dosingG / 1000 * Vp / Vd;
+  const S = window.NEOFEED_DATA.KCMH_STOCK, Vp = preparedOf(Vd, dead), F = dosingG / 1000 * Vp / Vd;
   return [['naCl', S.naCl.naMeqPerMl], ['naAc', S.naAcetate.naMeqPerMl], ['glyNa', S.glycophos.naMeqPerMl],
     ['kCl', S.kCl.kMeqPerMl], ['k2', S.k2hpo4.kMeqPerMl], ['mg', S.mgso4_10.mgMeqPerMl], ['ca', S.caGluconate.caMgPerMl],
     ['zn', S.znso4.znMgPerMl]].filter(([k, perMl]) => sc[k] > 0 && rMl(sc[k] * F / perMl) === 0).map(([k]) => k)
@@ -462,6 +541,8 @@ async function fill(sc, scratch = false) {
   setCheck('Peditrace', sc.pedi);
   setField('ZnSO₄', sc.zn);
   setField('Heparin(U/mL)', sc.hep);
+  if (sc.vitD) setField('Vitamin D', sc.vitD);          // Step 6 (§ 4's tie orders only)
+  if (sc.oralCa) setField('ปริมาณ elem Ca', sc.oralCa);
   // An order with no bag and no lipid is submitted with "No TPN" ticked
   // (CR-NO-TPN-TICK, Pp 2026-11-01). It holds nothing to clear here.
   if (!['tpn', 'useRate', 'dex', 'aa', 'lip', 'naCl', 'naAc', 'glyNa', 'kCl', 'k2', 'mg', 'ca', 'zn'].some(k => sc[k] > 0)) setCheck('No TPN', true);
@@ -507,14 +588,31 @@ function sumCheck(sc, label, Vd) {
     return null;
   }
   ok(sc, `${label}: no "cannot be compounded" on a bag with WFI ≥ 0`, !scr.cannotOnScreen && !make.overflowNote, detail);
-  ok(sc, `${label}: Σ(printed stock mL) + printed WFI = printed prepared (±${TOL > EPS ? '0.05' : '0'})`,
-    Math.abs(sr + make.wfi - make.prepared) <= TOL, detail);
-  ok(sc, `${label}: printed Components + WFI = prepared, exactly`, Math.abs(make.components + make.wfi - make.prepared) <= EPS, detail);
+  // Since 2026-11-16 the WFI is whole mL, half up, so Components + WFI is the
+  // prepared volume to within half a mL: P − C rounded to the whole mL moves it
+  // by more than −0.5 and at most +0.5 (a remainder of x.5 goes up). Until then
+  // both sums were exact (b) or within TOL (a).
+  const offTenths = Math.round((make.components + make.wfi - make.prepared) * 10);
+  ok(sc, `${label}: printed WFI is whole mL`, Number.isInteger(make.wfi), detail);
+  ok(sc, `${label}: printed WFI = printed prepared − printed Components, to the whole mL, half up`,
+    make.wfi === wholeWfi(make.prepared, make.components), { ...detail, wantWfi: wholeWfi(make.prepared, make.components) });
+  ok(sc, `${label}: printed Components + WFI = prepared, within the WFI's rounding (−0.5, +0.5]`, offTenths > -5 && offTenths <= 5, detail);
+  ok(sc, `${label}: Σ(printed stock mL) + printed WFI = printed prepared, within the WFI's rounding${TOL > EPS ? ' ±0.05' : ''}`,
+    sr + make.wfi - make.prepared > -0.5 - TOL + EPS && sr + make.wfi - make.prepared <= 0.5 + TOL, detail);
   ok(sc, `${label}: Σ(printed stock mL) = printed Components (±${TOL > EPS ? '0.05' : '0'})`, Math.abs(sr - make.components) <= TOL, detail);
   if (Vd > 0) {
     ok(sc, `${label}: Σ(printed stock mL) = on-screen Components (±${TOL > EPS ? '0.05' : '0'})`, scr.components !== null && Math.abs(sr - scr.components) <= TOL, detail);
     ok(sc, `${label}: on-screen Components = printed Components`, scr.components === make.components, detail);
     ok(sc, `${label}: on-screen Bag total = printed prepared`, scr.bagTotal === make.prepared, detail);
+    // A bag with no dextrose, amino acid or electrolyte estimates 0: the sheet prints no figure for it.
+    ok(sc, `${label}: front sheet's Bag osm = on-screen Osmolarity tile (none when it reads 0)`,
+      scr.osm !== null && (scr.osm === 0 ? printedOsm() === null : printedOsm() === scr.osm), { ...detail, printedOsm: printedOsm() });
+    // The heparin mL reached paper only on the back sheet, which does not print (ward, 2026-11-16):
+    // the front's heparin line now prints it, and it must be the back's stock line, mL for mL.
+    const backHep = parts.find(p => /^Heparin /.test(p.name));
+    ok(sc, `${label}: front sheet's heparin mL = back sheet's heparin stock mL (none at 0 U/mL)`,
+      !!backHep && (backHep.ml > 0 ? printedFrontHeparinMl() === backHep.ml : printedFrontHeparinMl() === null),
+      { ...detail, backHep: backHep && backHep.ml, frontHep: printedFrontHeparinMl() });
     const given = scr.pumpRate === null ? null : Number((scr.pumpRate * 24).toFixed(1));
     const overPct = given === null ? 0 : Math.round(Number((given - Vd).toFixed(1)) / Vd * 100);
     ok(sc, `${label}: the over-delivery note is the Rate box × 24 h, from 5 % up`, overPct >= 5 ? scr.overGiven === given : scr.overGiven === null, { ...detail, given, overGiven: scr.overGiven });
@@ -598,7 +696,11 @@ async function run(scIn, idx) {
   const useChip = Vd > 0 && idx % 2 === 0;
   let newVd = Vd, newDead = sc.dead, how;
   if (useChip) {
-    newDead = [30, 50, 100].find(v => v !== sc.dead);
+    // Since 2026-11-16 a dead-space change inside the same ten (37 → 30 mL on
+    // 100 mL: 140 either way) leaves the bag as it is, so the chip picked is
+    // one that moves the prepared volume: the check is that the screen follows
+    // a change that must show.
+    newDead = [30, 50, 100].find(v => v !== sc.dead && preparedOf(Vd, v) !== preparedOf(Vd, sc.dead));
     const chip = chipsAfter('ปริมาตรคาสาย').find(c => Number(c.textContent) === newDead);
     ok(sc, `dead-space chip ${newDead} exists`, !!chip);
     if (!chip) return 'no chip';
@@ -612,8 +714,8 @@ async function run(scIn, idx) {
     how = `TPN volume typed ${Vd} → ${newVd} mL/day`;
   }
   const after = screenFigures();
-  const wantPrepared = r1(newVd + newDead);
-  ok(sc, `wired-in (${how}): on-screen Bag total moves to delivered + dead`,
+  const wantPrepared = r1(preparedOf(newVd, newDead));
+  ok(sc, `wired-in (${how}): on-screen Bag total moves to delivered + dead, up to the next 10 mL`,
     after.bagTotal !== null && Math.abs(after.bagTotal - wantPrepared) <= 0.05 + EPS, { before, after, wantPrepared });
   ok(sc, `wired-in (${how}): on-screen Bag total changed`, after.bagTotal !== before.bagTotal, { before, after });
   if (useChip && sc.dex > 0) ok(sc, `wired-in (${how}): on-screen Components changed (D50W follows the prepared volume)`,
@@ -662,14 +764,18 @@ async function quickCalcBag(scIn) {
   const btn = [...container.querySelectorAll('button')].find(b => /คัดลอกผลคำนวณ/.test(b.textContent));
   ok(sc, 'quick calc: คัดลอกผลคำนวณ is offered', !!btn);
   if (btn) await clickAsync(btn);
+  // The line says "(whole mL) →" since 2026-11-16, for the WFI's rounding.
   const m = typeof copied === 'string'
-    && copied.match(/BAG MAKE-UP: +components (-?[\d.]+) mL \+ WFI q\.s\. (-?[\d.]+) mL = (-?[\d.]+) mL prepared/);
-  ok(sc, 'quick calc: the copy has a BAG MAKE-UP line', !!m, typeof copied === 'string' ? copied.slice(0, 200) : copied);
+    && copied.match(/BAG MAKE-UP: +components (-?[\d.]+) mL \+ WFI q\.s\. (-?[\d.]+) mL \(whole mL\) → (-?[\d.]+) mL prepared/);
+  ok(sc, 'quick calc: the copy has a BAG MAKE-UP line', !!m, typeof copied === 'string' ? (copied.match(/BAG MAKE-UP[^\n]*/) || [copied.slice(0, 200)])[0] : copied);
   if (!m) return;
   const cp = { components: +m[1], wfi: +m[2], prepared: +m[3], cannot: /COMPONENTS EXCEED BAG VOLUME/.test(copied) };
   const scr = screenFigures();
   const detail = { copy: cp, screen: scr };
-  ok(sc, 'quick calc copy: components + WFI = prepared, exactly', Math.abs(cp.components + cp.wfi - cp.prepared) <= EPS, detail);
+  // Until 2026-11-16, components + WFI = prepared exactly. Now the WFI is whole
+  // mL from the remainder, and an over-full bag keeps its exact shortfall.
+  ok(sc, 'quick calc copy: WFI = prepared − components, whole mL half up (exact when below 0)',
+    cp.wfi === wholeWfi(cp.prepared, cp.components), { ...detail, wantWfi: wholeWfi(cp.prepared, cp.components) });
   if (Vd > 0) {
     ok(sc, 'quick calc copy: components = on-screen Components', scr.components !== null && cp.components === scr.components, detail);
     ok(sc, 'quick calc copy: prepared = on-screen Bag total', scr.bagTotal !== null && cp.prepared === scr.bagTotal, detail);
@@ -865,6 +971,108 @@ async function runTwoFeeds(sc) {
   return null;
 }
 
+// ── 4 · one figure, one number: the .5 ties ─────────────────────────────────
+// `want` is the paper figure rounded half up, from the inputs alone.
+const TIES = [
+  { name: 'T1 1 kg, peripheral, 80 mL D9.04 AA 3.58: osm 452 + 447.5 = 899.5 → 900, red',
+    route: 'peripheral', tpn: 80, dex: 9.04, aa: 3.58, want: { osm: 900 } },
+  { name: 'T2 1 kg, 100 mL D10.5 AA 1.95: energy 35.7 + 7.8 = 43.5 → 44 kcal/kg/d',
+    tpn: 100, dex: 10.5, aa: 1.95, want: { kcal: 44 } },
+  { name: 'T3 760 g, Glycophos 1 mEq Na (0.5 mmol P): P 15.5 → 16 mg/kg/d',
+    bw: 760, cur: 760, tpn: 100, dex: 10, aa: 3, glyNa: 1, want: { p: 16 } },
+  // T4 was 150 + 30 mL = 180 until 2026-11-16; 150 + 30 = 180 now goes up to
+  // 190 (Factor 1.9, 80.75 mg, no tie), so 20 mL of dead space keeps the bag at
+  // 180 (170 → 180) and the Factor at 1.5 × 180/150 = 1.8, the float just under.
+  { name: 'T4 1.5 kg, 150 + 20 → 180 mL, Ca 42.5 mg/kg: Ca gluconate 42.5 × 1.8 = 76.5 → 77 mg in the bag',
+    bw: 1500, cur: 1500, tpn: 150, dead: 20, dex: 10, aa: 3, ca: 42.5, glyNa: 2, want: { caMg: 77 } },
+  { name: 'T5 1,005 g, oral vitamin D 500 IU/kg: 502.5 → 503 IU/day, saved as 503 (Vera)',
+    bw: 1005, cur: 1005, tpn: 100, dex: 10, aa: 3, vitD: 500, want: { vitD: 503 } },
+  { name: 'T6 1,130 g, oral Ca 50 mg/kg: 56.5 → 57 mg/day, saved as 57 (Vera)',
+    bw: 1130, cur: 1130, tpn: 100, dex: 10, aa: 3, glyNa: 2, oralCa: 50, want: { oralCa: 57 } },
+];
+function alertBody(title) {
+  const row = [...container.querySelectorAll('.alert-row')].find(r => r.querySelector('.title')?.textContent === title);
+  return row ? row.querySelector('.body')?.textContent.replace(/\s+/g, ' ') : null;
+}
+const allNums = (text, re) => [...text.matchAll(re)].map(m => numOrDash(m[1]));
+function findKey(obj, key) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  if (key in obj) return obj[key];
+  for (const v of Object.values(obj)) { const r = findKey(v, key); if (r !== undefined) return r; }
+  return undefined;
+}
+async function runTie(scIn) {
+  const sc = { ...BASE, ...scIn };
+  const calls = mount(sc);
+  await fill(sc);
+  const w = sc.want;
+  const btn = btnExact('Submit');
+  ok(sc, 'Submit enabled', !!btn && !btn.disabled);
+  if (!btn || btn.disabled) return 'not orderable';
+  await clickAsync(btn);
+  const row = calls.rows[0];
+  const form = __printFormTicked(container);
+  ok(sc, 'saved, and the sheet renders', !!row && !!form);
+  if (!row || !form) return 'no print';
+  const screen = bodyText();
+  const sheet = form.textContent.replace(/\s+/g, ' ');
+  if (w.osm != null) {
+    ok(sc, `Osmolarity tile reads ${w.osm}`, tileVal('Osmolarity') === w.osm, tileVal('Osmolarity'));
+    const body = alertBody('Osmolarity > peripheral limit');
+    ok(sc, `the red alert is raised, and its line reads ${w.osm} mOsm/L`, !!body && numOrDash(body.split(' mOsm/L')[0]) === w.osm, body);
+    const shown = allNums(screen, /Osm (\d[\d.,]*) mOsm\/L/g);
+    ok(sc, `every "Osm … mOsm/L" (Step 3's chip and the sheet) reads ${w.osm}`, shown.length >= 2 && shown.every(v => v === w.osm), shown);
+    const printed = allNums(sheet, /Osmolarity (\d[\d.,]*) mOsm\/L/g);
+    ok(sc, `the sheet's Osmolarity line reads ${w.osm}`, printed.length === 1 && printed[0] === w.osm, printed);
+    const working = allNums(screen, /Osmolarity = (\d[\d.,]*) mOsm\/L/g);
+    ok(sc, `Step 3's working reads ${w.osm}`, working.every(v => v === w.osm), working);
+    ok(sc, `the sticker figure reads ${w.osm}`, findKey(row.printJson, 'osmolarity') === String(w.osm), findKey(row.printJson, 'osmolarity'));
+  }
+  if (w.kcal != null) {
+    ok(sc, `Energy (total) tile reads ${w.kcal}`, tileVal('Energy (total)') === w.kcal, tileVal('Energy (total)'));
+    const body = alertBody('Energy off target');
+    ok(sc, `the Energy line reads ${w.kcal} kcal/kg/d`, !!body && numOrDash(body.split(' kcal/kg/d')[0]) === w.kcal, body);
+    const card = screen.match(/Energy distribution ?(\d[\d.,]*) kcal\/kg\/d/);
+    ok(sc, `the energy card reads ${w.kcal} kcal/kg/d`, !!card && numOrDash(card[1]) === w.kcal, card && card[0]);
+    const tpn = screen.match(/TPN (\d[\d.,]*) ?EN (\d[\d.,]*)/);
+    ok(sc, `the energy card's TPN kcal reads ${w.kcal} (1 kg)`, !!tpn && numOrDash(tpn[1]) === w.kcal, tpn && tpn[0]);
+    const p = printedFigures();
+    ok(sc, `the sheet's energy line and summary read ${w.kcal}`, !!p && p.tpnKcalKg === w.kcal && p.summaryKcalKg === w.kcal, p);
+    ok(sc, `the sticker's kcal reads ${w.kcal} (1 kg)`, findKey(row.printJson, 'kcal') === String(w.kcal), findKey(row.printJson, 'kcal'));
+  }
+  if (w.p != null) {
+    ok(sc, `Phosphorus tile reads ${w.p}`, tileVal('Phosphorus') === w.p, tileVal('Phosphorus'));
+    const body = alertBody('Phosphorus off target');
+    ok(sc, `the Phosphorus line reads ${w.p} mg/kg/d`, !!body && numOrDash(body.split(' mg/kg/d')[0]) === w.p, body);
+    const po4 = allNums(sheet, /PO₄ (\d[\d.,]*)/g);
+    ok(sc, `the sheet's TPN and total PO₄ read ${w.p}`, po4.length >= 2 && po4[0] === w.p && po4[po4.length - 1] === w.p, po4);
+  }
+  if (w.caMg != null) {
+    const front = sheet.match(/☑ Ca Gluconate ?(\d[\d.,]*) mg ?(\d[\d.,]*) mg = /);
+    ok(sc, `the front prints Ca gluconate ${w.caMg} mg in the bag`, !!front && numOrDash(front[2]) === w.caMg, front && front[0]);
+    const back = sheet.match(/10% Ca Gluconate ?(\d[\d.,]*) mg/);
+    ok(sc, `the back sheet reads ${w.caMg} mg`, !!back && numOrDash(back[1]) === w.caMg, back && back[0]);
+    ok(sc, `the saved printedFigures (the changes list) read ${w.caMg}`, row.calcInput?.printedFigures?.caMg === String(w.caMg), row.calcInput?.printedFigures?.caMg);
+  }
+  if (w.vitD != null) {
+    const hint = screen.match(/= (\d[\d.,]*) IU\/day · ESPGHAN/);
+    ok(sc, `Step 6's hint reads ${w.vitD} IU/day`, !!hint && numOrDash(hint[1]) === w.vitD, hint && hint[0]);
+    const readout = screen.match(/Vitamin D ?(\d[\d.,]*) IU ?\/day/);
+    ok(sc, `Step 6's readout reads ${w.vitD} IU`, !!readout && numOrDash(readout[1]) === w.vitD, readout && readout[0]);
+    const front = sheet.match(/IU\/kg\/d = ?(\d[\d.,]*) ?IU\/day/);
+    ok(sc, `the front prints ${w.vitD} IU/day`, !!front && numOrDash(front[1]) === w.vitD, front && front[0]);
+    ok(sc, `the saved suppVitD_IU is ${w.vitD}`, row.suppVitD_IU === w.vitD, row.suppVitD_IU);
+  }
+  if (w.oralCa != null) {
+    const hint = screen.match(/= (\d[\d.,]*) mg\/day · [\d.,]+ tab\/day/);
+    ok(sc, `Step 6's Ca hint reads ${w.oralCa} mg/day`, !!hint && numOrDash(hint[1]) === w.oralCa, hint && hint[0]);
+    const front = sheet.match(/Ca oral \([^)]*\) ?[\d.,]+ ?mg\/kg\/d = ?(\d[\d.,]*) ?mg/);
+    ok(sc, `the front prints oral Ca ${w.oralCa} mg`, !!front && numOrDash(front[1]) === w.oralCa, front && front[0]);
+    ok(sc, `the saved suppCa_mg is ${w.oralCa}`, row.suppCa_mg === w.oralCa, row.suppCa_mg);
+  }
+  return null;
+}
+
 (async () => {
   const ORDERS = [...ORACLE, ...OWN];
   for (let i = 0; i < COUNT; i++) ORDERS.push(randomOrder(i));
@@ -888,12 +1096,21 @@ async function runTwoFeeds(sc) {
     const bad = failures.length - f0;
     console.log(`  ${bad ? 'FAIL' : 'PASS'}  ${sc.name.slice(0, 80).padEnd(80)} ${String(checks - c0).padStart(3)} checks${note ? `  (${note})` : ''}${bad ? `  ${bad} failed` : ''}`);
   }
+  console.log(`\n── ${TIES.length} orders on a .5 tie: one figure reads one number on screen, on the sheet and on the sticker ──`);
+  for (const sc of TIES) {
+    const f0 = failures.length, c0 = checks;
+    let note = null;
+    try { note = await runTie(sc); }
+    catch (err) { failures.push({ sc: sc.name, what: 'order threw', detail: String(err && err.stack || err).split('\n').slice(0, 3).join(' | ') }); }
+    const bad = failures.length - f0;
+    console.log(`  ${bad ? 'FAIL' : 'PASS'}  ${sc.name.slice(0, 96).padEnd(96)} ${String(checks - c0).padStart(3)} checks${note ? `  (${note})` : ''}${bad ? `  ${bad} failed` : ''}`);
+  }
   for (const f of failures.slice(0, 40)) {
     console.log(`  FAILED · ${f.sc} · ${f.what}\n         ${JSON.stringify(f.detail)}${f.order ? `\n         order ${JSON.stringify(f.order)}` : ''}`);
   }
   if (failures.length > 40) console.log(`  … and ${failures.length - 40} more`);
   console.log(failures.length === 0
-    ? `\nCALC SUM: ALL PASS (${ORDERS.length} orders and ${TWO.length} two-feed orders, ${checks} checks)`
+    ? `\nCALC SUM: ALL PASS (${ORDERS.length} orders, ${TWO.length} two-feed orders and ${TIES.length} tie orders, ${checks} checks)`
     : `\nCALC SUM: ${failures.length} FAILED of ${checks} checks`);
   process.exit(failures.length === 0 ? 0 : 1);
 })();

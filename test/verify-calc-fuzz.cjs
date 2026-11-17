@@ -11,7 +11,8 @@
 //   I1  the Factor round-trip: what reaches the infant per kg is what was
 //       ordered, to within the 0.05 mL a syringe can be drawn to
 //   I2  dead space moves no delivered figure — not GIR, not osmolarity, not kcal/kg
-//   I3  the bag make-up adds up: its bag total is the prepared volume, and it
+//   I3  the bag make-up adds up: its bag total is the prepared volume (since
+//       2026-11-16 delivered + dead rounded up to the next 10 mL), and it
 //       says "cannot be compounded" exactly when the components exceed it
 //       (WFI q.s. < 0). WFI itself left the screen on 2026-09-28 (TPN team);
 //       verify-calc-oracle.cjs still checks it on the form.
@@ -79,8 +80,14 @@ const FEED = { // per 100 mL: kcal, pro, fat, cho, Na mmol, K mmol, Ca mg, P mg
   FBM_PF_22: at(73, T5_ENFALAC), PRENAN_22: at(73, T5_PRENAN), FBM_PF_24: at(80, T5_HIQ_LBW),
   INFATRINI_30: at(100, T16_INFATRINI),
   LF_20: at(67, T7_HIQ_LF), LF_24: at(80, T7_HIQ_LF), LF_27: at(90, T7_HIQ_LF) };
+// The prepared volume since 2026-11-16 (Pp, for the TPN unit and the ward):
+// with dead space, the first multiple of 10 mL strictly above delivered + dead
+// (typed to at most two decimals, so a thousandth is past any float tail and
+// short of the next real value); with none, the delivered volume. Until then
+// it was delivered + dead.
+const preparedMl = (Vd, dead) => !(Vd > 0) ? 0 : !(dead > 0) ? Vd : 10 * Math.ceil((Vd + dead + 0.001) / 10);
 function recompute(s) {
-  const kg = s.wG / 1000, Vd = s.tpn, Vp = Vd > 0 ? Vd + s.dead : 0, ov = Vd > 0 ? Vp / Vd : 1, F = kg * ov;
+  const kg = s.wG / 1000, Vd = s.tpn, Vp = preparedMl(Vd, s.dead), ov = Vd > 0 ? Vp / Vd : 1, F = kg * ov;
   const gly = s.glyNa / 2;                                   // mEq Na → mL (2 mEq Na per mL)
   const dexDel = Vd * s.dex / 100, dexBag = Vp * s.dex / 100;
   const aaDel = s.aa * kg, lipG = s.lip * kg;
@@ -104,8 +111,14 @@ function recompute(s) {
     kPerL: Vp > 0 ? kKg * kg * ov / (Vp / 1000) : 0,
     enPerKg: enTot / kg,
     prescribed: Vd + lipBag + s.otherIV + s.drug + enC,
-    d50: dexBag > 0 ? Math.round(dexBag / 0.5 * 10) / 10 : 0,
-    aaMl: Math.round(s.aa * F / 0.1 * 10) / 10,
+    // Not on screen since 2026-11-06 (verify-calc-oracle checks them printed);
+    // kept to the 2026-11-16 rules: D50W one decimal with no dead space, whole
+    // mL with it (a non-central bag at or under 12.5 % never rounded up past
+    // 12.5 % in the bag), the amino acid whole mL.
+    d50: !(dexBag > 0) ? 0 : !(s.dead > 0) ? Math.round(dexBag / 0.5 * 10) / 10
+      : (s.route !== 'central' && s.dex <= 12.5 && Math.round(dexBag / 0.5) * 0.5 / Vp * 100 > 12.5 + 1e-9)
+        ? Math.floor(dexBag / 0.5 + 1e-9) : Math.round(dexBag / 0.5),
+    aaMl: Math.round(s.aa * F / 0.1),
     smof: Math.round(lipG / 0.2 * 10) / 10,
     vitalipid,
     osm: Vd > 0 ? 50 * s.dex + 100 * (aaDel / Vd * 100) + 2 * (naKg * kg / (Vd / 1000)) + 2 * (kKg * kg / (Vd / 1000))

@@ -32,6 +32,25 @@ clinical judgement. Everything else is engineering sequencing.
 
 ## 🔥 Now — this cycle
 
+- [ ] 🔐 **ops/PDPA · Sheet backup: switch it on, and what it leaves open** (2026-11-15, `CHANGELOG.md` (5)).
+      The code is in `main` once this PR merges; nothing runs until Pp does the four editor steps in
+      `REFERENCE.md` § Sheet backup and restore drill. Open:
+      - **First `sheetRestoreDrill()` on the real Sheet**, at a quiet hour: the only proof that `Sheet.copyTo`
+        keeps every cell, and the first measure of how long the copy holds the script lock (a save waits 10 s,
+        a password sign-in 5 s, then "Busy"). Pick the trigger's hour from it.
+      - **Rehearse the real restore** (copy a backup, point `SPREADSHEET_ID` at it, set it back) on a quiet
+        night. Never done on production, so the nine steps are untested. Pp's call.
+      - **DPO: is 14 days in backups acceptable for an erased infant, and what about version history?** Each
+        backup book, and the live Sheet, keeps erased names in File ▸ Version history, which the backend cannot
+        clear. Name the backups in the retention answer the PDPA items below still owe.
+      - **Same account.** The backups do not survive losing the Google account that owns the Sheet. A copy
+        outside it needs a decision on where patient data may go.
+      - **Moving restored data back into the bound Sheet** has no written procedure (restore step 8).
+      - **A deleted `SHEET_BACKUP_STATE` property reads as a first run**: `setupSheetBackups` would then make
+        14 new books and leave the old 14, with their data, outside the rotation. The code cannot tell the two
+        apart without Drive. Never delete that property; never run setup to "fix" a backup problem.
+      - **Nobody is told when the trigger stops** except by the failure mail and `sheetBackupStatus`. A line on
+        the Admin page ("last backup: N h ago") would show it to the ward.
 - [x] **Center Point: sync the new feed keys before PR #247 is released** (Vera, 2026-11-11): done in #247 and its NICU-Center-Point PR.
 - [ ] **FBM with PF: Step 2's breast-milk line does not explain the concentrate** (Vera, 2026-11-11, finding 3). The recipe is the milk room's chart (Pp, 2026-11-11); a 26 kcal/oz row needs the chart's share first.
 - [ ] 🩺 **safety/product · What the nutrition team's meeting of 2026-10-28 left open.** Built for the
@@ -452,8 +471,8 @@ clinical judgement. Everything else is engineering sequencing.
       were left as they are until Pp decides:
       1. ✅ **Built 2026-10-19 for weight** (`CHANGELOG.md`): Pp asked for the closest match to Fenton, so
          weight from 36.5 wk now reads `FENTON_WEIGHT_GROWTH_LMS`, solved from fentongrowth.ca (70 points
-         within 0.44 centile points). Length and HC past 37 weeks are not covered: their rows are still
-         unverified (`FENTON_LENGTH` / `FENTON_HC` in § Later). What follows is the finding as it stood.
+         within 0.44 centile points). Length and HC followed on 2026-11-16: `FENTON_LENGTH_GROWTH_LMS` and
+         `FENTON_HC_GROWTH_LMS`, solved the same way (`CHANGELOG.md` 2026-11-16). What follows is the finding as it stood.
          ~~**After 37 weeks the size-at-birth rows are not the growth chart.**~~ `FENTON_WEIGHT` is the
          size-at-birth (completed-week) table. Fenton's growth-monitoring chart follows it to about 37 weeks,
          then bends to meet WHO at 50 (Fenton 2025 Table 3: the curves match the data, and assign size
@@ -649,7 +668,8 @@ clinical judgement. Everything else is engineering sequencing.
       - **The reference panels contradict the calculator** on six figures (`app.jsx:2954,2965,3013,
         3034-3036,3054,3144`): lipid 2.0 kcal/mL vs 9 kcal/g, term fluid "DOL 5+", the ELBW/term Na
         rows, the ≥17–20 growth target vs the alert at 15, Peditrace's Zn, and the DOL-2 lipid band.
-      - **`FENTON_LENGTH`'s 42-week row is ~3 cm high** (`data.js:912-933`): the 50th steps
+      - ✅ **Fixed 2026-11-16** (`CHANGELOG.md`): both tabs now draw Fenton's own curve. As it stood:
+        **`FENTON_LENGTH`'s 42-week row is ~3 cm high** (`data.js:912-933`): the 50th steps
         +1.05 cm/wk to 38, +1.45 to 42, then +0.38 — so a 49.9 cm term boy plots near the 8th
         percentile. Already unverified in `docs/CLINICAL_CONSTANTS.md`; say so on the chart until the
         LMS parameters arrive. *(Said on the chart since 2026-10-17: the Length and HC tabs carry a
@@ -817,10 +837,12 @@ clinical judgement. Everything else is engineering sequencing.
       order. The read-only part is built, not live (`openspec/changes/tpn-room-stickers`, PR A: role
       `pharmacy`, `pharmacyOrders`). The printed form now carries HN/AN boxes, saved-by/time/revision and
       changes-vs-previous (2026-09-11); the status loop is not built.
-- [ ] 🩺 **safety · Osmolarity, energy, Ca and P round .5 ties wrongly on the doctor's screen and sheet**
+- [x] 🩺 **safety · Osmolarity, energy, Ca and P round .5 ties wrongly on the doctor's screen and sheet**
       (`toFixed(0)`, `Math.round`; found by the sticker calc check, 2026-10-30, its own PR). 899.5 mOsm/L graded red at
       900 while the alert text says 899, about 1 order in 2,000. In a 2026-11-02 probe one order shows 639 on screen and
-      640 on its sticker, whose figure is the right one.
+      640 on its sticker, whose figure is the right one. **Built 2026-11-15** (`CHANGELOG.md` 2026-11-15 (4)): every whole
+      number goes through `displayNum`, the printed front's Ca gluconate mg and oral supplements included;
+      `verify-calc-sum.cjs` § 4 and `tools/ci_bans.js` `raw-round-display` hold it.
 - [ ] 🧹 **chore · `verify-review-0917-session` §10 flakes across midnight.** It takes TODAY at module load while the
       app reads the real clock, so a run across 00:00 ICT gives a DOL off by one. Re-run it alone; it needs a pinned
       jsdom clock.
@@ -842,12 +864,23 @@ clinical judgement. Everything else is engineering sequencing.
       (`codex/center-point-v2`): since 2026-09-15 it is active, paired with NICU-Center-Point PR #12, and the
       two must merge together (CP accepts only the `neofeed-tpn-v2` packet #57 builds).
 
-- [ ] 🩺 **safety · `FENTON_LENGTH` / `FENTON_HC` are unverified against any source** and sit at
-      4-week steps. `FENTON_WEIGHT` was verified against Fenton 2025 on 2026-08-10 and re-checked
-      2026-09-05 against the official ucalgary.ca v2 cutoff table (which caught and fixed GA
-      36-41 boys / 36,40,41 girls drift — see `CHANGELOG.md`); the other two still have **no
-      public numeric table to check against at all** (charts only). Praew is emailing
-      tfenton@ucalgary.ca for the LMS parameters. Since 2026-10-17 the Length and HC tabs say so.
+- [ ] 🩺 **safety · Length and HC: what the 2026-11-16 curves leave open.** `FENTON_LENGTH` and
+      `FENTON_HC` (never checked against a source) are replaced by `FENTON_LENGTH_GROWTH_LMS` and
+      `FENTON_HC_GROWTH_LMS`, solved from fentongrowth.ca's z-scores (`CHANGELOG.md` 2026-11-16). Open:
+      - **The first weeks.** Asked of the calculator: 22 weeks (not accepted), 23.0 (a head z-score, none
+        for length), 23.5 (both). The curves start at 23.0 (head) and 24.0 (length); a measurement before
+        that has no percentile. The fixture already holds two length points a sex at 23.5, which with L = 1
+        give M and S there exactly, with no third point to check them; adding that row, or asking again
+        between 22 and 23, is Pp's call.
+      - **DOL 1 from 36 weeks: done 2026-11-16 (5).** Pp chose the round of birth-mode points. A DOL-1
+        length or head from 35.0 weeks is read on `FENTON_LENGTH_BIRTH_LMS` / `FENTON_HC_BIRTH_LMS`, solved
+        from Fenton's Birth size evaluation (`CHANGELOG.md` 2026-11-16 (5)). **41+5 to 42+0, decided:**
+        The evaluation answers nothing past 41 4/7, so a DOL-1 point there is read on the 41 4/7 row, held.
+        The other choices were the monitoring curve, which is about 0.5 SD off for head at that age, or no
+        percentile. Pp, 2026-11-16: "ใช้แถว 41+4 ต่อ" (keep the hold, no note on screen).
+      - **Solved, not received.** Pp's email to tfenton@ucalgary.ca for the published LMS stands; if the
+        calculator's API version moves from 2.1.3.0, re-run `tools/fenton-lms-solve.cjs` and the harness.
+      - **No second clinician** has reviewed the change.
 - [ ] ⚖️ **PDPA · No self-service access/rectification path** for data-subject requests; handled
       manually by an admin editing the registry. Worth a real endpoint if volume grows.
 - [ ] ⚖️ **PDPA · Cross-border transfer (Sec 28) never evaluated** — data lives in Google
