@@ -1670,7 +1670,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       syncState === "loading" ? /* @__PURE__ */ React.createElement("span", { className: "dot dot-spin", style: { width: 7, height: 7 } }) : null,
       syncState === "loading" ? "กำลังซิงก์…" : "Sync now"
     ));
-  })(), /* @__PURE__ */ React.createElement("nav", { className: "rail" }, /* @__PURE__ */ React.createElement("div", { className: "rail-section" }, "Workspace"), /* @__PURE__ */ React.createElement(RailItem, { icon: "users", label: "Patients", active: view === "registry", count: patients.length, onClick: () => goTo("registry") }), /* @__PURE__ */ React.createElement(RailItem, { icon: "log", label: "Dashboard", active: view === "log", count: (log[activeId] || []).length, onClick: () => goTo("log") }), (role === "doctor" || role === "nurse") && /* @__PURE__ */ React.createElement(RailItem, { icon: "calc", label: "Calculator", active: view === "calculator", onClick: () => goTo("calculator") }), /* @__PURE__ */ React.createElement(RailItem, { icon: "chart", label: "Growth chart", active: view === "fenton", onClick: () => goTo("fenton") }), /* @__PURE__ */ React.createElement(
+  })(), /* @__PURE__ */ React.createElement("nav", { className: "rail" }, /* @__PURE__ */ React.createElement("div", { className: "rail-section" }, "Workspace"), /* @__PURE__ */ React.createElement(RailItem, { icon: "users", label: "Patients", active: view === "registry", count: patients.length, onClick: () => goTo("registry") }), /* @__PURE__ */ React.createElement(RailItem, { icon: "log", label: "Dashboard", active: view === "log", count: (log[activeId] || []).length, onClick: () => goTo("log") }), /* @__PURE__ */ React.createElement(RailItem, { icon: "drop", label: "TPN ทั้งหอ", active: view === "wardtpn", onClick: () => goTo("wardtpn") }), (role === "doctor" || role === "nurse") && /* @__PURE__ */ React.createElement(RailItem, { icon: "calc", label: "Calculator", active: view === "calculator", onClick: () => goTo("calculator") }), /* @__PURE__ */ React.createElement(RailItem, { icon: "chart", label: "Growth chart", active: view === "fenton", onClick: () => goTo("fenton") }), /* @__PURE__ */ React.createElement(
     RailItem,
     {
       icon: "bell",
@@ -1724,7 +1724,20 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       onAdd: handleAddPatient,
       onEdit: handleEditPatient,
       mergeBaseFor,
-      onDelete: canDeletePatient ? handleDeletePatient : void 0
+      onDelete: canDeletePatient ? handleDeletePatient : void 0,
+      onOpenWardTpn: () => goTo("wardtpn")
+    }
+  ), view === "wardtpn" && /* @__PURE__ */ React.createElement(
+    WardTpnPage,
+    {
+      patients,
+      log,
+      ward,
+      onSelect: (id) => {
+        setEditEntry(null);
+        setActiveId(id);
+        setView(growthDueFor(id) ? "fenton" : "log");
+      }
     }
   ), view === "admin" && role === "admin" && /* @__PURE__ */ React.createElement(
     AdminDashboard,
