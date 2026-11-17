@@ -2244,11 +2244,13 @@ const WARD_AA_FLAG = { belowGPerKg: 2.5, fromDol: 2, toDol: 7, enBelowMlKg: 50 }
 // No lipid on DOL 2, preterm only: Lapillonne 2018 (ESPGHAN PN, lipids) R 4.2,
 // lipid emulsion from no later than day 2.
 const WARD_LIPID_FLAG_DOL = 2;
-// PN still ordered once counted EN reaches the line to stop it: NICE NG154 rec
-// 1.8.3, 140 mL/kg/d below 28 weeks, 120 from 28 weeks and at term (Pp,
-// 2026-11-15, every GA). Not FULL_EN_ML_KG (100), which has no source and is
-// where the Calculator starts weaning PN (CR-U-SWITCH). A record with no usable
-// GA takes the lower line, so the flag comes no later.
+// PN still ordered once counted EN reaches the line to stop it (Pp, 2026-11-15,
+// every GA): NICE NG154 rec 1.8.2, born before 28+0 weeks, "consider stopping
+// ... within 24 hours once the enteral feed volume is 140 to 150 ml/kg/day",
+// and rec 1.8.3, born at or after 28+0 weeks and term, 120 to 140 (PDF p. 21).
+// The flag takes the lower end of each range. Not FULL_EN_ML_KG (100), which
+// has no source and is where the Calculator starts weaning PN (CR-U-SWITCH). A
+// record with no usable GA takes the lower line, so the flag comes no later.
 const PN_STOP_EN_ML_KG = { belowGaWk: 28, below: 140, atOrAbove: 120 };
 
 function isPretermGa(ga) {
@@ -2266,17 +2268,33 @@ function countedEnPerKg(entry) {
   const x = Number(entry.enVolPerKg);
   return isFinite(x) ? x : 0;
 }
+// When a saved order was submitted, as an ISO stamp ("" when none). Submit saves
+// and locks the order in one press, and the server stamps calcInput.orderAt on
+// every save that changes the order; an I/O-only save (a nurse's, or a doctor's
+// since 2026-11-15) keeps the stamp, so it never moves the order's time. This is
+// the time the Calculator prints beside "บันทึกโดย". A row saved before orderAt
+// existed (2026-11-07) falls back to its lock (published), then its last save.
+function orderSubmittedAt(entry) {
+  const ok = (v) => (typeof v === "string" && v && !isNaN(Date.parse(v)) ? v : "");
+  const ci = entry && entry.calcInput && typeof entry.calcInput === "object" ? entry.calcInput : {};
+  return ok(ci.orderAt) || ok(entry && entry.published) || ok(entry && entry.lastModified);
+}
 
 // One infant's row on the page, or null when the infant is not listed. `today`
 // is "YYYY-MM-DD". The figures are the latest Submitted order's, as ordered
 // (calcInput.aaPerKg, calcInput.lipidPerKg, the saved IV GIR, enVolPerKg); a No
 // TPN order has no AA, lipid or GIR to show. `flags` lists, in this order:
-//   aa         warn  WARD_AA_FLAG, preterm
-//   lipid      warn  no lipid on WARD_LIPID_FLAG_DOL, preterm
+//   noTpn      info  the latest order is No TPN (orderIsNoTpn)
+//   aa         warn  WARD_AA_FLAG, preterm; a No TPN order counts as AA 0
+//   lipid      warn  no lipid on WARD_LIPID_FLAG_DOL, preterm; No TPN as well
 //   gir        crit above GIR_HARD_HI, warn below the band (girStatus)
 //   pnAfterEn  warn  PN (dextrose, AA or lipid) with counted EN at the NICE line
-//   noTpn      info  the latest order is No TPN (orderIsNoTpn); no other flag then
-// The first four read only an order with TPN.
+// gir and pnAfterEn read only an order with TPN. AA and lipid flag a No TPN
+// order too (Pp, 2026-11-17: a preterm infant off PN on DOL 2–7 with EN < 50
+// is something today's order can still change). Each figure is graded as the
+// page prints it (AA, lipid and GIR to 2 decimals, EN to 1), so EN 49.96 shown
+// as "50" is not "EN < 50", and an EN that a float tail leaves at 139.999… is
+// at the 140 line.
 function wardTpnRow(p, entries, today) {
   if (!isOnUnit(p)) return null;
   const latest = previousFinalEntry(entries, "9999-12-31");
@@ -2300,17 +2318,22 @@ function wardTpnRow(p, entries, today) {
 
   const ci = latest.calcInput && typeof latest.calcInput === "object" ? latest.calcInput : {};
   const num = (v) => { const x = Number(v); return isFinite(x) ? x : 0; };
+  // As printed: displayNum clears the float tail and rounds half away from zero.
+  const shown = (v, dp) => Number(displayNum(num(v), dp));
   const dol = dolAtDate(p, today);
-  const aa = num(ci.aaPerKg), lipid = num(ci.lipidPerKg), gir = num(latest.gir), en = countedEnPerKg(latest);
   const noTpn = orderIsNoTpn(latest);
+  const aa = noTpn ? 0 : shown(ci.aaPerKg, 2), lipid = noTpn ? 0 : shown(ci.lipidPerKg, 2);
+  const gir = shown(latest.gir, 2), en = shown(countedEnPerKg(latest), 1);
   const flags = [];
   if (noTpn) flags.push({ key: "noTpn", level: "info" });
-  else if (onTpn) {
+  if (onTpn || noTpn) {
     const preterm = isPretermGa(p.ga);
     const A = WARD_AA_FLAG;
     if (preterm && dol >= A.fromDol && dol <= A.toDol && en < A.enBelowMlKg && aa < A.belowGPerKg)
-      flags.push({ key: "aa", level: "warn" });
-    if (preterm && dol === WARD_LIPID_FLAG_DOL && !(lipid > 0)) flags.push({ key: "lipid", level: "warn" });
+      flags.push({ key: "aa", level: "warn", noTpn });
+    if (preterm && dol === WARD_LIPID_FLAG_DOL && !(lipid > 0)) flags.push({ key: "lipid", level: "warn", noTpn });
+  }
+  if (onTpn) {
     const gs = girStatus(gir);
     if (gs === "crit" || gs === "warn") flags.push({ key: "gir", level: gs, low: gir < TARGETS.gir()[0] });
     const stopAt = pnStopEnFor(p.ga);
@@ -2325,6 +2348,7 @@ function wardTpnRow(p, entries, today) {
     pnDay: onTpn && runStart ? Math.max(1, (daysBetweenDateStr(runStart, today) || 0) + 1) : null,
     aa: onTpn ? aa : null, lipid: onTpn ? lipid : null, gir: onTpn ? gir : null,
     en: num(latest.enVolPerKg), men: !!ci.isMEN,
+    submittedAt: orderSubmittedAt(latest),
     lastTpnDate,
     // The last day an infant whose latest order has no TPN stays listed.
     listedUntil: onTpn ? null : addDaysToDateStr(lastTpnDate, WARD_TPN_RECENT_DAYS),
@@ -3732,7 +3756,7 @@ window.NEOFEED_DATA = {
   normalizeDateStr, normalizeLogEntries, normalizeLogMap, hasLogOnDate, hasDraftOnDate, isDraftEntry, orderIsNoTpn, latestOrderIsNoTpn, NO_TPN_ENTRY_EVERY_DAYS, NO_TPN_FEEDS_LOW_TITLE, noTpnEntryDueOn, needsEntryOn, orderHasOralOrders, orderHadTpn, orderCancelsTpn, orderPrints, previousFinalEntry, finalEntries,
   // The ward's TPN page (Pp, 2026-11-14 and 2026-11-15): who is listed and the care flags.
   WARD_TPN_RECENT_DAYS, PRETERM_GA_WK, WARD_AA_FLAG, WARD_LIPID_FLAG_DOL, PN_STOP_EN_ML_KG,
-  isPretermGa, pnStopEnFor, countedEnPerKg, wardTpnRow, wardTpnRows,
+  isPretermGa, pnStopEnFor, countedEnPerKg, orderSubmittedAt, wardTpnRow, wardTpnRows,
   // THE current weight — every screen calls it with the patient's Daily_Log
   // (see currentWeight) — and the joined series it reads.
   currentWeight, weightSeries,

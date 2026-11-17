@@ -158,15 +158,19 @@ const wtpnDayMonth = (d) => d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : "—";
 function wardTpnFlagText(f, r) {
   const A = D_R.WARD_AA_FLAG, S = D_R.PN_STOP_EN_ML_KG;
   switch (f.key) {
+    // A No TPN order is AA 0 (Pp, 2026-11-17): its chip says PN stopped early.
     case "aa":
-      return {
+      return f.noTpn ? {
+        text: `หยุด PN ตอน EN < ${A.enBelowMlKg}`,
+        title: `preterm DOL ${A.fromDol}–${A.toDol}: คำสั่งล่าสุดเป็น No TPN แต่ EN ${wtpnNum(r.en, 1)} mL/kg/d ยังต่ำกว่า ${A.enBelowMlKg} จึงไม่ได้ AA`
+      } : {
         text: `AA < ${wtpnNum(A.belowGPerKg)}`,
         title: `preterm DOL ${A.fromDol}–${A.toDol} ที่ EN < ${A.enBelowMlKg} mL/kg/d: AA ในคำสั่งล่าสุด ${wtpnNum(r.aa)} g/kg/d`
       };
     case "lipid":
       return {
         text: `DOL ${D_R.WARD_LIPID_FLAG_DOL} ยังไม่มี lipid`,
-        title: `preterm DOL ${D_R.WARD_LIPID_FLAG_DOL}: คำสั่งล่าสุดไม่มี lipid`
+        title: `preterm DOL ${D_R.WARD_LIPID_FLAG_DOL}: คำสั่งล่าสุด${f.noTpn ? "เป็น No TPN จึง" : ""}ไม่มี lipid`
       };
     case "gir": {
       const [lo] = D_R.TARGETS.gir();
@@ -206,10 +210,11 @@ function wtpnCellCls(r, key) {
   const f = r.flags.find((x) => x.key === key);
   return !f ? "" : f.level === "crit" ? "wtpn-cell-crit" : "wtpn-cell-warn";
 }
-function wtpnSubmitted(order, today) {
-  const t = new Date(order && order.lastModified);
-  let date = D_R.normalizeDateStr(order && order.ts), time = "";
-  if (order && order.lastModified && !isNaN(t)) {
+function wtpnSubmitted(r, today) {
+  const at = r && r.submittedAt;
+  const t = new Date(at);
+  let date = D_R.normalizeDateStr(r && r.latest && r.latest.ts), time = "";
+  if (at && !isNaN(t)) {
     const pad = (x) => String(x).padStart(2, "0");
     date = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
     time = ` ${pad(t.getHours())}:${pad(t.getMinutes())}`;
@@ -260,7 +265,7 @@ function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
     /* @__PURE__ */ React.createElement("td", { className: `r num ${wtpnCellCls(r, "gir")}` }, wtpnNum(r.gir)),
     /* @__PURE__ */ React.createElement("td", { className: `r num ${wtpnCellCls(r, "pnAfterEn")}` }, wtpnNum(r.en, 1), r.men ? " MEN" : ""),
     /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { className: "wtpn-flags" }, /* @__PURE__ */ React.createElement(WardTpnFlags, { r }))),
-    /* @__PURE__ */ React.createElement("td", { className: "wtpn-sub" }, wtpnSubmitted(r.latest, today))
+    /* @__PURE__ */ React.createElement("td", { className: "wtpn-sub" }, wtpnSubmitted(r, today))
   ))))), /* @__PURE__ */ React.createElement("div", { className: "wtpn-cards" }, rows.map((r) => /* @__PURE__ */ React.createElement(
     "div",
     {
@@ -270,11 +275,11 @@ function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
       onClick: () => open(r),
       ...rowA11y(() => open(r))
     },
-    /* @__PURE__ */ React.createElement("div", { className: "wtpn-card-top" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(BedChip, { p: r.p }), " ", /* @__PURE__ */ React.createElement("span", { className: "wtpn-name" }, D_R.patientName(r.p) || "—"), /* @__PURE__ */ React.createElement(TestTag, { p: r.p })), /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, wtpnSubmitted(r.latest, today))),
+    /* @__PURE__ */ React.createElement("div", { className: "wtpn-card-top" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(BedChip, { p: r.p }), " ", /* @__PURE__ */ React.createElement("span", { className: "wtpn-name" }, D_R.patientName(r.p) || "—"), /* @__PURE__ */ React.createElement(TestTag, { p: r.p })), /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, wtpnSubmitted(r, today))),
     /* @__PURE__ */ React.createElement("div", { className: "wtpn-sub" }, wtpnWho(r.p), " · DOL ", r.dol, r.pnDay ? ` · วัน PN ${r.pnDay}` : ""),
     /* @__PURE__ */ React.createElement("div", { className: "wtpn-grid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, "AA", /* @__PURE__ */ React.createElement("br", null), "g/kg/d"), /* @__PURE__ */ React.createElement("b", { className: wtpnCellCls(r, "aa") }, wtpnNum(r.aa))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, "Lipid", /* @__PURE__ */ React.createElement("br", null), "g/kg/d"), /* @__PURE__ */ React.createElement("b", { className: wtpnCellCls(r, "lipid") }, wtpnNum(r.lipid))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, "GIR", /* @__PURE__ */ React.createElement("br", null), "mg/kg/min"), /* @__PURE__ */ React.createElement("b", { className: wtpnCellCls(r, "gir") }, wtpnNum(r.gir))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, "EN", /* @__PURE__ */ React.createElement("br", null), "mL/kg/d"), /* @__PURE__ */ React.createElement("b", { className: wtpnCellCls(r, "pnAfterEn") }, wtpnNum(r.en, 1), r.men ? " MEN" : ""))),
     /* @__PURE__ */ React.createElement("div", { className: "wtpn-flags" }, /* @__PURE__ */ React.createElement(WardTpnFlags, { r }))
-  )))), /* @__PURE__ */ React.createElement("div", { className: "wtpn-legend" }, /* @__PURE__ */ React.createElement("b", null, "ธง"), " บอกเรื่องที่คำสั่งวันนี้ยังแก้ได้ · AA < ", wtpnNum(A.belowGPerKg), ": preterm (GA < ", D_R.PRETERM_GA_WK, " wk) DOL ", A.fromDol, "–", A.toDol, " ที่ EN < ", A.enBelowMlKg, " mL/kg/d นับตาม DOL ของวันนี้ แม้ทารก admit ทีหลัง (ESPGHAN 2018 PN, R 3.2) · DOL ", D_R.WARD_LIPID_FLAG_DOL, " ยังไม่มี lipid: preterm (ESPGHAN 2018 PN, R 4.2) · GIR เกิน ", D_R.GIR_HARD_HI, " แดง ต่ำกว่า ", D_R.TARGETS.gir()[0], " เหลือง ตามแถบ GIR ของแอป · EN ≥ เกณฑ์หยุด PN แต่ยังมี PN: ", S.below, " mL/kg/d ใน GA < ", S.belowGaWk, " wk และ ", S.atOrAbove, " ตั้งแต่ ", S.belowGaWk, " wk (NICE NG154) · No TPN: คำสั่งล่าสุดไม่มี TPN อยู่ในหน้านี้ ", D_R.WARD_TPN_RECENT_DAYS, " วันนับจากคำสั่งล่าสุดที่มี TPN"), /* @__PURE__ */ React.createElement("div", { className: "wtpn-legend" }, "AA, lipid, GIR และ EN เป็นค่าที่สั่ง ไม่ใช่ค่าที่ทารกได้รับจริง · GIR นับเฉพาะ dextrose ทาง IV"))));
+  )))), /* @__PURE__ */ React.createElement("div", { className: "wtpn-legend" }, /* @__PURE__ */ React.createElement("b", null, "ธง"), " บอกเรื่องที่คำสั่งวันนี้ยังแก้ได้ · AA < ", wtpnNum(A.belowGPerKg), ": preterm (GA < ", D_R.PRETERM_GA_WK, " wk) DOL ", A.fromDol, "–", A.toDol, " ที่ EN < ", A.enBelowMlKg, " mL/kg/d นับตาม DOL ของวันนี้ แม้ทารก admit ทีหลัง และนับคำสั่ง No TPN เป็น AA 0 (ESPGHAN 2018 PN, R 3.2) · DOL ", D_R.WARD_LIPID_FLAG_DOL, " ยังไม่มี lipid: preterm รวมคำสั่ง No TPN (ESPGHAN 2018 PN, R 4.2) · GIR เกิน ", D_R.GIR_HARD_HI, " แดง ต่ำกว่า ", D_R.TARGETS.gir()[0], " เหลือง ตามแถบ GIR ของแอป · EN ≥ เกณฑ์หยุด PN แต่ยังมี PN: ", S.below, " mL/kg/d ใน GA < ", S.belowGaWk, " wk และ ", S.atOrAbove, " ตั้งแต่ ", S.belowGaWk, " wk (NICE NG154 rec 1.8.2–1.8.3) · No TPN: คำสั่งล่าสุดไม่มี TPN อยู่ในหน้านี้ ", D_R.WARD_TPN_RECENT_DAYS, " วันนับจากคำสั่งล่าสุดที่มี TPN"), /* @__PURE__ */ React.createElement("div", { className: "wtpn-legend" }, "AA, lipid, GIR และ EN เป็นค่าที่สั่ง ไม่ใช่ค่าที่ทารกได้รับจริง · GIR นับเฉพาะ dextrose ทาง IV"))));
 }
 const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {

@@ -1440,8 +1440,9 @@ Not a clinical threshold.
 
 ## Not in this file
 
-- The ward's TPN page, "TPN ทั้งหอ" (`D.wardTpnRow`), flags a saved order: AA and lipid in preterm infants, GIR with
-  `girStatus` (`CR-GIR-MAX`), PN still ordered at NICE's EN line. Display only, not calculator limits:
+- The ward's TPN page, "TPN ทั้งหอ" (`D.wardTpnRow`), flags a saved order: AA and lipid in preterm infants (a No TPN
+  order too, as AA 0), GIR with `girStatus` (`CR-GIR-MAX`), PN still ordered at NICE's EN line (NG154 recs 1.8.2 and
+  1.8.3), each graded as the page prints it. Display only, not calculator limits:
   `REFERENCE.md` § The ward's TPN page, `test/verify-ward-tpn-page-1115.cjs`.
 - The ward Alerts page (`app.jsx`) grades a saved GIR with `girStatus` (`CR-GIR-MAX`) and adds growth and
   weighing alerts of its own (`GROWTH_VEL_TARGET`, `GROWTH_VEL_CRITICAL` in `data.js`); those are not

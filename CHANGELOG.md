@@ -7,6 +7,31 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-18 (1) — "TPN ทั้งหอ": the review's four errors fixed; a No TPN order is flagged as AA 0
+
+`data.js` (`orderSubmittedAt`, `wardTpnRow`, the `PN_STOP_EN_ML_KG` comment), `registry.jsx` (`wtpnSubmitted`, the
+chips, the legend), `compiled/`, both shells' tokens, `REFERENCE.md` (§ The ward's TPN page), the clinical-rules skill
+("Not in this file"), `test/verify-ward-tpn-page-1115.cjs` (sections 6, 8, 10 and 11).
+
+The branch was saved as WIP on 2026-11-17 with four errors from its new-agent check still open. Entry 2026-11-15 (3)
+stays as written (append-only); this entry corrects it.
+
+- **"Submit ล่าสุด" read the last save.** It showed `lastModified`, so a nurse's I/O save at 15:45 on an order submitted
+  at 09:10 read 15:45. It now reads `D.orderSubmittedAt`: `calcInput.orderAt`, which the server stamps on every save
+  that changes the order and keeps on an I/O-only save, then `published`, then `lastModified` for a row from before
+  `orderAt`. It is the time the Calculator prints beside "บันทึกโดย".
+- **A float tail put EN on the wrong side of a line.** A saved 139.99999999999997 was below 140, so PN-after-EN stayed
+  silent at the line; 49.96 printed "50" but still raised "EN < 50". Each figure is now graded as the page prints it
+  (`displayNum`, AA, lipid and GIR to 2 decimals, EN to 1).
+- **The NICE number was wrong.** NG154 rec 1.8.2 is the 140–150 mL/kg/d line (born before 28+0 weeks) and rec 1.8.3
+  the 120–140 line (28+0 weeks or later, and term), read from the NG154 PDF, p. 21. The code, `REFERENCE.md` and the
+  legend cited 1.8.3 for both.
+- **A No TPN order took no AA or lipid flag.** Pp, 2026-11-17 ("ขึ้นธง"): a preterm infant whose latest order is No TPN
+  on DOL 2–7 with counted EN < 50 is flagged as AA 0, chip "หยุด PN ตอน EN < 50", and on DOL 2 as no lipid. The No TPN
+  chip stays; GIR and PN-after-EN still read only an order with TPN.
+- **Tests.** 145 assertions; 25 of them fail on the branch before this entry (`8d673ec`), run with this harness.
+- **Nothing printed or dosed moves:** no `CONSTANTS_VERSION`, no backend change.
+
 ## Session 2026-11-17 (9) — Pp keeps the week on the names page's reprint flag
 
 `CHANGELOG.md` only. Entry (8) left Vera's point to Pp: the names page names every day from today −7 to +1 whose bag

@@ -14,11 +14,16 @@
 //   4  GIR flag       girStatus: above 12 red, below 4 amber, 0 (no dextrose) none
 //   5  PN after EN    PN still ordered at NICE's line: 140 below 28 wk, 120 from 28
 //                     wk and term, every GA
-//   6  No TPN         the latest order is No TPN: that chip and no other flag
+//   6  No TPN         the latest order is No TPN: that chip, and since 2026-11-17
+//                     the AA and lipid flags as for AA 0 (Pp: "ขึ้นธง")
 //   7  PN day         from the first order of the current run, today
 //   8  the page       rows flagged first, chips in words, no QI figure, a tap
 //                     opens the infant, phone cards, the ward switch
 //   9  the way in     the rail item, the view and the ward list's button
+//  10  as printed     each figure graded as the page prints it: no float tail
+//                     puts a value on the wrong side of a line (2026-11-17)
+//  11  Submit time    the order's Submit (calcInput.orderAt), not a later
+//                     I/O-only save (2026-11-17)
 //
 // Each boundary has a case on each side. Made-up infants only; this repo is public.
 // Mounts the real data.js and registry.jsx in jsdom (deps in test/README.md).
@@ -177,10 +182,25 @@ ok('no usable GA takes the lower line (120)', D.pnStopEnFor(0) === 120 && has(en
 ok('a MEN feed counts nothing toward the line', !has(enRow(150, 30, { men: true }), 'pnAfterEn'));
 
 console.log('\n── 6. No TPN ──');
+// Pp, 2026-11-17 ("ขึ้นธง"): a preterm infant off PN on DOL 2–7 with EN < 50 is
+// flagged as AA 0, and on DOL 2 as no lipid. Before, a No TPN order took its
+// chip and nothing else.
 const nt = row(pt('NT', { dol: 2, ga: 26 }), [tpn(day(-1), { aa: 1.5, lipid: 0 }), noTpn(today, { en: 30 })]);
-ok('latest order No TPN: listed, with the No TPN chip only (no AA or lipid flag on DOL 2)', keys(nt) === 'noTpn', keys(nt));
+ok('No TPN on DOL 2, GA 26, EN 30: the No TPN chip, then the AA and lipid flags', keys(nt) === 'noTpn,aa,lipid', keys(nt));
+ok('…the AA and lipid flags say they come from a No TPN order', nt && nt.flags.filter(f => f.noTpn === true).map(f => f.key).join() === 'aa,lipid', nt && nt.flags);
 ok('…its AA, lipid and GIR are blank, its EN shown', nt && nt.aa === null && nt.lipid === null && nt.gir === null && nt.en === 30, nt && [nt.aa, nt.lipid, nt.gir, nt.en]);
-ok('…and it is neither red nor amber', nt?.level === 'none');
+ok('…and it is amber', nt?.level === 'warn', nt?.level);
+const ntRow = (who, en) => row(pt('NX', { ga: 30, ...who }), [tpn(day(-2)), noTpn(today, { en })]);
+ok('No TPN, DOL 4, EN 30, GA 30: No TPN and AA', keys(ntRow({ dol: 4 }, 30)) === 'noTpn,aa', keys(ntRow({ dol: 4 }, 30)));
+ok('No TPN, DOL 4, EN 49.9: AA', keys(ntRow({ dol: 4 }, 49.9)) === 'noTpn,aa', keys(ntRow({ dol: 4 }, 49.9)));
+ok('No TPN, DOL 4, EN 50: the No TPN chip only', keys(ntRow({ dol: 4 }, 50)) === 'noTpn', keys(ntRow({ dol: 4 }, 50)));
+ok('No TPN, DOL 7, EN 30: AA', keys(ntRow({ dol: 7 }, 30)) === 'noTpn,aa', keys(ntRow({ dol: 7 }, 30)));
+ok('No TPN, DOL 8, EN 30: the No TPN chip only', keys(ntRow({ dol: 8 }, 30)) === 'noTpn', keys(ntRow({ dol: 8 }, 30)));
+ok('No TPN, DOL 2, EN 60: lipid only (EN is past the AA line)', keys(ntRow({ dol: 2 }, 60)) === 'noTpn,lipid', keys(ntRow({ dol: 2 }, 60)));
+ok('No TPN, GA 37+0, DOL 4, EN 10: the No TPN chip only (term)', keys(ntRow({ dol: 4, ga: 37 }, 10)) === 'noTpn', keys(ntRow({ dol: 4, ga: 37 }, 10)));
+ok('No TPN never takes a GIR or PN-after-EN flag (GA 26, DOL 20, EN 150)', keys(ntRow({ dol: 20, ga: 26 }, 150)) === 'noTpn', keys(ntRow({ dol: 20, ga: 26 }, 150)));
+ok('a MEN feed counts no EN on a No TPN order too (ticked MEN at 60, DOL 4: AA)',
+  keys(row(pt('NM', { dol: 4 }), [tpn(day(-1)), { ...noTpn(today, { en: 60 }), calcInput: { noTpn: true, totalTPN_mL: 0, isMEN: true } }])) === 'noTpn,aa');
 ok('an order older than the tick, no bag (no noTpn key), is No TPN',
   keys(row(pt('NT2'), [tpn(day(-2)), { ts: today, status: 'submitted', gir: 0, enVolPerKg: 150, calcInput: { totalTPN_mL: 0, dexPct: 0, aaPerKg: 0 } }])) === 'noTpn');
 
@@ -207,10 +227,15 @@ const patients = [
   pt('n07', { bed: 'NICU 7', dol: 12, ga: 33, status: 'Discharged' }),
   pt('n08', { bed: 'NICU 8', dol: 9, ga: 38 }),                // never TPN
   pt('s01', { bed: 'SCN 1', dol: 3, ga: 34 }),                 // SCN, no flag
+  pt('n09', { bed: 'NICU 9', dol: 5, ga: 29 }),                // No TPN at EN 20 on DOL 5
 ];
+// Local times today, for the Submit column.
+const at = (h, m) => { const [y, mo, d] = today.split('-').map(Number); return new Date(y, mo - 1, d, h, m).toISOString(); };
 const log = {
   n01: [tpn(today, { aa: 2, lipid: 1, gir: 6.5, en: 10 })],
-  n02: [tpn(today, { aa: 3, lipid: 3, gir: 8.2, en: 30 })],
+  // Submitted at 09:10; a nurse's I/O-only save at 15:45 keeps calcInput.orderAt.
+  n02: [{ ...tpn(today, { aa: 3, lipid: 3, gir: 8.2, en: 30 }), lastModified: at(15, 45), published: '',
+    calcInput: { ...tpn(today, { aa: 3, lipid: 3, gir: 8.2, en: 30 }).calcInput, orderAt: at(9, 10) } }],
   n03: [tpn(today, { aa: 2.5, lipid: 0, gir: 5.8, en: 5 })],
   n04: [tpn(today, { aa: 3.5, lipid: 3, gir: 12.8, en: 20 })],
   n05: [tpn(day(-3)), noTpn(day(-2), { en: 150 })],
@@ -218,6 +243,7 @@ const log = {
   n07: [tpn(today)],
   n08: [noTpn(today)],
   s01: [tpn(today, { aa: 3, lipid: 2, gir: 6, en: 20 })],
+  n09: [tpn(day(-2)), noTpn(today, { en: 20 })],
 };
 const selected = [];
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -225,9 +251,9 @@ if (Page) act(() => { root.render(React.createElement(Page, { patients, log, war
 const host = document.getElementById('root');
 const sids = (sel) => [...host.querySelectorAll(sel)].map(el => el.getAttribute('data-sid'));
 const tableOrder = sids('.wtpn-table tbody tr');
-ok('NICU lists its five: not the discharged, the never-TPN or the SCN infant',
-  [...tableOrder].sort().join() === 'n01,n02,n03,n04,n05,n06', tableOrder);
-ok('flagged first: red, then amber by bed, then no flag, then No TPN', tableOrder.join() === 'n04,n01,n03,n06,n02,n05', tableOrder);
+ok('NICU lists its seven: not the discharged, the never-TPN or the SCN infant',
+  [...tableOrder].sort().join() === 'n01,n02,n03,n04,n05,n06,n09', tableOrder);
+ok('flagged first: red, then amber by bed (a flagged No TPN too), then no flag, then No TPN', tableOrder.join() === 'n04,n01,n03,n06,n09,n02,n05', tableOrder);
 ok('the phone cards list the same, in the same order', sids('.wtpn-cards .wtpn-card').join() === tableOrder.join(), sids('.wtpn-cards .wtpn-card'));
 const tr = (sid) => host.querySelector(`.wtpn-table tr[data-sid="${sid}"]`);
 const chips = (sid) => [...(tr(sid)?.querySelectorAll('.wtpn-flags .chip') || [])].map(c => c.textContent);
@@ -236,6 +262,8 @@ ok('lipid chip reads "DOL 2 ยังไม่มี lipid"', chips('n03').join(
 ok('GIR chip reads "GIR 12.8 > 12", red', chips('n04').join() === 'GIR 12.8 > 12' && !!tr('n04')?.querySelector('.chip.crit'), chips('n04'));
 ok('PN-after-EN chip reads "EN ≥ 120 ยังมี PN"', chips('n06').join() === 'EN ≥ 120 ยังมี PN', chips('n06'));
 ok('No TPN chip, no colour', chips('n05').join() === 'No TPN' && !tr('n05')?.querySelector('.chip.warn, .chip.crit'), chips('n05'));
+ok('No TPN on DOL 5 at EN 20: "No TPN" then "หยุด PN ตอน EN < 50", amber',
+  chips('n09').join() === 'No TPN,หยุด PN ตอน EN < 50' && !!tr('n09')?.querySelector('.chip.warn'), chips('n09'));
 ok('a row with nothing flagged says so', chips('n02').join() === 'ไม่มีธง', chips('n02'));
 ok('the No TPN chip says when the infant leaves the page',
   new RegExp(`อยู่ในหน้านี้ถึง ${day(11).slice(8, 10)}/${day(11).slice(5, 7)}`).test(tr('n05')?.querySelector('.wtpn-flags .chip')?.title || ''), tr('n05')?.querySelector('.wtpn-flags .chip')?.title);
@@ -247,14 +275,20 @@ ok('the flagged figure is coloured, its neighbours not',
   tr('n01')?.children[4]?.classList.contains('wtpn-cell-warn') && !tr('n01')?.children[5]?.classList.contains('wtpn-cell-warn'));
 ok('GA and BW under the name', /GA 25\+3 · BW 1,200 g/.test(tr('n01')?.textContent || ''), tr('n01')?.textContent);
 ok('submitted today reads "วันนี้ HH:MM"', /วันนี้ \d\d:\d\d/.test(cells('n01')[9] || ''), cells('n01')[9]);
+ok('the Submit column reads the order\'s Submit (09:10), not a nurse\'s I/O save after it (15:45)',
+  cells('n02')[9] === 'วันนี้ 09:10', cells('n02')[9]);
+ok('…and so does the phone card', host.querySelector('.wtpn-card[data-sid="n02"] .wtpn-card-top .wtpn-sub')?.textContent === 'วันนี้ 09:10',
+  host.querySelector('.wtpn-card[data-sid="n02"] .wtpn-card-top .wtpn-sub')?.textContent);
 const tiles = [...host.querySelectorAll('.wtpn-tile .v')].map(v => v.textContent);
-ok('tiles: 6 on the page, 4 to look at today', tiles.join() === '6,4', tiles);
-ok('…of which 5 on TPN, 1 stopped', /ได้ TPN 5 · หยุดแล้ว 1/.test(host.querySelector('.wtpn-tile .l')?.textContent || ''));
+ok('tiles: 7 on the page, 5 to look at today', tiles.join() === '7,5', tiles);
+ok('…of which 5 on TPN, 2 stopped', /ได้ TPN 5 · หยุดแล้ว 2/.test(host.querySelector('.wtpn-tile .l')?.textContent || ''));
 const text = host.textContent;
 ok('no QI figure: no QI, rate, median or run chart on the page', !/\bQI\b|median|run chart|ร้อยละ|%/.test(text), text.match(/\bQI\b|median|run chart|ร้อยละ|%/));
 ok('the legend names the lines from data.js (2.5, 37, 140, 120, 14)',
   ['AA < 2.5', 'GA < 37 wk', '140 mL/kg/d', '120 ตั้งแต่ 28 wk', '14 วัน'].every(s => text.includes(s)),
   ['AA < 2.5', 'GA < 37 wk', '140 mL/kg/d', '120 ตั้งแต่ 28 wk', '14 วัน'].filter(s => !text.includes(s)));
+ok('the legend cites NICE NG154 recs 1.8.2–1.8.3 (1.8.2 is the 140 line, 1.8.3 the 120)', text.includes('NICE NG154 rec 1.8.2–1.8.3'));
+ok('the legend says a No TPN order counts as AA 0', text.includes('นับคำสั่ง No TPN เป็น AA 0'));
 if (tr('n04')) act(() => { tr('n04').dispatchEvent(new window.MouseEvent('click', { bubbles: true })); });
 ok('a tap on a row opens that infant', selected.join() === 'n04', selected);
 const card = host.querySelector('.wtpn-card[data-sid="n03"]');
@@ -286,6 +320,41 @@ act(() => { root2.unmount(); });
 const css = fs.readFileSync(DIR + 'index.html', 'utf8');
 ok('the page\'s phone cards replace the table under 768px', /\.wtpn-cards \{ display: none; \}/.test(css) && /@media \(max-width: 767px\) \{\s*\.wtpn-cards \{ display: grid;/.test(css));
 ok('and the shells are still one file', css === fs.readFileSync(DIR + 'NeoFeed.html', 'utf8'));
+
+console.log('\n── 10. graded as printed ──');
+// A saved figure is a float: 8 feeds of 17.5 mL over 1 kg is 140, but a
+// division can leave 139.99999999999997. The page prints EN to 1 decimal and
+// AA, lipid and GIR to 2 (displayNum), and grades the printed figure.
+const tail = (x, sign) => x + sign * 3e-14;
+ok('the float tails here are real: 140 − 3e-14 is below 140', tail(140, -1) < 140 && tail(50, 1) > 50);
+ok('GA 27+6, EN 140 less a float tail: flagged at 140', has(enRow(tail(140, -1), 27.6), 'pnAfterEn'), keys(enRow(tail(140, -1), 27.6)));
+ok('GA 28+0, EN 120 less a float tail: flagged at 120', has(enRow(tail(120, -1), 28), 'pnAfterEn'), keys(enRow(tail(120, -1), 28)));
+ok('GA 27+6, EN 139.94 (prints 139.9): no flag', !has(enRow(139.94, 27.6), 'pnAfterEn'), keys(enRow(139.94, 27.6)));
+ok('GA 27+6, EN 139.96 (prints 140): flagged', has(enRow(139.96, 27.6), 'pnAfterEn'), keys(enRow(139.96, 27.6)));
+ok('EN 49.96 prints 50, so it is not "EN < 50": no AA flag', !has(aaRow({ en: 49.96 }), 'aa'), keys(aaRow({ en: 49.96 })));
+ok('EN 49.94 prints 49.9: AA flag', has(aaRow({ en: 49.94 }), 'aa'), keys(aaRow({ en: 49.94 })));
+ok('EN 50 less a float tail prints 50: no AA flag', !has(aaRow({ en: tail(50, -1) }), 'aa'), keys(aaRow({ en: tail(50, -1) })));
+ok('AA 2.5 less a float tail prints 2.5: no AA flag', !has(aaRow({ aa: tail(2.5, -1) }), 'aa'), keys(aaRow({ aa: tail(2.5, -1) })));
+ok('AA 2.494 prints 2.49: AA flag', has(aaRow({ aa: 2.494 }), 'aa'), keys(aaRow({ aa: 2.494 })));
+ok('GIR 12 plus a float tail prints 12: no flag', !girFlag(tail(12, 1)), girFlag(tail(12, 1)));
+ok('GIR 4 less a float tail prints 4: no flag', !girFlag(tail(4, -1)), girFlag(tail(4, -1)));
+ok('GIR 12.006 prints 12.01: red', girFlag(12.006)?.level === 'crit', girFlag(12.006));
+ok('lipid 0.004 prints 0: DOL 2 no-lipid flag', has(lipRow({ lipid: 0.004 }), 'lipid'), keys(lipRow({ lipid: 0.004 })));
+ok('…and the row still shows the figure as saved', aaRow({ en: 49.96 })?.en === 49.96);
+
+console.log('\n── 11. Submit time ──');
+// Submit saves and locks in one press; the server stamps calcInput.orderAt on
+// every save that changes the order and keeps it on an I/O-only save.
+const sub = D.orderSubmittedAt;
+ok('orderSubmittedAt is in data.js', typeof sub === 'function');
+if (typeof sub === 'function') {
+  ok('orderAt first', sub({ calcInput: { orderAt: at(9, 10) }, published: at(9, 11), lastModified: at(15, 45) }) === at(9, 10));
+  ok('then the lock (published), for a row from before orderAt', sub({ calcInput: {}, published: at(9, 11), lastModified: at(15, 45) }) === at(9, 11));
+  ok('then the last save', sub({ calcInput: {}, published: '', lastModified: at(15, 45) }) === at(15, 45));
+  ok('a stamp that is not a date is skipped', sub({ calcInput: { orderAt: 'x' }, published: 'nope', lastModified: at(8, 0) }) === at(8, 0));
+  ok('no stamp at all: ""', sub({ calcInput: null }) === '' && sub(null) === '');
+  ok('the row carries it', row(pt('ST'), [{ ...tpn(today), calcInput: { ...tpn(today).calcInput, orderAt: at(7, 5) } }])?.submittedAt === at(7, 5));
+}
 
 console.log(`\n${fail ? 'FAILED' : 'ALL PASS'}: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

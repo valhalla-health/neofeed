@@ -279,12 +279,15 @@ const wtpnDayMonth = (d) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : "—");
 function wardTpnFlagText(f, r) {
   const A = D_R.WARD_AA_FLAG, S = D_R.PN_STOP_EN_ML_KG;
   switch (f.key) {
-    case "aa": return {
+    // A No TPN order is AA 0 (Pp, 2026-11-17): its chip says PN stopped early.
+    case "aa": return f.noTpn ? {
+      text: `หยุด PN ตอน EN < ${A.enBelowMlKg}`,
+      title: `preterm DOL ${A.fromDol}–${A.toDol}: คำสั่งล่าสุดเป็น No TPN แต่ EN ${wtpnNum(r.en, 1)} mL/kg/d ยังต่ำกว่า ${A.enBelowMlKg} จึงไม่ได้ AA` } : {
       text: `AA < ${wtpnNum(A.belowGPerKg)}`,
       title: `preterm DOL ${A.fromDol}–${A.toDol} ที่ EN < ${A.enBelowMlKg} mL/kg/d: AA ในคำสั่งล่าสุด ${wtpnNum(r.aa)} g/kg/d` };
     case "lipid": return {
       text: `DOL ${D_R.WARD_LIPID_FLAG_DOL} ยังไม่มี lipid`,
-      title: `preterm DOL ${D_R.WARD_LIPID_FLAG_DOL}: คำสั่งล่าสุดไม่มี lipid` };
+      title: `preterm DOL ${D_R.WARD_LIPID_FLAG_DOL}: คำสั่งล่าสุด${f.noTpn ? "เป็น No TPN จึง" : ""}ไม่มี lipid` };
     case "gir": {
       const [lo] = D_R.TARGETS.gir();
       return f.low
@@ -313,13 +316,15 @@ function wtpnCellCls(r, key) {
   const f = r.flags.find(x => x.key === key);
   return !f ? "" : f.level === "crit" ? "wtpn-cell-crit" : "wtpn-cell-warn";
 }
-// When the latest order was last saved: "วันนี้ 09:10", "เมื่อวาน 08:45" or
-// "12/11 08:45". The saved time is lastModified (an ISO stamp); a row without
-// one shows its order's date.
-function wtpnSubmitted(order, today) {
-  const t = new Date(order && order.lastModified);
-  let date = D_R.normalizeDateStr(order && order.ts), time = "";
-  if (order && order.lastModified && !isNaN(t)) {
+// When the latest order was submitted: "วันนี้ 09:10", "เมื่อวาน 08:45" or
+// "12/11 08:45", in this device's time. The stamp is D.orderSubmittedAt, so a
+// nurse's I/O save after the Submit does not move it; a row without one shows
+// its order's date.
+function wtpnSubmitted(r, today) {
+  const at = r && r.submittedAt;
+  const t = new Date(at);
+  let date = D_R.normalizeDateStr(r && r.latest && r.latest.ts), time = "";
+  if (at && !isNaN(t)) {
     const pad = (x) => String(x).padStart(2, "0");
     date = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
     time = ` ${pad(t.getHours())}:${pad(t.getMinutes())}`;
@@ -403,7 +408,7 @@ function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
                       <td className={`r num ${wtpnCellCls(r, "gir")}`}>{wtpnNum(r.gir)}</td>
                       <td className={`r num ${wtpnCellCls(r, "pnAfterEn")}`}>{wtpnNum(r.en, 1)}{r.men ? " MEN" : ""}</td>
                       <td><div className="wtpn-flags"><WardTpnFlags r={r} /></div></td>
-                      <td className="wtpn-sub">{wtpnSubmitted(r.latest, today)}</td>
+                      <td className="wtpn-sub">{wtpnSubmitted(r, today)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -415,7 +420,7 @@ function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
                   data-sid={r.sessionId} onClick={() => open(r)} {...rowA11y(() => open(r))}>
                   <div className="wtpn-card-top">
                     <div><BedChip p={r.p} /> <span className="wtpn-name">{D_R.patientName(r.p) || "—"}</span><TestTag p={r.p} /></div>
-                    <span className="wtpn-sub">{wtpnSubmitted(r.latest, today)}</span>
+                    <span className="wtpn-sub">{wtpnSubmitted(r, today)}</span>
                   </div>
                   <div className="wtpn-sub">{wtpnWho(r.p)} · DOL {r.dol}{r.pnDay ? ` · วัน PN ${r.pnDay}` : ""}</div>
                   <div className="wtpn-grid">
@@ -432,10 +437,10 @@ function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
           <div className="wtpn-legend">
             <b>ธง</b> บอกเรื่องที่คำสั่งวันนี้ยังแก้ได้ ·
             AA &lt; {wtpnNum(A.belowGPerKg)}: preterm (GA &lt; {D_R.PRETERM_GA_WK} wk) DOL {A.fromDol}–{A.toDol} ที่ EN &lt; {A.enBelowMlKg} mL/kg/d
-            นับตาม DOL ของวันนี้ แม้ทารก admit ทีหลัง (ESPGHAN 2018 PN, R 3.2) ·
-            DOL {D_R.WARD_LIPID_FLAG_DOL} ยังไม่มี lipid: preterm (ESPGHAN 2018 PN, R 4.2) ·
+            นับตาม DOL ของวันนี้ แม้ทารก admit ทีหลัง และนับคำสั่ง No TPN เป็น AA 0 (ESPGHAN 2018 PN, R 3.2) ·
+            DOL {D_R.WARD_LIPID_FLAG_DOL} ยังไม่มี lipid: preterm รวมคำสั่ง No TPN (ESPGHAN 2018 PN, R 4.2) ·
             GIR เกิน {D_R.GIR_HARD_HI} แดง ต่ำกว่า {D_R.TARGETS.gir()[0]} เหลือง ตามแถบ GIR ของแอป ·
-            EN ≥ เกณฑ์หยุด PN แต่ยังมี PN: {S.below} mL/kg/d ใน GA &lt; {S.belowGaWk} wk และ {S.atOrAbove} ตั้งแต่ {S.belowGaWk} wk (NICE NG154) ·
+            EN ≥ เกณฑ์หยุด PN แต่ยังมี PN: {S.below} mL/kg/d ใน GA &lt; {S.belowGaWk} wk และ {S.atOrAbove} ตั้งแต่ {S.belowGaWk} wk (NICE NG154 rec 1.8.2–1.8.3) ·
             No TPN: คำสั่งล่าสุดไม่มี TPN อยู่ในหน้านี้ {D_R.WARD_TPN_RECENT_DAYS} วันนับจากคำสั่งล่าสุดที่มี TPN
           </div>
           <div className="wtpn-legend">AA, lipid, GIR และ EN เป็นค่าที่สั่ง ไม่ใช่ค่าที่ทารกได้รับจริง · GIR นับเฉพาะ dextrose ทาง IV</div>
