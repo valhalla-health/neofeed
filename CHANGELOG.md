@@ -7,6 +7,23 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-18 (3) — Vera on "TPN ทั้งหอ": GIR graded as every screen grades it; No TPN lipid below EN 50
+
+`data.js` (`wardTpnRow`), `registry.jsx` (the No TPN AA chip's title), `compiled/`, both shells' tokens, `REFERENCE.md`,
+`test/README.md`, `test/verify-ward-tpn-page-1115.cjs`. Vera: NO BLOCK, three 🟠 and two 🟡. Entry (1) stays as written.
+
+- **GIR is graded raw again.** Entry (1) graded the page's GIR as printed, 2 decimals; the Calculator and the Alerts page
+  grade the same saved GIR raw through `girStatus`, so a saved 12.004 was red there and unflagged here, the split
+  `girStatus`'s comment records as a past defect. AA, lipid and EN stay graded as printed: no other screen grades them.
+- **A No TPN order's DOL 2 lipid flag needs counted EN < 50.** Pp was asked about EN < 50 for both flags; entry (1)
+  flagged a No TPN infant on DOL 2 fed at EN 60. An order with TPN keeps the lipid flag at any EN, as before.
+- **The No TPN AA chip's title prints the counted EN** (`enCounted`, 0 for a MEN feed) and says "MEN ไม่นับ".
+- **One date for Pp's "ขึ้นธง":** 2026-11-17, in `test/README.md` too.
+- **Left for Pp:** whether a preterm infant who never had TPN, on DOL 2–7 with counted EN < 50 on a No TPN order, is
+  listed while that flag holds. Her rule of 2026-11-15 keeps an infant who never had TPN off the page, and it came
+  before her answer of 2026-11-17; the page is unchanged until she says.
+- **Tests.** 149 assertions; 24 of 24 planted rule changes caught, the three above among them.
+
 ## Session 2026-11-18 (2) — STATUS and BACKLOG catch up; GLOSSARY.md goes in
 
 `STATUS.md`, `BACKLOG.md`, `GLOSSARY.md` (new). Records only, no code. The catch-up of 2026-11-17 found what the next PR

@@ -162,7 +162,7 @@ function wardTpnFlagText(f, r) {
     case "aa":
       return f.noTpn ? {
         text: `หยุด PN ตอน EN < ${A.enBelowMlKg}`,
-        title: `preterm DOL ${A.fromDol}–${A.toDol}: คำสั่งล่าสุดเป็น No TPN แต่ EN ${wtpnNum(r.en, 1)} mL/kg/d ยังต่ำกว่า ${A.enBelowMlKg} จึงไม่ได้ AA`
+        title: `preterm DOL ${A.fromDol}–${A.toDol}: คำสั่งล่าสุดเป็น No TPN แต่ EN ที่นับ ${wtpnNum(r.enCounted, 1)} mL/kg/d${r.men ? " (MEN ไม่นับ)" : ""} ยังต่ำกว่า ${A.enBelowMlKg} จึงไม่ได้ AA`
       } : {
         text: `AA < ${wtpnNum(A.belowGPerKg)}`,
         title: `preterm DOL ${A.fromDol}–${A.toDol} ที่ EN < ${A.enBelowMlKg} mL/kg/d: AA ในคำสั่งล่าสุด ${wtpnNum(r.aa)} g/kg/d`

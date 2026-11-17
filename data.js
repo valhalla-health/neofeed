@@ -2286,15 +2286,19 @@ function orderSubmittedAt(entry) {
 // TPN order has no AA, lipid or GIR to show. `flags` lists, in this order:
 //   noTpn      info  the latest order is No TPN (orderIsNoTpn)
 //   aa         warn  WARD_AA_FLAG, preterm; a No TPN order counts as AA 0
-//   lipid      warn  no lipid on WARD_LIPID_FLAG_DOL, preterm; No TPN as well
+//   lipid      warn  no lipid on WARD_LIPID_FLAG_DOL, preterm; No TPN as well,
+//                    while counted EN is below WARD_AA_FLAG's line
 //   gir        crit above GIR_HARD_HI, warn below the band (girStatus)
 //   pnAfterEn  warn  PN (dextrose, AA or lipid) with counted EN at the NICE line
 // gir and pnAfterEn read only an order with TPN. AA and lipid flag a No TPN
 // order too (Pp, 2026-11-17: a preterm infant off PN on DOL 2–7 with EN < 50
-// is something today's order can still change). Each figure is graded as the
-// page prints it (AA, lipid and GIR to 2 decimals, EN to 1), so EN 49.96 shown
-// as "50" is not "EN < 50", and an EN that a float tail leaves at 139.999… is
-// at the 140 line.
+// is something today's order can still change), and only below that EN line:
+// she was asked about EN < 50 for both (Vera, 2026-11-18). AA, lipid and EN are
+// graded as the page prints them (AA and lipid to 2 decimals, EN to 1), so EN
+// 49.96 shown as "50" is not "EN < 50", and an EN that a float tail leaves at
+// 139.999… is at the 140 line; no other screen grades these. GIR is graded raw
+// by girStatus, as the Calculator and the Alerts page grade the same saved
+// number (Vera, 2026-11-18): one GIR, one grading on every screen.
 function wardTpnRow(p, entries, today) {
   if (!isOnUnit(p)) return null;
   const latest = previousFinalEntry(entries, "9999-12-31");
@@ -2323,7 +2327,7 @@ function wardTpnRow(p, entries, today) {
   const dol = dolAtDate(p, today);
   const noTpn = orderIsNoTpn(latest);
   const aa = noTpn ? 0 : shown(ci.aaPerKg, 2), lipid = noTpn ? 0 : shown(ci.lipidPerKg, 2);
-  const gir = shown(latest.gir, 2), en = shown(countedEnPerKg(latest), 1);
+  const gir = num(latest.gir), en = shown(countedEnPerKg(latest), 1);
   const flags = [];
   if (noTpn) flags.push({ key: "noTpn", level: "info" });
   if (onTpn || noTpn) {
@@ -2331,7 +2335,8 @@ function wardTpnRow(p, entries, today) {
     const A = WARD_AA_FLAG;
     if (preterm && dol >= A.fromDol && dol <= A.toDol && en < A.enBelowMlKg && aa < A.belowGPerKg)
       flags.push({ key: "aa", level: "warn", noTpn });
-    if (preterm && dol === WARD_LIPID_FLAG_DOL && !(lipid > 0)) flags.push({ key: "lipid", level: "warn", noTpn });
+    if (preterm && dol === WARD_LIPID_FLAG_DOL && !(lipid > 0) && (!noTpn || en < A.enBelowMlKg))
+      flags.push({ key: "lipid", level: "warn", noTpn });
   }
   if (onTpn) {
     const gs = girStatus(gir);
@@ -2348,6 +2353,8 @@ function wardTpnRow(p, entries, today) {
     pnDay: onTpn && runStart ? Math.max(1, (daysBetweenDateStr(runStart, today) || 0) + 1) : null,
     aa: onTpn ? aa : null, lipid: onTpn ? lipid : null, gir: onTpn ? gir : null,
     en: num(latest.enVolPerKg), men: !!ci.isMEN,
+    // The EN the flags read: a MEN feed counts nothing (countedEnPerKg).
+    enCounted: en,
     submittedAt: orderSubmittedAt(latest),
     lastTpnDate,
     // The last day an infant whose latest order has no TPN stays listed.

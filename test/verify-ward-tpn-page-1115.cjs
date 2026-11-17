@@ -196,7 +196,12 @@ ok('No TPN, DOL 4, EN 49.9: AA', keys(ntRow({ dol: 4 }, 49.9)) === 'noTpn,aa', k
 ok('No TPN, DOL 4, EN 50: the No TPN chip only', keys(ntRow({ dol: 4 }, 50)) === 'noTpn', keys(ntRow({ dol: 4 }, 50)));
 ok('No TPN, DOL 7, EN 30: AA', keys(ntRow({ dol: 7 }, 30)) === 'noTpn,aa', keys(ntRow({ dol: 7 }, 30)));
 ok('No TPN, DOL 8, EN 30: the No TPN chip only', keys(ntRow({ dol: 8 }, 30)) === 'noTpn', keys(ntRow({ dol: 8 }, 30)));
-ok('No TPN, DOL 2, EN 60: lipid only (EN is past the AA line)', keys(ntRow({ dol: 2 }, 60)) === 'noTpn,lipid', keys(ntRow({ dol: 2 }, 60)));
+ok('No TPN, DOL 2, EN 40: AA and lipid', keys(ntRow({ dol: 2 }, 40)) === 'noTpn,aa,lipid', keys(ntRow({ dol: 2 }, 40)));
+// Pp was asked about EN < 50 for both flags (Vera, 2026-11-18): fed past it, no lipid flag.
+ok('No TPN, DOL 2, EN 50: the No TPN chip only (fed to the line, no lipid flag)', keys(ntRow({ dol: 2 }, 50)) === 'noTpn', keys(ntRow({ dol: 2 }, 50)));
+ok('No TPN, DOL 2, EN 60, GA 34: the No TPN chip only', keys(ntRow({ dol: 2, ga: 34 }, 60)) === 'noTpn', keys(ntRow({ dol: 2, ga: 34 }, 60)));
+ok('…while an order WITH TPN on DOL 2 takes the lipid flag at any EN (EN 60, no lipid)',
+  has(row(pt('LE', { dol: 2, ga: 30 }), [tpn(today, { aa: 3, lipid: 0, en: 60 })]), 'lipid'));
 ok('No TPN, GA 37+0, DOL 4, EN 10: the No TPN chip only (term)', keys(ntRow({ dol: 4, ga: 37 }, 10)) === 'noTpn', keys(ntRow({ dol: 4, ga: 37 }, 10)));
 ok('No TPN never takes a GIR or PN-after-EN flag (GA 26, DOL 20, EN 150)', keys(ntRow({ dol: 20, ga: 26 }, 150)) === 'noTpn', keys(ntRow({ dol: 20, ga: 26 }, 150)));
 ok('a MEN feed counts no EN on a No TPN order too (ticked MEN at 60, DOL 4: AA)',
@@ -336,11 +341,19 @@ ok('EN 49.94 prints 49.9: AA flag', has(aaRow({ en: 49.94 }), 'aa'), keys(aaRow(
 ok('EN 50 less a float tail prints 50: no AA flag', !has(aaRow({ en: tail(50, -1) }), 'aa'), keys(aaRow({ en: tail(50, -1) })));
 ok('AA 2.5 less a float tail prints 2.5: no AA flag', !has(aaRow({ aa: tail(2.5, -1) }), 'aa'), keys(aaRow({ aa: tail(2.5, -1) })));
 ok('AA 2.494 prints 2.49: AA flag', has(aaRow({ aa: 2.494 }), 'aa'), keys(aaRow({ aa: 2.494 })));
-ok('GIR 12 plus a float tail prints 12: no flag', !girFlag(tail(12, 1)), girFlag(tail(12, 1)));
-ok('GIR 4 less a float tail prints 4: no flag', !girFlag(tail(4, -1)), girFlag(tail(4, -1)));
-ok('GIR 12.006 prints 12.01: red', girFlag(12.006)?.level === 'crit', girFlag(12.006));
+// GIR is the exception (Vera, 2026-11-18): the Calculator and the Alerts page grade the
+// saved GIR raw through girStatus, so this page does too: one GIR, one grading.
+const girLevel = (g) => girFlag(g)?.level || 'ok';
+const girs = [12, tail(12, 1), 12.004, 12.006, 4, tail(4, -1), 3.996, 8];
+ok('GIR graded as girStatus grades the saved number, as the Alerts page does: ' + girs.map(g => String(g).slice(0, 8)).join(' '),
+  girs.every(g => girLevel(g) === D.girStatus(g)), girs.map(g => [g, girLevel(g), D.girStatus(g)]));
+ok('…so 12.004 is red here as on the Alerts page', girLevel(12.004) === 'crit');
+const appSrc = fs.readFileSync(DIR + 'app.jsx', 'utf8');
+ok('…and the Alerts page still grades the raw saved GIR (app.jsx: girStatus(last.gir))', /D_A\.girStatus\(last\.gir\)/.test(appSrc));
 ok('lipid 0.004 prints 0: DOL 2 no-lipid flag', has(lipRow({ lipid: 0.004 }), 'lipid'), keys(lipRow({ lipid: 0.004 })));
 ok('…and the row still shows the figure as saved', aaRow({ en: 49.96 })?.en === 49.96);
+const menRow = row(pt('MT', { dol: 4 }), [tpn(day(-1)), { ...noTpn(today, { en: 60 }), calcInput: { noTpn: true, totalTPN_mL: 0, isMEN: true } }]);
+ok('a No TPN MEN feed: the row carries the counted EN (0) beside the feed given (60)', menRow?.enCounted === 0 && menRow?.en === 60, menRow && [menRow.enCounted, menRow.en]);
 
 console.log('\n── 11. Submit time ──');
 // Submit saves and locks in one press; the server stamps calcInput.orderAt on

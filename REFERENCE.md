@@ -199,9 +199,10 @@ the page for good (Pp, 2026-11-15). A draft is not an order. Flagged rows first 
 
 **The figures** are the latest Submitted order's, as ordered: `calcInput.aaPerKg`, `calcInput.lipidPerKg`, the saved IV
 GIR and `enVolPerKg`. DOL and the day of PN are today's; the day of PN counts from the first order of the current run,
-which a No TPN order ends. Each figure is graded as the page prints it (`displayNum`: AA, lipid and GIR to 2 decimals,
-EN to 1), so a float tail never puts a value on the other side of a line, and EN 49.96, printed "50", is not
-"EN < 50" (2026-11-17).
+which a No TPN order ends. AA, lipid and EN are graded as the page prints them (`displayNum`: AA and lipid to 2
+decimals, EN to 1), so a float tail never puts one on the other side of a line, and EN 49.96, printed "50", is not
+"EN < 50" (2026-11-18). GIR is graded raw by `girStatus`, as the Calculator and the Alerts page grade the same saved
+number: one GIR, one grading on every screen (Vera, 2026-11-18).
 
 **"Submit ล่าสุด"** is `D.orderSubmittedAt`: `calcInput.orderAt`, which the server stamps on every save that changes
 the order and keeps on an I/O-only save (a nurse's, or a doctor's since 2026-11-15), so a later I/O save never moves
@@ -215,7 +216,7 @@ back end, admin only, until the indicators are chosen).
 | Flag | When | Source |
 |---|---|---|
 | AA < 2.5 (amber) | preterm, today's DOL 2–7, counted EN < 50 mL/kg/d, AA < 2.5 g/kg/d. By DOL, also for an infant admitted after birth, and today's DOL when the latest order is older (Pp, 2026-11-14, 2026-11-15). A No TPN order counts as AA 0 and its chip reads "หยุด PN ตอน EN < 50" (Pp, 2026-11-17) | van Goudoever 2018 R 3.2; EN < 50 is NeoFeed's own (`pn_aa_ge_2_5`) |
-| DOL 2 ยังไม่มี lipid (amber) | preterm, today's DOL 2, no lipid; a No TPN order too (Pp, 2026-11-17) | Lapillonne 2018 R 4.2 |
+| DOL 2 ยังไม่มี lipid (amber) | preterm, today's DOL 2, no lipid; a No TPN order too while counted EN < 50 mL/kg/d (Pp, 2026-11-17, asked about EN < 50) | Lapillonne 2018 R 4.2 |
 | GIR > 12 (red), GIR < 4 (amber) | `girStatus`, every GA; a GIR of 0 (no dextrose) is not flagged | `CR-GIR-MAX` |
 | EN ≥ 140 / 120 ยังมี PN (amber) | dextrose, AA or lipid still ordered once counted EN reaches 140 mL/kg/d below 28 wk, 120 from 28 wk and at term; every GA (Pp, 2026-11-15) | NICE NG154 rec 1.8.2 (born before 28+0 wk, 140–150) and rec 1.8.3 (28+0 wk or later and term, 120–140), the lower end of each; not `FULL_EN_ML_KG` |
 | No TPN (no colour) | the latest order is No TPN (`orderIsNoTpn`); the AA and lipid flags above may come with it, never the GIR or PN-after-EN flag | — |
