@@ -2374,5 +2374,6 @@ left out; an empty day still has its rows); a revision; a nurse's I/O-only revis
 at the doctor's Submit, the same time the TPN room's page reads; a Submit after midnight and at exactly midnight;
 the ward at the moment of Submit from `bedHistory`; `no_time` and the cut-off by the minute shown; the tab written
 and rewritten whole, plain-text times, no patient field, yesterday as the last day; out of `doPost`'s reach, and a
-schema fault throws. No npm dependencies. Red against `main`'s backend (`NEOFEED_GAS_SRC`); 16 planted rule changes
-each turn it red.
+schema fault throws; a sticker-only revision read as the TPN room reads it (the run reads AM), and a grid grown past
+1000 rows. No npm dependencies. Red against `main`'s backend (`NEOFEED_GAS_SRC`); 18 planted rule changes each turn it
+red.

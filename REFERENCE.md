@@ -811,7 +811,10 @@ day it has an order (no bed or a free-text bed, kept outside `ALL`). A day with 
 - **The day is the order's own date** (column A, ward time). **The ward is the one at the moment of Submit**, from
   `bedHistory` (the first hop made after that moment names the bed held; a hop with no `at` counts as made at the
   end of its date), else the current bed or a parked infant's last bed, as the ward list files it. An infant
-  moved from NICU to SCN keeps their NICU days in NICU.
+  moved from NICU to SCN keeps their NICU days in NICU. **One exception:** a Submit made while the infant was parked
+  (no bed) takes the ward of the bed they were placed in afterwards, since placing a parked infant writes no hop
+  (`registry.jsx`); until then it is filed under the bed they left. A day's ward split can move once, on placement.
+  The `ALL` row never moves.
 - **No patient field.** A date, a weekday, a ward, counts and times of day; no NeoFeed ID, entryId, name or e-mail.
   An infant whose record was erased (PDPA) is left out, as `exportQi` leaves them out, so a later erasure can lower
   an old day's count. A day with one TPN order shows that order's time; that is a process time, not a clinical
@@ -821,7 +824,10 @@ day it has an order (no bed or a free-text bed, kept outside `ALL`). A day with 
   from a trigger; `doPost` answers "Unknown action" to both. Neither takes the script lock: a save that lands mid-read
   is read right by the next run. It is not in `BACKUP_DATA_TABS`: a backup copies it without judging it, and after a
   restore one run rebuilds it.
-- **Cost.** Each run reads `Daily_Log` A–AL (not AM, the sticker figures, 1–2 KB a row) and the whole registry.
+- **Cost.** Each run reads `Daily_Log` A–AM and the whole registry. AM, the sticker figures (1–2 KB a row), is read
+  because the walk compares it, as `pharmacyOrders` does: a revision that changes only the sticker figures is a new
+  version for the TPN room (Vera, 2026-11-18). Once a night, that is affordable.
+- **The tab grows its own grid** before it clears anything: a new tab has 1000 rows, about 330 days.
 
 **Setting it up** (on Pp's go-ahead; no new scope: a trigger added in the editor needs none, as the backup's):
 

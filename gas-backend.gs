@@ -5849,7 +5849,8 @@ function _qiWardAt(patRow, ms) {
 }
 
 // Pure: Daily_Log and Patient_Registry rows exactly as getValues() returns them
-// (row 0 the header; Daily_Log A–AL is enough, AM is not read) -> the tab's rows,
+// (row 0 the header; Daily_Log A–AM: the walk compares AM, the sticker figures,
+// as pharmacyOrders does) -> the tab's rows,
 // one per day from `opts.from` to `opts.to` and per ward: "ALL" (QI_SUBMIT_WARDS
 // together), then each of those wards, then "other" only on a day it has an
 // order. A day with no order still has its rows, reading 0 and blank times, so a
@@ -5974,13 +5975,17 @@ function qiSubmitDays(logRows, patRows, opts) {
 // overrides QI_SUBMIT_CUTOFF for one run. It reads two tabs and writes only its
 // own, takes no lock (a save landing mid-read is read right by the next run),
 // and creates its tab on the first run. Logs counts only.
+// Daily_Log is read at full width, AM included (Vera, 2026-11-18): a revision
+// that differs from the one before only in its sticker figures is a new version
+// to the TPN room (_sameStoredFigures reads AM), so without AM the walk would go
+// past it and read an older Submit than the room's page shows.
 function qiSubmitTimesRefresh(cutoff) {
   var ss = _book();
   var patSheet = getSheetPat(ss), logSheet = getSheetLog(ss);
   _pharmacySchemaNow(patSheet, "Patient_Registry");
   _pharmacySchemaNow(logSheet, "Daily_Log");
   var lastRow = logSheet.getLastRow();
-  var width = Math.min(LOG_SYNC_WIDTH, logSheet.getMaxColumns());
+  var width = Math.min(LOG_WIDTH, logSheet.getMaxColumns());
   var logRows = lastRow < 1 ? [] : logSheet.getRange(1, 1, lastRow, width).getValues();
   var out = qiSubmitDays(logRows, patSheet.getDataRange().getValues(), { now: new Date(), cutoff: cutoff });
   var sh = ss.getSheetByName(QI_SUBMIT_TAB);
@@ -5991,8 +5996,14 @@ function qiSubmitTimesRefresh(cutoff) {
       if (extra > 0) sh.deleteColumns(QI_SUBMIT_WIDTH + 1, extra);
     } catch (e) { Logger.log("QI_SubmitTimes column trim skipped: " + e.message); }
   }
-  sh.clearContents();
   var values = [QI_SUBMIT_HEADERS.slice()].concat(out.rows);
+  // Grow the grid before anything is cleared (Vera, 2026-11-18): a new tab has
+  // 1000 rows, about 330 days at three rows a day, and a write past the grid
+  // throws. Grown first, so the write fits, and a grow that fails leaves last
+  // night's tab as it was.
+  var maxRows = sh.getMaxRows();
+  if (maxRows < values.length) sh.insertRowsAfter(maxRows, values.length - maxRows);
+  sh.clearContents();
   var range = sh.getRange(1, 1, values.length, QI_SUBMIT_WIDTH);
   // Plain text, so the Sheet never turns "09:10 (+1)" or a date into something
   // else; the count columns and last_submit_min stay numbers, for a chart.

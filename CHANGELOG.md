@@ -7,7 +7,23 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-18 (4) — QI: when each day's TPN orders reach the TPN room, a nightly `QI_SubmitTimes` tab
+## Session 2026-11-18 (4) — Vera on `QI_SubmitTimes`: the sticker column read, the grid grown, the parked exception
+
+`gas-backend.gs` (`qiSubmitTimesRefresh`), `REFERENCE.md` (§ QI: submit times), `test/verify-qi-submit-times-1118.cjs`.
+Vera: NO BLOCK, two 🟠 and one 🟡. Entry (3) stays as written.
+
+- **AM is read.** Entry (3) read `Daily_Log` A–AL to skip the 1–2 KB sticker column, on the claim that AM follows from
+  the columns read. It does not: a revision can differ from the one before only in its sticker figures, and
+  `_sameStoredFigures` then calls it a new version. Without AM the walk went past it, so the tab read an older Submit
+  than the TPN room's page. The run now reads A–AM; a test holds the case.
+- **The grid grows before the clear.** A new tab has 1000 rows; at three a day the write would have thrown in
+  about 330 days, after `clearContents` had emptied the tab. Rows are now added first, as `exportQi` does.
+- **A Submit while parked** takes the ward of the bed the infant is placed in afterwards (placing writes no hop).
+  Written down in `REFERENCE.md`, not changed: the `ALL` row never moves.
+- **Tests.** 52 assertions (§9 new: the sticker-only revision against `pharmacyOrders`, and 1009 rows on a strict
+  1000-row grid); 18 of 18 planted rule changes caught, the two fixes above among them.
+
+## Session 2026-11-18 (3) — QI: when each day's TPN orders reach the TPN room, a nightly `QI_SubmitTimes` tab
 
 `gas-backend.gs` (§ QI: when each day's TPN orders reach the TPN room; `_orderSignerWalk`, moved out of
 `pharmacyOrders`), `test/gas-vm-sandbox.cjs` (`setNumberFormat`, plain-text cells), `REFERENCE.md` (§ QI: submit

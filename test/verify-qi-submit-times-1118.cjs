@@ -16,6 +16,8 @@
 //   §7  the tab: written whole, rewritten whole, plain-text times and number
 //       counts, no patient field, from QI_SUBMIT_FROM to yesterday
 //   §8  out of doPost's reach; a schema fault throws before the tab is touched
+//   §9  Vera, 2026-11-18: the run reads AM, so a sticker-only revision is the
+//       TPN room's version here too; the grid grows past 1000 rows
 //
 // Made-up infants only (this repo is public). No npm dependencies.
 //
@@ -244,6 +246,34 @@ T.section('§8 out of doPost\'s reach; a schema fault throws first', () => {
   let threw = false;
   try { g2.sb.qiSubmitTimesNightly(); } catch (e) { threw = true; }
   T.eq('a Daily_Log header changed by hand: the nightly run throws (the trigger mails its owner), and writes no tab', [threw, !g2.sheet('QI_SubmitTimes')], [true, true]);
+});
+
+T.section('§9 Vera: the sticker column, and a grid past 1000 rows', () => {
+  // A revision that differs only in its sticker figures (AM) is a new version to the TPN room.
+  const g = sandbox();
+  g.sheet('Daily_Log').maxColumns = 39;
+  g.pat('NF-1', { 10: 'NICU 3' });
+  const v1 = crypto.randomUUID(), v2 = crypto.randomUUID();
+  g.log(logRow(g, 'NF-1', D, { id: v1, pub: at(D, '09:00'), sup: at(D, '15:00'), ci: { orderRev: 1, printJsonV: 1 },
+    figures: { 38: JSON.stringify({ v: 1, preparedMl: 80 }) } }));
+  g.log(logRow(g, 'NF-1', D, { id: v2, pub: at(D, '15:00'), rev: 2, of: v1, ci: { orderRev: 2, printJsonV: 2 },
+    figures: { 38: JSON.stringify({ v: 2, preparedMl: 90 }) } }));
+  withNow(Date.parse(at(D1, '01:30')), () => g.sb.qiSubmitTimesRefresh());
+  const all = g.sheet('QI_SubmitTimes').data.find(r => r[0] === D && r[2] === 'ALL');
+  T.eq('a sticker-only revision at 15:00: last 15:00, after the cut-off, revised (the run read AM)',
+    all && [all[5], all[8], all[10]], ['15:00', 1, 1]);
+  const room = withNow(Date.parse(at(D, '16:00')), () => g.sb.pharmacyOrders(D));
+  T.eq('…the same Submit the TPN room\'s page reads for it', (room.orders || [])[0]?.submittedAt, at(D, '15:00'));
+  // 1 header + 3 rows a day from 2026-10-30 to 2027-09-30 = 1009 rows on a 1000-row grid.
+  const g2 = sandbox();
+  g2.env.strictRows = true;
+  g2.pat('NF-2', { 10: 'NICU 4' });
+  g2.log(logRow(g2, 'NF-2', '2027-09-30', { pub: at('2027-09-30', '10:00') }));
+  let err = '';
+  try { withNow(Date.parse(at('2027-10-01', '01:30')), () => g2.sb.qiSubmitTimesRefresh()); } catch (e) { err = e.message; }
+  const tab = g2.sheet('QI_SubmitTimes');
+  T.eq('a year on, 1009 rows: the grid grows and the tab is written whole', [err, tab && tab.data.length], ['', 1009]);
+  T.eq('…its last day is 2027-09-30, with the order', tab && tab.data[tab.data.length - 3].slice(0, 6), ['2027-09-30', 'Thu', 'ALL', 1, '10:00', '10:00']);
 });
 
 T.done();
