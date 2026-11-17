@@ -74,16 +74,20 @@ const patients = [
   pt('C', 'Nb', 1200, 30.0, 'SCN 1',    ''),                          // blank status = still on the unit
   pt('D', 'Dc', 2500, 36.0, 'SCN 2',    'Discharged', { statusDate: today }),
 ];
+// Every row is an order saved under this release's CONSTANTS_VERSION, as a save
+// today stamps it: an unstamped row is one the Print gate holds, and since
+// 2026-11-17 the ward list tags it "ต้อง Submit ใหม่" (verify-resubmit-tag-1117).
+const ci = { calcInput: { constantsVersion: D.CONSTANTS_VERSION } };
 const log = {
   // A — today's entry, but as a Sheets date VALUE rather than a string (#1)
-  A: [{ ts: new Date(today + 'T00:00:00+07:00'), dol: 2, weight: 3100 }],
+  A: [{ ts: new Date(today + 'T00:00:00+07:00'), dol: 2, weight: 3100, ...ci }],
   // B — logged today, then a missed day back-filled afterwards, so the older
   //     entry is last in the array (#2)
-  B: [{ ts: today, dol: 2, weight: 1710 }, { ts: yesterday, dol: 1, weight: 1700 }],
+  B: [{ ts: today, dol: 2, weight: 1710, ...ci }, { ts: yesterday, dol: 1, weight: 1700, ...ci }],
   // C — on the unit, nothing logged today
-  C: [{ ts: yesterday, dol: 1, weight: 1200 }],
+  C: [{ ts: yesterday, dol: 1, weight: 1200, ...ci }],
   // D — discharged and logged today: must not inflate any count (#3)
-  D: [{ ts: today, dol: 2, weight: 2500 }],
+  D: [{ ts: today, dol: 2, weight: 2500, ...ci }],
 };
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
