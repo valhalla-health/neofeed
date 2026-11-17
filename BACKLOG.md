@@ -77,7 +77,7 @@ clinical judgement. Everything else is engineering sequencing.
         2 days of a No TPN order gets no NEEDS ENTRY until the 3 days are up: `D.needsEntryOn` reads the
         log, not the admission (Vera, 2026-11-14). Rare; left as is until Pp says otherwise.
       - **The Dashboard counts pending TPN orders** (joins 19 · 27, the pharmacist view, under C below).
-        `pharmacyOrders` already returns a date's counts (TPN-room stickers, PR A, not live).
+        `pharmacyOrders` already returns a date's counts (TPN-room stickers, PR A: live since release #214 and backend `@67`, 2026-11-03).
         Pp, 2026-11-01: a No TPN order never counts as waiting for TPN, so pharmacy sees in real time how
         many TPN orders are drafts and how many are submitted, to estimate the day's compounding. Asked
         whether to build it now, she chose to record it for later.
@@ -89,7 +89,7 @@ clinical judgement. Everything else is engineering sequencing.
         § Later); heparin "0–1 u/mL" against the caution's "usual 0.5–1"; "check
         sterile water เรื่อง rate" and "ตั้ง fat ให้ปัดลง", meaning not recorded. Item 22 (Mg in mg) is built.
       - **Next phase:** the stickers are now `openspec/changes/tpn-room-stickers` (PR A live; PR B, the page,
-        built and not live, `STATUS.md`; retention of the name file, tasks.md 2.8a), not the pharmacy sheet printed again. `.print-back` stays hidden in print, not removed.
+        #219, live since release #221, `release-2026-11-06-pr221`; retention of the name file, tasks.md 2.8a), not the pharmacy sheet printed again. `.print-back` stays hidden in print, not removed.
       - **Tell pharmacy and the ward:** released on 2026-10-29 (#201, backend `@66`) and not yet told.
         Mg is in mg, Vitalipid is whole mL with a 1 mL minimum, only the front prints, a revision is
         marked, and every open NeoFeed tab needs a reload (a stale tab's Submit is refused).
@@ -316,7 +316,8 @@ clinical judgement. Everything else is engineering sequencing.
         script's HEAD (`clasp push`; no new deployment is needed to run it from the editor). Name a Sheet
         version, fix the cell by hand, run the report again. A corrected weight becomes the starting
         weight of the infant's next order (`calculator.jsx:721`).
-- [ ] 🔒 **security · Flip `GOOGLE_HD_ENFORCE` after one normal week on the new backend** (`@55` live
+- [x] 🔒 **security · Flip `GOOGLE_HD_ENFORCE` after one normal week on the new backend** ✅ *Done: on since
+      backend `@70`, 2026-11-11, PR #243 (`STATUS.md`).* (`@55` live
       since 2026-09-18, so on or after 2026-09-25). Check the
       Script Property `hd_seen_chula.ac.th`: `"yes"` → set the flag to `true` and redeploy; `"no"` →
       someone signs in with a non-Workspace Google account for that domain and needs a password
@@ -331,7 +332,7 @@ clinical judgement. Everything else is engineering sequencing.
       ที่นี่". Not before: a Workspace admin can block Google sign-in to outside apps, and then the
       password is that person's only way in.
 
-- [ ] 🩺🔒 **safety · Exercise the live stack (`@56` + `release` = `edbd11f`) in one bedside session.**
+- [ ] 🩺🔒 **safety · Exercise the live stack (backend `@75` + `release` = `198faf7` on 2026-11-17) in one bedside session.**
       ✅ *2026-09-18:* a real login and a real save on `@55` (Praew), right after the switch, from the
       old `sync-poll-0916` frontend. The review frontend has been live since 09:10 ICT and the ward
       requests since 11:17 ICT; nobody has reported using either, so every line below is open.
@@ -425,8 +426,8 @@ clinical judgement. Everything else is engineering sequencing.
       deliberately not wired to `doPost`**: it was kept off the auth deploy so that release carried
       nothing but the security fix. Wire it when a UI actually wants the number.
       Definition and the two hard constraints: `PRD.md` § 6.
-- [ ] 📈 **product · NF-02 (M4), completed calculations per ward per week — ⚙️ BUILT 2026-10-28, NOT
-      DEPLOYED (PR #178).** `Usage_Log` (`ts | week | ward | type`, no patient field) gets one row per TPN/EN order
+- [ ] 📈 **product · NF-02 (M4), completed calculations per ward per week — ⚙️ BUILT 2026-10-28, live
+      since release #201 and backend `@66` (PR #178).** `Usage_Log` (`ts | week | ward | type`, no patient field) gets one row per TPN/EN order
       first saved as submitted; `usageWeekly()` and the editor-run `getUsageWeekly()` count it per ward
       and type, pinned by `test/verify-usage-log.cjs`. **The Admin page draws it** (Pp, 2026-10-28: "ได้"):
       the admin-only `getUsageWeekly` action returns the last 12 weeks, and a Usage card shows one
@@ -834,8 +835,8 @@ clinical judgement. Everything else is engineering sequencing.
       ไม่ได้ ได้แค่ใช้ calculator". It goes live with the nursing form's switch (§ Next), not
       before.*
 - [ ] 💊 **product · Pharmacist role** — read-only plus a received/verified/compounded status per
-      order. The read-only part is built, not live (`openspec/changes/tpn-room-stickers`, PR A: role
-      `pharmacy`, `pharmacyOrders`). The printed form now carries HN/AN boxes, saved-by/time/revision and
+      order. The read-only part is live (`openspec/changes/tpn-room-stickers`, PR A #212: role
+      `pharmacy`, `pharmacyOrders`, via release #214 and backend `@67`; the TPN room's page #219 via release #221). The printed form now carries HN/AN boxes, saved-by/time/revision and
       changes-vs-previous (2026-09-11); the status loop is not built.
 - [x] 🩺 **safety · Osmolarity, energy, Ca and P round .5 ties wrongly on the doctor's screen and sheet**
       (`toFixed(0)`, `Math.round`; found by the sticker calc check, 2026-10-30, its own PR). 899.5 mOsm/L graded red at
