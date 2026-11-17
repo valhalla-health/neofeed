@@ -7,6 +7,32 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-18 (4) — QI: when each day's TPN orders reach the TPN room, a nightly `QI_SubmitTimes` tab
+
+`gas-backend.gs` (§ QI: when each day's TPN orders reach the TPN room; `_orderSignerWalk`, moved out of
+`pharmacyOrders`), `test/gas-vm-sandbox.cjs` (`setNumberFormat`, plain-text cells), `REFERENCE.md` (§ QI: submit
+times), `test/verify-qi-submit-times-1118.cjs` (new), `test/README.md`.
+
+- **Why.** Pp, 2026-11-18: "งาน QI อยากดูเรื่องตั้งแต่การซับมิตครั้งสุดท้ายของวันว่าเป็นเวลาเท่าไหร่ อาจจะต้องจัดเก็บ
+  ในระบบ". Asked, she chose a tab in the Sheet refreshed every night, admin only, and gave the TPN room's cut-off:
+  14:00.
+- **Nothing new is stored per order.** Since release #201 (2026-10-29) Submit stamps `published` (AH) and a change
+  after it is a new row, so every Submit is already on record. The tab is a summary, rebuilt in full each run: one
+  row per day for the whole unit (`ALL`, NICU and SCN) and per ward, from 2026-10-30 to yesterday; first, last and
+  median Submit, orders after 14:00, revised, after midnight, drafts, and orders with no stamp.
+- **One time for one order.** The submit time is the AH of the row that signed the order, walked past I/O-only
+  revisions by the same function `pharmacyOrders` now calls (`_orderSignerWalk`), so the tab and the TPN room's page
+  never differ. `pharmacyOrders` is otherwise unchanged.
+- **The ward is the ward at the moment of Submit** (`bedHistory`), so an infant moved to SCN keeps their NICU days in
+  NICU. An erased infant is left out, as in `exportQi`.
+- **No patient field and out of doPost's reach.** Editor-run `qiSubmitTimesRefresh()`, trigger-run
+  `qiSubmitTimesNightly()`; a trigger added in the editor needs no new scope. The setup is in `REFERENCE.md`.
+- **The sandbox** gains `setNumberFormat` and keeps a string as written in a plain-text cell, as Sheets does; no
+  other backend code calls it.
+- **Tests.** 48 assertions; against `main`'s backend 7 fail (every check that needs the new code); 16 of 16 planted rule
+  changes caught.
+- **Not live.** Needs Pp's `clasp push` and the trigger; no frontend change, no `CONSTANTS_VERSION`.
+
 ## Session 2026-11-17 (9) — Pp keeps the week on the names page's reprint flag
 
 `CHANGELOG.md` only. Entry (8) left Vera's point to Pp: the names page names every day from today −7 to +1 whose bag

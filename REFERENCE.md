@@ -779,6 +779,64 @@ first: it keeps the Sheet the script is bound to.
    the bound Sheet, add staff from the Admin page, not by hand. Moving it back is a second, planned step.
 9. Write what happened, and why, in `CHANGELOG.md`.
 
+### QI: submit times, `QI_SubmitTimes` (2026-11-18, not live)
+
+When each day's TPN orders reach the TPN room, for QI (Pp, 2026-11-18: "งาน QI อยากดูเรื่องตั้งแต่การซับมิตครั้ง
+สุดท้ายของวันว่าเป็นเวลาเท่าไหร่"). **Nothing new is stored per order:** since release #201 (2026-10-29, 18:34 ICT)
+every Submit locks its row and stamps `published` (AH), and a change after it is a new revision row with the old
+one kept (`supersededAt`, AL). This adds one summary tab, rebuilt in full from `Daily_Log` on each run
+(`gas-backend.gs` § QI: when each day's TPN orders reach the TPN room; `test/verify-qi-submit-times-1118.cjs`).
+Pp's choices, 2026-11-18: a tab in the Sheet, refreshed every night, admin only, cut-off 14:00.
+
+**One row per day and ward**, from `QI_SUBMIT_FROM` (2026-10-30, the first whole day under the lock) to
+yesterday, ward time: `ALL` (NICU and SCN together, the TPN room's day), then `NICU`, `SCN`, and `other` only on a
+day it has an order (no bed or a free-text bed, kept outside `ALL`). A day with no order still has its rows, at 0.
+
+| Column | What it holds |
+|---|---|
+| `tpn_orders` | submitted TPN orders dated that day: the current row (no AL) whose route starts "TPN", as the TPN room counts them |
+| `first_submit` | the earliest Submit of any of them, any version |
+| `last_submit` | **the latest Submit of the version the TPN room makes**, "HH:MM", or "HH:MM (+1)" after midnight |
+| `last_submit_min` | the same, in minutes after that day's midnight, for a chart |
+| `median_submit` | the median of the final versions' Submits (the mean of the middle two) |
+| `after_cutoff`, `cutoff` | orders whose final version came after the cut-off, by the minute shown (14:01 is after 14:00, 14:00:59 is not); the cut-off used |
+| `revised` | orders the TPN room got a later version of (the order's revision above 1) |
+| `next_day` | orders whose final version came after midnight |
+| `drafts` | TPN orders of that day still a draft when the tab was built |
+| `no_time` | submitted orders with no Submit stamp (a lock that failed); counted in `tpn_orders`, not in the times |
+
+- **One time for one order.** An order's Submit is the AH of the row that signed it (`_orderSignerWalk`, shared
+  with `pharmacyOrders`): a revision saved with only I/O changed, a nurse's or a doctor's, is not a new version.
+  So the tab and the TPN room's "Submit" column read the same time.
+- **The day is the order's own date** (column A, ward time). **The ward is the one at the moment of Submit**, from
+  `bedHistory` (the first hop made after that moment names the bed held; a hop with no `at` counts as made at the
+  end of its date), else the current bed or a parked infant's last bed, as the ward list files it. An infant
+  moved from NICU to SCN keeps their NICU days in NICU.
+- **No patient field.** A date, a weekday, a ward, counts and times of day; no NeoFeed ID, entryId, name or e-mail.
+  An infant whose record was erased (PDPA) is left out, as `exportQi` leaves them out, so a later erasure can lower
+  an old day's count. A day with one TPN order shows that order's time; that is a process time, not a clinical
+  value. The tab is aggregate, but QI use of NeoFeed data still needs its own lawful basis (`PRD.md` non-goals, §
+  QI export above): ask the DPO before its numbers leave the Sheet.
+- **Nothing is reachable from the web app.** `qiSubmitTimesRefresh()` runs from the editor, `qiSubmitTimesNightly()`
+  from a trigger; `doPost` answers "Unknown action" to both. Neither takes the script lock: a save that lands mid-read
+  is read right by the next run. It is not in `BACKUP_DATA_TABS`: a backup copies it without judging it, and after a
+  restore one run rebuilds it.
+- **Cost.** Each run reads `Daily_Log` A–AL (not AM, the sticker figures, 1–2 KB a row) and the whole registry.
+
+**Setting it up** (on Pp's go-ahead; no new scope: a trigger added in the editor needs none, as the backup's):
+
+1. `clasp push` from `main` once this PR is merged (HEAD only; the web app's deployment does not change). On
+   2026-11-18 `main`'s `gas-backend.gs` was `@75`'s (deployed from `e1d99cd`; `git diff e1d99cd origin/main --
+   gas-backend.gs` is empty), so HEAD gains this section and the walk it shares with `pharmacyOrders` alone.
+2. Run ▸ `qiSubmitTimesRefresh`. The log reads `QI_SubmitTimes: N rows, M submitted TPN orders, …`; open the tab
+   and check one day against the TPN room's page for that date.
+3. Triggers ▸ Add trigger: function `qiSubmitTimesNightly`, Time-driven, Day timer, 1am to 2am (before the backup's
+   2am slot, so the two never overlap), failure notifications "immediately". It runs under the account that adds it.
+4. The next morning, check the Executions list and that the tab's last date is yesterday.
+
+Another cut-off for one look: Run a one-line function `function qi13() { qiSubmitTimesRefresh("13:00"); }`. The
+next night's run writes 14:00 again; change `QI_SUBMIT_CUTOFF` by PR to change it for good.
+
 ### The TPN room's page: `tpn-room.html`
 
 PR B of `openspec/changes/tpn-room-stickers`. Not live: `STATUS.md` says what holds it.

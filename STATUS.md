@@ -1,5 +1,7 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-18 — QI: a `QI_SubmitTimes` tab, rebuilt every night from `Daily_Log`, gives each day's first, last and median TPN Submit for the whole unit and each ward, orders after the 14:00 cut-off, revised and after midnight; no patient field, editor and trigger only: this PR, not merged.** Backend only, not reachable from the web app; needs Pp's `clasp push` (HEAD) and a time-driven trigger, no deploy and no new scope (`REFERENCE.md` § QI: submit times; `CHANGELOG.md` 2026-11-18 (4)).
+>
 > ⏳ **2026-11-17 — The TPN room's names page: "รายชื่อทั้งหมด" lists every infant in the name file, searchable, each name and AN editable, an infant with no order on the chosen date included (Pp, from a render: "ใช้แบบนี้"): PR #282, merged into `main` on Praew's instruction.** Frontend only, the TPN room's page alone; reads the open name file only, no request, no figure or rule changes (`CHANGELOG.md` 2026-11-17 (4)).
 >
 > ⏳ **2026-11-17 — The TPN room's PN label prints the AN on its own line under the name, centred, no further right than the label's other lines (Pp, from a render: "ใช้แบบนี้"): PR #281, merged into `main` on Praew's instruction.** Frontend only, the TPN room's page alone; no figure or rule changes (`CHANGELOG.md` 2026-11-17 (3)).

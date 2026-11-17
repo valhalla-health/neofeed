@@ -3339,6 +3339,23 @@ function _pharmacyLogRows(sheet, dateKey) {
   if (sheet.getLastRow() !== lastRow) return whole();
   return out;
 }
+// The row that signed a submitted order: from `row`, back along revisionOf (AK)
+// through every revision saved with only its I/O changed (_ioOnlyRevision and the
+// same stored figures). Returns that row and the entryIds walked, `row`'s first.
+// `byEntryId` maps entryId (Z) to row; a revision it lacks ends the walk. Shared
+// by pharmacyOrders (whose "Submit" time and prescriber it is) and the QI submit
+// summary, so the two can never read a different time for one order.
+function _orderSignerWalk(row, byEntryId) {
+  var ids = [String(row[25] || "")];
+  for (var hops = 0; hops < 50; hops++) {
+    var prev = byEntryId[String(row[36] || "")];
+    if (!prev || !_ioOnlyRevision(prev, { constantsVersion: String(row[31] || ""), calcInput: _parseJson(row[24], null) })
+      || !_sameStoredFigures(prev, _figuresOfRow(row))) break;
+    row = prev;
+    ids.push(String(row[25] || ""));
+  }
+  return { row: row, ids: ids };
+}
 function pharmacyOrders(dateKey) {
   var ss = _book();
   var patSheet = getSheetPat(ss), sheet = getSheetLog(ss);
@@ -3377,17 +3394,7 @@ function pharmacyOrders(dateKey) {
   // account that submitted the order before it. Any other row names its own saver. `ids` are the
   // entryIds walked, the current row's first: every one of them carries the same bag,
   // so a print of any of them is not "changed after print" (tpn-room-core.js).
-  var submitterRow = function (row) {
-    var ids = [String(row[25] || "")];
-    for (var hops = 0; hops < 50; hops++) {
-      var prev = byEntryId[String(row[36] || "")];
-      if (!prev || !_ioOnlyRevision(prev, { constantsVersion: String(row[31] || ""), calcInput: _parseJson(row[24], null) })
-        || !_sameStoredFigures(prev, _figuresOfRow(row))) break;
-      row = prev;
-      ids.push(String(row[25] || ""));
-    }
-    return { row: row, ids: ids };
-  };
+  var submitterRow = function (row) { return _orderSignerWalk(row, byEntryId); };
   if (rows.length) {
     for (var r = 0; r < rows.length; r++) {
       var row = rows[r];
@@ -5765,6 +5772,246 @@ function _usageWeeklyTable(out) {
       col(byType[2], 6) + col(byType[3], 6));
   });
   return lines.join("\n");
+}
+
+// ── QI: when each day's TPN orders reach the TPN room (Pp, 2026-11-18) ──────
+// Pp, 2026-11-18: "งาน QI อยากดูเรื่องตั้งแต่การซับมิตครั้งสุดท้ายของวันว่าเป็นเวลาเท่าไหร่".
+// Every Submit is already on record: since release #201 (2026-10-29, 18:34 ICT)
+// Submit locks the row and stamps `published` (AH), and a change after it is a
+// new revision row, the old one kept with `supersededAt` (AL). Nothing new is
+// stored per order. This adds one summary tab, QI_SubmitTimes, rebuilt in full
+// from Daily_Log on every run, so a run never adds to stale numbers.
+//
+// Pp chose, 2026-11-18: a tab in the Sheet, refreshed every night, admin only
+// (the Sheet's owner), with the TPN room's cut-off at 14:00. Nothing here is
+// reachable from doPost: qiSubmitTimesRefresh() runs from the editor and
+// qiSubmitTimesNightly() from a time-driven trigger added by hand
+// (REFERENCE.md § QI: submit times). The tab holds no patient field: a date, a
+// ward, counts and times of day.
+//
+// One order = one infant's TPN order for one date: the current row (no AL) whose
+// route (N) starts "TPN", as the TPN room's page counts them. Its submit time is
+// the AH of the row that signed it (_orderSignerWalk: an I/O-only revision, a
+// nurse's or a doctor's, is not a new version), so the tab and the TPN room's
+// "Submit" column read one time for one order. The day is the order's own date
+// (A, ward time); a submit after that midnight reads "HH:MM (+1)".
+var QI_SUBMIT_TAB = "QI_SubmitTimes";
+var QI_SUBMIT_CUTOFF = "14:00";      // Pp, 2026-11-18: the TPN room's cut-off
+// The first whole day on which every Submit locked its order and a change was a
+// new row: release #201 went live at 18:34 ICT on 2026-10-29.
+var QI_SUBMIT_FROM = "2026-10-30";
+// The whole-unit row ("ALL") counts these wards: the TPN room makes both. An
+// order filed under "other" (no bed, or a free-text bed) gets its own row on a
+// day it has one, outside ALL, so nothing is hidden and nothing test-like is
+// added in.
+var QI_SUBMIT_WARDS = ["NICU", "SCN"];
+var QI_SUBMIT_HEADERS = ["date", "weekday", "ward", "tpn_orders", "first_submit", "last_submit", "last_submit_min",
+  "median_submit", "after_cutoff", "cutoff", "revised", "next_day", "drafts", "no_time", "updated_at"];
+var QI_SUBMIT_WIDTH = QI_SUBMIT_HEADERS.length;   // 15, A–O
+var QI_WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+var QI_DAY_MS = 86400000;
+
+// "HH:MM" -> milliseconds after midnight, or null.
+function _qiClockMs(hhmm) {
+  var m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(hhmm == null ? "" : hhmm).trim());
+  return m ? (Number(m[1]) * 60 + Number(m[2])) * 60000 : null;
+}
+// Milliseconds after the ward midnight that starts `dateKey` -> "HH:MM", with
+// " (+1)" (or " (-1)") when it falls on another day. Seconds are dropped, never
+// rounded up, so 13:59:59 reads 13:59 and is before a 14:00 cut-off.
+function _qiClockText(offMs) {
+  var day = Math.floor(offMs / QI_DAY_MS);
+  var min = Math.floor((offMs - day * QI_DAY_MS) / 60000);
+  var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+  return pad(Math.floor(min / 60)) + ":" + pad(min % 60) + (day === 0 ? "" : " (" + (day > 0 ? "+" : "") + day + ")");
+}
+// The ward midnight that starts `dateKey`, as epoch milliseconds.
+function _qiMidnightMs(dateKey) {
+  return Date.parse(dateKey + "T00:00:00Z") - WARD_UTC_OFFSET_MIN * 60000;
+}
+// The ward an infant was in at moment `ms`, from Patient_Registry K
+// (currentBed) and P (bedHistory, append-only hops { bed, date, at }, the bed
+// LEFT). The bed held at `ms` is the bed of the first hop made after it; with
+// none, the current bed, or while parked the last bed left (patientWard). A hop
+// with no `at` is taken as made at the end of its `date`. Wards as
+// _usageWardGroup: NICU (iso rooms included), SCN or other.
+function _qiWardAt(patRow, ms) {
+  var hops = _parseJson(patRow && patRow[15], []);
+  hops = Array.isArray(hops) ? hops : [];
+  for (var i = 0; i < hops.length; i++) {
+    var h = hops[i] || {};
+    var left = _sheetInstant_(h.at);
+    var leftMs = left ? left.getTime()
+      : (/^\d{4}-\d{2}-\d{2}$/.test(String(h.date || "")) ? _qiMidnightMs(String(h.date)) + QI_DAY_MS : null);
+    if (leftMs != null && leftMs > ms && _normBed(h.bed)) return _usageWardGroup(h.bed);
+  }
+  return _usageWardOf(patRow && patRow[10], hops);
+}
+
+// Pure: Daily_Log and Patient_Registry rows exactly as getValues() returns them
+// (row 0 the header; Daily_Log A–AL is enough, AM is not read) -> the tab's rows,
+// one per day from `opts.from` to `opts.to` and per ward: "ALL" (QI_SUBMIT_WARDS
+// together), then each of those wards, then "other" only on a day it has an
+// order. A day with no order still has its rows, reading 0 and blank times, so a
+// gap is never a missing point. `opts`: from, to ("YYYY-MM-DD", ward time;
+// `to` defaults to the day before `now`), cutoff ("HH:MM"), now (a Date).
+// Columns (QI_SUBMIT_HEADERS):
+//   tpn_orders       submitted TPN orders dated that day (drafts not counted)
+//   first_submit     the earliest Submit of any of them, any version
+//   last_submit      the latest Submit of the version the TPN room makes
+//   last_submit_min  the same, in minutes after that day's midnight (for a chart)
+//   median_submit    the median of those Submits (the mean of the middle two)
+//   after_cutoff     orders whose final version came after the cut-off, by the
+//                    minute shown (14:01 is after 14:00; 14:00:59 is not)
+//   cutoff           the cut-off used
+//   revised          orders the TPN room got a later version of (orderRev > 1)
+//   next_day         orders whose final version came after midnight
+//   drafts           TPN orders of that day still a draft when the tab was built
+//   no_time          submitted orders with no Submit stamp (a lock that failed)
+// An infant whose record was erased (PDPA) is left out, as exportQi does.
+function qiSubmitDays(logRows, patRows, opts) {
+  opts = opts || {};
+  var now = opts.now instanceof Date ? opts.now : new Date();
+  var from = String(opts.from || QI_SUBMIT_FROM);
+  var to = String(opts.to || _addDaysKey_(_wardDateKey(now), -1));
+  var cutoff = opts.cutoff == null ? QI_SUBMIT_CUTOFF : String(opts.cutoff);
+  var cutoffMs = _qiClockMs(cutoff);
+  if (cutoffMs == null) throw new Error("cutoff must be HH:MM, 00:00 to 23:59");
+  var out = { rows: [], orders: 0, skippedErased: 0, skippedNoPatient: 0 };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || to < from) return out;
+
+  var pat = {};
+  for (var i = 1; i < (patRows ? patRows.length : 0); i++) {
+    var sid = String((patRows[i] || [])[0] || "");
+    if (sid) pat[sid] = patRows[i];
+  }
+  var rows = (logRows || []).slice(1);
+  var byEntryId = {};
+  for (var b = 0; b < rows.length; b++) byEntryId[String(rows[b][25] || "")] = rows[b];
+  var instantMs = function (v) { var d = _sheetInstant_(v); return d ? d.getTime() : null; };
+
+  var cells = {};   // date -> ward -> bucket
+  var bucket = function (date, ward) {
+    if (!cells[date]) cells[date] = {};
+    if (!cells[date][ward]) cells[date][ward] = { offs: [], firsts: [], revised: 0, drafts: 0, noTime: 0 };
+    return cells[date][ward];
+  };
+  var add = function (date, ward, fn) {
+    fn(bucket(date, ward));
+    if (QI_SUBMIT_WARDS.indexOf(ward) >= 0) fn(bucket(date, "ALL"));
+  };
+
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r];
+    if (row[37]) continue;                                   // superseded by a later revision
+    if (!/^TPN/.test(String(row[13] || ""))) continue;       // the TPN room's orders only
+    var date = _wardDateKey(row[0]);
+    if (!date || date < from || date > to) continue;
+    var p = pat[String(row[1] || "")];
+    if (!p) { out.skippedNoPatient++; continue; }
+    if (_isPdpaErased(p)) { out.skippedErased++; continue; }
+    var midnight = _qiMidnightMs(date);
+    if (String(row[14] || "").trim().toLowerCase() === "draft") {
+      var dMs = instantMs(row[26]);
+      add(date, _qiWardAt(p, dMs == null ? midnight + QI_DAY_MS - 1 : dMs), function (c) { c.drafts++; });
+      continue;
+    }
+    out.orders++;
+    var signer = _orderSignerWalk(row, byEntryId).row;
+    var finalMs = instantMs(signer[33]);
+    if (finalMs == null) {
+      var lmMs = instantMs(row[26]);
+      add(date, _qiWardAt(p, lmMs == null ? midnight + QI_DAY_MS - 1 : lmMs), function (c) { c.noTime++; });
+      continue;
+    }
+    // The first Submit of any version: every row back along AK.
+    var firstMs = finalMs, cur = row;
+    for (var hops = 0; hops < 50 && cur; hops++) {
+      var pub = instantMs(cur[33]);
+      if (pub != null && pub < firstMs) firstMs = pub;
+      cur = byEntryId[String(cur[36] || "")];
+    }
+    // The revision the TPN room has, as pharmacyOrders reads it.
+    var rev = _numSafe((_parseJson(row[24], {}) || {}).orderRev, 0) || _numSafe(signer[35], 1);
+    var off = finalMs - midnight, firstOff = firstMs - midnight;
+    add(date, _qiWardAt(p, finalMs), function (c) {
+      c.offs.push(off);
+      c.firsts.push(firstOff);
+      if (rev > 1) c.revised++;
+    });
+  }
+
+  var updated = now.toISOString();
+  for (var day = from; day <= to; day = _addDaysKey_(day, 1)) {
+    var wd = QI_WEEKDAYS[new Date(day + "T00:00:00Z").getUTCDay()];
+    var wards = ["ALL"].concat(QI_SUBMIT_WARDS);
+    if (cells[day] && cells[day].other) wards.push("other");
+    for (var w = 0; w < wards.length; w++) {
+      var c = (cells[day] && cells[day][wards[w]]) || { offs: [], firsts: [], revised: 0, drafts: 0, noTime: 0 };
+      var offs = c.offs.slice().sort(function (x, y) { return x - y; });
+      var n = offs.length;
+      var median = n ? (n % 2 ? offs[(n - 1) / 2] : Math.floor((offs[n / 2 - 1] + offs[n / 2]) / 2)) : null;
+      var last = n ? offs[n - 1] : null;
+      var first = c.firsts.length ? Math.min.apply(null, c.firsts) : null;
+      out.rows.push([day, wd, wards[w], n + c.noTime,
+        first == null ? "" : _qiClockText(first),
+        last == null ? "" : _qiClockText(last),
+        last == null ? "" : Math.floor(last / 60000),
+        median == null ? "" : _qiClockText(median),
+        // By the minute shown: 14:00:59 reads "14:00" and is not after a 14:00 cut-off.
+        offs.filter(function (x) { return Math.floor(x / 60000) * 60000 > cutoffMs; }).length,
+        cutoff, c.revised,
+        offs.filter(function (x) { return x >= QI_DAY_MS; }).length,
+        c.drafts, c.noTime, updated]);
+    }
+  }
+  return out;
+}
+
+// Rebuilds QI_SubmitTimes from Daily_Log: clears the tab and writes every day
+// from QI_SUBMIT_FROM to yesterday (ward time). Run ▸ qiSubmitTimesRefresh from
+// the editor whenever; the nightly trigger calls the same. `cutoff` ("HH:MM")
+// overrides QI_SUBMIT_CUTOFF for one run. It reads two tabs and writes only its
+// own, takes no lock (a save landing mid-read is read right by the next run),
+// and creates its tab on the first run. Logs counts only.
+function qiSubmitTimesRefresh(cutoff) {
+  var ss = _book();
+  var patSheet = getSheetPat(ss), logSheet = getSheetLog(ss);
+  _pharmacySchemaNow(patSheet, "Patient_Registry");
+  _pharmacySchemaNow(logSheet, "Daily_Log");
+  var lastRow = logSheet.getLastRow();
+  var width = Math.min(LOG_SYNC_WIDTH, logSheet.getMaxColumns());
+  var logRows = lastRow < 1 ? [] : logSheet.getRange(1, 1, lastRow, width).getValues();
+  var out = qiSubmitDays(logRows, patSheet.getDataRange().getValues(), { now: new Date(), cutoff: cutoff });
+  var sh = ss.getSheetByName(QI_SUBMIT_TAB);
+  if (!sh) {
+    sh = ss.insertSheet(QI_SUBMIT_TAB);
+    try {
+      var extra = sh.getMaxColumns() - QI_SUBMIT_WIDTH;
+      if (extra > 0) sh.deleteColumns(QI_SUBMIT_WIDTH + 1, extra);
+    } catch (e) { Logger.log("QI_SubmitTimes column trim skipped: " + e.message); }
+  }
+  sh.clearContents();
+  var values = [QI_SUBMIT_HEADERS.slice()].concat(out.rows);
+  var range = sh.getRange(1, 1, values.length, QI_SUBMIT_WIDTH);
+  // Plain text, so the Sheet never turns "09:10 (+1)" or a date into something
+  // else; the count columns and last_submit_min stay numbers, for a chart.
+  range.setNumberFormat("@");
+  if (values.length > 1) {
+    [4, 7, 9, 11, 12, 13, 14].forEach(function (col) {
+      sh.getRange(2, col, values.length - 1, 1).setNumberFormat("0");
+    });
+  }
+  range.setValues(values);
+  Logger.log("QI_SubmitTimes: " + out.rows.length + " rows, " + out.orders + " submitted TPN orders, "
+    + out.skippedErased + " erased and " + out.skippedNoPatient + " without a registry row left out.");
+  return { ok: true, rows: out.rows.length, orders: out.orders, skippedErased: out.skippedErased,
+    skippedNoPatient: out.skippedNoPatient };
+}
+// The time-driven trigger's function (Triggers ▸ Add trigger, Day timer). A
+// failure throws, so Apps Script mails the trigger's owner.
+function qiSubmitTimesNightly() {
+  return qiSubmitTimesRefresh();
 }
 
 // ── Utility ───────────────────────────────────────────────────
