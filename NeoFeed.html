@@ -148,6 +148,12 @@
     --ok-bg:     oklch(96.5% 0.045 150);
     --ok-line:   oklch(82% 0.12 150);
     --ok-ink:    oklch(42% 0.12 148);      /* #035E23 · 8.0:1 — ok as *text* */
+    /* The patient-status chip (Active): a bluer, quieter green than --ok, so it
+       does not read as the ✓ LOGGED badge beside it (Pp, 2026-11-17: "ให้ปรับสี
+       เขียวของ Active เป็นคนละเฉดสีกับ logged"). */
+    --unit-bg:   oklch(96.5% 0.028 185);
+    --unit-line: oklch(82% 0.07 185);
+    --unit-ink:  oklch(41% 0.075 185);
 
     /* ── range-bar zones (calculator.jsx Meter) ──
        Green inside the target, yellow outside it, red past a hard limit, and
@@ -833,6 +839,7 @@
   .chip .d { display: none; }
   .chip.ok   { color: var(--ok-ink); border-color: var(--ok-line); background: var(--ok-bg); }
   .chip.ok .d { background: var(--ok); }
+  .chip.chip-unit.ok { color: var(--unit-ink); border-color: var(--unit-line); background: var(--unit-bg); }
   .chip.warn { color: var(--warn-ink); border-color: var(--warn-line); background: var(--warn-bg); }
   .chip.warn .d { background: var(--warn); }
   .chip.crit { color: var(--crit-ink); border-color: var(--crit-line); background: var(--crit-bg); }
@@ -1443,6 +1450,12 @@
   .log-badge.is-no-tpn {
     color: var(--ink-2); background: transparent; border-color: var(--line);
   }
+  /* Held for a new Submit (registry.jsx ResubmitTag): a doctor has to act, as for
+     NEEDS ENTRY, so the same red. */
+  .log-badge.is-resubmit {
+    color: var(--crit-ink); background: var(--crit-bg); border-color: var(--crit-line);
+  }
+  .print-row .pr-resub-note { flex-basis: 100%; font-size: 12px; line-height: 1.45; color: var(--crit-ink); }
   .reg-stat.s-ok   .reg-stat-val { color: var(--ok); }
   .reg-stat.s-warn .reg-stat-val { color: var(--warn-ink); }
   .reg-stat.s-crit .reg-stat-val { color: var(--crit); }
@@ -2224,13 +2237,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=a81336c1ae"></script>
+  <script src="data.js?v=0034310333"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
-  <script src="compiled/calculator.js?v=e65f599b13"></script>
+  <script src="compiled/calculator.js?v=517a6a6dcd"></script>
   <script src="compiled/fenton.js?v=a2d86c5d15"></script>
-  <script src="compiled/registry.js?v=e6f54efdb0"></script>
+  <script src="compiled/registry.js?v=2593021801"></script>
   <script src="compiled/log.js?v=dfd0cae3e3"></script>
-  <script src="compiled/app.js?v=7cde7bd98f"></script>
+  <script src="compiled/app.js?v=1b5a5803e5"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

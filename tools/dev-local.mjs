@@ -94,7 +94,7 @@ function seed(tree) {
     g.sheet("Patient_Registry").data.push(g.patRow(sid, { 1: name, 2: name, 10: bed }));
   }
   const today = SBX.wardToday();
-  // The calculator reads an order's version from calcInput (calculator.jsx
+  // The calculator reads an order's version from calcInput (data.js
   // savedCalcVersionOf), as real saves stamp it; the sheet column is a copy.
   const order = (status, version) => ({
     2: 5, 3: 900, 13: "TPN central", 14: status, 15: "doctor@dev.local",
