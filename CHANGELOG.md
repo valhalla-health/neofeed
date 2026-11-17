@@ -7,6 +7,46 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (1) — A tab left open across a release: Submit reads the served release first; the TPN room says who reloads
+
+`calculator.jsx` (`tabIsBehindRelease`, `RELEASE_BEHIND_TEXT`, `refuseBehindRelease`, the `releaseBehind` banner, in
+`handleSave` and `handlePublish`), `data.js` (`tabDiffersFromServed`), `tpn-room-core.js` (`compareVersions`;
+`printReasons` with `ctx.pageStale` and which side reloads), `tpn-room.jsx` (`servedVersionText`; `fetchDay` reads the
+served version file with the orders; the `stale-page` banner), `compiled/`, the shells' `?v=`,
+`test/verify-stale-tab-1117.cjs` (new), `test/verify-tpn-room-page-1105.cjs` §12b, `test/verify-tpn-room-core-1105.cjs`
+§2, `REFERENCE.md`, `STATUS.md`.
+
+- **Why.** Pp, 2026-11-17: an order took three Submits to reach the TPN room ("ทุกวันนี้ต้องกดซับมิตไปสามครั้ง ผลถึงจะเข้าห้อง
+  ทีพีเอ็น"). A ward tab opened before release #279 (23:21 the night before) still ran `CONSTANTS_VERSION` 2026-11-15.1,
+  because a sign-out remounts the app and loads no new code. The backend took its order (`MIN_SUBMIT_CONSTANTS_VERSION`
+  is still 2026-10-28.1), the doctor's own sheet printed, and the room refused it: "NeoFeed ปรับการคำนวณหลัง order นี้
+  ให้หมอเปิดแล้วกด Submit อีกครั้ง". The same tab sent the same version again, and the order printed after a reload.
+  Reproduced on release `63e4226` with the real `gas-backend.gs` and `tpn-room-core.js`. A room page left open across
+  the release gives the same line for every new order, and no Submit helps. Which of the two it was on the ward that
+  day is not known: the rows' version is in the Sheet, which was not opened.
+- **Submit reads the served release.** Before a Submit (and the publish step, off while `ENABLE_PUBLISH_GATE` is false)
+  the calculator fetches `compiled/tpn-room-version.js` with `cache: "no-store"`. Other versions than the tab's, newer
+  (a release) or older (a rollback): nothing is sent; a banner with a reload button stays until the reload, and a toast
+  says the same; what was typed goes to the draft and is offered back after the reload. It fails open: a failed
+  request, a reply that is not 2xx or a file it cannot read lets the Submit go as before, and the room still refuses an
+  order on other versions. Save draft is not checked: the backend keeps any draft and the room prints none. Center Point
+  is not checked: it never reaches the room. `saving` covers the read, so two presses during it send one save.
+- **The room says who reloads.** An order on an older calculation or sticker schema: "ให้หมอกดโหลดหน้า NeoFeed ใหม่ก่อน
+  แล้วเปิด order กด Submit อีกครั้ง". An order newer than the page means the page is the one left open: "กดโหลดหน้านี้ใหม่ก่อน
+  หมอไม่ต้อง Submit ใหม่". Each list load (opening, รีเฟรช, another date) reads the served version file beside
+  `pharmacyOrders`; a page behind it shows a reload banner above the list, and its rows give no version reason but
+  that one. A file it cannot read changes nothing on the list. Print already refused a page behind the release
+  (2026-11-05).
+- **Not changed.** No figure, dose, rule or backend line. `CONSTANTS_VERSION` stays 2026-11-16.1, so this release leaves
+  no open tab behind. `MIN_SUBMIT_CONSTANTS_VERSION` stays: the check now runs in the frontend on every release, with
+  no `clasp` step. A tab opened before this release has none of it, so the first release after this one that moves
+  `CONSTANTS_VERSION` is the first the check can catch.
+- **Tests.** `verify-stale-tab-1117.cjs`, 45 checks: 29 fail on `origin/main` `0284ee0`; the 16 that pass there guard
+  what stays (a current order prints, the backend takes both tabs, a current tab, a failed request and a 404 still
+  Submit, two presses send one save). `verify-tpn-room-page-1105.cjs` §12b, 4 new checks in Chromium: 3 fail on
+  `0284ee0` (the fourth, no banner after a matching refresh, holds there too). `verify-tpn-room-core-1105.cjs` §2: a newer
+  sticker schema now asks the room to reload its page.
+
 ## Session 2026-11-16 (13) — The TPN unit's answers: bag volume, whole mL, sticker sizes, label lines, a larger print
 
 `data.js` (`preparedVolFor`, `PRINT_FIT_STEPS`, `PRINT_AREA_MM`, `fitPrintSheet`, new; `stickerFigures` `deadMl`;
