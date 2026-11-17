@@ -44,7 +44,10 @@ chip's `chip-unit`), `app.jsx` (the Dashboard's status chip), both shells (`--un
   overtaken lines and updates four; `GLOSSARY.md`, untracked in the main checkout since 2026-11-10, is added on Pp's
   word. A new agent checked every definition against the code and found one wrong (Prepared volume, rounded up to
   the next 10 mL since 2026-11-16) and ten that misled or left out what the code does (Revision, Order route,
-  Constants version, Short sheet, Draft, MEN, TPN bag, NPO, Ward list, Target fluid); all eleven are fixed.
+  Constants version, Short sheet, Draft, MEN, TPN bag, NPO, Ward list, Target fluid); all eleven are fixed. A second
+  agent read the fixed lines and found Revision still wrong (on a held Order, a doctor's I/O-only save is a Revision)
+  and seven smaller points; a third found it wrong once more (a nurse's I/O-only save keeps the number even on a held
+  Order); the fourth found no error, and its five wording points are fixed without another pass.
 
 ## Session 2026-11-17 (9) — Pp keeps the week on the names page's reprint flag
 

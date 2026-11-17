@@ -160,7 +160,7 @@ The save by a doctor or admin that finishes an Order and locks it.
 _Avoid_: publish, send
 
 **Revision**:
-A new version of a submitted Order. The earlier row stays on record, marked superseded, and the Order's revision number (`orderRev`: the printed ฉบับที่, the TPN room's ฉบับ) goes up by one. A save that changes only Intake/Output, while the Order's Constants version is current and its figures are unchanged, also writes a new row and supersedes the old one but keeps that number, so it is not a Revision; on a held Order a doctor's save is a Revision even when only Intake/Output was typed. Every version goes when an admin deletes the Order or a doctor or admin deletes the Patient.
+A new version of a submitted Order, which raises its revision number `orderRev` by one (the printed ฉบับที่, the TPN room's ฉบับ); the sheet's `revisionNumber` column is another counter, which counts every row. The earlier row stays on record, marked superseded. A save that changes only Intake/Output also writes a new row and supersedes the old one, but keeps the number, so it is not a Revision. A nurse's save on a submitted Order is always of this kind. A doctor's or admin's is of this kind only while nothing holds the Order (its Constants version is current, its Dosing weight, figures and sticker figures are unchanged, and every critical value that needs a reason has one saved); on a held Order it is a Revision even when only Intake/Output was typed. Every version goes when an admin deletes the Order or a doctor or admin deletes the Patient.
 _Avoid_: edit, amendment
 
 **Printed order**:
@@ -179,4 +179,4 @@ A calculation with no Patient, which saves and prints nothing.
 _Avoid_: scratch
 
 **Constants version**:
-The stamp (`CONSTANTS_VERSION`) of NeoFeed's clinical constants and calculation that an Order's figures were computed under. It is bumped by hand in `data.js` with any change that can move a printed figure. An Order saved under another version prints only after it is Submitted again, and the Ward list tags "ต้อง Submit ใหม่" on a Patient on the unit whose Submitted Order for today or tomorrow is held this way and would otherwise print.
+The stamp (`CONSTANTS_VERSION`) of NeoFeed's clinical constants and calculation that an Order's figures were computed under. It is set by hand in `data.js`, and the rule beside it says to bump it with any change that can move a printed figure. An Order saved under a version other than the one its tab runs prints only after it is Submitted again (the TPN room compares with the release the host serves), and the Ward list tags "ต้อง Submit ใหม่" on a Patient on the unit whose Submitted Order for today or tomorrow was saved under another version and counts as printing (every Order does except a No TPN order with no Short sheet; a test Patient's Order counts too, though it never prints).
