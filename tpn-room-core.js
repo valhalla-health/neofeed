@@ -204,7 +204,57 @@
     return out;
   }
 
-  // Why this order cannot print, in the room's words. Empty means it can.
+  // "YYYY-MM-DD.N" against "YYYY-MM-DD.N": -1, 0 or 1, the number compared as a number, as
+  // gas-backend.gs _constantsVersionBefore does. null when either is not a version.
+  function compareVersions(a, b) {
+    const re = /^(\d{4}-\d{2}-\d{2})\.(\d+)$/;
+    const x = re.exec(String(a == null ? "" : a)), y = re.exec(String(b == null ? "" : b));
+    if (!x || !y) return null;
+    if (x[1] !== y[1]) return x[1] < y[1] ? -1 : 1;
+    const nx = Number(x[2]), ny = Number(y[2]);
+    return nx === ny ? 0 : nx < ny ? -1 : 1;
+  }
+
+  // The two versions compiled/tpn-room-version.js names, from its text, or null when the
+  // text is not that file.
+  function versionsOf(text) {
+    const m = /constantsVersion: ("[^"]*"), stickerSchema: (\d+)/.exec(String(text || ""));
+    if (!m) return null;
+    try { return { constantsVersion: JSON.parse(m[1]), stickerSchema: Number(m[2]) }; } catch (e) { return null; }
+  }
+  const sameVersions = (a, b) => !!a && !!b && a.constantsVersion === b.constantsVersion && a.stickerSchema === b.stickerSchema;
+
+  // Which side reloads when an order is not on this page's versions (2026-11-17). On
+  // 2026-11-17 a ward tab left open across the 23:21 release went on saving the old
+  // calculation. The room asked for Submit again, the same tab sent the old one again,
+  // and the order printed on the third press, after a reload. Submit from a tab that
+  // was never reloaded cannot help, so the room says reload before Submit.
+  // The served release decides (`ctx.served`, read with the list): an order on it needs
+  // nothing from the doctor, and if this page is not on it, the page reloads; an order
+  // on anything else, older or newer (a rollback), is the doctor's to reload and Submit,
+  // and this page reloads too when it is behind. Without a served release read, this
+  // page's own versions stand in for it, and an order newer than the page can only mean
+  // the page was left open.
+  const DOCTOR_RELOADS = "NeoFeed ปรับการคำนวณหลัง order นี้ ให้หมอกดโหลดหน้า NeoFeed ใหม่ก่อน แล้วเปิด order กด Submit อีกครั้ง";
+  const PAGE_RELOADS = "หน้านี้เป็นรุ่นเก่ากว่า NeoFeed ตอนนี้ กดโหลดหน้านี้ใหม่ก่อน หมอไม่ต้อง Submit ใหม่";
+  const PAGE_RELOADS_TOO = "หน้านี้เป็นรุ่นเก่ากว่า NeoFeed ตอนนี้ กดโหลดหน้านี้ใหม่ด้วย";
+  function versionReasons(pj, ctx) {
+    const page = { constantsVersion: ctx.constantsVersion, stickerSchema: ctx.stickerSchema };
+    const ord = { constantsVersion: pj.constantsVersion, stickerSchema: pj.v };
+    const served = ctx.served && typeof ctx.served.constantsVersion === "string" ? ctx.served : null;
+    if (served) {
+      const pageBehind = !sameVersions(page, served);
+      if (sameVersions(ord, served)) return pageBehind ? [PAGE_RELOADS] : [];
+      return pageBehind ? [DOCTOR_RELOADS, PAGE_RELOADS_TOO] : [DOCTOR_RELOADS];
+    }
+    if (sameVersions(ord, page)) return [];
+    const newer = typeof pj.v === "number" && (pj.v > page.stickerSchema
+      || (pj.v === page.stickerSchema && compareVersions(ord.constantsVersion, page.constantsVersion) === 1));
+    return [newer ? PAGE_RELOADS : DOCTOR_RELOADS];
+  }
+
+  // Why this order cannot print, in the room's words. Empty means it can. `ctx.served`:
+  // the versions the host serves now (versionsOf), or null when they were not read.
   function printReasons(order, ctx) {
     const why = [];
     if (order.status !== "submitted") why.push("ฉบับร่าง รอหมอ Submit");
@@ -212,8 +262,7 @@
     if (!pj) {
       why.push("ยังไม่มีตัวเลขสติกเกอร์ ให้หมอเปิด order แล้วกด Submit อีกครั้ง");
     } else {
-      if (pj.v !== ctx.stickerSchema) why.push("ตัวเลขสติกเกอร์คนละรุ่นกับหน้านี้ ให้หมอกด Submit อีกครั้ง");
-      if (pj.constantsVersion !== ctx.constantsVersion) why.push("NeoFeed ปรับการคำนวณหลัง order นี้ ให้หมอเปิดแล้วกด Submit อีกครั้ง");
+      why.push(...versionReasons(pj, ctx));
       if (!isRealDate(pj.orderDate)) why.push("order นี้ไม่มีวันที่");
       else if (ctx.date && pj.orderDate !== ctx.date) why.push("วันที่บนตัวเลขไม่ตรงกับวันที่เลือก");
       const missing = missingFigures(pj);
@@ -339,7 +388,7 @@
     PN_FIXED, PN_BLANK, PN_TRIAL, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
     wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy,
-    missingFigures, printReasons, fixedLinesReady, trialNote, trialReprintDue,
+    missingFigures, compareVersions, versionsOf, printReasons, fixedLinesReady, trialNote, trialReprintDue,
     lastPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
     recheck, stickerModel,
   };

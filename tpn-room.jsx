@@ -41,6 +41,12 @@ async function gas(body, { keepalive = false } = {}) {
   }
 }
 
+// compiled/tpn-room-version.js as the host serves it now: its text, "" for a reply that
+// is not 2xx, or null when the request failed.
+function servedVersionText() {
+  return fetch("compiled/tpn-room-version.js", { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => null);
+}
+
 function readSession() {
   try {
     const s = JSON.parse(sessionStorage.getItem(SESSION_KEY));
@@ -389,12 +395,12 @@ function MappingDialog({ order, infants, onSave, onClose }) {
 }
 
 // ── One order on the list ────────────────────────────────────
-function OrderRow({ order, date, file, onMap, onPrint, busy }) {
+function OrderRow({ order, date, file, onMap, onPrint, busy, served }) {
   const state = file ? file.state : null;
   const mapping = state ? state.infants[order.sessionId] : null;
   const reasons = Core.printReasons(order, {
     date, constantsVersion: VERSIONS.constantsVersion, stickerSchema: VERSIONS.stickerSchema,
-    nameFileOpen: !!file, mapping,
+    nameFileOpen: !!file, mapping, served,
   });
   const last = state ? Core.lastPrint(state.printLog, order.sessionId, date) : null;
   const changed = state ? Core.changedAfterPrint(order, state.printLog, date) : false;
@@ -571,14 +577,25 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const [busy, setBusy] = React.useState(false);
 
   // One read of pharmacyOrders. On open and on a person's press only (design D8):
-  // each call adds an Audit_Log row and reads two tabs uncached.
+  // each call adds an Audit_Log row and reads two tabs uncached. The served version
+  // file comes with it (2026-11-17): a page left open across a release judged every
+  // new order against its old versions and told the room to ask the doctor for another
+  // Submit, which could not help. `served` is the versions the host serves now, or null
+  // when the file could not be read; the rows judge each order against it
+  // (Core.printReasons). `stale`: it was read, and this page is not on it. A file it
+  // cannot read leaves the list as it was, and Print still refuses (printOrder).
   const fetchDay = React.useCallback(async (day) => {
-    const r = await gas({ action: "pharmacyOrders", token: user.token, date: day });
+    const [r, servedText] = await Promise.all([
+      gas({ action: "pharmacyOrders", token: user.token, date: day }),
+      servedVersionText(),
+    ]);
     if (r.error === "Unauthorized") { onExpired(); return null; }
     if (r.error === "PasswordChangeRequired") { onMustChange(); return null; }
     if (r.error === "Forbidden") { onExpired("บัญชีนี้ไม่มีสิทธิ์ใช้หน้าห้อง TPN"); return null; }
     if (!r.ok) throw new Error(String(r.error || "โหลด order ไม่สำเร็จ"));
-    const next = { date: day, counts: r.counts, orders: Core.currentOrders(r.orders), loadedAt: Date.now() };
+    const served = Core.versionsOf(servedText);
+    const stale = !!served && !Core.versionsMatch(servedText, VERSIONS);
+    const next = { date: day, counts: r.counts, orders: Core.currentOrders(r.orders), loadedAt: Date.now(), served, stale };
     setReply(next);
     return next;
   }, [user.token]);
@@ -640,7 +657,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
     setBusy(true); setError("");
     try {
       // A tab left open across a release still holds the old versions.
-      const served = await fetch("compiled/tpn-room-version.js", { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => null);
+      const served = await servedVersionText();
       if (served === null) { setError("เช็กรุ่นของหน้านี้ไม่ได้ ลองใหม่อีกครั้ง"); return; }
       if (!Core.versionsMatch(served, VERSIONS)) { setError("NeoFeed ออกรุ่นใหม่แล้ว โหลดหน้านี้ใหม่ก่อนพิมพ์"); return; }
       // Read once more: the list may be minutes old (spec, "Checked again just before printing").
@@ -651,7 +668,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
       const mapping = file.state.infants[order.sessionId];
       const reasons = Core.printReasons(check.order, {
         date: fresh.date, constantsVersion: VERSIONS.constantsVersion, stickerSchema: VERSIONS.stickerSchema,
-        nameFileOpen: true, mapping,
+        nameFileOpen: true, mapping, served: fresh.served || null,
       });
       if (reasons.length) { setError(reasons.join(" · ")); return; }
       setPrintJob({
@@ -675,7 +692,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const gone = reply && file ? Core.goneAfterPrint(orders, file.state.printLog, reply.date) : [];
   const count = file ? Object.keys(file.state.infants).length : 0;
   const backToDraft = reply && file ? Core.draftAfterPrint(orders, file.state.printLog, reply.date) : [];
-  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob } : null;
+  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob, served: reply.served || null } : null;
 
   return (
     <>
@@ -713,6 +730,12 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         {!dateOk && <p className="bad" role="alert">เลือกได้ตั้งแต่ {Core.buddhistDate(win.min)} ถึง {Core.buddhistDate(win.max)}</p>}
         {reply && reply.date !== date && dateOk && !loading && <p className="note">รายการด้านล่างเป็นของวันที่ {Core.buddhistDate(reply.date)}</p>}
         {error && <p className="bad" role="alert">{error}</p>}
+        {reply && reply.stale && (
+          <p className="bad stale-page" role="alert">
+            NeoFeed ออกรุ่นใหม่แล้ว แต่หน้านี้ยังเป็นรุ่นเก่า กดโหลดหน้านี้ใหม่ก่อนเช็กรายการ โหลดแล้วต้องเปิดไฟล์ชื่ออีกครั้ง
+            {" "}<button onClick={() => window.location.reload()}>โหลดหน้านี้ใหม่</button>
+          </p>
+        )}
         {gone.map((p) => (
           <p key={p.sessionId} className="warn gone" data-gone={p.sessionId}>
             {p.sessionId}: พิมพ์แล้ว แต่ถูกลบใน NeoFeed — อย่าใช้ถุงนี้
