@@ -337,13 +337,6 @@ function savedDosingWeightOf(entry) {
   if (enTotal > 0 && enPerKg > 0) return { g: enTotal / enPerKg * 1e3, exact: false };
   return null;
 }
-const FIRST_AA_PRODUCT_VERSION = "2026-09-18.1";
-function savedCalcVersionOf(entry) {
-  const ci = entry?.calcInput;
-  if (!ci) return null;
-  if (ci.constantsVersion) return String(ci.constantsVersion);
-  return Object.prototype.hasOwnProperty.call(ci, "aaProduct") ? FIRST_AA_PRODUCT_VERSION : null;
-}
 function savedFiguresVOf(entry) {
   const v = Number(entry?.calcInput?.printJsonV);
   return v > 0 ? v : null;
@@ -938,7 +931,7 @@ function Calculator({
       revision: Number(editEntry.calcInput?.orderRev) || editEntry.revisionNumber || 1
     } : null);
     setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
-    setSavedCalcVersion(editEntry ? savedCalcVersionOf(editEntry) : null);
+    setSavedCalcVersion(editEntry ? D.savedCalcVersionOf(editEntry) : null);
     setSavedFiguresV(savedFiguresVOf(editEntry));
     setDraftOffer(null);
     if (!centerPoint) try {

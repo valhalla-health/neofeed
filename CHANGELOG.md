@@ -49,6 +49,50 @@ times), `test/verify-qi-submit-times-1118.cjs` (new), `test/README.md`.
   changes caught.
 - **Not live.** Needs Pp's `clasp push` and the trigger; no frontend change, no `CONSTANTS_VERSION`.
 
+## Session 2026-11-17 (10) — The ward list tags an order held for a new Submit; Active has its own green
+
+`data.js` (`savedCalcVersionOf`, moved from `calculator.jsx`; `orderHeldForResubmit`, `resubmitDue`), `calculator.jsx`
+(reads `D.savedCalcVersionOf`), `registry.jsx` (`ResubmitTag` beside the today badge on the desktop row and the phone
+card; the Print order list's held row; `wardPrintableOrder` leaves a held order out of Print ทั้งหมด; the status
+chip's `chip-unit`), `app.jsx` (the Dashboard's status chip), both shells (`--unit-*`, `.chip.chip-unit.ok`,
+`.log-badge.is-resubmit`, `.pr-resub-note`), `compiled/`, `tools/dev-local.mjs` (a comment),
+`test/verify-resubmit-tag-1117.cjs` (new), `test/verify-registry-logged-today.cjs` (its rows carry a version),
+`test/README.md`, `GLOSSARY.md` (new), `STATUS.md`, `BACKLOG.md`.
+
+- **Why.** On 2026-11-17 Pp asked whether Submitting every saved order again would make them all print. It would,
+  on a reloaded tab, but each Submit is a doctor's sign-off on the figures that moved and writes a revision the TPN
+  room may act on, so it belongs to the orders that will print: today's and tomorrow's, one at a time. The ward list
+  read ✓ LOGGED for a held order, and Print ทั้งหมด counted it, so the ward found the hold only when Print refused. Pp
+  approved a render of the tag ("ใช้แบบนี้"), then asked the same evening: "ให้ปรับสีเขียวของ Active เป็นคนละเฉดสี
+  กับ logged".
+- **The tag.** "ต้อง Submit ใหม่", red as NEEDS ENTRY, beside ✓ LOGGED on the desktop row and the phone card, when
+  today's or tomorrow's Submitted order would print (`orderPrints`) and was saved under another `CONSTANTS_VERSION`.
+  That is the rule the Calculator's Print gate holds by (`calcMoved`), now one function in `data.js`. Its title names
+  the day and what to do; for an order with TPN, or one that stops it, it adds the phone call to the TPN room (Pp,
+  2026-11-03: "โทรด้วย"). An earlier day's order is not tagged: its bag has been given.
+- **The Print order list.** The held row reads "ต้อง Submit ใหม่" and why; its button, "เปิด order เพื่อ Submit
+  ใหม่", opens the order, where the Calculator lists the figures that moved and refuses Print in its own words. Print
+  ทั้งหมด leaves it out, so its count is what will print; before, the run held it back part way.
+- **Active's green.** The status chip, on the ward list and the Dashboard, uses `--unit-*`: #005750 on #E0FAF6,
+  7.7:1, against ✓ LOGGED's #035E23 on #DFFDE4, 7.3:1 (both read in Chromium). Every other `.chip.ok` keeps `--ok`.
+- **Nothing printed or saved moves.** No figure, rule or backend line; `CONSTANTS_VERSION` stays `2026-11-16.1`.
+- **Tests.** `verify-resubmit-tag-1117.cjs`, 40 checks: the rule (a stamped, an unstamped and an empty row; today,
+  tomorrow, yesterday; a draft; a No TPN order with nothing to print), the ward list on both layouts and both wards,
+  the Print order list (a tap prints nothing and the Calculator says why) and the colour. 17 of them fail on
+  `origin/main` `19c938a`. `verify-registry-logged-today.cjs` counted every `.log-badge` over rows that carried no
+  version, which the Print gate holds; they now carry this release's version, as a save today does. So do
+  `verify-phone-sweep.cjs`'s: unstamped, its one order of today was held, the Print order list had nothing to tick,
+  and CI's compiled shard failed "เลือกทั้งหมด missing" on all 24 devices (346/346 with the stamp, in Chromium here).
+- **Docs.** `STATUS.md` marks live every entry from #223 to #282, each with the release tag or backend version that
+  carried it (checked with `git merge-base --is-ancestor`), so this PR's is the only ⏳ left; `BACKLOG.md` closes two
+  overtaken lines and updates four; `GLOSSARY.md`, untracked in the main checkout since 2026-11-10, is added on Pp's
+  word. A new agent checked every definition against the code and found one wrong (Prepared volume, rounded up to
+  the next 10 mL since 2026-11-16) and ten that misled or left out what the code does (Revision, Order route,
+  Constants version, Short sheet, Draft, MEN, TPN bag, NPO, Ward list, Target fluid); all eleven are fixed. A second
+  agent read the fixed lines and found Revision still wrong (on a held Order, a doctor's I/O-only save is a Revision)
+  and seven smaller points; a third found it wrong once more (a nurse's I/O-only save keeps the number even on a held
+  Order); the fourth found no error, and its five wording points are fixed without another pass.
+
 ## Session 2026-11-17 (9) — Pp keeps the week on the names page's reprint flag
 
 `CHANGELOG.md` only. Entry (8) left Vera's point to Pp: the names page names every day from today −7 to +1 whose bag

@@ -2366,6 +2366,19 @@ To run one shard here as CI does (the jsdom set above, through `NODE_PATH` in a 
 node tools/run_checks.js --level ci --phase sources --shard 2/3
 ```
 
+## "ต้อง Submit ใหม่" and Active's green, 2026-11-17 — one harness added, one fixture stamped
+
+`verify-resubmit-tag-1117.cjs`: which order tags an infant (today's or tomorrow's Submitted order that would print,
+saved under another `CONSTANTS_VERSION`; not yesterday's, a draft, or a No TPN order with nothing to print), the
+tag on the desktop row and the phone card in both wards, the Print order list's held row (a tap prints nothing, the
+Calculator says why, Print ทั้งหมด leaves it out) and the status chip's own green in both shells. Drives the real
+`<App/>` through `review-0917-boot.cjs`; needs the jsdom set above.
+
+`verify-registry-logged-today.cjs` counts every `.log-badge`, so its rows now carry this release's
+`constantsVersion`: an unstamped row is one the Print gate holds, and the ward list tags it. The same goes for
+`verify-phone-sweep.cjs`, whose print list needs one order that prints: unstamped, Print ทั้งหมด had nothing to
+tick and "เลือกทั้งหมด" was missing on every device.
+
 ## QI submit times, 2026-11-18 — one harness added
 
 `verify-qi-submit-times-1118.cjs`: the `QI_SubmitTimes` tab. One day for the unit and each ward (first, last and

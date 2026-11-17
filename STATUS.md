@@ -2,11 +2,13 @@
 
 > ⏳ **2026-11-18 — QI: a `QI_SubmitTimes` tab, rebuilt every night from `Daily_Log`, gives each day's first, last and median TPN Submit for the whole unit and each ward, orders after the 14:00 cut-off, revised and after midnight; no patient field, editor and trigger only: this PR, not merged.** Backend only, not reachable from the web app; needs Pp's `clasp push` (HEAD) and a time-driven trigger, no deploy and no new scope (`REFERENCE.md` § QI: submit times; `CHANGELOG.md` 2026-11-18 (3), (4)).
 >
-> ⏳ **2026-11-17 — The TPN room's names page: "รายชื่อทั้งหมด" lists every infant in the name file, searchable, each name and AN editable, an infant with no order on the chosen date included (Pp, from a render: "ใช้แบบนี้"): PR #282, merged into `main` on Praew's instruction.** Frontend only, the TPN room's page alone; reads the open name file only, no request, no figure or rule changes (`CHANGELOG.md` 2026-11-17 (4)).
+> ✅ **2026-11-17 — The ward list tags "ต้อง Submit ใหม่" on today's or tomorrow's order that the Print gate holds after a release moved its figures; the Print order list says why, opens the order and leaves it out of Print ทั้งหมด; Active's chip has its own green, apart from ✓ LOGGED (Pp, from a render: "ใช้แบบนี้"): PR #284, live via release #288 (`release-2026-11-18-pr288`, `35cfafc`; verification on #288).** Frontend only; no figure, rule or backend line moves, `CONSTANTS_VERSION` stays `2026-11-16.1` (`CHANGELOG.md` 2026-11-17 (10)).
 >
-> ⏳ **2026-11-17 — The TPN room's PN label prints the AN on its own line under the name, centred, no further right than the label's other lines (Pp, from a render: "ใช้แบบนี้"): PR #281, merged into `main` on Praew's instruction.** Frontend only, the TPN room's page alone; no figure or rule changes (`CHANGELOG.md` 2026-11-17 (3)).
+> ✅ **2026-11-17 — The TPN room's names page: "รายชื่อทั้งหมด" lists every infant in the name file, searchable, each name and AN editable, an infant with no order on the chosen date included (Pp, from a render: "ใช้แบบนี้"): PR #282, live via release #283 (`release-2026-11-17-pr283`, `198faf7`; `verify-release` 0 failures on both hosts, comment on #283).** Frontend only, the TPN room's page alone; reads the open name file only, no request, no figure or rule changes (`CHANGELOG.md` 2026-11-17 (4)).
 >
-> ⏳ **2026-11-17 — A tab left open across a release: the calculator reads the served release when the form opens and warns before anyone types; on another release Submit sends nothing and asks for a reload (typed work kept as a draft); the TPN room judges each order against the served release (the doctor reloads NeoFeed and submits an order off it, the room reloads a page behind it) and shows a reload banner when its own page is behind: PR #280, merged into `main` on Praew's instruction.** Frontend only; no figure, dose or backend line moves, `CONSTANTS_VERSION` stays `2026-11-16.1`. Why: on 2026-11-17 an order took three Submits to reach the room (`CHANGELOG.md` 2026-11-17 (1) and (2)).
+> ✅ **2026-11-17 — The TPN room's PN label prints the AN on its own line under the name, centred, no further right than the label's other lines (Pp, from a render: "ใช้แบบนี้"): PR #281, live via release #283 (`release-2026-11-17-pr283`, `198faf7`; `verify-release` 0 failures on both hosts, comment on #283).** Frontend only, the TPN room's page alone; no figure or rule changes (`CHANGELOG.md` 2026-11-17 (3)).
+>
+> ✅ **2026-11-17 — A tab left open across a release: the calculator reads the served release when the form opens and warns before anyone types; on another release Submit sends nothing and asks for a reload (typed work kept as a draft); the TPN room judges each order against the served release (the doctor reloads NeoFeed and submits an order off it, the room reloads a page behind it) and shows a reload banner when its own page is behind: PR #280, live via release #283 (`release-2026-11-17-pr283`, `198faf7`; `verify-release` 0 failures on both hosts, comment on #283).** Frontend only; no figure, dose or backend line moves, `CONSTANTS_VERSION` stays `2026-11-16.1`. Why: on 2026-11-17 an order took three Submits to reach the room (`CHANGELOG.md` 2026-11-17 (1) and (2)).
 >
 > ✅ **2026-11-16 — The TPN unit's answers: a bag with dead space prepares delivered + dead space rounded up to the next 10 mL above (48 + 30 → 80); D50W, amino acid and SWFI are whole mL; the TPN room's stickers are the unit's sizes (worksheet 150 × 85 mm, PN label 200 × 80 mm) with its three PN lines, so the trial mark goes; the printed order is up to 115 % with larger figures, shrunk a step at a time to one A4 page: PR #278, live via release #279 (`release-2026-11-16-pr279`, `63e4226`; `verify-release` 0 failures on both hosts, run 2026-11-17, and its run against `release-2026-11-16-pr276` failed on exactly #278's files).** Frontend only. Rollback target: `release-2026-11-16-pr276` (`dcd2c84`). `CONSTANTS_VERSION` `2026-11-15.1` → `2026-11-16.1`: every saved bag prints, and the TPN room prints its stickers, only after a doctor submits it again. Pp checked the sticker PDF against the room's paper ("ตรงแล้ว"); the release does not wait for tasks 0.1 and 0.2 (Pp: "release ได้เลย") (`CHANGELOG.md` 2026-11-16 (13)).
 >
@@ -32,12 +34,12 @@
 >
 > ✅ **2026-11-15 — A doctor can Delete session (a patient registered by mistake), not only an admin; the ward's deleted name no longer stays in "อื่นๆ": PR #262, live via release #264 (`release-2026-11-15-pr264`, `d364411`), backend `@73` then `@74` deployed first; verified from Pp's PC (comment on #264).** Frontend rollback: `a8e4058` (`release-2026-11-14-pr261`); backend `clasp update-deployment AKfycbz8… -V 72` (`CHANGELOG.md` 2026-11-15).
 >
-> ⏳ **2026-11-14 — The TPN room's page lists orders by ward (NICU with its iso rooms, then SCN), each with its own Submit and draft counts; "ผู้ป่วยในหน่วย" is gone: PR #259, merged into `main` on Praew's instruction.**
+> ✅ **2026-11-14 — The TPN room's page lists orders by ward (NICU with its iso rooms, then SCN), each with its own Submit and draft counts; "ผู้ป่วยในหน่วย" is gone: PR #259, live via release #261 (`release-2026-11-14-pr261`).**
 > Frontend only, the TPN room's page alone; no figure or rule changes (`CHANGELOG.md` 2026-11-14 (7)).
 >
-> ⏳ **2026-11-14 — One red line for GIR and the dextrose ceiling ("Dextrose over KCMH max" is part of "GIR critically high", which names both figures): PR #254, merged into `main` on Praew's instruction; release PR to follow.** Frontend only; no dose or limit moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-14).
+> ✅ **2026-11-14 — One red line for GIR and the dextrose ceiling ("Dextrose over KCMH max" is part of "GIR critically high", which names both figures): PR #254, live via release #261 (`release-2026-11-14-pr261`).** Frontend only; no dose or limit moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-14).
 >
-> ⏳ **2026-11-14 — The อื่นๆ tile becomes ทดสอบระบบ: a patient registered with no bed is a TEST patient kept in this browser, never sent to the backend; the server's no-bed records go read-only until given a bed; a test order never prints: PR #258, merged into `main` on Praew's instruction; release PR to follow.** Frontend only (`CHANGELOG.md` 2026-11-14 (5)).
+> ✅ **2026-11-14 — The อื่นๆ tile becomes ทดสอบระบบ: a patient registered with no bed is a TEST patient kept in this browser, never sent to the backend; the server's no-bed records go read-only until given a bed; a test order never prints: PR #258, live via release #260 (`release-2026-11-14-pr260`).** Frontend only (`CHANGELOG.md` 2026-11-14 (5)).
 >
 > ✅ **2026-11-14 — A No TPN infant is asked for an entry every 3 days (every day while its feeds are below the bar, or with a draft started today); the ward strip reads Active, Needs entry, Draft, Logged today: PR #256, live via release #257 (`release-2026-11-14-pr257`, `ebb7c8c`; verification on #257).** Frontend only; no dose or printed figure moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-14 to 2026-11-14 (4)). Two decisions wait for Pp in `BACKLOG.md`: which No TPN short sheets still print, and a readmission inside the 3 days.
 >
@@ -51,57 +53,56 @@
 >
 > ✅ **2026-11-12 — Backend `@71` live: deleting a wrong Previous beds line (#247, #248).** Deployed with `clasp` from a clean `main` at `23ac4fd` on Pp's go-ahead, the first deploy from this repo; the pulled script matched `main`. Verification on #248. Rollback: `clasp update-deployment AKfycbz8Nt… -V 70`.
 >
-> ⏳ **2026-11-11 — Preterm formulas at 20/22/24/26/27 kcal/oz, PF = Enfalac Premature, FBM with PF 22/24/27 (milk room chart), FBM with HMF hidden (BM 20, Infatrini 30 locked); "ลบ" a wrong bed in Previous beds: PR #247, not merged.** `CONSTANTS_VERSION` 2026-11-11.1; a saved PF 20 order prints new figures. **Release waits on:** the NICU-Center-Point PR that syncs its feed list (merged first). The bed delete needs a backend `clasp` deploy as well as the frontend release (`CHANGELOG.md` 2026-11-11).
+> ✅ **2026-11-11 — Preterm formulas at 20/22/24/26/27 kcal/oz, PF = Enfalac Premature, FBM with PF 22/24/27 (milk room chart), FBM with HMF hidden (BM 20, Infatrini 30 locked); "ลบ" a wrong bed in Previous beds: PR #247, live via release #248 (`release-2026-11-11-pr248`).** `CONSTANTS_VERSION` 2026-11-11.1; a saved PF 20 order prints new figures. The bed delete's backend went out as `@71` on 2026-11-12 (`CHANGELOG.md` 2026-11-11).
 >
-> ⏳ **2026-11-11 — `clasp` pushes the backend from this repo; the `~/nicu-tools/neofeed` mirror is retired (Pp's decision): PR #245, merged into `main` on Praew's instruction.** No code change; the next backend deploy is the first from the repo (`REFERENCE.md` § Backend (GAS)).
+> ✅ **2026-11-11 — `clasp` pushes the backend from this repo; the `~/nicu-tools/neofeed` mirror is retired (Pp's decision): PR #245, merged into `main` on Praew's instruction, in release #246 (`release-2026-11-11-pr246`); in use since backend `@71` (2026-11-12), the first deploy from the repo.** No code change (`REFERENCE.md` § Backend (GAS)).
 >
 > ✅ **2026-11-11 — Backend `@70` live: `GOOGLE_HD_ENFORCE` on, a Google sign-in on a Workspace domain needs the matching `hd`: PR #243, merged into `main` on Praew's instruction, deployed with `clasp` on her go-ahead (verification on #243).**
 > Pp checked every `hd_seen_<domain>` read "yes" first. `hd_seen_*` stops updating while the flag is on. Rollback: `clasp update-deployment AKfycbz8Nt… -V 69`.
 >
-> ⏳ **2026-11-10 — The Reference page, the lipid hours, "MEF 12–24" and Full EN read `data.js`; P:E shows from 100 mL/kg/d itself: PR #241, merged into `main` on Praew's instruction; not live.**
+> ✅ **2026-11-10 — The Reference page, the lipid hours, "MEF 12–24" and Full EN read `data.js`; P:E shows from 100 mL/kg/d itself: PR #241, live via release #242 (`release-2026-11-11-pr242`).**
 > Frontend only. The Reference page drops its trailing zeros; P:E at exactly 100 mL/kg/d is new (Pp's call); no dose moved, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-10 (5)).
 >
-> ⏳ **2026-11-10 — Limits written out on the Calculator read `data.js` (GIR line, "<900 mOsm/L" on the printed form
-> and Copy, NPE:AA 20, "Central only!" at 12.5 %, heparin, vitamin D, No TPN, salt strengths): PR #240, merged into `main`; not live.**
+> ✅ **2026-11-10 — Limits written out on the Calculator read `data.js` (GIR line, "<900 mOsm/L" on the printed form
+> and Copy, NPE:AA 20, "Central only!" at 12.5 %, heparin, vitamin D, No TPN, salt strengths): PR #240, live via release #242 (`release-2026-11-11-pr242`).**
 > Frontend only. No value or printed figure moved (the oral P hint now reads its graded ~70); `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-10 (4)).
 >
-> ⏳ **2026-11-10 — Full EN never counts a MEN feed on a saved order (the Daily log's target bands and the patient page's targets): PR #239, merged into `main` on Praew's instruction; frontend only, not live.** Release waits for Pp (`CHANGELOG.md` 2026-11-10 (3)).
+> ✅ **2026-11-10 — Full EN never counts a MEN feed on a saved order (the Daily log's target bands and the patient page's targets): PR #239, frontend only, live via release #236 (`release-2026-11-10-pr236`).** (`CHANGELOG.md` 2026-11-10 (3)).
 >
-> ⏳ **2026-11-10 — Lipid rate critical only when over the ceiling as ordered too; above 0.20 at the pump critical always; the TPN line says how much more a rounded-up rate gives: PR #237, merged into `main` on Praew's instruction; not live.** Part of release #236 once merged into `main` (`CHANGELOG.md` 2026-11-10).
+> ✅ **2026-11-10 — Lipid rate critical only when over the ceiling as ordered too; above 0.20 at the pump critical always; the TPN line says how much more a rounded-up rate gives: PR #237, live via release #236 (`release-2026-11-10-pr236`).** (`CHANGELOG.md` 2026-11-10).
 >
-> **Backend is `@69` since 2026-11-08**, with #231 and #232 (`clasp list-deployments`; mirror commit `d4a90a1`). The lines below that say that deploy is to come are older. Pp ran `setupQiExportKey()` from the editor on 2026-11-09.
+> **Backend was `@69` from 2026-11-08** (now `@75`, the 2026-11-15 backup line above), with #231 and #232 (`clasp list-deployments`; mirror commit `d4a90a1`). The lines below that say that deploy is to come are older. Pp ran `setupQiExportKey()` from the editor on 2026-11-09.
 >
-> ⏳ **2026-11-08 — A release compares old and new on made-up orders (NF-42): `tools/calc-compare.cjs`: PR #235, merged into `main` on Praew's instruction.** The release
+> ✅ **2026-11-08 — A release compares old and new on made-up orders (NF-42): `tools/calc-compare.cjs`: PR #235, merged into `main` on Praew's instruction; in use.** The release
 > PR carries its report. Nothing reaches the ward: no frontend or backend file moved (`REFERENCE.md` § Before and after).
 >
-> ⏳ **2026-11-08 — "No TPN" tag on the ward list: PR #234, merged into `main` on Praew's instruction; frontend only, not live.** Release waits for Pp.
+> ✅ **2026-11-08 — "No TPN" tag on the ward list: PR #234, frontend only, live via release #236 (`release-2026-11-10-pr236`).**
 >
-> ⏳ **2026-11-08 — One list of checks, one runner (NF-32): `tools/checks.json`, `tools/run_checks.js`: PR #233, merged into `main` on Praew's instruction.** CI and both
+> ✅ **2026-11-08 — One list of checks, one runner (NF-32): `tools/checks.json`, `tools/run_checks.js`: PR #233, merged into `main` on Praew's instruction; in use.** CI and both
 > hooks call the runner, which reports per dimension. Nothing reaches the ward: no frontend or backend file moved. The
 > pre-commit hook needs `node tools/run_checks.js --install-hooks` once per clone (`CHANGELOG.md` 2026-11-08).
 >
-> ⏳ **2026-11-07 — Stakeholder walk fixes (only a doctor submits a doctor's order, a nurse saves I/O only; a held
-> order lists each changed figure, old → new; Quick calc opens with no route): PR #232, merged into `main` on Praew's instruction; not live.**
+> ✅ **2026-11-07 — Stakeholder walk fixes (only a doctor submits a doctor's order, a nurse saves I/O only; a held
+> order lists each changed figure, old → new; Quick calc opens with no route): PR #232, backend `@69` (2026-11-08), frontend live via release #236 (`release-2026-11-10-pr236`).**
 > Frontend **and backend**: the backend refuses a nurse's Submit and names who submitted on the TPN room's page, so it
 > deploys **first** (`CHANGELOG.md` 2026-11-07 (3)). No dose constant moved; `CONSTANTS_VERSION` stays `2026-11-06.1`.
-> Recorded here by its own PR. Release waits for Pp: backend `clasp` deploy first, then frontend `release`.
->
-> ⏳ **2026-11-07 — QI export inside Apps Script (`setupQiExportKey`, `exportQi`, `lookupResearchId`): PR #231, merged
-> into `main` (`ed28e22`), not live.** Backend only, editor-run, no `doPost` action and no new scope. Live needs a backend
-> `clasp push` + `clasp update-deployment` on Pp's go-ahead, then `setupQiExportKey()` once; the first
-> `exportQi()` adds a `QI_Export` tab. Before a real export: Pp and the DPO settle its lawful basis (`BACKLOG.md`).
 > Recorded here by its own PR.
 >
-> ⏳ **2026-11-06 — Calculator ward feedback (Glycophos by P with a wrong-unit guard, no Factor or stock mL on
-> screen, Dextrose, amino-acid and lipid chips on one line): open PR #226, not merged, not live.** Frontend only; no backend change; two new
+> ✅ **2026-11-07 — QI export inside Apps Script (`setupQiExportKey`, `exportQi`, `lookupResearchId`): PR #231, merged
+> into `main` (`ed28e22`); live in backend `@69` (2026-11-08), and Pp ran `setupQiExportKey()` on 2026-11-09.** Backend
+> only, editor-run, no `doPost` action and no new scope. The first `exportQi()` adds a `QI_Export` tab. Before a real export: Pp and the DPO settle its lawful basis (`BACKLOG.md`).
+> Recorded here by its own PR.
+>
+> ✅ **2026-11-06 — Calculator ward feedback (Glycophos by P with a wrong-unit guard, no Factor or stock mL on
+> screen, Dextrose, amino-acid and lipid chips on one line): PR #226, merged 2026-11-07, live via release #236 (`release-2026-11-10-pr236`).** Frontend only; no backend change; two new
 > alert thresholds, no dose constant moved. Recorded here by its own PR.
 >
-> ⏳ **2026-11-06 — the lipid pump (#227): merged into `main` (`4e71a25`), not live.** A tap on Lipid volume rounds the syringe to the nearest
+> ✅ **2026-11-06 — the lipid pump (#227): merged into `main` (`4e71a25`); live via release #236 (`release-2026-11-10-pr236`).** A tap on Lipid volume rounds the syringe to the nearest
 > whole mL/day and sets the dose from it; both pumps show 0.1 mL/hr and the hours they run, and lipid g/kg/h is over
 > those hours. The printed lipid line changes on every order with lipid, so `CONSTANTS_VERSION` moves to `2026-11-06.1`:
 > once released, an order saved before it prints only after it is saved again.
 >
-> ⏳ **2026-11-06 — Step 2's milk list (#223): merged into `main` 2026-11-07 03:36 ICT on Praew's instruction, not live.** "FBM 24 ↔
+> ✅ **2026-11-06 — Step 2's milk list (#223): merged into `main` 2026-11-07 03:36 ICT on Praew's instruction; live via release #230 (`release-2026-11-07-pr230`).** "FBM 24 ↔
 > Infatrini 30 (alternating)" leaves the Feed type list (two feeds do it; orders saved on it still compute) and
 > "LF — HiQ LF" reads "HiQ LF". No figure moves. It goes out with the next release PR.
 >
