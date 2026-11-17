@@ -7,6 +7,12 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (9) — Pp keeps the week on the names page's reprint flag
+
+`CHANGELOG.md` only. Entry (8) left Vera's point to Pp: the names page names every day from today −7 to +1 whose bag
+predates the name or AN, so a bag already given stays listed until that day leaves the window. Pp, 2026-11-17:
+"ห้อง TPN บอกชื่อคนไข้ย้อนหลังเจ็ดวัน". The window stays a week; no code changes.
+
 ## Session 2026-11-17 (8) — Vera's third check: a page test that needs the print's `mappingAt`
 
 `test/verify-tpn-room-page-1105.cjs` §12d.
