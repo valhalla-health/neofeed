@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-17 — The ward list tags "ต้อง Submit ใหม่" on today's or tomorrow's order that the Print gate holds after a release moved its figures; the Print order list says why, opens the order and leaves it out of Print ทั้งหมด; Active's chip has its own green, apart from ✓ LOGGED (Pp, from a render: "ใช้แบบนี้"): PR #284, not merged.** Frontend only; no figure, rule or backend line moves, `CONSTANTS_VERSION` stays `2026-11-16.1` (`CHANGELOG.md` 2026-11-17 (10)).
+> ⏳ **2026-11-17 — The ward list tags "ต้อง Submit ใหม่" on today's or tomorrow's order that the Print gate holds after a release moved its figures; the Print order list says why, opens the order and leaves it out of Print ทั้งหมด; Active's chip has its own green, apart from ✓ LOGGED (Pp, from a render: "ใช้แบบนี้"): PR #284, merged into `main` on Praew's instruction; not live.** Frontend only; no figure, rule or backend line moves, `CONSTANTS_VERSION` stays `2026-11-16.1` (`CHANGELOG.md` 2026-11-17 (10)).
 >
 > ✅ **2026-11-17 — The TPN room's names page: "รายชื่อทั้งหมด" lists every infant in the name file, searchable, each name and AN editable, an infant with no order on the chosen date included (Pp, from a render: "ใช้แบบนี้"): PR #282, live via release #283 (`release-2026-11-17-pr283`, `198faf7`; `verify-release` 0 failures on both hosts, comment on #283).** Frontend only, the TPN room's page alone; reads the open name file only, no request, no figure or rule changes (`CHANGELOG.md` 2026-11-17 (4)).
 >
