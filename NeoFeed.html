@@ -1494,6 +1494,40 @@
   .patient-table table.tbl tr:hover td { background: var(--bg-2); }
   .patient-table table.tbl tr.p-active:hover td { background: var(--brand-bg-2); }
 
+  /* ============ TPN ทั้งหอ (registry.jsx WardTpnPage, Pp 2026-11-14) ============
+     A desktop table, phone cards under 768px. A flagged row carries its flag
+     as a chip in words, coloured; the side stripe only repeats it. */
+  .wtpn .page-head { flex-wrap: wrap; gap: 10px; }
+  .wtpn-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-width: 520px; margin-bottom: 12px; }
+  .wtpn-tile { background: var(--surface); border: 1.5px solid var(--frame); border-radius: var(--r); padding: 10px 12px; }
+  .wtpn-tile .v { font-size: 22px; font-weight: 700; color: var(--ink); }
+  .wtpn-tile .l { font-size: 11.5px; color: var(--ink-3); line-height: 1.35; margin-top: 2px; }
+  .wtpn-tile.is-warn { border-color: var(--warn-line); background: var(--warn-bg); }
+  .wtpn-tile.is-warn .v { color: var(--warn-ink); }
+  .wtpn-table table.tbl td.r, .wtpn-table table.tbl th.r { text-align: right; }
+  .wtpn-table table.tbl tr { cursor: pointer; }
+  .wtpn-table table.tbl tr.is-warn td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+  .wtpn-table table.tbl tr.is-crit td:first-child { box-shadow: inset 3px 0 0 var(--crit); }
+  .wtpn-name { font-weight: 600; color: var(--ink); }
+  .wtpn-sub { font-size: 11.5px; color: var(--ink-3); }
+  .wtpn-cell-warn { color: var(--warn-ink); font-weight: 700; }
+  .wtpn-cell-crit { color: var(--crit-ink); font-weight: 700; }
+  .wtpn-flags { display: flex; gap: 4px; flex-wrap: wrap; }
+  .wtpn-cards { display: none; }
+  .wtpn-empty { padding: 32px 16px; text-align: center; color: var(--ink-3); font-size: 13px; }
+  .wtpn-legend { font-size: 11.5px; color: var(--ink-3); line-height: 1.6; margin-top: 10px; }
+  @media (max-width: 767px) {
+    .wtpn-cards { display: grid; gap: 8px; }
+    .wtpn-card { background: var(--surface); border: 1.5px solid var(--frame); border-radius: 12px; padding: 10px 12px; cursor: pointer; }
+    .wtpn-card.is-warn { border-left: 4px solid var(--warn); }
+    .wtpn-card.is-crit { border-left: 4px solid var(--crit); }
+    .wtpn-card-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .wtpn-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: 8px 0; }
+    .wtpn-grid b { display: block; font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .wtpn-grid b.wtpn-cell-warn { color: var(--warn-ink); }
+    .wtpn-grid b.wtpn-cell-crit { color: var(--crit-ink); }
+  }
+
   /* ============ MOBILE / DESKTOP TABLE SWAP ============ */
 
   /* ============ TABLET: 768–1199px — icon-only rail ============ */
@@ -2237,13 +2271,13 @@
   <!-- App data and modules. The .jsx sources are precompiled to compiled/ by
        tools/build.mjs; no Babel runs in the browser. Each ?v= token is a
        content hash the build writes: never edit one by hand. -->
-  <script src="data.js?v=0034310333"></script>
+  <script src="data.js?v=ea8ef189ec"></script>
   <script src="compiled/icons.js?v=5b007bcbc0"></script>
   <script src="compiled/calculator.js?v=517a6a6dcd"></script>
   <script src="compiled/fenton.js?v=a2d86c5d15"></script>
-  <script src="compiled/registry.js?v=2593021801"></script>
+  <script src="compiled/registry.js?v=2b482c5c61"></script>
   <script src="compiled/log.js?v=dfd0cae3e3"></script>
-  <script src="compiled/app.js?v=1b5a5803e5"></script>
+  <script src="compiled/app.js?v=d18d9f754d"></script>
 
   <!-- Google Fonts, deliberately after every script. In <head> a slow fonts
        request held back all of them (measured up to 3.6 s); here it only

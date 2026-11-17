@@ -184,6 +184,49 @@ peripheral bag ordered at or under 12.5 % it rounds down where rounding up would
 
 The HMF threshold `patient.ga < 32` still works because all valid values stay under integer 32.
 
+## The ward's TPN page, "TPN ทั้งหอ" (2026-11-15)
+
+One page per ward that lists the infants on TPN, so the team need not open each Dashboard (Pp, 2026-11-14). The rail
+has it after Dashboard; on a phone, the ward list's "TPN ทั้งหอ" button. A tap on a row opens that infant's Dashboard.
+Every role that sees the ward list sees it. Display only: nothing on it is saved, printed or dosed, so it moves no
+`CONSTANTS_VERSION`. The rule is `D.wardTpnRow` in `data.js`, the page `WardTpnPage` in `registry.jsx`, and
+`test/verify-ward-tpn-page-1115.cjs` holds both.
+
+**Who is listed.** An Active infant of the ward whose latest Submitted order has TPN (`orderHadTpn`), or whose latest
+order *with TPN* is at most `WARD_TPN_RECENT_DAYS` (14) days old. The days count from the last order with TPN, not the
+last submit: a No TPN infant is asked for an order every 3 days, so an infant who never had TPN would otherwise stay on
+the page for good (Pp, 2026-11-15). That holds where the No TPN AA flag would fire: a preterm infant on DOL 2–7 with
+counted EN < 50 whose orders were all No TPN is not listed (Pp, 2026-11-18: "ไม่ต้องขึ้น"). A draft is not an order.
+Flagged rows first (red, then amber), then by bed.
+
+**The figures** are the latest Submitted order's, as ordered: `calcInput.aaPerKg`, `calcInput.lipidPerKg`, the saved IV
+GIR and `enVolPerKg`. DOL and the day of PN are today's; the day of PN counts from the first order of the current run,
+which a No TPN order ends. AA, lipid and EN are graded as the page prints them (`displayNum`: AA and lipid to 2
+decimals, EN to 1), so a float tail never puts one on the other side of a line, and EN 49.96, printed "50", is not
+"EN < 50" (2026-11-18). GIR is graded raw by `girStatus`, as the Calculator and the Alerts page grade the same saved
+number: one GIR, one grading on every screen (Vera, 2026-11-18).
+
+**"Submit ล่าสุด"** is `D.orderSubmittedAt`: `calcInput.orderAt`, which the server stamps on every save that changes
+the order and keeps on an I/O-only save (a nurse's, or a doctor's since 2026-11-15), so a later I/O save never moves
+it. Submit saves and locks in one press, so that save is the Submit; it is the time the Calculator prints beside
+"บันทึกโดย". A row from before `orderAt` (2026-11-07) falls back to `published`, then `lastModified`. Until
+2026-11-17 the column read `lastModified`, the last save of any kind.
+
+**The care flags**, only what today's order can still change. No QI figure is shown (Pp, 2026-11-14: QI stays in the
+back end, admin only, until the indicators are chosen).
+
+| Flag | When | Source |
+|---|---|---|
+| AA < 2.5 (amber) | preterm, today's DOL 2–7, counted EN < 50 mL/kg/d, AA < 2.5 g/kg/d. By DOL, also for an infant admitted after birth, and today's DOL when the latest order is older (Pp, 2026-11-14, 2026-11-15). A No TPN order counts as AA 0 and its chip reads "หยุด PN ตอน EN < 50" (Pp, 2026-11-17) | van Goudoever 2018 R 3.2; EN < 50 is NeoFeed's own (`pn_aa_ge_2_5`) |
+| DOL 2 ยังไม่มี lipid (amber) | preterm, today's DOL 2, no lipid; a No TPN order too while counted EN < 50 mL/kg/d (Pp, 2026-11-17, asked about EN < 50) | Lapillonne 2018 R 4.2 |
+| GIR > 12 (red), GIR < 4 (amber) | `girStatus`, every GA; a GIR of 0 (no dextrose) is not flagged | `CR-GIR-MAX` |
+| EN ≥ 140 / 120 ยังมี PN (amber) | dextrose, AA or lipid still ordered once counted EN reaches 140 mL/kg/d below 28 wk, 120 from 28 wk and at term; every GA (Pp, 2026-11-15) | NICE NG154 rec 1.8.2 (born before 28+0 wk, 140–150) and rec 1.8.3 (28+0 wk or later and term, 120–140), the lower end of each; not `FULL_EN_ML_KG` |
+| No TPN (no colour) | the latest order is No TPN (`orderIsNoTpn`); the AA and lipid flags above may come with it, never the GIR or PN-after-EN flag | — |
+
+Preterm is GA below `PRETERM_GA_WK` (37) weeks (Pp, 2026-11-15, as QI decision 6.6). A record with no usable GA counts
+as preterm and takes the 120 line, so a missing GA never hides a flag. Counted EN leaves out a MEN feed (`CR-U-MEN`).
+Every number on the page reads `data.js`.
+
 ## Pre-PR review (Vera)
 
 Before you open or update a PR whose diff touches a dose file (`data.js`, `calculator.jsx`,
@@ -778,6 +821,70 @@ first: it keeps the Sheet the script is bound to.
    and the cache drop after a hand edit) fires only there, never on the copy. Until the data is moved back into
    the bound Sheet, add staff from the Admin page, not by hand. Moving it back is a second, planned step.
 9. Write what happened, and why, in `CHANGELOG.md`.
+
+### QI: submit times, `QI_SubmitTimes` (2026-11-18, not live)
+
+When each day's TPN orders reach the TPN room, for QI (Pp, 2026-11-18: "งาน QI อยากดูเรื่องตั้งแต่การซับมิตครั้ง
+สุดท้ายของวันว่าเป็นเวลาเท่าไหร่"). **Nothing new is stored per order:** since release #201 (2026-10-29, 18:34 ICT)
+every Submit locks its row and stamps `published` (AH), and a change after it is a new revision row with the old
+one kept (`supersededAt`, AL). This adds one summary tab, rebuilt in full from `Daily_Log` on each run
+(`gas-backend.gs` § QI: when each day's TPN orders reach the TPN room; `test/verify-qi-submit-times-1118.cjs`).
+Pp's choices, 2026-11-18: a tab in the Sheet, refreshed every night, admin only, cut-off 14:00.
+
+**One row per day and ward**, from `QI_SUBMIT_FROM` (2026-10-30, the first whole day under the lock) to
+yesterday, ward time: `ALL` (NICU and SCN together, the TPN room's day), then `NICU`, `SCN`, and `other` only on a
+day it has an order (no bed or a free-text bed, kept outside `ALL`). A day with no order still has its rows, at 0.
+
+| Column | What it holds |
+|---|---|
+| `tpn_orders` | submitted TPN orders dated that day: the current row (no AL) whose route starts "TPN", as the TPN room counts them |
+| `first_submit` | the earliest Submit of any of them, any version |
+| `last_submit` | **the latest Submit of the version the TPN room makes**, "HH:MM", or "HH:MM (+1)" after midnight |
+| `last_submit_min` | the same, in minutes after that day's midnight, for a chart |
+| `median_submit` | the median of the final versions' Submits (the mean of the middle two) |
+| `after_cutoff`, `cutoff` | orders whose final version came after the cut-off, by the minute shown (14:01 is after 14:00, 14:00:59 is not); the cut-off used |
+| `revised` | orders the TPN room got a later version of (the order's revision above 1) |
+| `next_day` | orders whose final version came after midnight |
+| `drafts` | TPN orders of that day still a draft when the tab was built |
+| `no_time` | submitted orders with no Submit stamp (a lock that failed); counted in `tpn_orders`, not in the times |
+
+- **One time for one order.** An order's Submit is the AH of the row that signed it (`_orderSignerWalk`, shared
+  with `pharmacyOrders`): a revision saved with only I/O changed, a nurse's or a doctor's, is not a new version.
+  So the tab and the TPN room's "Submit" column read the same time.
+- **The day is the order's own date** (column A, ward time). **The ward is the one at the moment of Submit**, from
+  `bedHistory` (the first hop made after that moment names the bed held; a hop with no `at` counts as made at the
+  end of its date), else the current bed or a parked infant's last bed, as the ward list files it. An infant
+  moved from NICU to SCN keeps their NICU days in NICU. **One exception:** a Submit made while the infant was parked
+  (no bed) takes the ward of the bed they were placed in afterwards, since placing a parked infant writes no hop
+  (`registry.jsx`); until then it is filed under the bed they left. A day's ward split can move once, on placement.
+  The `ALL` row never moves.
+- **No patient field.** A date, a weekday, a ward, counts and times of day; no NeoFeed ID, entryId, name or e-mail.
+  An infant whose record was erased (PDPA) is left out, as `exportQi` leaves them out, so a later erasure can lower
+  an old day's count. A day with one TPN order shows that order's time; that is a process time, not a clinical
+  value. The tab is aggregate, but QI use of NeoFeed data still needs its own lawful basis (`PRD.md` non-goals, §
+  QI export above): ask the DPO before its numbers leave the Sheet.
+- **Nothing is reachable from the web app.** `qiSubmitTimesRefresh()` runs from the editor, `qiSubmitTimesNightly()`
+  from a trigger; `doPost` answers "Unknown action" to both. Neither takes the script lock: a save that lands mid-read
+  is read right by the next run. It is not in `BACKUP_DATA_TABS`: a backup copies it without judging it, and after a
+  restore one run rebuilds it.
+- **Cost.** Each run reads `Daily_Log` A–AM and the whole registry. AM, the sticker figures (1–2 KB a row), is read
+  because the walk compares it, as `pharmacyOrders` does: a revision that changes only the sticker figures is a new
+  version for the TPN room (Vera, 2026-11-18). Once a night, that is affordable.
+- **The tab grows its own grid** before it clears anything: a new tab has 1000 rows, about 330 days.
+
+**Setting it up** (on Pp's go-ahead; no new scope: a trigger added in the editor needs none, as the backup's):
+
+1. `clasp push` from `main` once this PR is merged (HEAD only; the web app's deployment does not change). On
+   2026-11-18 `main`'s `gas-backend.gs` was `@75`'s (deployed from `e1d99cd`; `git diff e1d99cd origin/main --
+   gas-backend.gs` is empty), so HEAD gains this section and the walk it shares with `pharmacyOrders` alone.
+2. Run ▸ `qiSubmitTimesRefresh`. The log reads `QI_SubmitTimes: N rows, M submitted TPN orders, …`; open the tab
+   and check one day against the TPN room's page for that date.
+3. Triggers ▸ Add trigger: function `qiSubmitTimesNightly`, Time-driven, Day timer, 1am to 2am (before the backup's
+   2am slot, so the two never overlap), failure notifications "immediately". It runs under the account that adds it.
+4. The next morning, check the Executions list and that the tab's last date is yesterday.
+
+Another cut-off for one look: Run a one-line function `function qi13() { qiSubmitTimesRefresh("13:00"); }`. The
+next night's run writes 14:00 again; change `QI_SUBMIT_CUTOFF` by PR to change it for good.
 
 ### The TPN room's page: `tpn-room.html`
 

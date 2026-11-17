@@ -88,6 +88,7 @@ function boot(opts) {
       hooks: {},        // hooks.beforeRead(sh, r, c, nr, nc) / hooks.beforeWrite(sh, kind, r, c)
       throwOn: {},      // method -> { err, skip, once }
       stats: { rangeReads: 0, cellsRead: 0 },
+      formats: {},      // "row,col" -> the last setNumberFormat on that cell (QI_SubmitTimes, 2026-11-18)
       _guard(m) {
         const t = sh.throwOn[m];
         if (!t) return;
@@ -159,7 +160,10 @@ function boot(opts) {
         while (data.length < r) data.push([]);
         const row = data[r - 1];
         while (row.length < c - 1) row.push('');
-        row[c - 1] = cellIn(sh.name, r, c, v);
+        const stored = cellIn(sh.name, r, c, v);
+        // A plain-text cell (setNumberFormat("@")) keeps a string as written, as Sheets
+        // does: "2026-10-30" stays text there (QI_SubmitTimes, 2026-11-18).
+        row[c - 1] = sh.formats[r + ',' + c] === '@' && typeof v === 'string' ? v : stored;
       },
       getDataRange() {
         return { getValues() { const lr = sh._lastRow(), lc = sh._lastCol(); return lr && lc ? sh._read(1, 1, lr, lc) : [[]]; } };
@@ -183,6 +187,10 @@ function boot(opts) {
             vals.forEach((rv, i) => rv.forEach((v, j) => sh._write(row + i, col + j, v)));
           },
           clearContent() { for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) sh._write(row + i, col + j, ''); },
+          setNumberFormat(fmt) {
+            sh._guard('setNumberFormat');
+            for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) sh.formats[(row + i) + ',' + (col + j)] = fmt;
+          },
         };
       },
       appendRow(r) {

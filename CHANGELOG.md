@@ -7,6 +7,143 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-18 (5) — "TPN ทั้งหอ": Pp keeps never-TPN infants off the page
+
+`REFERENCE.md` (§ The ward's TPN page, *Who is listed*), `test/verify-ward-tpn-page-1115.cjs`. No code change.
+
+- **Pp answered entry (2)'s open question** on 2026-11-18: "ไม่ต้องขึ้น". A preterm infant on DOL 2–7 with counted
+  EN < 50 whose orders were all No TPN stays off the page, as her rule of 2026-11-15 already had it. The No TPN AA and
+  lipid flags reach only an infant who had TPN within the last 14 days.
+- **Tests.** Two cases lock it in: GA 29 on DOL 3 and on DOL 2, No TPN at EN 20, never TPN → not listed. With
+  `wardTpnRow` planted to list a never-TPN infant below EN 50, these two fail and the other 149 pass, so the harness
+  could not see this before.
+
+## Session 2026-11-18 (4) — Vera on `QI_SubmitTimes`: the sticker column read, the grid grown, the parked exception
+
+`gas-backend.gs` (`qiSubmitTimesRefresh`), `REFERENCE.md` (§ QI: submit times), `test/verify-qi-submit-times-1118.cjs`.
+Vera: NO BLOCK, two 🟠 and one 🟡. Entry (3) stays as written.
+
+- **AM is read.** Entry (3) read `Daily_Log` A–AL to skip the 1–2 KB sticker column, on the claim that AM follows from
+  the columns read. It does not: a revision can differ from the one before only in its sticker figures, and
+  `_sameStoredFigures` then calls it a new version. Without AM the walk went past it, so the tab read an older Submit
+  than the TPN room's page. The run now reads A–AM; a test holds the case.
+- **The grid grows before the clear.** A new tab has 1000 rows; at three a day the write would have thrown in
+  about 330 days, after `clearContents` had emptied the tab. Rows are now added first, as `exportQi` does.
+- **A Submit while parked** takes the ward of the bed the infant is placed in afterwards (placing writes no hop).
+  Written down in `REFERENCE.md`, not changed: the `ALL` row never moves.
+- **Tests.** 52 assertions (§9 new: the sticker-only revision against `pharmacyOrders`, and 1009 rows on a strict
+  1000-row grid); 18 of 18 planted rule changes caught, the two fixes above among them.
+
+## Session 2026-11-18 (3) — QI: when each day's TPN orders reach the TPN room, a nightly `QI_SubmitTimes` tab
+
+`gas-backend.gs` (§ QI: when each day's TPN orders reach the TPN room; `_orderSignerWalk`, moved out of
+`pharmacyOrders`), `test/gas-vm-sandbox.cjs` (`setNumberFormat`, plain-text cells), `REFERENCE.md` (§ QI: submit
+times), `test/verify-qi-submit-times-1118.cjs` (new), `test/README.md`.
+
+- **Why.** Pp, 2026-11-18: "งาน QI อยากดูเรื่องตั้งแต่การซับมิตครั้งสุดท้ายของวันว่าเป็นเวลาเท่าไหร่ อาจจะต้องจัดเก็บ
+  ในระบบ". Asked, she chose a tab in the Sheet refreshed every night, admin only, and gave the TPN room's cut-off:
+  14:00.
+- **Nothing new is stored per order.** Since release #201 (2026-10-29) Submit stamps `published` (AH) and a change
+  after it is a new row, so every Submit is already on record. The tab is a summary, rebuilt in full each run: one
+  row per day for the whole unit (`ALL`, NICU and SCN) and per ward, from 2026-10-30 to yesterday; first, last and
+  median Submit, orders after 14:00, revised, after midnight, drafts, and orders with no stamp.
+- **One time for one order.** The submit time is the AH of the row that signed the order, walked past I/O-only
+  revisions by the same function `pharmacyOrders` now calls (`_orderSignerWalk`), so the tab and the TPN room's page
+  never differ. `pharmacyOrders` is otherwise unchanged.
+- **The ward is the ward at the moment of Submit** (`bedHistory`), so an infant moved to SCN keeps their NICU days in
+  NICU. An erased infant is left out, as in `exportQi`.
+- **No patient field and out of doPost's reach.** Editor-run `qiSubmitTimesRefresh()`, trigger-run
+  `qiSubmitTimesNightly()`; a trigger added in the editor needs no new scope. The setup is in `REFERENCE.md`.
+- **The sandbox** gains `setNumberFormat` and keeps a string as written in a plain-text cell, as Sheets does; no
+  other backend code calls it.
+- **Tests.** 48 assertions; against `main`'s backend 7 fail (every check that needs the new code); 16 of 16 planted rule
+  changes caught.
+- **Not live.** Needs Pp's `clasp push` and the trigger; no frontend change, no `CONSTANTS_VERSION`.
+
+## Session 2026-11-18 (2) — Vera on "TPN ทั้งหอ": GIR graded as every screen grades it; No TPN lipid below EN 50
+
+`data.js` (`wardTpnRow`), `registry.jsx` (the No TPN AA chip's title), `compiled/`, both shells' tokens, `REFERENCE.md`,
+`test/README.md`, `test/verify-ward-tpn-page-1115.cjs`. Vera: NO BLOCK, three 🟠 and two 🟡. Entry (1) stays as written.
+
+- **GIR is graded raw again.** Entry (1) graded the page's GIR as printed, 2 decimals; the Calculator and the Alerts page
+  grade the same saved GIR raw through `girStatus`, so a saved 12.004 was red there and unflagged here, the split
+  `girStatus`'s comment records as a past defect. AA, lipid and EN stay graded as printed: no other screen grades them.
+- **A No TPN order's DOL 2 lipid flag needs counted EN < 50.** Pp was asked about EN < 50 for both flags; entry (1)
+  flagged a No TPN infant on DOL 2 fed at EN 60. An order with TPN keeps the lipid flag at any EN, as before.
+- **The No TPN AA chip's title prints the counted EN** (`enCounted`, 0 for a MEN feed) and says "MEN ไม่นับ".
+- **One date for Pp's "ขึ้นธง":** 2026-11-17, in `test/README.md` too.
+- **Left for Pp:** whether a preterm infant who never had TPN, on DOL 2–7 with counted EN < 50 on a No TPN order, is
+  listed while that flag holds. Her rule of 2026-11-15 keeps an infant who never had TPN off the page, and it came
+  before her answer of 2026-11-17; the page is unchanged until she says.
+- **Tests.** 149 assertions; 24 of 24 planted rule changes caught, the three above among them.
+
+## Session 2026-11-18 (1) — "TPN ทั้งหอ": the review's four errors fixed; a No TPN order is flagged as AA 0
+
+`data.js` (`orderSubmittedAt`, `wardTpnRow`, the `PN_STOP_EN_ML_KG` comment), `registry.jsx` (`wtpnSubmitted`, the
+chips, the legend), `compiled/`, both shells' tokens, `REFERENCE.md` (§ The ward's TPN page), the clinical-rules skill
+("Not in this file"), `test/verify-ward-tpn-page-1115.cjs` (sections 6, 8, 10 and 11).
+
+The branch was saved as WIP on 2026-11-17 with four errors from its new-agent check still open. Entry 2026-11-15 (3)
+stays as written (append-only); this entry corrects it.
+
+- **"Submit ล่าสุด" read the last save.** It showed `lastModified`, so a nurse's I/O save at 15:45 on an order submitted
+  at 09:10 read 15:45. It now reads `D.orderSubmittedAt`: `calcInput.orderAt`, which the server stamps on every save
+  that changes the order and keeps on an I/O-only save, then `published`, then `lastModified` for a row from before
+  `orderAt`. It is the time the Calculator prints beside "บันทึกโดย".
+- **A float tail put EN on the wrong side of a line.** A saved 139.99999999999997 was below 140, so PN-after-EN stayed
+  silent at the line; 49.96 printed "50" but still raised "EN < 50". Each figure is now graded as the page prints it
+  (`displayNum`, AA, lipid and GIR to 2 decimals, EN to 1).
+- **The NICE number was wrong.** NG154 rec 1.8.2 is the 140–150 mL/kg/d line (born before 28+0 weeks) and rec 1.8.3
+  the 120–140 line (28+0 weeks or later, and term), read from the NG154 PDF, p. 21. The code, `REFERENCE.md` and the
+  legend cited 1.8.3 for both.
+- **A No TPN order took no AA or lipid flag.** Pp, 2026-11-17 ("ขึ้นธง"): a preterm infant whose latest order is No TPN
+  on DOL 2–7 with counted EN < 50 is flagged as AA 0, chip "หยุด PN ตอน EN < 50", and on DOL 2 as no lipid. The No TPN
+  chip stays; GIR and PN-after-EN still read only an order with TPN.
+- **Tests.** 145 assertions; 25 of them fail on the branch before this entry (`8d673ec`), run with this harness.
+- **Nothing printed or dosed moves:** no `CONSTANTS_VERSION`, no backend change.
+
+## Session 2026-11-17 (11) — A second maintainer's setup: a guide and a read-only check
+
+Pp, 2026-11-17: a co-admin, not yet named, will look after NeoFeed with her (user accounts and the Admin page, code and
+release, the backend and Sheet; clinical sign-off stays hers). She asked for the handover "ในรูปแบบดีๆ
+เพื่อให้เขาสามารถไปเซตอัพในคอมของตัวเองได้เลย", then chose a guide in this repo plus a PDF, a check script in the same
+PR, and commands for both Windows and Mac.
+
+- **`docs/MAINTAINER_SETUP.md`** (Thai): the accounts to ask for, installs (winget or Homebrew; Node 22, as CI; clasp 3;
+  Claude Code's installer), sign-ins, clone and tools, the check, dev local, Claude Code in the repo, the rules to know
+  before changing anything (summarised from `AGENTS.md` and `REFERENCE.md`, which win on any difference) and
+  troubleshooting. Neither host serves `docs/` (`.assetsignore`, `_config.yml`).
+- **`tools/maintainer-doctor.mjs`**: one line per tool and sign-in, with the fix for each one missing. By default it
+  only reads: every command it may start is in a frozen `PROBES` list (versions, statuses, `git config --get`, one
+  GitHub read of this repo's permissions), and for clasp it only asks whether `~/.clasprc.json` exists. `--checks`
+  adds `node tools/run_checks.js --level ci --phase pre`, which is not read-only (`build-fresh` runs `npm ci --prefix
+  tools` and the build). Node 22 or newer passes; 22 is CI's. The harness packages are required, since `AGENTS.md`
+  asks for the harnesses before a PR. `--offline` always ends not ready, as it cannot confirm the GitHub sign-in.
+- **`test/verify-maintainer-doctor.cjs`**: 50 checks. The probe list is pinned to an exact literal; outside comments
+  `run` appears twice and `spawnSync` three times, so a bare call or a named alias of either fails it; `child_process`
+  gives `spawnSync` alone; `--checks` starts exactly the pre-PR checks; a fork or another repo of the org fails; the
+  default run leaves the working tree unchanged. Twelve mutations were tried and each fails it: probes for `git push`,
+  `clasp run setupSheetBackups` and `npx wrangler rollback`; an extra `execSync`, a bare `run()`, aliases of `run`
+  and `spawnSync`, an aliased `execSync` import and changed `--checks` arguments; a hooks check that always passes;
+  the harness packages made optional; the skipped GitHub checks made optional.
+- **Three new-agent reads before any push.** Fixed from them: the read-only claim (now `--checks` is opt-in), the
+  harnesses `AGENTS.md` asks for before a PR, the merge and frontend-rollback rules, the Apps Script API user
+  setting clasp needs, the Windows PATH and execution-policy steps, the in-app admin row, and the Playwright install.
+  The editor rule became an allow-list, for Pp to confirm: from the Run button only `sheetHealthReport`.
+  `setInitialPassword` and `clearStaffPassword` need arguments, so running one means saving a one-line wrapper in
+  the editor, which changes the code the editor runs at once and, it is expected, the triggers too; they wait for a
+  sitting with Pp. A new account is a row typed into the Staff tab with active TRUE, whose `onEdit` writes a
+  temporary password (none for Gmail and Chula Google accounts). Deleting a `fail_…` property to lift a lockout that
+  returns after its 15 minutes is the one Script Property change allowed, also for Pp to confirm.
+- **Found while writing the guide, not changed here:** the app has no staff page. Adding, disabling, re-roling or
+  resetting an account is a Staff-tab edit or an editor-run function, and unlocking one is deleting a Script
+  Property, so whoever manages users must be a Sheet editor. `REFERENCE.md` lines 772 and 779 say it is done "from the Admin page". Correcting them waits for Pp's
+  decisions on the co-admin's rights.
+- **Left to PR #284 (`claude/ward-resubmit-tag`):** the STATUS and BACKLOG catch-up owed since #283, and
+  `GLOSSARY.md`. That session had both in its tree when this one checked, 2026-11-18 00:05 ICT, so they stay out of
+  this PR.
+- Nothing either host serves changes, so no release is needed. No figure, rule or backend line moves.
+
 ## Session 2026-11-17 (10) — The ward list tags an order held for a new Submit; Active has its own green
 
 `data.js` (`savedCalcVersionOf`, moved from `calculator.jsx`; `orderHeldForResubmit`, `resubmitDue`), `calculator.jsx`
@@ -862,6 +999,34 @@ line's anchor follows the vitamin D readout's new text), the neofeed-clinical-ru
 - **`CONSTANTS_VERSION` stays `2026-11-15.1`** (#266's). No constant and no printed figure moves; one figure is new, read from
   the same `calc.osm` the order is graded on. A bump would make the ward re-save every old order before reprinting it, for a figure that adds
   information and changes no dose. Pp confirmed it in the PR, 2026-11-16: "คงไว้".
+
+## Session 2026-11-15 (3) — "TPN ทั้งหอ": one ward's infants on TPN on one page, with care flags
+
+`data.js` (`wardTpnRow`, `wardTpnRows`, `WARD_TPN_RECENT_DAYS`, `PRETERM_GA_WK`, `WARD_AA_FLAG`, `WARD_LIPID_FLAG_DOL`,
+`PN_STOP_EN_ML_KG`, `isPretermGa`, `pnStopEnFor`, `countedEnPerKg`), `registry.jsx` (`WardTpnPage`, the ward list's
+button), `app.jsx` (the rail item and the view), both shells (the page's CSS), `compiled/`, `REFERENCE.md` (§ The ward's
+TPN page), the clinical-rules skill ("Not in this file"), `test/verify-ward-tpn-page-1115.cjs` (new).
+
+- **Why.** Pp, 2026-11-14: each infant's trend is on their Dashboard, but "ไม่มีใครมาเปิดดูเองทีละคน". A mockup on the
+  real app with made-up infants was checked for its clinical content, then Pp chose its rules.
+- **Who is listed.** Active infants of the ward whose latest Submitted order has TPN, or whose last order with TPN is at
+  most 14 days old. Pp, 2026-11-14: "ทุกคนที่ยังมีการสั่ง TPN หรือมีการ submit ครั้งสุดท้ายภายใน 14 วัน" and "เอาแค่คน
+  active อยู่"; asked on 2026-11-15, because a No TPN infant submits every 3 days, she chose to count the 14 days from
+  the last order with TPN, so an infant who never had TPN is not on the page.
+- **What a row shows.** Bed, name, GA and BW, DOL, day of PN, then AA, lipid, GIR and EN as ordered in the latest
+  Submitted order, its flags and when it was last saved. Flagged rows first, then by bed; one card per infant on a phone.
+  A tap opens the infant's Dashboard.
+- **The care flags**, only what today's order can still change: AA < 2.5 g/kg/d on DOL 2–7 with EN < 50 mL/kg/d; no
+  lipid on DOL 2; GIR above 12 (red) or below 4 (amber) by `girStatus`; PN still ordered once EN reaches NICE's line;
+  No TPN. Pp's answers of 2026-11-15: **preterm is GA < 37 weeks** for the AA and lipid flags (as QI decision 6.6);
+  **add the PN-after-EN flag on NICE NG154 rec 1.8.3**, 140 mL/kg/d below 28 weeks and 120 from 28 weeks and at term,
+  every GA (not `FULL_EN_ML_KG` 100, which has no source); **today's DOL** when the latest order is older. Pp, 2026-11-14,
+  for the AA flag: "ให้ดูตาม DOL เพราะใช้ค่า optimum ตาม guideline".
+- **No QI figure** (Pp, 2026-11-14: "งาน QI เก็บข้อมูลหลังบ้านไว้ก่อน ยังไม่โชว์อะไร เอาให้เรา admin เห็นเท่านั้นพอ"): the
+  mockup's trend section is not built.
+- **Nothing printed or dosed moves**: no `CONSTANTS_VERSION`, no backend change.
+- **Seen working** on dev local (the real `gas-backend.gs` in the sandbox, made-up infants only), at 1280 px and on the
+  phone preset, signed in as the made-up doctor and nurse.
 
 ## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
 

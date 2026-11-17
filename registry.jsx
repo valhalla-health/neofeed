@@ -265,6 +265,191 @@ function NoTpnTag({ p, entries }) {
   return <span className="log-badge is-no-tpn" title={`ใบสั่งล่าสุดไม่มี TPN${dueText}`}>No TPN</span>;
 }
 
+// ── "TPN ทั้งหอ": one ward's infants on TPN on one page (Pp, 2026-11-14) ──
+// "ไม่มีใครมาเปิดดูเองทีละคน": each infant's own trend is on their Dashboard,
+// and nobody opens infants one by one. Who is listed and every flag are
+// D.wardTpnRow; this draws them, flagged rows first, then by bed. A tap opens
+// the infant's Dashboard, as a ward-list row does. No QI figure (Pp,
+// 2026-11-14: QI stays in the back end, admin only, until the indicators are
+// chosen), so no rate over days and no run chart.
+const WARD_TPN_WARDS = [["NICU", "NICU"], ["SCN", "SCN"], ["other", "ทดสอบระบบ"]];
+const WARD_TPN_RANK = { crit: 0, warn: 1 };
+const wtpnNum = (v, dp) => (v == null ? "—" : D_R.displayNum(v, dp));
+const wtpnDayMonth = (d) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : "—");
+function wardTpnFlagText(f, r) {
+  const A = D_R.WARD_AA_FLAG, S = D_R.PN_STOP_EN_ML_KG;
+  switch (f.key) {
+    // A No TPN order is AA 0 (Pp, 2026-11-17): its chip says PN stopped early.
+    case "aa": return f.noTpn ? {
+      text: `หยุด PN ตอน EN < ${A.enBelowMlKg}`,
+      title: `preterm DOL ${A.fromDol}–${A.toDol}: คำสั่งล่าสุดเป็น No TPN แต่ EN ที่นับ ${wtpnNum(r.enCounted, 1)} mL/kg/d${r.men ? " (MEN ไม่นับ)" : ""} ยังต่ำกว่า ${A.enBelowMlKg} จึงไม่ได้ AA` } : {
+      text: `AA < ${wtpnNum(A.belowGPerKg)}`,
+      title: `preterm DOL ${A.fromDol}–${A.toDol} ที่ EN < ${A.enBelowMlKg} mL/kg/d: AA ในคำสั่งล่าสุด ${wtpnNum(r.aa)} g/kg/d` };
+    case "lipid": return {
+      text: `DOL ${D_R.WARD_LIPID_FLAG_DOL} ยังไม่มี lipid`,
+      title: `preterm DOL ${D_R.WARD_LIPID_FLAG_DOL}: คำสั่งล่าสุด${f.noTpn ? "เป็น No TPN จึง" : ""}ไม่มี lipid` };
+    case "gir": {
+      const [lo] = D_R.TARGETS.gir();
+      return f.low
+        ? { text: `GIR ${wtpnNum(r.gir)} < ${lo}`, title: `GIR ในคำสั่งล่าสุดต่ำกว่า ${lo} mg/kg/min (แถบ GIR ของแอป)` }
+        : { text: `GIR ${wtpnNum(r.gir)} > ${D_R.GIR_HARD_HI}`, title: `GIR ในคำสั่งล่าสุดเกิน ${D_R.GIR_HARD_HI} mg/kg/min (แถบ GIR ของแอป)` };
+    }
+    case "pnAfterEn": return {
+      text: `EN ≥ ${f.stopAt} ยังมี PN`,
+      title: `EN ${wtpnNum(r.en, 1)} mL/kg/d ถึงเกณฑ์หยุด PN ของ NICE แล้ว (${S.below} ใน GA < ${S.belowGaWk} wk, ${S.atOrAbove} ตั้งแต่ ${S.belowGaWk} wk) แต่คำสั่งล่าสุดยังมี PN หรือ lipid` };
+    case "noTpn": return {
+      text: "No TPN",
+      title: `คำสั่งล่าสุดไม่มี TPN · คำสั่งล่าสุดที่มี TPN ${wtpnDayMonth(r.lastTpnDate)} · อยู่ในหน้านี้ถึง ${wtpnDayMonth(r.listedUntil)}` };
+    default: return { text: f.key, title: "" };
+  }
+}
+function WardTpnFlags({ r }) {
+  if (!r.flags.length) return <span className="chip">ไม่มีธง</span>;
+  return r.flags.map(f => {
+    const { text, title } = wardTpnFlagText(f, r);
+    return <span key={f.key} className={`chip${f.level === "crit" ? " crit" : f.level === "warn" ? " warn" : ""}`}
+      data-flag={f.key} title={title}>{text}</span>;
+  });
+}
+// A figure is coloured only when its own flag is raised.
+function wtpnCellCls(r, key) {
+  const f = r.flags.find(x => x.key === key);
+  return !f ? "" : f.level === "crit" ? "wtpn-cell-crit" : "wtpn-cell-warn";
+}
+// When the latest order was submitted: "วันนี้ 09:10", "เมื่อวาน 08:45" or
+// "12/11 08:45", in this device's time. The stamp is D.orderSubmittedAt, so a
+// nurse's I/O save after the Submit does not move it; a row without one shows
+// its order's date.
+function wtpnSubmitted(r, today) {
+  const at = r && r.submittedAt;
+  const t = new Date(at);
+  let date = D_R.normalizeDateStr(r && r.latest && r.latest.ts), time = "";
+  if (at && !isNaN(t)) {
+    const pad = (x) => String(x).padStart(2, "0");
+    date = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+    time = ` ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  }
+  const ago = D_R.daysBetweenDateStr(date, today);
+  const day = ago === 0 ? "วันนี้" : ago === 1 ? "เมื่อวาน" : wtpnDayMonth(date);
+  return day + time;
+}
+function wtpnWho(p) {
+  const admit = D_R.admissionDol(p);
+  return `GA ${D_R.fmtGA(p.ga)} · BW ${Number(p.bw || 0).toLocaleString("en-US")} g${admit > 1 ? ` · admit DOL ${admit}` : ""}`;
+}
+
+function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
+  const today = D_R.useTodayLocal();
+  const [ward, setWard] = React.useState(WARD_TPN_WARDS.some(([w]) => w === openWard) ? openWard : "NICU");
+  const wardName = (WARD_TPN_WARDS.find(([w]) => w === ward) || [])[1] || ward;
+  const rank = (r) => WARD_TPN_RANK[r.level] ?? (r.onTpn ? 2 : 3);
+  const rows = D_R.wardTpnRows(patients, log, ward, today)
+    .sort((a, b) => rank(a) - rank(b) || bedSort(a.p, b.p));
+  const onTpn = rows.filter(r => r.onTpn).length;
+  const toLook = rows.filter(r => r.level === "crit" || r.level === "warn").length;
+  const A = D_R.WARD_AA_FLAG, S = D_R.PN_STOP_EN_ML_KG;
+  const open = (r) => onSelect && onSelect(r.sessionId);
+
+  return (
+    <div className="wtpn">
+      <div className="page-head" style={{ marginBottom: 12 }}>
+        <div>
+          <h1>TPN ทั้งหอ · {wardName}</h1>
+          <div className="sub">
+            ทารก Active ที่คำสั่งล่าสุดมี TPN หรือหยุด TPN มาไม่เกิน {D_R.WARD_TPN_RECENT_DAYS} วัน · ค่าจากคำสั่ง Submit ล่าสุดของแต่ละคน
+          </div>
+        </div>
+        <div className="seg" role="group" aria-label="เลือก ward">
+          {WARD_TPN_WARDS.map(([w, label]) => (
+            <button key={w} type="button" className={ward === w ? "on" : ""} aria-pressed={ward === w}
+              onClick={() => setWard(w)}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="wtpn-tiles">
+        <div className="wtpn-tile">
+          <div className="v num">{rows.length}</div>
+          <div className="l">ทารกในหน้านี้<br />ได้ TPN {onTpn} · หยุดแล้ว {rows.length - onTpn}</div>
+        </div>
+        <div className={"wtpn-tile" + (toLook > 0 ? " is-warn" : "")}>
+          <div className="v num">{toLook}</div>
+          <div className="l">ต้องดูวันนี้<br />มีธงอย่างน้อย 1 ข้อ</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-b">
+          {rows.length === 0 ? (
+            <div className="wtpn-empty">ยังไม่มีทารกที่ได้ TPN ใน {wardName}</div>
+          ) : (<>
+            <div className="patient-table wtpn-table">
+              <table className="tbl">
+                <thead><tr>
+                  <th>เตียง</th><th>ทารก</th><th className="r">DOL</th><th className="r">วัน PN</th>
+                  <th className="r">AA<span className="th-unit">g/kg/d</span></th>
+                  <th className="r">Lipid<span className="th-unit">g/kg/d</span></th>
+                  <th className="r">GIR<span className="th-unit">mg/kg/min</span></th>
+                  <th className="r">EN<span className="th-unit">mL/kg/d</span></th>
+                  <th>ธง</th><th>Submit ล่าสุด</th>
+                </tr></thead>
+                <tbody>
+                  {rows.map(r => (
+                    <tr key={r.sessionId} className={r.level === "crit" ? "is-crit" : r.level === "warn" ? "is-warn" : ""}
+                      data-sid={r.sessionId} onClick={() => open(r)} {...rowA11y(() => open(r))}>
+                      <td><BedChip p={r.p} stacked /></td>
+                      <td><div className="wtpn-name">{D_R.patientName(r.p) || "—"}<TestTag p={r.p} />
+                        {r.p.twinSuffix && <span className="chip" style={{ marginLeft: 6, fontSize: 11 }}>{multiplesLabel(r.p)}</span>}</div>
+                        <div className="wtpn-sub">{wtpnWho(r.p)}</div></td>
+                      <td className="r num">{r.dol}</td>
+                      <td className="r num">{wtpnNum(r.pnDay)}</td>
+                      <td className={`r num ${wtpnCellCls(r, "aa")}`}>{wtpnNum(r.aa)}</td>
+                      <td className={`r num ${wtpnCellCls(r, "lipid")}`}>{wtpnNum(r.lipid)}</td>
+                      <td className={`r num ${wtpnCellCls(r, "gir")}`}>{wtpnNum(r.gir)}</td>
+                      <td className={`r num ${wtpnCellCls(r, "pnAfterEn")}`}>{wtpnNum(r.en, 1)}{r.men ? " MEN" : ""}</td>
+                      <td><div className="wtpn-flags"><WardTpnFlags r={r} /></div></td>
+                      <td className="wtpn-sub">{wtpnSubmitted(r, today)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="wtpn-cards">
+              {rows.map(r => (
+                <div key={r.sessionId} className={"wtpn-card" + (r.level === "crit" ? " is-crit" : r.level === "warn" ? " is-warn" : "")}
+                  data-sid={r.sessionId} onClick={() => open(r)} {...rowA11y(() => open(r))}>
+                  <div className="wtpn-card-top">
+                    <div><BedChip p={r.p} /> <span className="wtpn-name">{D_R.patientName(r.p) || "—"}</span><TestTag p={r.p} /></div>
+                    <span className="wtpn-sub">{wtpnSubmitted(r, today)}</span>
+                  </div>
+                  <div className="wtpn-sub">{wtpnWho(r.p)} · DOL {r.dol}{r.pnDay ? ` · วัน PN ${r.pnDay}` : ""}</div>
+                  <div className="wtpn-grid">
+                    <div><span className="wtpn-sub">AA<br />g/kg/d</span><b className={wtpnCellCls(r, "aa")}>{wtpnNum(r.aa)}</b></div>
+                    <div><span className="wtpn-sub">Lipid<br />g/kg/d</span><b className={wtpnCellCls(r, "lipid")}>{wtpnNum(r.lipid)}</b></div>
+                    <div><span className="wtpn-sub">GIR<br />mg/kg/min</span><b className={wtpnCellCls(r, "gir")}>{wtpnNum(r.gir)}</b></div>
+                    <div><span className="wtpn-sub">EN<br />mL/kg/d</span><b className={wtpnCellCls(r, "pnAfterEn")}>{wtpnNum(r.en, 1)}{r.men ? " MEN" : ""}</b></div>
+                  </div>
+                  <div className="wtpn-flags"><WardTpnFlags r={r} /></div>
+                </div>
+              ))}
+            </div>
+          </>)}
+          <div className="wtpn-legend">
+            <b>ธง</b> บอกเรื่องที่คำสั่งวันนี้ยังแก้ได้ ·
+            AA &lt; {wtpnNum(A.belowGPerKg)}: preterm (GA &lt; {D_R.PRETERM_GA_WK} wk) DOL {A.fromDol}–{A.toDol} ที่ EN &lt; {A.enBelowMlKg} mL/kg/d
+            นับตาม DOL ของวันนี้ แม้ทารก admit ทีหลัง และนับคำสั่ง No TPN เป็น AA 0 (ESPGHAN 2018 PN, R 3.2) ·
+            DOL {D_R.WARD_LIPID_FLAG_DOL} ยังไม่มี lipid: preterm รวมคำสั่ง No TPN (ESPGHAN 2018 PN, R 4.2) ·
+            GIR เกิน {D_R.GIR_HARD_HI} แดง ต่ำกว่า {D_R.TARGETS.gir()[0]} เหลือง ตามแถบ GIR ของแอป ·
+            EN ≥ เกณฑ์หยุด PN แต่ยังมี PN: {S.below} mL/kg/d ใน GA &lt; {S.belowGaWk} wk และ {S.atOrAbove} ตั้งแต่ {S.belowGaWk} wk (NICE NG154 rec 1.8.2–1.8.3) ·
+            No TPN: คำสั่งล่าสุดไม่มี TPN อยู่ในหน้านี้ {D_R.WARD_TPN_RECENT_DAYS} วันนับจากคำสั่งล่าสุดที่มี TPN
+          </div>
+          <div className="wtpn-legend">AA, lipid, GIR และ EN เป็นค่าที่สั่ง ไม่ใช่ค่าที่ทารกได้รับจริง · GIR นับเฉพาะ dextrose ทาง IV</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // "ต้อง Submit ใหม่" beside the today badge (Pp, 2026-11-17, from a render:
 // "ใช้แบบนี้"). Today's or tomorrow's Submitted order is held by the Calculator's
 // Print gate because NeoFeed's calculation moved after it was saved
@@ -635,7 +820,7 @@ function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
 }
 
 function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor,
-  printWard, onPrintWard, onPrintOrder, onPrintAll }) {
+  printWard, onPrintWard, onPrintOrder, onPrintAll, onOpenWardTpn }) {
   const [filter, setFilter]         = React.useState("");
   // Which stats tile the list is narrowed to: null (every active infant),
   // "logged" or "needs" (Pp, 2026-10-12: tap Active / Logged today / Needs
@@ -799,9 +984,18 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
         {/* Clears the search too: it belongs to the ward it was typed in, and
             carried to the next ward it would hide that ward's list behind a
             query nobody can see being applied. */}
-        <button className="btn" onClick={() => { setFilter(""); setStatFilter(null); onWardChange?.(null); }} style={{ fontSize: 12.5 }}>
-          ← เปลี่ยน ward
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {/* The ward's TPN page (Pp, 2026-11-14). The rail has it too; this
+              is the way in on a phone, which has no rail. */}
+          {onOpenWardTpn && (
+            <button className="btn" onClick={onOpenWardTpn} style={{ fontSize: 12.5 }}>
+              <Icon name="drop" size={14} /> TPN ทั้งหอ
+            </button>
+          )}
+          <button className="btn" onClick={() => { setFilter(""); setStatFilter(null); onWardChange?.(null); }} style={{ fontSize: 12.5 }}>
+            ← เปลี่ยน ward
+          </button>
+        </div>
       </div>
 
       {/* ── Stats strip ── Active, Needs entry, Draft and Logged today are
@@ -2466,5 +2660,6 @@ function StatusModal({ patient, patients, onClose, onSubmit, mergeBaseFor }) {
 }
 
 window.PatientRegistry    = PatientRegistry;
+window.WardTpnPage        = WardTpnPage;
 window.PatientPicker      = PatientPicker;
 window.EditPatientModal   = EditPatientModal;

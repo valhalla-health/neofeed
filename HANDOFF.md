@@ -12,6 +12,7 @@ them again. Each job now has its own file and its own update trigger:
 | **`AI_SDLC.md`** | what an AI agent may and may not do to a live clinical tool, and who decides | rarely |
 | **`REFERENCE.md`** | GA/PMA convention, hand-synced shells, deploy procedure, PDPA posture | rarely |
 | **`CHANGELOG.md`** | session-by-session history, newest first | append-only |
+| **`docs/MAINTAINER_SETUP.md`** | setting up a new maintainer's computer; `node tools/maintainer-doctor.mjs` checks it | when a tool or sign-in changes |
 
 **`PRD.md` was added on 2026-08-21**, closing the backlog item that read *"No PRD exists.
 `CHANGELOG.md` is a change log, not a product definition."* Its § 6 is the first place NeoFeed has
