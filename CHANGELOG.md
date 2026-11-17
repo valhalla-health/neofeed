@@ -7,6 +7,26 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (7) — Vera on the flag: the print records the mapping it used; every bag in the window is named
+
+`tpn-room-core.js` (`editedAfterPrint` reads `mappingAt`; `renamedBagDates`), `tpn-room.jsx` (the print log's
+`mappingAt`; the names page's flag), `compiled/tpn-room.js`, the room shells' `?v=`, `test/verify-tpn-room-names-1117.cjs`
+§4, `test/verify-tpn-room-page-1105.cjs` §12d, `openspec/changes/tpn-room-stickers/design.md`. Corrects entry (6), on the
+same PR and not yet released.
+
+- **The mapping a sticker printed.** Entry (6) compared the edit's time with the print's. An AN saved while a print was
+  in flight lands before the print's time, so the sticker printed the old AN and nothing flagged it; a PC clock that
+  stepped back did the same. Each print now records the mapping's own time (`mappingAt`), and a row is flagged when the
+  mapping is no longer that one. A log line from before the field falls back to the times. The log still keeps no name.
+- **Every bag, not only the last.** The names page looked at the infant's last print on any date, so a print for
+  17/11 after the edit cleared the flag while the 16/11 bag still carried the old AN. It now names every day in the
+  room's window (today −7 to +1) whose last print predates the mapping. Vera left the choice to Pp (the earlier bag may
+  be gone by then); this takes the side that shows more, and the room judges from the dates.
+- **The test.** §12d's last check counted flags right after the click that opens the names page; it now waits for the
+  page first.
+- **Tests.** `verify-tpn-room-names-1117.cjs` §4, 13 checks (31/31): 5 new fail on `44a5aa5`. `verify-tpn-room-page-1105.cjs`
+  132/132.
+
 ## Session 2026-11-17 (6) — A name or AN edited after its sticker printed is flagged until a reprint
 
 `tpn-room-core.js` (`lastPrintOf`, `editedAfterPrint`), `tpn-room.jsx` (the order row's and the names page's flag;

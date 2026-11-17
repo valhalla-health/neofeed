@@ -80,6 +80,26 @@ section('§4 a name or AN edited after its sticker printed (Vera on the names pa
   eq('the same instant: not flagged', f({ at: printed.at }, printed), false);
   eq('never printed, or no mapping: not flagged', [f({ at: '2026-11-17T04:00:00.000Z' }, null), f(null, printed)], [false, false]);
   eq('a time that is not one: not flagged', f({ at: 'x' }, printed), false);
+  // A print records the mapping it used (mappingAt). Vera's second check: an edit saved while a
+  // print was in flight is earlier than the print's time, and the sticker still has the old name.
+  eq('the print used an older mapping, though it logged a later time: flagged',
+    f({ at: '2026-11-17T01:59:00.000Z' }, { at: '2026-11-17T02:00:00.000Z', mappingAt: '2026-11-17T01:00:00.000Z' }), true);
+  eq('the print used this mapping: not flagged',
+    f({ at: '2026-11-17T01:00:00.000Z' }, { at: '2026-11-17T02:00:00.000Z', mappingAt: '2026-11-17T01:00:00.000Z' }), false);
+  eq('…even with a PC clock that stepped back',
+    f({ at: '2026-11-17T03:00:00.000Z' }, { at: '2026-11-17T02:00:00.000Z', mappingAt: '2026-11-17T03:00:00.000Z' }), false);
+  const g = has('renamedBagDates') ? Core.renamedBagDates : () => 'no function';
+  const WIN = { min: '2026-11-10', max: '2026-11-18' };
+  const LOG2 = [
+    { sessionId: 'NF-000001', date: '2026-11-16', at: '2026-11-16T02:00:00.000Z', mappingAt: '2026-11-15T01:00:00.000Z' },
+    { sessionId: 'NF-000001', date: '2026-11-17', at: '2026-11-17T05:00:00.000Z', mappingAt: '2026-11-17T04:00:00.000Z' },
+    { sessionId: 'NF-000001', date: '2026-11-01', at: '2026-11-01T02:00:00.000Z', mappingAt: '2026-10-30T01:00:00.000Z' },
+  ];
+  const edited = { at: '2026-11-17T04:00:00.000Z' };
+  eq('the names page names an earlier day\'s bag, though a later day reprinted after the edit (Vera)', g(edited, LOG2, 'NF-000001', WIN), ['2026-11-16']);
+  eq('…and no day outside the room\'s window', g({ at: '2026-11-18T00:00:00.000Z' }, LOG2, 'NF-000001', WIN), ['2026-11-16', '2026-11-17']);
+  eq('…per day, the last print of that day decides', g(edited, LOG2.concat([{ sessionId: 'NF-000001', date: '2026-11-16',
+    at: '2026-11-17T06:00:00.000Z', mappingAt: edited.at }]), 'NF-000001', WIN), []);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

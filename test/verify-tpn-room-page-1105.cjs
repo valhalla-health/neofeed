@@ -735,7 +735,8 @@ const INIT = `
       await pg.waitForFunction(() => !document.querySelector('li[data-session="AA-1"] .renamed'), null, { timeout: 5000 }).catch(() => {});
       eq('a reprint after the edit clears the row\'s flag', await row(pg, 'AA-1').locator('.renamed').count(), 0);
       await pg.getByRole('button', { name: 'รายชื่อทั้งหมด' }).click();
-      eq('…and the names page\'s', await names.locator('tr[data-session="AA-1"] .renamed').count(), 0);
+      await names.locator('tr[data-session="AA-1"]').waitFor();
+      eq('…and the names page\'s, with the page open', await names.locator('tr[data-session="AA-1"] .renamed').count(), 0);
       await c.close();
     }
 

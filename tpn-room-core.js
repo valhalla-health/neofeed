@@ -286,13 +286,27 @@
     for (const p of printLog || []) if (p.sessionId === sessionId) hit = p;
     return hit;
   }
-  // The name or AN was changed after `last` printed, so that bag still carries the old one
-  // (Vera on the names page, Pp 2026-11-17: "เพิ่มเลย"). The log keeps no name: the times
-  // decide. A print after the edit clears it.
+  // The name or AN is not the one `last` printed, so that bag still carries the old one
+  // (Vera on the names page, Pp 2026-11-17: "เพิ่มเลย"). The log keeps no name. A print
+  // records the mapping's own time (`mappingAt`), so an edit saved while a print was in
+  // flight, or a PC clock that stepped back, still shows; a log line from before that
+  // field falls back to comparing the edit with the print's time. A print of the current
+  // mapping clears it.
   function editedAfterPrint(mapping, last) {
     if (!mapping || !last) return false;
+    if (typeof last.mappingAt === "string") return !!mapping.at && mapping.at !== last.mappingAt;
     const edited = Date.parse(mapping.at || ""), printed = Date.parse(last.at || "");
     return isFinite(edited) && isFinite(printed) && edited > printed;
+  }
+  // Every day in `win` (dateWindow) whose last print for this ID has an older name or AN
+  // than `mapping`, oldest first: the names page names each bag that may still be in use
+  // (Vera's second check of the flag), not only the last one printed.
+  function renamedBagDates(mapping, printLog, sessionId, win) {
+    const lastByDate = {};
+    for (const p of printLog || []) if (p.sessionId === sessionId) lastByDate[p.date] = p;
+    return Object.keys(lastByDate)
+      .filter((d) => (!win || (d >= win.min && d <= win.max)) && editedAfterPrint(mapping, lastByDate[d]))
+      .sort();
   }
   // A nurse's I/O-only revision keeps the bag (gas-backend.gs pharmacyOrders,
   // sameBagEntryIds), so a print of the row it revised is not a change (Vera on
@@ -381,7 +395,7 @@
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
     wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy, mappingSeenOn, namesList, wardDateTime,
     missingFigures, printReasons, fixedLinesReady, trialNote, trialReprintDue,
-    lastPrint, lastPrintOf, editedAfterPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
+    lastPrint, lastPrintOf, editedAfterPrint, renamedBagDates, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
     recheck, stickerModel,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

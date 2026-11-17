@@ -401,11 +401,9 @@ function MappingDialog({ order, infants, onSave, onClose }) {
 function NamesPage({ infants, printLog, onEdit, onClose }) {
   const [query, setQuery] = React.useState("");
   const rows = Core.namesList(infants, query);
-  // A name or AN edited after that infant's last print: which day's bag still has the old one.
-  const renamedBag = (id) => {
-    const last = Core.lastPrintOf(printLog, id);
-    return Core.editedAfterPrint(infants[id], last) ? last.date : "";
-  };
+  // A name or AN edited after a print: every day in the room's window whose bag still has the old one.
+  const win = Core.dateWindow();
+  const renamedBags = (id) => Core.renamedBagDates(infants[id], printLog, id, win);
   const total = Object.keys(infants).length;
   return (
     <div className="scrim">
@@ -429,8 +427,8 @@ function NamesPage({ infants, printLog, onEdit, onClose }) {
                   <td>{r.sessionId}</td>
                   <td>
                     <strong>{r.name}</strong>
-                    {renamedBag(r.sessionId) && (
-                      <div className="warn renamed">แก้หลังพิมพ์ ถุงของวันที่ {Core.buddhistDate(renamedBag(r.sessionId))} ยังมีชื่อหรือ AN เดิม</div>
+                    {renamedBags(r.sessionId).length > 0 && (
+                      <div className="warn renamed">แก้หลังพิมพ์ ถุงของวันที่ {renamedBags(r.sessionId).map(Core.buddhistDate).join(", ")} ยังมีชื่อหรือ AN เดิม</div>
                     )}
                   </td>
                   <td>{r.an}</td>
@@ -732,6 +730,8 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
           sessionId: order.sessionId, date: fresh.date, entryId: check.order.entryId,
           revision: check.order.revision, preparedDate, by: who, at: new Date().toISOString(),
           trial: !Core.fixedLinesReady(),
+          // The mapping this sticker printed, by its own time: Core.editedAfterPrint.
+          mappingAt: mapping.at,
         },
       });
     } catch (err) { setError(err.message); } finally { setBusy(false); }
