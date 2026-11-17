@@ -204,16 +204,49 @@
     return out;
   }
 
-  // Why this order cannot print, in the room's words. Empty means it can.
+  // "YYYY-MM-DD.N" against "YYYY-MM-DD.N": -1, 0 or 1, the number compared as a number, as
+  // gas-backend.gs _constantsVersionBefore does. null when either is not a version.
+  function compareVersions(a, b) {
+    const re = /^(\d{4}-\d{2}-\d{2})\.(\d+)$/;
+    const x = re.exec(String(a == null ? "" : a)), y = re.exec(String(b == null ? "" : b));
+    if (!x || !y) return null;
+    if (x[1] !== y[1]) return x[1] < y[1] ? -1 : 1;
+    const nx = Number(x[2]), ny = Number(y[2]);
+    return nx === ny ? 0 : nx < ny ? -1 : 1;
+  }
+
+  // Which side is behind when an order's versions are not this page's (2026-11-17). On
+  // 2026-11-17 a ward tab left open across the 23:21 release went on saving the old
+  // calculation. The room asked for Submit again, the same tab sent the old one again,
+  // and the order printed on the third press, after a reload. Submit from a tab that
+  // was never reloaded cannot help, so the room says reload before Submit. An order
+  // newer than this page means the page is the one left open: the doctor has nothing
+  // to do, and the room reloads.
+  const DOCTOR_RELOADS = "NeoFeed ปรับการคำนวณหลัง order นี้ ให้หมอกดโหลดหน้า NeoFeed ใหม่ก่อน แล้วเปิด order กด Submit อีกครั้ง";
+  const PAGE_RELOADS = "หน้านี้เป็นรุ่นเก่ากว่า NeoFeed ตอนนี้ กดโหลดหน้านี้ใหม่ก่อน หมอไม่ต้อง Submit ใหม่";
+
+  // Why this order cannot print, in the room's words. Empty means it can. `ctx.pageStale`:
+  // the host serves other versions than this page loaded (fetchDay), so this page's own
+  // versions say nothing about the order, and the only reason it gives about versions is
+  // to reload.
   function printReasons(order, ctx) {
     const why = [];
+    const add = (r) => { if (why.indexOf(r) < 0) why.push(r); };
     if (order.status !== "submitted") why.push("ฉบับร่าง รอหมอ Submit");
     const pj = order.printJson;
     if (!pj) {
       why.push("ยังไม่มีตัวเลขสติกเกอร์ ให้หมอเปิด order แล้วกด Submit อีกครั้ง");
     } else {
-      if (pj.v !== ctx.stickerSchema) why.push("ตัวเลขสติกเกอร์คนละรุ่นกับหน้านี้ ให้หมอกด Submit อีกครั้ง");
-      if (pj.constantsVersion !== ctx.constantsVersion) why.push("NeoFeed ปรับการคำนวณหลัง order นี้ ให้หมอเปิดแล้วกด Submit อีกครั้ง");
+      if (ctx.pageStale) add(PAGE_RELOADS);
+      else {
+        if (pj.v !== ctx.stickerSchema) {
+          add(typeof pj.v === "number" && pj.v > ctx.stickerSchema ? PAGE_RELOADS
+            : "ตัวเลขสติกเกอร์เป็นรุ่นเก่า ให้หมอกดโหลดหน้า NeoFeed ใหม่ก่อน แล้วเปิด order กด Submit อีกครั้ง");
+        }
+        if (pj.constantsVersion !== ctx.constantsVersion) {
+          add(compareVersions(pj.constantsVersion, ctx.constantsVersion) === 1 ? PAGE_RELOADS : DOCTOR_RELOADS);
+        }
+      }
       if (!isRealDate(pj.orderDate)) why.push("order นี้ไม่มีวันที่");
       else if (ctx.date && pj.orderDate !== ctx.date) why.push("วันที่บนตัวเลขไม่ตรงกับวันที่เลือก");
       const missing = missingFigures(pj);
@@ -339,7 +372,7 @@
     PN_FIXED, PN_BLANK, PN_TRIAL, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
     wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy,
-    missingFigures, printReasons, fixedLinesReady, trialNote, trialReprintDue,
+    missingFigures, compareVersions, printReasons, fixedLinesReady, trialNote, trialReprintDue,
     lastPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
     recheck, stickerModel,
   };

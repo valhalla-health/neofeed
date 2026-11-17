@@ -618,6 +618,30 @@ const INIT = `
       eq('…and does not print', await pg.evaluate(() => window.__prints), 0);
       await c.close();
     }
+    {
+      // The same, seen when the list loads, before anyone presses Print (2026-11-17): a page
+      // left open across a release judged new orders against its old versions and told the
+      // room to ask the doctor for another Submit, which could not help.
+      // The page loads this release's file; the host serves a newer one from then on.
+      const versionFile = { body: null };
+      const c = await newRoom({ versionFile });
+      const pg = await open(c);
+      await pg.locator('input[type=email]').waitFor();
+      versionFile.body = '"use strict";\nwindow.TPN_ROOM_VERSIONS = { constantsVersion: "2099-01-01.1", stickerSchema: 1 };\n';
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await row(pg, 'AA-1').waitFor();
+      const stale = pg.locator('.stale-page');
+      ok('on load, a page older than the release says so above the list', await within(stale.filter({ hasText: 'หน้านี้ยังเป็นรุ่นเก่า' })));
+      ok('…with a reload button', await within(stale.getByRole('button', { name: 'โหลดหน้านี้ใหม่' })));
+      const rowText = await row(pg, 'AA-1').innerText();
+      ok('…and the row asks the room to reload, not the doctor to Submit', /กดโหลดหน้านี้ใหม่/.test(rowText) && !/ให้หมอ/.test(rowText), rowText);
+      versionFile.body = null;
+      await pg.getByRole('button', { name: 'รีเฟรช' }).click();
+      await pg.locator('.counts').waitFor();
+      await pg.waitForFunction(() => !document.querySelector('.stale-page'), null, { timeout: 5000 }).catch(() => {});
+      eq('a refresh that reads this page\'s own release clears it', await stale.count(), 0);
+      await c.close();
+    }
 
     section('§12c Vera on the ward split, 2026-11-14: failed on its first commit');
     {

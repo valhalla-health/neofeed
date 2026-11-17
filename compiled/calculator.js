@@ -5,6 +5,22 @@ const S = D.KCMH_STOCK;
 const fmt = (n, d = 1) => n === Infinity ? "!!" : D.displayNum(n, d);
 const roundMl = (n) => Number(D.displayNum(n, 1));
 const roundWholeMl = (n) => Number(D.displayNum(n, 0));
+const RELEASE_CHECK_MS = 5e3;
+const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
+async function tabIsBehindRelease() {
+  if (typeof fetch !== "function") return false;
+  const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), RELEASE_CHECK_MS) : null;
+  try {
+    const res = await fetch("compiled/tpn-room-version.js", { cache: "no-store", ...ctrl ? { signal: ctrl.signal } : {} });
+    if (!res || !res.ok) return false;
+    return D.tabDiffersFromServed(await res.text()) === true;
+  } catch {
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 if (typeof window !== "undefined" && window.addEventListener) {
   window.addEventListener("beforeprint", () => {
     document.querySelectorAll("#print-form, .print-batch-sheet").forEach((sheet) => D.fitPrintSheet(sheet));
@@ -753,6 +769,7 @@ function Calculator({
   const [published, setPublished] = useState(!!editEntry?.published);
   const [publishing, setPublishing] = useState(false);
   const [conflict, setConflict] = useState(null);
+  const [releaseBehind, setReleaseBehind] = useState(null);
   const [savedKey, setSavedKey] = useState(null);
   const [savedOrderKey, setSavedOrderKey] = useState(null);
   const [prefillKey, setPrefillKey] = useState(null);
@@ -1857,6 +1874,11 @@ function Calculator({
     const t = setTimeout(go, 1500);
     return () => clearTimeout(t);
   }, [autoPrint, printReady, printable]);
+  const refuseBehindRelease = () => {
+    if (dirty) writeDraft(currentInputs());
+    setReleaseBehind({ draft: !!dirty });
+    showToast(RELEASE_BEHIND_TEXT, "error");
+  };
   const handleSave = async (asDraft = false) => {
     asDraft = asDraft === true;
     if (saving) return;
@@ -1869,6 +1891,15 @@ function Calculator({
     if (asDraft && nurseDraftRefused) {
       showToast(NURSE_SUBMIT_TEXT, "error");
       return;
+    }
+    if (!asDraft && !centerPoint) {
+      setSaving(true);
+      const behind = await tabIsBehindRelease();
+      setSaving(false);
+      if (behind) {
+        refuseBehindRelease();
+        return;
+      }
     }
     const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing) {
@@ -2193,6 +2224,11 @@ function Calculator({
       return;
     }
     setPublishing(true);
+    if (!centerPoint && await tabIsBehindRelease()) {
+      setPublishing(false);
+      refuseBehindRelease();
+      return;
+    }
     const res = await onPublish(savedEntryId, savedLastModified);
     setPublishing(false);
     if (res.conflict) {
@@ -2212,7 +2248,19 @@ function Calculator({
     if (!window.confirm(ask)) return;
     onDelete({ entryId: savedEntryId, dol, ts });
   };
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, conflict && /* @__PURE__ */ React.createElement("div", { style: {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, releaseBehind && /* @__PURE__ */ React.createElement("div", { role: "alert", className: "release-behind", style: {
+    padding: "10px 12px",
+    background: "var(--crit-bg)",
+    border: "1px solid var(--crit-line)",
+    borderRadius: 8,
+    marginBottom: 10,
+    fontSize: 12.5,
+    color: "var(--crit)",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap"
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--crit)" }), /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง", releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("button", { className: "btn sm primary", onClick: () => window.location.reload() }, "โหลดหน้าใหม่"))), conflict && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 12px",
     background: "var(--crit-bg)",
     border: "1px solid var(--crit-line)",

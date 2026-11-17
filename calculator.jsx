@@ -27,6 +27,32 @@ const roundMl = (n) => Number(D.displayNum(n, 1));
 // the tolerance pharmacy used by hand. D50W has two exceptions (see d50wVol).
 const roundWholeMl = (n) => Number(D.displayNum(n, 0));
 
+// Is the host serving another release than this tab loaded (2026-11-17)? A ward PC
+// keeps a tab open for days, and a sign-out remounts the app without loading new
+// code. On 2026-11-17 a tab opened before the 23:21 release went on saving the old
+// calculation: the doctor's own sheet printed, the TPN room refused the order and
+// asked for Submit again, the same tab sent the old calculation again, and it took a
+// third press, after a reload. So Submit reads the served version file first and
+// asks for a reload instead. It fails open: a request that fails or a file it cannot
+// read lets the Submit go as before, and the TPN room's page still refuses an order
+// on other versions than its own.
+const RELEASE_CHECK_MS = 5000;
+const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
+async function tabIsBehindRelease() {
+  if (typeof fetch !== "function") return false;
+  const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), RELEASE_CHECK_MS) : null;
+  try {
+    const res = await fetch("compiled/tpn-room-version.js", { cache: "no-store", ...(ctrl ? { signal: ctrl.signal } : {}) });
+    if (!res || !res.ok) return false;
+    return D.tabDiffersFromServed(await res.text()) === true;
+  } catch {
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 // Every printed order is fitted just before the print dialog lays it out,
 // whatever opened it (Print order, Print ทั้งหมด, or Ctrl+P): up to 115 % with
 // larger figures, one A4 page (D.fitPrintSheet, 2026-11-16). A page with no
@@ -1219,6 +1245,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [published, setPublished] = useState(!!editEntry?.published);
   const [publishing, setPublishing] = useState(false);
   const [conflict, setConflict] = useState(null); // {lastModified, lastModifiedBy} of the row on the server
+  // A Submit refused because the host serves another release (tabIsBehindRelease):
+  // { draft } says whether what was typed went to the draft. Only a reload clears it.
+  const [releaseBehind, setReleaseBehind] = useState(null);
 
   // ── "Is what's on screen what's saved?" ────────────────────────────
   // savedKey is the fingerprint of the inputs as last saved (or as loaded
@@ -2811,6 +2840,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // backend refuses a row without one, and every dose hangs off it). The
   // required-field gate, the no-volume stop and the critical-value reason are
   // all asked for at Submit instead — a draft can neither print nor count.
+  // What typed and unsaved goes to this user's draft before the reload, as on a save
+  // conflict, so the reloaded form offers it back (กู้คืน).
+  const refuseBehindRelease = () => {
+    if (dirty) writeDraft(currentInputs());
+    setReleaseBehind({ draft: !!dirty });
+    showToast(RELEASE_BEHIND_TEXT, "error");
+  };
+
   const handleSave = async (asDraft = false) => {
     asDraft = asDraft === true;
     if (saving) return;
@@ -2825,6 +2862,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // (nurseSubmitRefused), before any prompt can ask her for a reason.
     if (!asDraft && nurseSubmitRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
     if (asDraft && nurseDraftRefused) { showToast(NURSE_SUBMIT_TEXT, "error"); return; }
+    // A tab older (or newer) than the release the host serves submits nothing: the TPN
+    // room would refuse what it sends, and pressing again here would send the same
+    // (2026-11-17). A draft still saves: the backend keeps any draft, and the room
+    // prints none. `saving` covers the read, so a second press waits for it. Center
+    // Point has its own review and publish step, and never reaches the TPN room.
+    if (!asDraft && !centerPoint) {
+      setSaving(true);
+      const behind = await tabIsBehindRelease();
+      setSaving(false);
+      if (behind) { refuseBehindRelease(); return; }
+    }
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
     // An order submitted before the lock existed and reopened unchanged is only
     // locked: a revision of identical numbers would tell pharmacy nothing.
@@ -3177,6 +3225,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // by nothing that also holds back printing (see printable).
     if (!printable) { showToast(printBlockMessage("ก่อนส่ง"), "error"); return; }
     setPublishing(true);
+    if (!centerPoint && await tabIsBehindRelease()) { setPublishing(false); refuseBehindRelease(); return; }
     // savedLastModified makes Submit optimistic-locked (gas-backend.gs
     // publishDailyLog): if someone else saved this row since, it's refused.
     const res = await onPublish(savedEntryId, savedLastModified);
@@ -3209,6 +3258,24 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
   return (
     <>
+      {/* Submit refused: the host serves another release (tabIsBehindRelease, 2026-11-17).
+          Stays until the reload, so it is still there when the toast has gone. */}
+      {releaseBehind && (
+        <div role="alert" className="release-behind" style={{ padding:"10px 12px", background:"var(--crit-bg)", border:"1px solid var(--crit-line)",
+             borderRadius:8, marginBottom:10, fontSize:12.5, color:"var(--crit)",
+             display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          <Icon name="info" size={13} color="var(--crit)" />
+          <span>
+            NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN
+            กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง
+            {releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด"}
+          </span>
+          <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
+            <button className="btn sm primary" onClick={() => window.location.reload()}>โหลดหน้าใหม่</button>
+          </div>
+        </div>
+      )}
+
       {/* Conflict notice — someone else saved this entry after this page opened.
           The form is left untouched: only navigation/reload discards it, never this banner. */}
       {conflict && (
