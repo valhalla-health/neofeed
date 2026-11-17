@@ -231,10 +231,13 @@ const INIT = `
 
     section('§4b the names page (Pp, 2026-11-17: "หน้ารวมชื่อทุกคน")');
     {
-      // A day with no orders on the list: the names page still lists everyone in the file.
+      // A day with no orders on the list: the names page still lists everyone in the file. Tomorrow,
+      // the last day the room may pick, is after the day both infants were last seen (today), so an
+      // edit that counted as a sighting would move SS-1's day forward (Vera on this PR, 2026-11-17).
       const day = page.locator('input[type=date]').first();
-      const yesterday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
-      await day.fill(yesterday);
+      const tomorrow = new Date(Date.parse(today + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+      const be = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}`;
+      await day.fill(tomorrow);
       await page.locator('.note').filter({ hasText: 'รายการด้านล่าง' }).waitFor({ state: 'detached' }).catch(() => {});
       await page.waitForFunction(() => !document.querySelector('li[data-session="AA-1"]'), null, { timeout: 5000 }).catch(() => {});
       ok('the list for a day with no orders shows neither mapped infant', (await row(page, 'AA-1').count()) === 0 && (await row(page, 'SS-1').count()) === 0);
@@ -259,6 +262,8 @@ const INIT = `
       await nameRow('SS-1').getByText('ทารกสังเคราะห์ บี แก้จากหน้ารวม').waitFor();
       ok('the saved name shows on the names page', true);
       ok('…and "แก้ล่าสุด" names who changed it, in ward time', /Pharmacist Dev \d{2}\/\d{2}\/25\d\d \d{2}:\d{2}/.test(await nameRow('SS-1').innerText()));
+      eq('an edit from the names page is no sighting: the day last seen stays today, not the list\'s tomorrow',
+        await nameRow('SS-1').locator('td').nth(3).innerText(), be(today));
       await names.getByRole('button', { name: 'กลับไปรายการ order' }).click();
       eq('back to the order list closes the page', await names.count(), 0);
       await day.fill(today);

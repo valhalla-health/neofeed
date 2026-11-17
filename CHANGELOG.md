@@ -7,6 +7,21 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (5) — Vera on the names page: a test that tells an edit from a sighting, the PDPA note
+
+`test/verify-tpn-room-page-1105.cjs` §4b, `REFERENCE.md` (§ Thai PDPA compliance posture). Corrects entry (4)'s tests,
+on the same PR and not yet released.
+
+- **The test.** §4b edited SS-1 on yesterday's list. SS-1 was last seen today and `mapInfant` keeps the later day, so
+  the old wiring (the list's day as the sighting) passed it too. §4b now uses tomorrow, the last day the room may pick,
+  and checks that SS-1's day last seen stays today after the edit: 11 checks, 126/126; the new one fails on a copy whose
+  `saveMapping` passes the list's day ("18/11/2569", want "17/11/2569").
+- **PDPA.** The names page lists on one screen every name the open file holds, with its AN and edit history, a name
+  kept after an erasure included until the purge. `REFERENCE.md` says so beside the two gaps already there, and names
+  a remove action on the page as the manual erasure step for Pp and the DPO to weigh.
+- **Not in this PR, Pp's call:** Vera's finding 1. A name or AN edited after its sticker printed leaves the printed bag
+  with the old one, and no screen asks for a reprint; the names page adds a route to that edit.
+
 ## Session 2026-11-17 (4) — The TPN room's names page: every infant in the name file, each name and AN editable
 
 `tpn-room.jsx` (`NamesPage`; the "รายชื่อทั้งหมด" button; `MappingDialog` from the list shows the ID and the day last

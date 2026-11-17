@@ -877,7 +877,10 @@ the analysis, on aggregates; the export itself is row-level.
 one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with the change request (tasks.md
 0.2):** `pseudonymizePatient()` cannot reach that PC, so an erasure leaves the name there until the 30-day purge, and
 an edit keeps the old name in the history until then; and a `.replaced-*` file left by "start a new file" has no end date,
-because the purge runs on the open file only. No retention rule or manual erasure step exists yet.
+because the purge runs on the open file only. No retention rule or manual erasure step exists yet. Since 2026-11-17
+the names page ("รายชื่อทั้งหมด") lists on one screen every name the open file holds, with its AN and edit history,
+including a name kept after an erasure until the purge; a remove action there is the obvious manual erasure step for
+Pp and the DPO to weigh.
 **Trial sheets (since 2026-11-16, until the unit's PN lines come):** each carries a real name and AN on all three
 parts and is meant to be thrown away. The row tells the room to shred it or put it in the confidential-waste bin;
 where the ward's own disposal rule differs, that rule is for Pp and the DPO to name.
