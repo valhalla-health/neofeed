@@ -55,7 +55,7 @@ function StatusChipButton({ p, onOpen }) {
     "button",
     {
       type: "button",
-      className: "chip chip-tap" + (D_R.isOnUnit(p) ? " ok" : ""),
+      className: "chip chip-tap chip-unit" + (D_R.isOnUnit(p) ? " ok" : ""),
       "aria-haspopup": "dialog",
       "aria-label": `Status ${status} — เปลี่ยนสถานะ ${D_R.patientName(p)}`.trim(),
       onClick: (e) => {
@@ -151,6 +151,21 @@ function NoTpnTag({ p, entries }) {
   const dueText = due ? ` · ลงนมใหม่ ${due.slice(8, 10)}/${due.slice(5, 7)}` : "";
   return /* @__PURE__ */ React.createElement("span", { className: "log-badge is-no-tpn", title: `ใบสั่งล่าสุดไม่มี TPN${dueText}` }, "No TPN");
 }
+const RESUBMIT_HOW = "หมอเปิด order ดูตัวเลขที่เปลี่ยน กด Submit ใหม่";
+const resubmitHowFor = (entry) => RESUBMIT_HOW + (D_R.orderHadTpn(entry) || D_R.orderCancelsTpn(entry) ? " แล้วโทรบอกห้อง TPN" : "");
+function ResubmitTag({ p, entries, today }) {
+  if (!isActivePatient(p)) return null;
+  const due = D_R.resubmitDue(entries, today);
+  if (!due) return null;
+  return /* @__PURE__ */ React.createElement(
+    "span",
+    {
+      className: "log-badge is-resubmit",
+      title: `order ${due.tomorrow ? "พรุ่งนี้" : "วันนี้"}บันทึกไว้ก่อน NeoFeed ปรับการคำนวณ ยังพิมพ์ไม่ได้ · ${resubmitHowFor(due.entry)}`
+    },
+    "ต้อง Submit ใหม่"
+  );
+}
 const isPendingRow = (e) => /^(local_)?tmp_/.test(String(e?.entryId || ""));
 function todaysOrders(entries, today) {
   return D_R.finalEntries(entries).filter((e) => D_R.normalizeDateStr(e.ts) === today);
@@ -158,7 +173,7 @@ function todaysOrders(entries, today) {
 function wardPrintableOrder(p, entries, ward, today) {
   if (!p || !isActivePatient(p) || D_R.patientWard(p) !== ward) return null;
   const orders = todaysOrders(entries, today);
-  return orders.length === 1 && !isPendingRow(orders[0]) && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) ? orders[0] : null;
+  return orders.length === 1 && !isPendingRow(orders[0]) && D_R.orderPrints(orders[0], D_R.previousFinalEntry(entries, today)) && !D_R.orderHeldForResubmit(orders[0]) ? orders[0] : null;
 }
 function printSheetBasis(p, entries) {
   try {
@@ -288,8 +303,9 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
     const one = orders.length === 1 ? orders[0] : null;
     const pending = !!one && isPendingRow(one);
     const noTpn = !!one && !pending && !D_R.orderPrints(one, D_R.previousFinalEntry(log[p.sessionId], today));
+    const resub = !!one && !pending && !noTpn && D_R.orderHeldForResubmit(one);
     const open = pending || noTpn ? null : one ? () => onPrint(p.sessionId, one.entryId) : () => onOpenPatient(p.sessionId);
-    const action = pending ? "กำลังบันทึก…" : noTpn ? "No TPN — ไม่ต้องพิมพ์" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
+    const action = pending ? "กำลังบันทึก…" : noTpn ? "No TPN — ไม่ต้องพิมพ์" : resub ? "เปิด order เพื่อ Submit ใหม่" : one ? "Print order" : `${orders.length} ใบสั่งวันนี้ — เลือกใน Dashboard`;
     const item = itemFor.get(p.sessionId);
     return /* @__PURE__ */ React.createElement("div", { key: p.sessionId, className: "print-item" }, pickable && (item ? /* @__PURE__ */ React.createElement("label", { className: "print-pick" }, /* @__PURE__ */ React.createElement(
       "input",
@@ -307,12 +323,12 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
         ...open ? rowA11y(open) : {},
         "aria-label": `${action} ${D_R.patientName(p) || ""}`.trim()
       },
-      /* @__PURE__ */ React.createElement("div", { className: "pr-who" }, /* @__PURE__ */ React.createElement(BedChip, { p }), /* @__PURE__ */ React.createElement("span", { className: "pr-name" }, D_R.patientName(p) || "—", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pr-dol" }, "DOL ", D_R.liveDol(p)), /* @__PURE__ */ React.createElement("span", { className: "log-badge is-logged" }, "✓ SUBMITTED")),
+      /* @__PURE__ */ React.createElement("div", { className: "pr-who" }, /* @__PURE__ */ React.createElement(BedChip, { p }), /* @__PURE__ */ React.createElement("span", { className: "pr-name" }, D_R.patientName(p) || "—", /* @__PURE__ */ React.createElement(TestTag, { p })), p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "chip", style: { fontSize: 11, fontWeight: 700 } }, multiplesLabel(p)), /* @__PURE__ */ React.createElement("span", { className: "pr-dol" }, "DOL ", D_R.liveDol(p)), resub ? /* @__PURE__ */ React.createElement("span", { className: "log-badge is-resubmit" }, "ต้อง Submit ใหม่") : /* @__PURE__ */ React.createElement("span", { className: "log-badge is-logged" }, "✓ SUBMITTED"), resub && /* @__PURE__ */ React.createElement("span", { className: "pr-resub-note" }, "NeoFeed ปรับการคำนวณหลังบันทึก order นี้ ยังพิมพ์ไม่ได้ · ", resubmitHowFor(one))),
       /* @__PURE__ */ React.createElement(
         "button",
         {
           type: "button",
-          className: "btn sm" + (one && !pending && !noTpn ? " primary" : ""),
+          className: "btn sm" + (one && !pending && !noTpn && !resub ? " primary" : ""),
           disabled: pending || noTpn,
           tabIndex: -1,
           onClick: (e) => {
@@ -320,10 +336,10 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
             open?.();
           }
         },
-        one && !pending && !noTpn && /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 12, color: "#fff" }),
+        one && !pending && !noTpn && !resub && /* @__PURE__ */ React.createElement(Icon, { name: "pdf", size: 12, color: "#fff" }),
         " ",
         action,
-        !pending && !noTpn && /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: one ? "#fff" : void 0 })
+        !pending && !noTpn && /* @__PURE__ */ React.createElement(Icon, { name: "arrow", size: 11, color: one && !resub ? "#fff" : void 0 })
       )
     ));
   }), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`), (waiting > 0 || notDue > 0) && /* @__PURE__ */ React.createElement("div", { className: "print-waiting" }, /* @__PURE__ */ React.createElement("span", null, waiting > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, "ยังไม่ Submit ", /* @__PURE__ */ React.createElement("span", { className: "num" }, waiting), " ราย — ไม่อยู่ในรายการพิมพ์"), waiting > 0 && notDue > 0 && " · ", notDue > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, "No TPN ยังไม่ถึงวันลงนม ", /* @__PURE__ */ React.createElement("span", { className: "num" }, notDue), " ราย")), waiting > 0 && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: onShowNeeds }, "ดูรายชื่อ Needs entry →"))));
@@ -538,7 +554,7 @@ function PatientRegistry({
           title: hasToday ? "บันทึกวันนี้แล้ว" : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit" : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"
         },
         hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"
-      ), /* @__PURE__ */ React.createElement(NoTpnTag, { p, entries: log[p.sessionId] })),
+      ), /* @__PURE__ */ React.createElement(NoTpnTag, { p, entries: log[p.sessionId] }), /* @__PURE__ */ React.createElement(ResubmitTag, { p, entries: log[p.sessionId], today })),
       /* @__PURE__ */ React.createElement("div", { className: "pmc-actions" }, /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -635,7 +651,7 @@ function PatientRegistry({
           title: hasToday ? "บันทึกวันนี้แล้ว" : draftToday ? "บันทึกร่างไว้ — กรอกให้ครบแล้ว Submit" : lastEntry ? `บันทึกล่าสุด DOL ${D_R.entryDol(p, lastEntry)}` : "ยังไม่มีบันทึก"
         },
         hasToday ? "✓ LOGGED" : draftToday ? "DRAFT" : "NEEDS ENTRY"
-      ), /* @__PURE__ */ React.createElement(NoTpnTag, { p, entries: log[p.sessionId] }))),
+      ), /* @__PURE__ */ React.createElement(NoTpnTag, { p, entries: log[p.sessionId] }), /* @__PURE__ */ React.createElement(ResubmitTag, { p, entries: log[p.sessionId], today }))),
       /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" } }, /* @__PURE__ */ React.createElement(
         "button",
         {

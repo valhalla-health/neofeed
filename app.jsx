@@ -3402,7 +3402,7 @@ function PatientStrip({ patient, entries, onSwitch, currentDol, onEdit }) {
           <div className="val" style={{ fontSize:13, lineHeight:1.3, fontWeight:700, minWidth:0, overflowWrap:"anywhere" }}>{patient.diagnosis}</div>
           {/* D_A.patientStatus, as the ward list's chip: a blank status is
               Active there, and this chip read blank. */}
-          <span className={"chip" + (D_A.isOnUnit(patient) ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{D_A.patientStatus(patient)}</span>
+          <span className={"chip chip-unit" + (D_A.isOnUnit(patient) ? " ok" : "")} style={{ fontSize:11 }}><span className="d" />{D_A.patientStatus(patient)}</span>
         </div>
       </div>
 

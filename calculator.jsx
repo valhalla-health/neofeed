@@ -477,19 +477,9 @@ function savedDosingWeightOf(entry) {
   return null;
 }
 
-// The CONSTANTS_VERSION a saved row's figures were computed with (calcMoved).
-// Saves stamp it as calcInput.constantsVersion. The first 2026-09-18.1
-// frontend went live (PR #77, 11:17 ICT on 2026-09-18) before the stamp
-// shipped, so its rows carry none — but it was the first release to save
-// calcInput.aaProduct, and that key dates them. Neither → null: a row from
-// before 2026-09-18, which matches no version, so calcMoved holds it.
-const FIRST_AA_PRODUCT_VERSION = "2026-09-18.1";
-function savedCalcVersionOf(entry) {
-  const ci = entry?.calcInput;
-  if (!ci) return null;
-  if (ci.constantsVersion) return String(ci.constantsVersion);
-  return Object.prototype.hasOwnProperty.call(ci, "aaProduct") ? FIRST_AA_PRODUCT_VERSION : null;
-}
+// The CONSTANTS_VERSION a saved row's figures were computed with (calcMoved) is
+// D.savedCalcVersionOf, in data.js since 2026-11-17, so the ward list reads the
+// same rule (D.orderHeldForResubmit, its "ต้อง Submit ใหม่" tag).
 
 // The version of the sticker figures a saved row carries (D.STICKER_SCHEMA_VERSION),
 // from the marker handleSave puts in calcInput.printJsonV. null = none: a row
@@ -1294,7 +1284,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // null = nothing saved from this form, or a legacy row with no evidence.
   const [savedDosingWt, setSavedDosingWt] = useState(null); // { g, exact }
   // The CONSTANTS_VERSION the saved row was computed with — see
-  // savedCalcVersionOf. null = nothing saved from this form, or a row saved
+  // D.savedCalcVersionOf. null = nothing saved from this form, or a row saved
   // before 2026-09-18 (held by calcMoved until it is saved again).
   const [savedCalcVersion, setSavedCalcVersion] = useState(null);
   // The sticker-figures version the saved row carries — see savedFiguresVOf.
@@ -1501,7 +1491,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       revision: Number(editEntry.calcInput?.orderRev) || editEntry.revisionNumber || 1,
     } : null);
     setSavedDosingWt(editEntry ? savedDosingWeightOf(editEntry) : null);
-    setSavedCalcVersion(editEntry ? savedCalcVersionOf(editEntry) : null);
+    setSavedCalcVersion(editEntry ? D.savedCalcVersionOf(editEntry) : null);
     setSavedFiguresV(savedFiguresVOf(editEntry));
 
     // An unsaved draft for this patient + order date is offered back rather
@@ -2637,7 +2627,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // A saved order prints what the calculator computes NOW from its inputs, so
   // a release that moves a printed figure would reprint an old order with new
   // numbers under its old entry id and revision — UP-C2's rule again. A row
-  // knows the CONSTANTS_VERSION it was computed with (savedCalcVersionOf);
+  // knows the CONSTANTS_VERSION it was computed with (D.savedCalcVersionOf);
   // any other version holds Print until the order is saved again. A row saved
   // before 2026-09-18 knows none (null) and is older than every version, so it
   // is held too. Until 2026-10-17 such a row was checked only against
