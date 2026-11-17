@@ -41,6 +41,7 @@ const roundWholeMl = (n) => Number(D.displayNum(n, 0));
 const RELEASE_CHECK_MS = 5000;
 const RELEASE_FRESH_MS = 60000;
 const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
+const RELEASE_SENT_TEXT = "order ที่เพิ่ง Submit ส่งจากแท็บรุ่นเก่า ห้อง TPN จะไม่รับ กดโหลดหน้าใหม่ แล้วเปิด order กด Submit อีกครั้ง";
 // true: the host serves another release. false: the same one. null: not known.
 async function tabIsBehindRelease() {
   if (typeof fetch !== "function") return null;
@@ -2882,6 +2883,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   };
   // What typed and unsaved goes to this user's draft before the reload, as on a save
   // conflict, so the reloaded form offers it back (กู้คืน).
+  // A Submit that went out while the form's first read was still in flight, and the read
+  // then finds the tab behind: the order is saved, and the TPN room will not print it. The
+  // toast outlives a save that leaves this screen; the banner stays if it does not.
+  const warnIfSentBehind = () => {
+    readRelease().then((behind) => {
+      if (behind !== true) return;
+      setReleaseBehind({ on: "sent", draft: false });
+      showToast(RELEASE_SENT_TEXT, "error");
+    });
+  };
   const refuseBehindRelease = () => {
     if (dirty) writeDraft(currentInputs());
     setReleaseBehind({ on: "submit", draft: !!dirty });
@@ -2907,6 +2918,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // (2026-11-17). A draft still saves: the backend keeps any draft, and the room
     // prints none. Center Point has its own review and publish step, and never
     // reaches the TPN room.
+    // A Submit decided while the form's first read is still in flight goes unchecked; the
+    // read is followed up once the save lands (warnIfSentBehind, Vera 2026-11-17).
+    const releaseInFlight = !asDraft && !centerPoint && !!releaseRead.current.pending;
     if (!asDraft && !centerPoint) {
       let behind = releaseBehindForSubmit(setSaving);
       if (behind !== true && behind !== false) behind = await behind;
@@ -3197,6 +3211,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // is something unsaved to bring back.
     if (res.conflict) { if (dirty) writeDraft(currentInputs()); setConflict(res.current); return; }
     if (!res.ok) return; // gasPost already surfaced an error toast
+    if (releaseInFlight) warnIfSentBehind();
 
     if (res.revised) {
       // Editing a published row never overwrote it — the server appended a
@@ -3308,7 +3323,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
              borderRadius:8, marginBottom:10, fontSize:12.5, color:"var(--crit)",
              display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
           <Icon name="info" size={13} color="var(--crit)" />
-          {releaseBehind.on === "submit" ? (
+          {releaseBehind.on === "sent" ? (
+            <span>{RELEASE_SENT_TEXT}</span>
+          ) : releaseBehind.on === "submit" ? (
             <span>
               NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN
               กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง

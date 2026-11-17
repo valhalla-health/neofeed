@@ -7,6 +7,37 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (2) — The stale-tab check reads the release when the form opens; the room judges an order against the served release (Vera)
+
+`calculator.jsx` (`releaseRead`, `readRelease`, `releaseBehindNow`, `releaseBehindForSubmit`, `warnIfSentBehind`, `RELEASE_FRESH_MS`, the
+banner's two texts), `tpn-room-core.js` (`versionsOf`, `versionReasons`; `ctx.served` in place of `ctx.pageStale`),
+`tpn-room.jsx` (`reply.served`, passed to the rows and to Print), `compiled/`, the shells' `?v=`,
+`test/verify-stale-tab-1117.cjs`, `test/verify-tpn-room-page-1105.cjs` §12b, `REFERENCE.md`, `STATUS.md`. It corrects
+entry (1), on the same PR and not yet released.
+
+- **The form reads the release when it opens.** Entry (1) read the version file at every Submit, behind an `await`.
+  That broke `verify-bed-dol-io.cjs` (4 checks): its re-save reads `onUpdate` in the same tick as the press, which is
+  how Submit behaved until then. Now the form reads the file when it opens and, on another release, shows the banner
+  at once ("กดโหลดหน้าใหม่ก่อนกรอก order"), before anyone types. A read under a minute old, or one still in flight,
+  decides a Submit with no `await`, so the save call keeps its tick; an older read is done again first, under
+  `saving`. A Submit pressed while the first read is still in flight goes, as on a failed read; once it is saved,
+  the form waits for that read, and if it finds another release a toast and the banner say the order sent will not
+  print, and to reload and Submit again (`warnIfSentBehind`, Vera's second review: the in-flight Submit had no
+  warning of its own, and a save that leaves the screen took the banner with it).
+- **Vera's two findings.** With the page behind, every row said "หมอไม่ต้อง Submit ใหม่", also for an order on the
+  page's own old version, which the doctor does have to submit again (finding 1). An order newer than a current page
+  sent the room to reload a page that was already current, as after a rollback (finding 2). Now the room judges an
+  order against the release the host serves, read with the list: on it, the doctor has nothing to do and a page
+  behind reloads; off it, older or newer, the doctor reloads NeoFeed and submits, and a page behind reloads too
+  ("กดโหลดหน้านี้ใหม่ด้วย"). With no served read, the page's own versions stand in, as in entry (1). Print passes the
+  served release too.
+- **Tests.** `verify-stale-tab-1117.cjs`, 67 checks: 42 fail on `origin/main` `0284ee0`; the 25 that pass there guard
+  what stays (a current order prints, the backend takes both tabs, the same release, a failed read and a 404 still
+  Submit, a Submit while the first read is in flight saves in the same tick, two presses send one save). Vera's
+  two first-review cases fail on `a7f1fa8` and her second-review case (2 checks) on `14889f2`.
+  `verify-bed-dol-io.cjs` 85/85 again. `verify-tpn-room-page-1105.cjs` §12b: on a page behind, the row on the old
+  release asks the doctor and the room both.
+
 ## Session 2026-11-17 (1) — A tab left open across a release: Submit reads the served release first; the TPN room says who reloads
 
 `calculator.jsx` (`tabIsBehindRelease`, `RELEASE_BEHIND_TEXT`, `refuseBehindRelease`, the `releaseBehind` banner, in

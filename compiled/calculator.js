@@ -8,6 +8,7 @@ const roundWholeMl = (n) => Number(D.displayNum(n, 0));
 const RELEASE_CHECK_MS = 5e3;
 const RELEASE_FRESH_MS = 6e4;
 const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
+const RELEASE_SENT_TEXT = "order ที่เพิ่ง Submit ส่งจากแท็บรุ่นเก่า ห้อง TPN จะไม่รับ กดโหลดหน้าใหม่ แล้วเปิด order กด Submit อีกครั้ง";
 async function tabIsBehindRelease() {
   if (typeof fetch !== "function") return null;
   const ctrl = typeof AbortController === "function" ? new AbortController() : null;
@@ -1903,6 +1904,13 @@ function Calculator({
       return behind === true;
     });
   };
+  const warnIfSentBehind = () => {
+    readRelease().then((behind) => {
+      if (behind !== true) return;
+      setReleaseBehind({ on: "sent", draft: false });
+      showToast(RELEASE_SENT_TEXT, "error");
+    });
+  };
   const refuseBehindRelease = () => {
     if (dirty) writeDraft(currentInputs());
     setReleaseBehind({ on: "submit", draft: !!dirty });
@@ -1921,6 +1929,7 @@ function Calculator({
       showToast(NURSE_SUBMIT_TEXT, "error");
       return;
     }
+    const releaseInFlight = !asDraft && !centerPoint && !!releaseRead.current.pending;
     if (!asDraft && !centerPoint) {
       let behind = releaseBehindForSubmit(setSaving);
       if (behind !== true && behind !== false) behind = await behind;
@@ -2209,6 +2218,7 @@ function Calculator({
       return;
     }
     if (!res.ok) return;
+    if (releaseInFlight) warnIfSentBehind();
     if (res.revised) {
       setSavedEntryId(res.entryId);
       setPublished(false);
@@ -2291,7 +2301,7 @@ function Calculator({
     alignItems: "center",
     gap: 8,
     flexWrap: "wrap"
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--crit)" }), releaseBehind.on === "submit" ? /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง", releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด") : /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า กดโหลดหน้าใหม่ก่อนกรอก order ถ้ากด Submit จากแท็บนี้ order จะไม่ถึงห้อง TPN"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("button", { className: "btn sm primary", onClick: () => window.location.reload() }, "โหลดหน้าใหม่"))), conflict && /* @__PURE__ */ React.createElement("div", { style: {
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--crit)" }), releaseBehind.on === "sent" ? /* @__PURE__ */ React.createElement("span", null, RELEASE_SENT_TEXT) : releaseBehind.on === "submit" ? /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง", releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด") : /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า กดโหลดหน้าใหม่ก่อนกรอก order ถ้ากด Submit จากแท็บนี้ order จะไม่ถึงห้อง TPN"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("button", { className: "btn sm primary", onClick: () => window.location.reload() }, "โหลดหน้าใหม่"))), conflict && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 12px",
     background: "var(--crit-bg)",
     border: "1px solid var(--crit-line)",

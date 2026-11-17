@@ -304,6 +304,21 @@ section('§4 the real calculator: the form reads the served release when it open
     act(() => { click(submitBtn()); });
     eq('a Submit while the first read is in flight reaches its save in the same tick', logged.map((e) => e.status), ['submitted']);
     await tick();
+    ok('…and, the read finding the same release, says nothing more', !banner());
+
+    // The same, but the read in flight finds another release (Vera's second review, 2026-11-17):
+    // the order went out unchecked, so the tab says it will not print and must be sent again.
+    served.mode = 'other'; toasts.length = 0;
+    let land;
+    served.hold = new Promise((r) => { land = r; });
+    mountFilled(); logged.length = 0;
+    act(() => { click(submitBtn()); });
+    eq('a Submit while a read that will find another release is in flight still saves', logged.map((e) => e.status), ['submitted']);
+    land(); served.hold = null;
+    await tick(); await tick();
+    ok('…and when the read lands, a toast says the order sent will not print: reload and Submit again',
+      toasts.some((t) => t.type === 'error' && /ห้อง TPN จะไม่รับ/.test(t.msg) && /กด Submit อีกครั้ง/.test(t.msg)), toasts);
+    ok('…and the banner says the same', !!banner() && /ห้อง TPN จะไม่รับ/.test(banner().textContent), banner() && banner().textContent);
 
     // The read is over a minute old by the Submit, and a release landed since.
     served.mode = 'same';
