@@ -7,6 +7,59 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-18 (5) — "TPN ทั้งหอ": Pp keeps never-TPN infants off the page
+
+`REFERENCE.md` (§ The ward's TPN page, *Who is listed*), `test/verify-ward-tpn-page-1115.cjs`. No code change.
+
+- **Pp answered entry (2)'s open question** on 2026-11-18: "ไม่ต้องขึ้น". A preterm infant on DOL 2–7 with counted
+  EN < 50 whose orders were all No TPN stays off the page, as her rule of 2026-11-15 already had it. The No TPN AA and
+  lipid flags reach only an infant who had TPN within the last 14 days.
+- **Tests.** Two cases lock it in: GA 29 on DOL 3 and on DOL 2, No TPN at EN 20, never TPN → not listed. With
+  `wardTpnRow` planted to list a never-TPN infant below EN 50, these two fail and the other 149 pass, so the harness
+  could not see this before.
+
+## Session 2026-11-18 (2) — Vera on "TPN ทั้งหอ": GIR graded as every screen grades it; No TPN lipid below EN 50
+
+`data.js` (`wardTpnRow`), `registry.jsx` (the No TPN AA chip's title), `compiled/`, both shells' tokens, `REFERENCE.md`,
+`test/README.md`, `test/verify-ward-tpn-page-1115.cjs`. Vera: NO BLOCK, three 🟠 and two 🟡. Entry (1) stays as written.
+
+- **GIR is graded raw again.** Entry (1) graded the page's GIR as printed, 2 decimals; the Calculator and the Alerts page
+  grade the same saved GIR raw through `girStatus`, so a saved 12.004 was red there and unflagged here, the split
+  `girStatus`'s comment records as a past defect. AA, lipid and EN stay graded as printed: no other screen grades them.
+- **A No TPN order's DOL 2 lipid flag needs counted EN < 50.** Pp was asked about EN < 50 for both flags; entry (1)
+  flagged a No TPN infant on DOL 2 fed at EN 60. An order with TPN keeps the lipid flag at any EN, as before.
+- **The No TPN AA chip's title prints the counted EN** (`enCounted`, 0 for a MEN feed) and says "MEN ไม่นับ".
+- **One date for Pp's "ขึ้นธง":** 2026-11-17, in `test/README.md` too.
+- **Left for Pp:** whether a preterm infant who never had TPN, on DOL 2–7 with counted EN < 50 on a No TPN order, is
+  listed while that flag holds. Her rule of 2026-11-15 keeps an infant who never had TPN off the page, and it came
+  before her answer of 2026-11-17; the page is unchanged until she says.
+- **Tests.** 149 assertions; 24 of 24 planted rule changes caught, the three above among them.
+
+## Session 2026-11-18 (1) — "TPN ทั้งหอ": the review's four errors fixed; a No TPN order is flagged as AA 0
+
+`data.js` (`orderSubmittedAt`, `wardTpnRow`, the `PN_STOP_EN_ML_KG` comment), `registry.jsx` (`wtpnSubmitted`, the
+chips, the legend), `compiled/`, both shells' tokens, `REFERENCE.md` (§ The ward's TPN page), the clinical-rules skill
+("Not in this file"), `test/verify-ward-tpn-page-1115.cjs` (sections 6, 8, 10 and 11).
+
+The branch was saved as WIP on 2026-11-17 with four errors from its new-agent check still open. Entry 2026-11-15 (3)
+stays as written (append-only); this entry corrects it.
+
+- **"Submit ล่าสุด" read the last save.** It showed `lastModified`, so a nurse's I/O save at 15:45 on an order submitted
+  at 09:10 read 15:45. It now reads `D.orderSubmittedAt`: `calcInput.orderAt`, which the server stamps on every save
+  that changes the order and keeps on an I/O-only save, then `published`, then `lastModified` for a row from before
+  `orderAt`. It is the time the Calculator prints beside "บันทึกโดย".
+- **A float tail put EN on the wrong side of a line.** A saved 139.99999999999997 was below 140, so PN-after-EN stayed
+  silent at the line; 49.96 printed "50" but still raised "EN < 50". Each figure is now graded as the page prints it
+  (`displayNum`, AA, lipid and GIR to 2 decimals, EN to 1).
+- **The NICE number was wrong.** NG154 rec 1.8.2 is the 140–150 mL/kg/d line (born before 28+0 weeks) and rec 1.8.3
+  the 120–140 line (28+0 weeks or later, and term), read from the NG154 PDF, p. 21. The code, `REFERENCE.md` and the
+  legend cited 1.8.3 for both.
+- **A No TPN order took no AA or lipid flag.** Pp, 2026-11-17 ("ขึ้นธง"): a preterm infant whose latest order is No TPN
+  on DOL 2–7 with counted EN < 50 is flagged as AA 0, chip "หยุด PN ตอน EN < 50", and on DOL 2 as no lipid. The No TPN
+  chip stays; GIR and PN-after-EN still read only an order with TPN.
+- **Tests.** 145 assertions; 25 of them fail on the branch before this entry (`8d673ec`), run with this harness.
+- **Nothing printed or dosed moves:** no `CONSTANTS_VERSION`, no backend change.
+
 ## Session 2026-11-17 (10) — The ward list tags an order held for a new Submit; Active has its own green
 
 `data.js` (`savedCalcVersionOf`, moved from `calculator.jsx`; `orderHeldForResubmit`, `resubmitDue`), `calculator.jsx`
@@ -862,6 +915,34 @@ line's anchor follows the vitamin D readout's new text), the neofeed-clinical-ru
 - **`CONSTANTS_VERSION` stays `2026-11-15.1`** (#266's). No constant and no printed figure moves; one figure is new, read from
   the same `calc.osm` the order is graded on. A bump would make the ward re-save every old order before reprinting it, for a figure that adds
   information and changes no dose. Pp confirmed it in the PR, 2026-11-16: "คงไว้".
+
+## Session 2026-11-15 (3) — "TPN ทั้งหอ": one ward's infants on TPN on one page, with care flags
+
+`data.js` (`wardTpnRow`, `wardTpnRows`, `WARD_TPN_RECENT_DAYS`, `PRETERM_GA_WK`, `WARD_AA_FLAG`, `WARD_LIPID_FLAG_DOL`,
+`PN_STOP_EN_ML_KG`, `isPretermGa`, `pnStopEnFor`, `countedEnPerKg`), `registry.jsx` (`WardTpnPage`, the ward list's
+button), `app.jsx` (the rail item and the view), both shells (the page's CSS), `compiled/`, `REFERENCE.md` (§ The ward's
+TPN page), the clinical-rules skill ("Not in this file"), `test/verify-ward-tpn-page-1115.cjs` (new).
+
+- **Why.** Pp, 2026-11-14: each infant's trend is on their Dashboard, but "ไม่มีใครมาเปิดดูเองทีละคน". A mockup on the
+  real app with made-up infants was checked for its clinical content, then Pp chose its rules.
+- **Who is listed.** Active infants of the ward whose latest Submitted order has TPN, or whose last order with TPN is at
+  most 14 days old. Pp, 2026-11-14: "ทุกคนที่ยังมีการสั่ง TPN หรือมีการ submit ครั้งสุดท้ายภายใน 14 วัน" and "เอาแค่คน
+  active อยู่"; asked on 2026-11-15, because a No TPN infant submits every 3 days, she chose to count the 14 days from
+  the last order with TPN, so an infant who never had TPN is not on the page.
+- **What a row shows.** Bed, name, GA and BW, DOL, day of PN, then AA, lipid, GIR and EN as ordered in the latest
+  Submitted order, its flags and when it was last saved. Flagged rows first, then by bed; one card per infant on a phone.
+  A tap opens the infant's Dashboard.
+- **The care flags**, only what today's order can still change: AA < 2.5 g/kg/d on DOL 2–7 with EN < 50 mL/kg/d; no
+  lipid on DOL 2; GIR above 12 (red) or below 4 (amber) by `girStatus`; PN still ordered once EN reaches NICE's line;
+  No TPN. Pp's answers of 2026-11-15: **preterm is GA < 37 weeks** for the AA and lipid flags (as QI decision 6.6);
+  **add the PN-after-EN flag on NICE NG154 rec 1.8.3**, 140 mL/kg/d below 28 weeks and 120 from 28 weeks and at term,
+  every GA (not `FULL_EN_ML_KG` 100, which has no source); **today's DOL** when the latest order is older. Pp, 2026-11-14,
+  for the AA flag: "ให้ดูตาม DOL เพราะใช้ค่า optimum ตาม guideline".
+- **No QI figure** (Pp, 2026-11-14: "งาน QI เก็บข้อมูลหลังบ้านไว้ก่อน ยังไม่โชว์อะไร เอาให้เรา admin เห็นเท่านั้นพอ"): the
+  mockup's trend section is not built.
+- **Nothing printed or dosed moves**: no `CONSTANTS_VERSION`, no backend change.
+- **Seen working** on dev local (the real `gas-backend.gs` in the sandbox, made-up infants only), at 1280 px and on the
+  phone preset, signed in as the made-up doctor and nurse.
 
 ## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
 

@@ -151,6 +151,136 @@ function NoTpnTag({ p, entries }) {
   const dueText = due ? ` · ลงนมใหม่ ${due.slice(8, 10)}/${due.slice(5, 7)}` : "";
   return /* @__PURE__ */ React.createElement("span", { className: "log-badge is-no-tpn", title: `ใบสั่งล่าสุดไม่มี TPN${dueText}` }, "No TPN");
 }
+const WARD_TPN_WARDS = [["NICU", "NICU"], ["SCN", "SCN"], ["other", "ทดสอบระบบ"]];
+const WARD_TPN_RANK = { crit: 0, warn: 1 };
+const wtpnNum = (v, dp) => v == null ? "—" : D_R.displayNum(v, dp);
+const wtpnDayMonth = (d) => d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : "—";
+function wardTpnFlagText(f, r) {
+  const A = D_R.WARD_AA_FLAG, S = D_R.PN_STOP_EN_ML_KG;
+  switch (f.key) {
+    // A No TPN order is AA 0 (Pp, 2026-11-17): its chip says PN stopped early.
+    case "aa":
+      return f.noTpn ? {
+        text: `หยุด PN ตอน EN < ${A.enBelowMlKg}`,
+        title: `preterm DOL ${A.fromDol}–${A.toDol}: คำสั่งล่าสุดเป็น No TPN แต่ EN ที่นับ ${wtpnNum(r.enCounted, 1)} mL/kg/d${r.men ? " (MEN ไม่นับ)" : ""} ยังต่ำกว่า ${A.enBelowMlKg} จึงไม่ได้ AA`
+      } : {
+        text: `AA < ${wtpnNum(A.belowGPerKg)}`,
+        title: `preterm DOL ${A.fromDol}–${A.toDol} ที่ EN < ${A.enBelowMlKg} mL/kg/d: AA ในคำสั่งล่าสุด ${wtpnNum(r.aa)} g/kg/d`
+      };
+    case "lipid":
+      return {
+        text: `DOL ${D_R.WARD_LIPID_FLAG_DOL} ยังไม่มี lipid`,
+        title: `preterm DOL ${D_R.WARD_LIPID_FLAG_DOL}: คำสั่งล่าสุด${f.noTpn ? "เป็น No TPN จึง" : ""}ไม่มี lipid`
+      };
+    case "gir": {
+      const [lo] = D_R.TARGETS.gir();
+      return f.low ? { text: `GIR ${wtpnNum(r.gir)} < ${lo}`, title: `GIR ในคำสั่งล่าสุดต่ำกว่า ${lo} mg/kg/min (แถบ GIR ของแอป)` } : { text: `GIR ${wtpnNum(r.gir)} > ${D_R.GIR_HARD_HI}`, title: `GIR ในคำสั่งล่าสุดเกิน ${D_R.GIR_HARD_HI} mg/kg/min (แถบ GIR ของแอป)` };
+    }
+    case "pnAfterEn":
+      return {
+        text: `EN ≥ ${f.stopAt} ยังมี PN`,
+        title: `EN ${wtpnNum(r.en, 1)} mL/kg/d ถึงเกณฑ์หยุด PN ของ NICE แล้ว (${S.below} ใน GA < ${S.belowGaWk} wk, ${S.atOrAbove} ตั้งแต่ ${S.belowGaWk} wk) แต่คำสั่งล่าสุดยังมี PN หรือ lipid`
+      };
+    case "noTpn":
+      return {
+        text: "No TPN",
+        title: `คำสั่งล่าสุดไม่มี TPN · คำสั่งล่าสุดที่มี TPN ${wtpnDayMonth(r.lastTpnDate)} · อยู่ในหน้านี้ถึง ${wtpnDayMonth(r.listedUntil)}`
+      };
+    default:
+      return { text: f.key, title: "" };
+  }
+}
+function WardTpnFlags({ r }) {
+  if (!r.flags.length) return /* @__PURE__ */ React.createElement("span", { className: "chip" }, "ไม่มีธง");
+  return r.flags.map((f) => {
+    const { text, title } = wardTpnFlagText(f, r);
+    return /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        key: f.key,
+        className: `chip${f.level === "crit" ? " crit" : f.level === "warn" ? " warn" : ""}`,
+        "data-flag": f.key,
+        title
+      },
+      text
+    );
+  });
+}
+function wtpnCellCls(r, key) {
+  const f = r.flags.find((x) => x.key === key);
+  return !f ? "" : f.level === "crit" ? "wtpn-cell-crit" : "wtpn-cell-warn";
+}
+function wtpnSubmitted(r, today) {
+  const at = r && r.submittedAt;
+  const t = new Date(at);
+  let date = D_R.normalizeDateStr(r && r.latest && r.latest.ts), time = "";
+  if (at && !isNaN(t)) {
+    const pad = (x) => String(x).padStart(2, "0");
+    date = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+    time = ` ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  }
+  const ago = D_R.daysBetweenDateStr(date, today);
+  const day = ago === 0 ? "วันนี้" : ago === 1 ? "เมื่อวาน" : wtpnDayMonth(date);
+  return day + time;
+}
+function wtpnWho(p) {
+  const admit = D_R.admissionDol(p);
+  return `GA ${D_R.fmtGA(p.ga)} · BW ${Number(p.bw || 0).toLocaleString("en-US")} g${admit > 1 ? ` · admit DOL ${admit}` : ""}`;
+}
+function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
+  const today = D_R.useTodayLocal();
+  const [ward, setWard] = React.useState(WARD_TPN_WARDS.some(([w]) => w === openWard) ? openWard : "NICU");
+  const wardName = (WARD_TPN_WARDS.find(([w]) => w === ward) || [])[1] || ward;
+  const rank = (r) => WARD_TPN_RANK[r.level] ?? (r.onTpn ? 2 : 3);
+  const rows = D_R.wardTpnRows(patients, log, ward, today).sort((a, b) => rank(a) - rank(b) || bedSort(a.p, b.p));
+  const onTpn = rows.filter((r) => r.onTpn).length;
+  const toLook = rows.filter((r) => r.level === "crit" || r.level === "warn").length;
+  const A = D_R.WARD_AA_FLAG, S = D_R.PN_STOP_EN_ML_KG;
+  const open = (r) => onSelect && onSelect(r.sessionId);
+  return /* @__PURE__ */ React.createElement("div", { className: "wtpn" }, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "TPN ทั้งหอ · ", wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "ทารก Active ที่คำสั่งล่าสุดมี TPN หรือหยุด TPN มาไม่เกิน ", D_R.WARD_TPN_RECENT_DAYS, " วัน · ค่าจากคำสั่ง Submit ล่าสุดของแต่ละคน")), /* @__PURE__ */ React.createElement("div", { className: "seg", role: "group", "aria-label": "เลือก ward" }, WARD_TPN_WARDS.map(([w, label]) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      key: w,
+      type: "button",
+      className: ward === w ? "on" : "",
+      "aria-pressed": ward === w,
+      onClick: () => setWard(w)
+    },
+    label
+  )))), /* @__PURE__ */ React.createElement("div", { className: "wtpn-tiles" }, /* @__PURE__ */ React.createElement("div", { className: "wtpn-tile" }, /* @__PURE__ */ React.createElement("div", { className: "v num" }, rows.length), /* @__PURE__ */ React.createElement("div", { className: "l" }, "ทารกในหน้านี้", /* @__PURE__ */ React.createElement("br", null), "ได้ TPN ", onTpn, " · หยุดแล้ว ", rows.length - onTpn)), /* @__PURE__ */ React.createElement("div", { className: "wtpn-tile" + (toLook > 0 ? " is-warn" : "") }, /* @__PURE__ */ React.createElement("div", { className: "v num" }, toLook), /* @__PURE__ */ React.createElement("div", { className: "l" }, "ต้องดูวันนี้", /* @__PURE__ */ React.createElement("br", null), "มีธงอย่างน้อย 1 ข้อ"))), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-b" }, rows.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "wtpn-empty" }, "ยังไม่มีทารกที่ได้ TPN ใน ", wardName) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "patient-table wtpn-table" }, /* @__PURE__ */ React.createElement("table", { className: "tbl" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "เตียง"), /* @__PURE__ */ React.createElement("th", null, "ทารก"), /* @__PURE__ */ React.createElement("th", { className: "r" }, "DOL"), /* @__PURE__ */ React.createElement("th", { className: "r" }, "วัน PN"), /* @__PURE__ */ React.createElement("th", { className: "r" }, "AA", /* @__PURE__ */ React.createElement("span", { className: "th-unit" }, "g/kg/d")), /* @__PURE__ */ React.createElement("th", { className: "r" }, "Lipid", /* @__PURE__ */ React.createElement("span", { className: "th-unit" }, "g/kg/d")), /* @__PURE__ */ React.createElement("th", { className: "r" }, "GIR", /* @__PURE__ */ React.createElement("span", { className: "th-unit" }, "mg/kg/min")), /* @__PURE__ */ React.createElement("th", { className: "r" }, "EN", /* @__PURE__ */ React.createElement("span", { className: "th-unit" }, "mL/kg/d")), /* @__PURE__ */ React.createElement("th", null, "ธง"), /* @__PURE__ */ React.createElement("th", null, "Submit ล่าสุด"))), /* @__PURE__ */ React.createElement("tbody", null, rows.map((r) => /* @__PURE__ */ React.createElement(
+    "tr",
+    {
+      key: r.sessionId,
+      className: r.level === "crit" ? "is-crit" : r.level === "warn" ? "is-warn" : "",
+      "data-sid": r.sessionId,
+      onClick: () => open(r),
+      ...rowA11y(() => open(r))
+    },
+    /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(BedChip, { p: r.p, stacked: true })),
+    /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { className: "wtpn-name" }, D_R.patientName(r.p) || "—", /* @__PURE__ */ React.createElement(TestTag, { p: r.p }), r.p.twinSuffix && /* @__PURE__ */ React.createElement("span", { className: "chip", style: { marginLeft: 6, fontSize: 11 } }, multiplesLabel(r.p))), /* @__PURE__ */ React.createElement("div", { className: "wtpn-sub" }, wtpnWho(r.p))),
+    /* @__PURE__ */ React.createElement("td", { className: "r num" }, r.dol),
+    /* @__PURE__ */ React.createElement("td", { className: "r num" }, wtpnNum(r.pnDay)),
+    /* @__PURE__ */ React.createElement("td", { className: `r num ${wtpnCellCls(r, "aa")}` }, wtpnNum(r.aa)),
+    /* @__PURE__ */ React.createElement("td", { className: `r num ${wtpnCellCls(r, "lipid")}` }, wtpnNum(r.lipid)),
+    /* @__PURE__ */ React.createElement("td", { className: `r num ${wtpnCellCls(r, "gir")}` }, wtpnNum(r.gir)),
+    /* @__PURE__ */ React.createElement("td", { className: `r num ${wtpnCellCls(r, "pnAfterEn")}` }, wtpnNum(r.en, 1), r.men ? " MEN" : ""),
+    /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { className: "wtpn-flags" }, /* @__PURE__ */ React.createElement(WardTpnFlags, { r }))),
+    /* @__PURE__ */ React.createElement("td", { className: "wtpn-sub" }, wtpnSubmitted(r, today))
+  ))))), /* @__PURE__ */ React.createElement("div", { className: "wtpn-cards" }, rows.map((r) => /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      key: r.sessionId,
+      className: "wtpn-card" + (r.level === "crit" ? " is-crit" : r.level === "warn" ? " is-warn" : ""),
+      "data-sid": r.sessionId,
+      onClick: () => open(r),
+      ...rowA11y(() => open(r))
+    },
+    /* @__PURE__ */ React.createElement("div", { className: "wtpn-card-top" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(BedChip, { p: r.p }), " ", /* @__PURE__ */ React.createElement("span", { className: "wtpn-name" }, D_R.patientName(r.p) || "—"), /* @__PURE__ */ React.createElement(TestTag, { p: r.p })), /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, wtpnSubmitted(r, today))),
+    /* @__PURE__ */ React.createElement("div", { className: "wtpn-sub" }, wtpnWho(r.p), " · DOL ", r.dol, r.pnDay ? ` · วัน PN ${r.pnDay}` : ""),
+    /* @__PURE__ */ React.createElement("div", { className: "wtpn-grid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, "AA", /* @__PURE__ */ React.createElement("br", null), "g/kg/d"), /* @__PURE__ */ React.createElement("b", { className: wtpnCellCls(r, "aa") }, wtpnNum(r.aa))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, "Lipid", /* @__PURE__ */ React.createElement("br", null), "g/kg/d"), /* @__PURE__ */ React.createElement("b", { className: wtpnCellCls(r, "lipid") }, wtpnNum(r.lipid))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, "GIR", /* @__PURE__ */ React.createElement("br", null), "mg/kg/min"), /* @__PURE__ */ React.createElement("b", { className: wtpnCellCls(r, "gir") }, wtpnNum(r.gir))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "wtpn-sub" }, "EN", /* @__PURE__ */ React.createElement("br", null), "mL/kg/d"), /* @__PURE__ */ React.createElement("b", { className: wtpnCellCls(r, "pnAfterEn") }, wtpnNum(r.en, 1), r.men ? " MEN" : ""))),
+    /* @__PURE__ */ React.createElement("div", { className: "wtpn-flags" }, /* @__PURE__ */ React.createElement(WardTpnFlags, { r }))
+  )))), /* @__PURE__ */ React.createElement("div", { className: "wtpn-legend" }, /* @__PURE__ */ React.createElement("b", null, "ธง"), " บอกเรื่องที่คำสั่งวันนี้ยังแก้ได้ · AA < ", wtpnNum(A.belowGPerKg), ": preterm (GA < ", D_R.PRETERM_GA_WK, " wk) DOL ", A.fromDol, "–", A.toDol, " ที่ EN < ", A.enBelowMlKg, " mL/kg/d นับตาม DOL ของวันนี้ แม้ทารก admit ทีหลัง และนับคำสั่ง No TPN เป็น AA 0 (ESPGHAN 2018 PN, R 3.2) · DOL ", D_R.WARD_LIPID_FLAG_DOL, " ยังไม่มี lipid: preterm รวมคำสั่ง No TPN (ESPGHAN 2018 PN, R 4.2) · GIR เกิน ", D_R.GIR_HARD_HI, " แดง ต่ำกว่า ", D_R.TARGETS.gir()[0], " เหลือง ตามแถบ GIR ของแอป · EN ≥ เกณฑ์หยุด PN แต่ยังมี PN: ", S.below, " mL/kg/d ใน GA < ", S.belowGaWk, " wk และ ", S.atOrAbove, " ตั้งแต่ ", S.belowGaWk, " wk (NICE NG154 rec 1.8.2–1.8.3) · No TPN: คำสั่งล่าสุดไม่มี TPN อยู่ในหน้านี้ ", D_R.WARD_TPN_RECENT_DAYS, " วันนับจากคำสั่งล่าสุดที่มี TPN"), /* @__PURE__ */ React.createElement("div", { className: "wtpn-legend" }, "AA, lipid, GIR และ EN เป็นค่าที่สั่ง ไม่ใช่ค่าที่ทารกได้รับจริง · GIR นับเฉพาะ dextrose ทาง IV"))));
+}
 const RESUBMIT_HOW = "หมอเปิด order ดูตัวเลขที่เปลี่ยน กด Submit ใหม่";
 const resubmitHowFor = (entry) => RESUBMIT_HOW + (D_R.orderHadTpn(entry) || D_R.orderCancelsTpn(entry) ? " แล้วโทรบอกห้อง TPN" : "");
 function ResubmitTag({ p, entries, today }) {
@@ -362,7 +492,8 @@ function PatientRegistry({
   printWard,
   onPrintWard,
   onPrintOrder,
-  onPrintAll
+  onPrintAll,
+  onOpenWardTpn
 }) {
   const [filter, setFilter] = React.useState("");
   const [statFilter, setStatFilter] = React.useState(null);
@@ -455,11 +586,11 @@ function PatientRegistry({
     n: D_R.searchPatients(patients.filter((p) => D_R.patientWard(p) === w && isActivePatient(p)), q).hits.length
   })).filter((x) => x.n > 0) : [];
   const miss = /* @__PURE__ */ React.createElement(SearchMiss, { query: q, wardName, elsewhere, onWardChange });
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, wardPatients.length, " sessions · ", totalActive, " active")), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, wardPatients.length, " sessions · ", totalActive, " active")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" } }, onOpenWardTpn && /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onOpenWardTpn, style: { fontSize: 12.5 } }, /* @__PURE__ */ React.createElement(Icon, { name: "drop", size: 14 }), " TPN ทั้งหอ"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => {
     setFilter("");
     setStatFilter(null);
     onWardChange?.(null);
-  }, style: { fontSize: 12.5 } }, "← เปลี่ยน ward")), /* @__PURE__ */ React.createElement("div", { className: "reg-stats", role: "group", "aria-label": "กรองรายชื่อ" }, /* @__PURE__ */ React.createElement(
+  }, style: { fontSize: 12.5 } }, "← เปลี่ยน ward"))), /* @__PURE__ */ React.createElement("div", { className: "reg-stats", role: "group", "aria-label": "กรองรายชื่อ" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -1350,5 +1481,6 @@ function StatusModal({ patient, patients, onClose, onSubmit, mergeBaseFor }) {
   ))), changed && !bedTaken && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 } }, status === "Active" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "กลับเข้ารายชื่อ ward", bed ? /* @__PURE__ */ React.createElement(React.Fragment, null, " ที่เตียง ", /* @__PURE__ */ React.createElement("strong", null, bed)) : D_R.lastBed(patient) ? /* @__PURE__ */ React.createElement(React.Fragment, null, " · รอเตียง (จาก ", D_R.lastBed(patient), ") เลือกเตียงด้วย ⇄") : null) : current === "Active" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "ย้ายไปอยู่ในรายการ Discharged / Transferred / Expired", bed ? /* @__PURE__ */ React.createElement(React.Fragment, null, " · เตียง ", /* @__PURE__ */ React.createElement("strong", null, bed), " จะว่าง") : null) : /* @__PURE__ */ React.createElement(React.Fragment, null, "เปลี่ยนจาก ", current, " เป็น ", status)), bedTaken && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)", lineHeight: 1.5 } }, D_R.bedTakenMsg(bed, bedTaken), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", marginTop: 4 } }, "หรือกด Edit เพื่อเลือกเตียงอื่นพร้อมกับเปลี่ยน status")), /* @__PURE__ */ React.createElement(SubmitError, { error: submitError }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: save, disabled: !changed || !!bedTaken || busy }, /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14, color: "#fff" }), " ", busy ? "กำลังบันทึก…" : "Save")))));
 }
 window.PatientRegistry = PatientRegistry;
+window.WardTpnPage = WardTpnPage;
 window.PatientPicker = PatientPicker;
 window.EditPatientModal = EditPatientModal;
