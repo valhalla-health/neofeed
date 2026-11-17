@@ -7,6 +7,21 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-18 (2) — STATUS and BACKLOG catch up; GLOSSARY.md goes in
+
+`STATUS.md`, `BACKLOG.md`, `GLOSSARY.md` (new). Records only, no code. The catch-up of 2026-11-17 found what the next PR
+owes, whatever its subject (no record-only PRs):
+
+- **STATUS.** #280, #281 and #282 are live via release #283 (`198faf7`, `verify-release` 0 failures on both hosts, comment
+  on #283). #241, #245, #254, #258 and #259 were still ⏳ in the banner; the first release tag that contains each merge
+  is `release-2026-11-11-pr242`, `-pr246`, `release-2026-11-14-pr261`, `-pr260` and `-pr261` (`git merge-base
+  --is-ancestor`). #279 was already marked live.
+- **BACKLOG, five stale lines.** `GOOGLE_HD_ENFORCE` is on since `@70` (2026-11-11); NF-02 is live since `@66` and release
+  #201; the stickers' PR A (#212) and PR B (the page, #219) are live since releases #214 and #221; the bedside item's
+  `@56` + `edbd11f` stamp is replaced by today's stack, its checks still open.
+- **GLOSSARY.md**, one word per idea, written 2026-11-10 and left untracked in the main checkout. Pp, 2026-11-17: put it
+  in the next PR. Added as found.
+
 ## Session 2026-11-18 (1) — "TPN ทั้งหอ": the review's four errors fixed; a No TPN order is flagged as AA 0
 
 `data.js` (`orderSubmittedAt`, `wardTpnRow`, the `PN_STOP_EN_ML_KG` comment), `registry.jsx` (`wtpnSubmitted`, the
