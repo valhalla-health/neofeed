@@ -94,6 +94,12 @@ const ok = (name, cond, detail) => {
   // import, and changed --checks arguments. Each of those three doors is pinned here.
   ok('6.8 run() is called once, and only with a PROBES entry',
     (src.match(/\brun\(/g) || []).length === 2 && src.includes('const probe = id => run(PROBES[id]);'));
+  // A third review aliased them instead (`const rr = run`, `const sp = spawnSync`). Counting every
+  // mention outside comments catches an alias too: run twice (its definition and the probe),
+  // spawnSync three times (the import, run() and the --checks step).
+  const code = src.replace(/^\s*\/\/.*$/gm, '');
+  ok('6.11 no alias of run or spawnSync', (code.match(/\brun\b/g) || []).length === 2 && (code.match(/\bspawnSync\b/g) || []).length === 3,
+    { run: (code.match(/\brun\b/g) || []).length, spawnSync: (code.match(/\bspawnSync\b/g) || []).length });
   ok('6.9 child_process gives spawnSync only, under its own name',
     (src.match(/child_process/g) || []).length === 1 && src.includes('import { spawnSync } from "node:child_process";'));
   ok('6.10 --checks starts exactly the pre-PR checks',

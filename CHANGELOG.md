@@ -24,20 +24,22 @@ PR, and commands for both Windows and Mac.
   adds `node tools/run_checks.js --level ci --phase pre`, which is not read-only (`build-fresh` runs `npm ci --prefix
   tools` and the build). Node 22 or newer passes; 22 is CI's. The harness packages are required, since `AGENTS.md`
   asks for the harnesses before a PR. `--offline` always ends not ready, as it cannot confirm the GitHub sign-in.
-- **`test/verify-maintainer-doctor.cjs`**: 49 checks. The probe list is pinned to an exact literal; `run()` is called
-  only with a `PROBES` entry; `child_process` gives `spawnSync` alone; `--checks` starts exactly the pre-PR checks;
-  a fork or another repo of the org fails; the default run leaves the working tree unchanged. Ten mutations were tried
-  and each fails it: probes for `git push`, `clasp run setupSheetBackups` and `npx wrangler rollback`; an extra
-  `execSync`, a bare `run()`, an aliased `execSync` import and changed `--checks` arguments; a hooks check that
-  always passes; the harness packages made optional; the skipped GitHub checks made optional.
-- **Two new-agent reads before any push.** Fixed from them: the read-only claim (now `--checks` is opt-in), the
+- **`test/verify-maintainer-doctor.cjs`**: 50 checks. The probe list is pinned to an exact literal; outside comments
+  `run` appears twice and `spawnSync` three times, so a bare call or an alias of either fails it; `child_process`
+  gives `spawnSync` alone; `--checks` starts exactly the pre-PR checks; a fork or another repo of the org fails; the
+  default run leaves the working tree unchanged. Twelve mutations were tried and each fails it: probes for `git push`,
+  `clasp run setupSheetBackups` and `npx wrangler rollback`; an extra `execSync`, a bare `run()`, aliases of `run`
+  and `spawnSync`, an aliased `execSync` import and changed `--checks` arguments; a hooks check that always passes;
+  the harness packages made optional; the skipped GitHub checks made optional.
+- **Three new-agent reads before any push.** Fixed from them: the read-only claim (now `--checks` is opt-in), the
   harnesses `AGENTS.md` asks for before a PR, the merge and frontend-rollback rules, the Apps Script API user
   setting clasp needs, the Windows PATH and execution-policy steps, the in-app admin row, and the Playwright install.
   The editor rule became an allow-list, for Pp to confirm: from the Run button only `sheetHealthReport`.
-  `setInitialPassword` and `clearStaffPassword` need an email, so a one-line wrapper saved in the editor, which
-  changes the code triggers run; they wait for a sitting with Pp. A new account is a row in the Staff tab, whose
-  `onEdit` writes a temporary password. Deleting a `fail_…` property to lift a lockout is the one Script Property
-  change allowed, also for Pp to confirm.
+  `setInitialPassword` and `clearStaffPassword` need arguments, so running one means saving a one-line wrapper in
+  the editor, which changes the code the editor runs at once and, it is expected, the triggers too; they wait for a
+  sitting with Pp. A new account is a row typed into the Staff tab with active TRUE, whose `onEdit` writes a
+  temporary password (none for Gmail and Chula Google accounts). Deleting a `fail_…` property to lift a lockout that
+  returns after its 15 minutes is the one Script Property change allowed, also for Pp to confirm.
 - **Found while writing the guide, not changed here:** the app has no staff page. Adding, disabling, re-roling,
   resetting or unlocking an account is a Staff-tab edit or an editor-run function, so whoever manages users must be a
   Sheet editor. `REFERENCE.md` lines 772 and 779 say it is done "from the Admin page". Correcting them waits for Pp's
