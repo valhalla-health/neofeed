@@ -532,6 +532,14 @@ cannot go on printing the old sheet after a release that moved printed figures. 
 release, release the frontend, then deploy the backend in the same sitting. The backend refuses every
 frontend still on the older version, so roll the backend back first.
 
+**A tab opened since 2026-11-17 checks the release itself.** The calculator reads `compiled/tpn-room-version.js`
+uncached when the form opens, and again before a Submit when that read is over a minute old; when it names
+other versions than the tab's, a banner asks for a reload and Submit sends nothing (`tabIsBehindRelease` in
+`calculator.jsx`, `D.tabDiffersFromServed`). It fails open on a failed request. So a
+release that moves `CONSTANTS_VERSION` needs no backend step to stop such a tab; raise
+`MIN_SUBMIT_CONSTANTS_VERSION` only to refuse a tab older than the 2026-11-17 release, or to close the fail-open
+path. Say in the ward's release notice that open NeoFeed tabs and the TPN room's page reload (F5).
+
 Running a function from the Apps Script editor (e.g. the one-off `applyStaffHeaderColumns`
 / `applyLogHeaderColumns` migrations) executes as the signed-in user and may raise an OAuth
 consent — that is Praew's to approve, not something to click through on her behalf.
@@ -787,6 +795,10 @@ PR B of `openspec/changes/tpn-room-stickers`. Not live: `STATUS.md` says what ho
 - **The sheet's sizes (TPN unit, 2026-11-16).** The worksheet is 150 × 85 mm, 5 mm from the left and 10 mm from the top,
   each figure beside its name; the PN label 200 × 80 mm; the bag sticker takes the rest. Each part has a dashed outline to
   cut along. The page refuses a sheet whose content overflows a part (`sheetOverflows`).
+- **A page left open across a release (2026-11-17).** Each list load reads `compiled/tpn-room-version.js` beside
+  `pharmacyOrders`, and a page behind it shows a reload banner. `printReasons` judges each order against that served
+  release (`ctx.served`): an order on it needs nothing from the doctor; one on anything else, older or newer, asks the
+  doctor to reload NeoFeed and Submit. Without a served read, the page's own versions stand in.
 - **`tpn-room-check.html`** checks a PC's browser: folder, rewrite, permission, device key, after a restart. Use it on a
   new PC too. It calls no server and holds no patient data.
 - **The name file** is `neofeed-tpn-room-names.nfenc`, in a folder the room picks: never OneDrive, never one a restore clears. A
@@ -877,7 +889,10 @@ the analysis, on aggregates; the export itself is row-level.
 one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with the change request (tasks.md
 0.2):** `pseudonymizePatient()` cannot reach that PC, so an erasure leaves the name there until the 30-day purge, and
 an edit keeps the old name in the history until then; and a `.replaced-*` file left by "start a new file" has no end date,
-because the purge runs on the open file only. No retention rule or manual erasure step exists yet.
+because the purge runs on the open file only. No retention rule or manual erasure step exists yet. Since 2026-11-17
+the names page ("รายชื่อทั้งหมด") lists on one screen every name the open file holds, with its AN and edit history,
+including a name kept after an erasure until the purge; a remove action there is the obvious manual erasure step for
+Pp and the DPO to weigh.
 **Trial sheets (since 2026-11-16, until the unit's PN lines come):** each carries a real name and AN on all three
 parts and is meant to be thrown away. The row tells the room to shred it or put it in the confidential-waste bin;
 where the ward's own disposal rule differs, that rule is for Pp and the DPO to name.

@@ -41,6 +41,12 @@ async function gas(body, { keepalive = false } = {}) {
   }
 }
 
+// compiled/tpn-room-version.js as the host serves it now: its text, "" for a reply that
+// is not 2xx, or null when the request failed.
+function servedVersionText() {
+  return fetch("compiled/tpn-room-version.js", { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => null);
+}
+
 function readSession() {
   try {
     const s = JSON.parse(sessionStorage.getItem(SESSION_KEY));
@@ -357,12 +363,19 @@ function MappingDialog({ order, infants, onSave, onClose }) {
       <div className="dialog" role="dialog" aria-modal="true" aria-label="ใส่ชื่อกับ AN">
         <h2>ใส่ชื่อกับ AN</h2>
         <p className="muted">ดูจาก order กระดาษ ซึ่งมีทั้ง NeoFeed ID และสติกเกอร์ผู้ป่วย</p>
+        {/* From the names page there is no order: only the ID and the day it was last seen. */}
         <dl className="facts">
           <div><dt>NeoFeed ID</dt><dd>{order.sessionId}</dd></div>
-          <div><dt>เตียง</dt><dd>{order.bed || "ไม่มีเตียง"}</dd></div>
-          <div><dt>BW</dt><dd>{order.bw} g</dd></div>
-          <div><dt>DOL</dt><dd>{order.dol}</dd></div>
-          {pj && <div><dt>น้ำหนักที่ใช้คำนวณ</dt><dd>{pj.dosingWeightKg} kg</dd></div>}
+          {order.fromList ? (
+            had && had.lastSeen && <div><dt>เห็นใน order ล่าสุด</dt><dd>{Core.buddhistDate(had.lastSeen)}</dd></div>
+          ) : (
+            <>
+              <div><dt>เตียง</dt><dd>{order.bed || "ไม่มีเตียง"}</dd></div>
+              <div><dt>BW</dt><dd>{order.bw} g</dd></div>
+              <div><dt>DOL</dt><dd>{order.dol}</dd></div>
+              {pj && <div><dt>น้ำหนักที่ใช้คำนวณ</dt><dd>{pj.dosingWeightKg} kg</dd></div>}
+            </>
+          )}
         </dl>
         {twin && <p className="twin-big">{twin}</p>}
         <form onSubmit={submit} className="stack">
@@ -377,9 +390,9 @@ function MappingDialog({ order, infants, onSave, onClose }) {
         {had && (
           <div className="history">
             <h3>ประวัติการแก้</h3>
-            <p className="muted">ล่าสุด: {had.by} {had.at}</p>
+            <p className="muted">ล่าสุด: {had.by} {Core.wardDateTime(had.at) || had.at}</p>
             {had.history.slice().reverse().map((h, i) => (
-              <p key={i} className="muted">{h.at} {h.by}: {h.name} · {h.an}</p>
+              <p key={i} className="muted">{Core.wardDateTime(h.at) || h.at} {h.by}: {h.name} · {h.an}</p>
             ))}
           </div>
         )}
@@ -388,16 +401,69 @@ function MappingDialog({ order, infants, onSave, onClose }) {
   );
 }
 
+// ── Every infant in the name file (Pp, 2026-11-17: "หน้ารวมชื่อทุกคน") ──
+// A sheet over the order list, with each name and AN editable, an infant with no order on
+// the chosen date included. Nothing here leaves the PC: it reads the open name file only.
+function NamesPage({ infants, printLog, onEdit, onClose }) {
+  const [query, setQuery] = React.useState("");
+  const rows = Core.namesList(infants, query);
+  // A name or AN edited after a print: every day in the room's window whose bag still has the old one.
+  const win = Core.dateWindow();
+  const renamedBags = (id) => Core.renamedBagDates(infants[id], printLog, id, win);
+  const total = Object.keys(infants).length;
+  return (
+    <div className="scrim">
+      <div className="dialog names-page" role="dialog" aria-modal="true" aria-label="รายชื่อในไฟล์ชื่อ">
+        <div className="row names-top">
+          <h2>รายชื่อในไฟล์ชื่อ {total} คน</h2>
+          <button onClick={onClose}>กลับไปรายการ order</button>
+        </div>
+        <p className="muted">ชื่อกับ AN อยู่ในไฟล์บนเครื่องนี้เท่านั้น ทารกที่ไม่มี order 30 วัน ไฟล์จะลบชื่อออกเอง</p>
+        <label className="inline">ค้นหา
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="NeoFeed ID ชื่อ หรือ AN" autoComplete="off" />
+        </label>
+        {rows.length > 0 ? (
+          <table className="names">
+            <thead>
+              <tr><th>NeoFeed ID</th><th>ชื่อที่จะพิมพ์</th><th>AN</th><th>เห็นใน order ล่าสุด</th><th>แก้ล่าสุด</th><th></th></tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.sessionId} data-session={r.sessionId}>
+                  <td>{r.sessionId}</td>
+                  <td>
+                    <strong>{r.name}</strong>
+                    {renamedBags(r.sessionId).length > 0 && (
+                      <div className="warn renamed">แก้หลังพิมพ์ ถุงของวันที่ {renamedBags(r.sessionId).map(Core.buddhistDate).join(", ")} ยังมีชื่อหรือ AN เดิม</div>
+                    )}
+                  </td>
+                  <td>{r.an}</td>
+                  <td>{Core.buddhistDate(r.lastSeen)}</td>
+                  <td className="muted">{r.by} {Core.wardDateTime(r.at)}</td>
+                  <td><button onClick={() => onEdit(r.sessionId)}>แก้ชื่อ / AN</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="muted">{query.trim() ? "ไม่พบชื่อที่ค้นหา" : "ยังไม่มีชื่อในไฟล์"}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── One order on the list ────────────────────────────────────
-function OrderRow({ order, date, file, onMap, onPrint, busy }) {
+function OrderRow({ order, date, file, onMap, onPrint, busy, served }) {
   const state = file ? file.state : null;
   const mapping = state ? state.infants[order.sessionId] : null;
   const reasons = Core.printReasons(order, {
     date, constantsVersion: VERSIONS.constantsVersion, stickerSchema: VERSIONS.stickerSchema,
-    nameFileOpen: !!file, mapping,
+    nameFileOpen: !!file, mapping, served,
   });
   const last = state ? Core.lastPrint(state.printLog, order.sessionId, date) : null;
   const changed = state ? Core.changedAfterPrint(order, state.printLog, date) : false;
+  const renamed = Core.editedAfterPrint(mapping, last);
   const paper = state ? Core.needsPaperCheck(date, state.meta.logLostOn) : false;
   const trial = Core.trialNote();
   const crit = order.printJson && order.printJson.critical;
@@ -429,6 +495,7 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
         </div>
       )}
       {changed && <p className="warn">หมอแก้ order หลังพิมพ์ → ฉบับ {order.revision}</p>}
+      {renamed && <p className="warn renamed">แก้ชื่อหรือ AN หลังพิมพ์ ถุงที่พิมพ์ไปยังมีชื่อหรือ AN เดิม กดพิมพ์ซ้ำ</p>}
       {paper && !last && <p className="warn">เทียบกับ order กระดาษก่อน ไฟล์ชื่อเริ่มใหม่ จึงไม่รู้ว่าพิมพ์ไปแล้วหรือยัง</p>}
       {last && !changed && <p className="muted">พิมพ์แล้ว{last.trial ? " (แผ่นทดลอง)" : ""} {Core.wardTime(last.at)} โดย {last.by}</p>}
       {!changed && Core.trialReprintDue(last) && <p className="warn">ที่พิมพ์ไปเป็นแผ่นทดลอง กดพิมพ์ซ้ำเพื่อได้สติกเกอร์จริง</p>}
@@ -512,10 +579,8 @@ function StickerSheet({ model: m }) {
       <section className={"part part-label" + (m.trial ? " part-trial" : "")}>
         {m.trial && <TrialMark />}
         <div className="fixed-line heading" data-fixed="">{m.heading}</div>
-        <div className="part-head">
-          <div className="big-name" data-mapped="name">{m.name}</div>
-          <div><Lbl>AN</Lbl> <span data-mapped="an">{m.an}</span></div>
-        </div>
+        <div className="big-name" data-mapped="name">{m.name}</div>
+        <div className="an-line"><Lbl>AN</Lbl> <span data-mapped="an">{m.an}</span></div>
         <div className="facts-line">
           <span><Lbl>DOL</Lbl> <Fig of="dol">{m.dol}</Fig></span>
           <span><Lbl>Ward</Lbl> <span data-mapped="ward">{m.ward}</span></span>
@@ -569,18 +634,30 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const [file, setFile] = React.useState(null);
   const [, bump] = React.useReducer((n) => n + 1, 0);
   const [mappingFor, setMappingFor] = React.useState(null);
+  const [namesOpen, setNamesOpen] = React.useState(false);
   const [printJob, setPrintJob] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
 
   // One read of pharmacyOrders. On open and on a person's press only (design D8):
-  // each call adds an Audit_Log row and reads two tabs uncached.
+  // each call adds an Audit_Log row and reads two tabs uncached. The served version
+  // file comes with it (2026-11-17): a page left open across a release judged every
+  // new order against its old versions and told the room to ask the doctor for another
+  // Submit, which could not help. `served` is the versions the host serves now, or null
+  // when the file could not be read; the rows judge each order against it
+  // (Core.printReasons). `stale`: it was read, and this page is not on it. A file it
+  // cannot read leaves the list as it was, and Print still refuses (printOrder).
   const fetchDay = React.useCallback(async (day) => {
-    const r = await gas({ action: "pharmacyOrders", token: user.token, date: day });
+    const [r, servedText] = await Promise.all([
+      gas({ action: "pharmacyOrders", token: user.token, date: day }),
+      servedVersionText(),
+    ]);
     if (r.error === "Unauthorized") { onExpired(); return null; }
     if (r.error === "PasswordChangeRequired") { onMustChange(); return null; }
     if (r.error === "Forbidden") { onExpired("บัญชีนี้ไม่มีสิทธิ์ใช้หน้าห้อง TPN"); return null; }
     if (!r.ok) throw new Error(String(r.error || "โหลด order ไม่สำเร็จ"));
-    const next = { date: day, counts: r.counts, orders: Core.currentOrders(r.orders), loadedAt: Date.now() };
+    const served = Core.versionsOf(servedText);
+    const stale = !!served && !Core.versionsMatch(servedText, VERSIONS);
+    const next = { date: day, counts: r.counts, orders: Core.currentOrders(r.orders), loadedAt: Date.now(), served, stale };
     setReply(next);
     return next;
   }, [user.token]);
@@ -633,7 +710,13 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
 
   const saveMapping = async (values) => {
     const order = mappingFor;
-    await file.save((s) => NameStore.mapInfant(s, order.sessionId, values, who, new Date().toISOString(), reply.date));
+    // บันทึก with nothing changed writes nothing: a new edit time would flag a printed bag
+    // as carrying an old name (editedAfterPrint) and add a history line that says nothing.
+    const had = file.state.infants[order.sessionId];
+    if (had && had.name === values.name && had.an === values.an) { setMappingFor(null); return; }
+    // An edit from the names page is not a sighting in an order (Core.mappingSeenOn).
+    const seenOn = Core.mappingSeenOn(had, order.fromList, reply && reply.date);
+    await file.save((s) => NameStore.mapInfant(s, order.sessionId, values, who, new Date().toISOString(), seenOn));
     setMappingFor(null);
     bump();
   };
@@ -642,7 +725,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
     setBusy(true); setError("");
     try {
       // A tab left open across a release still holds the old versions.
-      const served = await fetch("compiled/tpn-room-version.js", { cache: "no-store" }).then((r) => (r.ok ? r.text() : "")).catch(() => null);
+      const served = await servedVersionText();
       if (served === null) { setError("เช็กรุ่นของหน้านี้ไม่ได้ ลองใหม่อีกครั้ง"); return; }
       if (!Core.versionsMatch(served, VERSIONS)) { setError("NeoFeed ออกรุ่นใหม่แล้ว โหลดหน้านี้ใหม่ก่อนพิมพ์"); return; }
       // Read once more: the list may be minutes old (spec, "Checked again just before printing").
@@ -653,7 +736,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
       const mapping = file.state.infants[order.sessionId];
       const reasons = Core.printReasons(check.order, {
         date: fresh.date, constantsVersion: VERSIONS.constantsVersion, stickerSchema: VERSIONS.stickerSchema,
-        nameFileOpen: true, mapping,
+        nameFileOpen: true, mapping, served: fresh.served || null,
       });
       if (reasons.length) { setError(reasons.join(" · ")); return; }
       setPrintJob({
@@ -662,6 +745,8 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
           sessionId: order.sessionId, date: fresh.date, entryId: check.order.entryId,
           revision: check.order.revision, preparedDate, by: who, at: new Date().toISOString(),
           trial: !Core.fixedLinesReady(),
+          // The mapping this sticker printed, by its own time: Core.editedAfterPrint.
+          mappingAt: mapping.at,
         },
       });
     } catch (err) { setError(err.message); } finally { setBusy(false); }
@@ -677,7 +762,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const gone = reply && file ? Core.goneAfterPrint(orders, file.state.printLog, reply.date) : [];
   const count = file ? Object.keys(file.state.infants).length : 0;
   const backToDraft = reply && file ? Core.draftAfterPrint(orders, file.state.printLog, reply.date) : [];
-  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob } : null;
+  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob, served: reply.served || null } : null;
 
   return (
     <>
@@ -685,6 +770,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         <header className="top">
           <h1>ห้อง TPN</h1>
           <div className="row">
+            {file && <button onClick={() => setNamesOpen(true)}>รายชื่อทั้งหมด</button>}
             {user.authMethod !== "google" && <button onClick={onChangePassword}>เปลี่ยนรหัสผ่าน</button>}
             <button onClick={onLogout}>ออกจากระบบ</button>
           </div>
@@ -715,6 +801,12 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         {!dateOk && <p className="bad" role="alert">เลือกได้ตั้งแต่ {Core.buddhistDate(win.min)} ถึง {Core.buddhistDate(win.max)}</p>}
         {reply && reply.date !== date && dateOk && !loading && <p className="note">รายการด้านล่างเป็นของวันที่ {Core.buddhistDate(reply.date)}</p>}
         {error && <p className="bad" role="alert">{error}</p>}
+        {reply && reply.stale && (
+          <p className="bad stale-page" role="alert">
+            NeoFeed ออกรุ่นใหม่แล้ว แต่หน้านี้ยังเป็นรุ่นเก่า กดโหลดหน้านี้ใหม่ก่อนเช็กรายการ โหลดแล้วต้องเปิดไฟล์ชื่ออีกครั้ง
+            {" "}<button onClick={() => window.location.reload()}>โหลดหน้านี้ใหม่</button>
+          </p>
+        )}
         {gone.map((p) => (
           <p key={p.sessionId} className="warn gone" data-gone={p.sessionId}>
             {p.sessionId}: พิมพ์แล้ว แต่ถูกลบใน NeoFeed — อย่าใช้ถุงนี้
@@ -749,6 +841,10 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         ))}
         <Contacts />
       </div>
+      {namesOpen && file && (
+        <NamesPage infants={file.state.infants} printLog={file.state.printLog} onClose={() => setNamesOpen(false)}
+          onEdit={(sessionId) => setMappingFor({ sessionId, fromList: true })} />
+      )}
       {mappingFor && file && (
         <MappingDialog order={mappingFor} infants={file.state.infants} onSave={saveMapping} onClose={() => setMappingFor(null)} />
       )}

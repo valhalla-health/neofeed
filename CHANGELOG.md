@@ -7,6 +7,197 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (9) — Pp keeps the week on the names page's reprint flag
+
+`CHANGELOG.md` only. Entry (8) left Vera's point to Pp: the names page names every day from today −7 to +1 whose bag
+predates the name or AN, so a bag already given stays listed until that day leaves the window. Pp, 2026-11-17:
+"ห้อง TPN บอกชื่อคนไข้ย้อนหลังเจ็ดวัน". The window stays a week; no code changes.
+
+## Session 2026-11-17 (8) — Vera's third check: a page test that needs the print's `mappingAt`
+
+`test/verify-tpn-room-page-1105.cjs` §12d.
+
+- **Why.** Vera: the in-flight and clock-back fix of entry (7) rests on one line in `printOrder` (`mappingAt:
+  mapping.at`), and every check still passed without it, since the Node cases build the log by hand.
+- **The check.** After a print, the page's clock steps back an hour and the AN is corrected, so the edit's time is
+  earlier than the print's: the row and the names page are still flagged, from the mapping the print recorded. On a
+  copy without that line both checks fail ("got 0, want 1"); 134/134 here.
+- **Left to Pp:** Vera's other point. The names page names every day from today −7 to +1 whose bag predates the
+  mapping, and only a reprint for that day clears it, so bags already given stay listed for up to a week.
+
+## Session 2026-11-17 (7) — Vera on the flag: the print records the mapping it used; every bag in the window is named
+
+`tpn-room-core.js` (`editedAfterPrint` reads `mappingAt`; `renamedBagDates`), `tpn-room.jsx` (the print log's
+`mappingAt`; the names page's flag), `compiled/tpn-room.js`, the room shells' `?v=`, `test/verify-tpn-room-names-1117.cjs`
+§4, `test/verify-tpn-room-page-1105.cjs` §12d, `openspec/changes/tpn-room-stickers/design.md`. Corrects entry (6), on the
+same PR and not yet released.
+
+- **The mapping a sticker printed.** Entry (6) compared the edit's time with the print's. An AN saved while a print was
+  in flight lands before the print's time, so the sticker printed the old AN and nothing flagged it; a PC clock that
+  stepped back did the same. Each print now records the mapping's own time (`mappingAt`), and a row is flagged when the
+  mapping is no longer that one. A log line from before the field falls back to the times. The log still keeps no name.
+- **Every bag, not only the last.** The names page looked at the infant's last print on any date, so a print for
+  17/11 after the edit cleared the flag while the 16/11 bag still carried the old AN. It now names every day in the
+  room's window (today −7 to +1) whose last print predates the mapping. Vera left the choice to Pp (the earlier bag may
+  be gone by then); this takes the side that shows more, and the room judges from the dates.
+- **The test.** §12d's last check counted flags right after the click that opens the names page; it now waits for the
+  page first.
+- **Tests.** `verify-tpn-room-names-1117.cjs` §4, 13 checks (31/31): 5 new fail on `44a5aa5`. `verify-tpn-room-page-1105.cjs`
+  132/132.
+
+## Session 2026-11-17 (6) — A name or AN edited after its sticker printed is flagged until a reprint
+
+`tpn-room-core.js` (`lastPrintOf`, `editedAfterPrint`), `tpn-room.jsx` (the order row's and the names page's flag;
+`saveMapping` writes nothing when nothing changed), `compiled/tpn-room.js`, the room shells' `?v=`,
+`test/verify-tpn-room-names-1117.cjs` §4, `test/verify-tpn-room-page-1105.cjs` §12d,
+`openspec/changes/tpn-room-stickers/design.md` (the name file).
+
+- **Why.** Vera's finding 1 on this PR, which entry (5) left to Pp: an AN corrected after the sticker printed leaves the
+  bag with the old one, and no screen asked for a reprint; the names page adds a route to that edit and shows no print
+  status. Pp, 2026-11-17: "เพิ่มเลย".
+- **The flag.** When the mapping's time is later than the last print's, the order row for that date says
+  "แก้ชื่อหรือ AN หลังพิมพ์ ถุงที่พิมพ์ไปยังมีชื่อหรือ AN เดิม กดพิมพ์ซ้ำ", and the names page row says which day's bag:
+  "แก้หลังพิมพ์ ถุงของวันที่ 17/11/2569 ยังมีชื่อหรือ AN เดิม". The print log keeps no name: the two times decide. A
+  reprint clears it. The order row was missing this too before the names page.
+- **บันทึก with nothing changed writes nothing.** A new edit time on an unchanged name would raise the flag for nothing
+  and add an empty history line.
+- **Tests.** `verify-tpn-room-names-1117.cjs` §4, 7 checks (25/25): all 7 fail on `affa29d`. `verify-tpn-room-page-1105.cjs`
+  §12d, 6 checks in Chromium (132/132): on a copy without this change the two flags and the no-change save fail; the
+  two "a reprint clears it" checks hold there because nothing is flagged, and here they follow the flags raised above
+  them.
+
+## Session 2026-11-17 (5) — Vera on the names page: a test that tells an edit from a sighting, the PDPA note
+
+`test/verify-tpn-room-page-1105.cjs` §4b, `REFERENCE.md` (§ Thai PDPA compliance posture). Corrects entry (4)'s tests,
+on the same PR and not yet released.
+
+- **The test.** §4b edited SS-1 on yesterday's list. SS-1 was last seen today and `mapInfant` keeps the later day, so
+  the old wiring (the list's day as the sighting) passed it too. §4b now uses tomorrow, the last day the room may pick,
+  and checks that SS-1's day last seen stays today after the edit: 11 checks, 126/126; the new one fails on a copy whose
+  `saveMapping` passes the list's day ("18/11/2569", want "17/11/2569").
+- **PDPA.** The names page lists on one screen every name the open file holds, with its AN and edit history, a name
+  kept after an erasure included until the purge. `REFERENCE.md` says so beside the two gaps already there, and names
+  a remove action on the page as the manual erasure step for Pp and the DPO to weigh.
+- **Not in this PR, Pp's call:** Vera's finding 1. A name or AN edited after its sticker printed leaves the printed bag
+  with the old one, and no screen asks for a reprint; the names page adds a route to that edit.
+
+## Session 2026-11-17 (4) — The TPN room's names page: every infant in the name file, each name and AN editable
+
+`tpn-room.jsx` (`NamesPage`; the "รายชื่อทั้งหมด" button; `MappingDialog` from the list shows the ID and the day last
+seen; its history in ward time), `tpn-room-core.js` (`namesList`, `mappingSeenOn`, `wardDateTime`), `tpn-room.css`,
+`compiled/tpn-room.js`, the room shells' `?v=`, `test/verify-tpn-room-names-1117.cjs` (new),
+`test/verify-tpn-room-page-1105.cjs` §4b, `openspec/changes/tpn-room-stickers/design.md` (the name file), `STATUS.md`.
+
+- **Why.** Pp, 2026-11-17: "ในหน้าจอของห้อง TPN Room อันที่ให้แก้ไขชื่อให้สามารถแก้ไขชื่อของแต่ละคนได้จากบนแดชบอร์ดของห้อง
+  TPN". A name could be changed only from an order row, so only for an infant with an order on the chosen date, and
+  only with the name file open. Of two forms she chose a page of everyone ("หน้ารวมชื่อทุกคน"), and approved it from
+  a render ("ใช้แบบนี้").
+- **The page.** With the name file open, "รายชื่อทั้งหมด" opens a sheet over the order list: every infant in the file,
+  the one seen in an order most recently first, with NeoFeed ID, the name to print, AN, the day last seen in an order,
+  and who changed it last and when; a search by ID, name or AN; "แก้ชื่อ / AN" on each row opens the same dialog as an
+  order row, with the ID and the day last seen in place of the order's bed, BW and DOL. The page reads the open name
+  file only: no request, no new storage, nothing leaves the PC (design D7).
+- **An edit from the page is no sighting.** It keeps the day the infant was last seen in an order
+  (`mappingSeenOn`), so the 30-day purge still counts from the orders; an edit from an order row takes that order's
+  date as before.
+- **Also.** The dialog's edit history printed raw ISO times ("2026-11-17T11:59:56.983Z"); it reads "17/11/2569 18:59",
+  ward time (`wardDateTime`).
+- **Tests.** `verify-tpn-room-names-1117.cjs`, 18 checks in Node, all fail on `origin/main` `0284ee0`.
+  `verify-tpn-room-page-1105.cjs` §4b, 10 checks in Chromium (on a day with no orders both mapped infants are on the
+  page; the search; the edit from the list shows no order facts; the saved name on the page and on the order row;
+  back): on `0284ee0` the run stops at the missing button; 125/125 here. `verify-tpn-room-core-1105` 127/127,
+  `verify-tpn-room-store-1105` 51/51, `verify-build-shells` 78/78.
+- **Beside PRs #280 and #281.** All three rebuild `compiled/tpn-room.js` and the room shells' `?v=`; each one merged
+  after another takes `main` and rebuilds.
+## Session 2026-11-17 (3) — The PN label prints the AN on its own line under the name, centred
+
+`tpn-room.jsx` (`StickerSheet`, the PN label: `.an-line` after the name in place of the `.part-head` row),
+`tpn-room.css` (`.an-line`), `compiled/tpn-room.js`, the room shells' `?v=`, `test/verify-tpn-room-page-1105.cjs` §6,
+`STATUS.md`.
+
+- **Why.** Pp, 2026-11-17, on the sample sheet (`TPN-sticker-sheet-sample-2026-11-16.pdf`, synthetic data): an arrow
+  from the AN at the PN label's far right toward the name, then "อยากให้อยู่บรรทัดใต้ชื่อ แต่เลื่อนเข้ามาตรงกลาง
+  ให้ไม่เกินบรรทัดอื่นๆ เพื่อติดสติ๊กเกอร". The AN sat at the right edge of the 200 mm label, past every other line. She
+  approved a before/after render of the label ("ใช้แบบนี้").
+- **What moved.** The name keeps its own line; the AN goes on the next line, centred, so it reaches no further right
+  than the label's other lines. Only the PN label: the worksheet keeps the name with the ward on its right, and the
+  bag sticker keeps the AN under the ward. No figure, no field, no rule.
+- **Tests.** `verify-tpn-room-page-1105.cjs` §6, 4 new checks in Chromium (the AN on its own line right under the
+  name, centred, no further right than the other lines, "AN" and the mapped AN): all 4 fail on `origin/main`
+  `0284ee0`, 119/119 here. The sheet and each part still fit under print, on one A4 page.
+- **Beside PR #280.** Both rebuild `compiled/tpn-room.js` and the room shells' `?v=`; whichever merges second takes
+  `main` and rebuilds.
+## Session 2026-11-17 (2) — The stale-tab check reads the release when the form opens; the room judges an order against the served release (Vera)
+
+`calculator.jsx` (`releaseRead`, `readRelease`, `releaseBehindNow`, `releaseBehindForSubmit`, `warnIfSentBehind`, `RELEASE_FRESH_MS`, the
+banner's two texts), `tpn-room-core.js` (`versionsOf`, `versionReasons`; `ctx.served` in place of `ctx.pageStale`),
+`tpn-room.jsx` (`reply.served`, passed to the rows and to Print), `compiled/`, the shells' `?v=`,
+`test/verify-stale-tab-1117.cjs`, `test/verify-tpn-room-page-1105.cjs` §12b, `REFERENCE.md`, `STATUS.md`. It corrects
+entry (1), on the same PR and not yet released.
+
+- **The form reads the release when it opens.** Entry (1) read the version file at every Submit, behind an `await`.
+  That broke `verify-bed-dol-io.cjs` (4 checks): its re-save reads `onUpdate` in the same tick as the press, which is
+  how Submit behaved until then. Now the form reads the file when it opens and, on another release, shows the banner
+  at once ("กดโหลดหน้าใหม่ก่อนกรอก order"), before anyone types. A read under a minute old, or one still in flight,
+  decides a Submit with no `await`, so the save call keeps its tick; an older read is done again first, under
+  `saving`. A Submit pressed while the first read is still in flight goes, as on a failed read; once it is saved,
+  the form waits for that read, and if it finds another release a toast and the banner say the order sent will not
+  print, and to reload and Submit again (`warnIfSentBehind`, Vera's second review: the in-flight Submit had no
+  warning of its own, and a save that leaves the screen took the banner with it).
+- **Vera's two findings.** With the page behind, every row said "หมอไม่ต้อง Submit ใหม่", also for an order on the
+  page's own old version, which the doctor does have to submit again (finding 1). An order newer than a current page
+  sent the room to reload a page that was already current, as after a rollback (finding 2). Now the room judges an
+  order against the release the host serves, read with the list: on it, the doctor has nothing to do and a page
+  behind reloads; off it, older or newer, the doctor reloads NeoFeed and submits, and a page behind reloads too
+  ("กดโหลดหน้านี้ใหม่ด้วย"). With no served read, the page's own versions stand in, as in entry (1). Print passes the
+  served release too.
+- **Tests.** `verify-stale-tab-1117.cjs`, 67 checks: 42 fail on `origin/main` `0284ee0`; the 25 that pass there guard
+  what stays (a current order prints, the backend takes both tabs, the same release, a failed read and a 404 still
+  Submit, a Submit while the first read is in flight saves in the same tick, two presses send one save). Vera's
+  two first-review cases fail on `a7f1fa8` and her second-review case (2 checks) on `14889f2`.
+  `verify-bed-dol-io.cjs` 85/85 again. `verify-tpn-room-page-1105.cjs` §12b: on a page behind, the row on the old
+  release asks the doctor and the room both.
+
+## Session 2026-11-17 (1) — A tab left open across a release: Submit reads the served release first; the TPN room says who reloads
+
+`calculator.jsx` (`tabIsBehindRelease`, `RELEASE_BEHIND_TEXT`, `refuseBehindRelease`, the `releaseBehind` banner, in
+`handleSave` and `handlePublish`), `data.js` (`tabDiffersFromServed`), `tpn-room-core.js` (`compareVersions`;
+`printReasons` with `ctx.pageStale` and which side reloads), `tpn-room.jsx` (`servedVersionText`; `fetchDay` reads the
+served version file with the orders; the `stale-page` banner), `compiled/`, the shells' `?v=`,
+`test/verify-stale-tab-1117.cjs` (new), `test/verify-tpn-room-page-1105.cjs` §12b, `test/verify-tpn-room-core-1105.cjs`
+§2, `REFERENCE.md`, `STATUS.md`.
+
+- **Why.** Pp, 2026-11-17: an order took three Submits to reach the TPN room ("ทุกวันนี้ต้องกดซับมิตไปสามครั้ง ผลถึงจะเข้าห้อง
+  ทีพีเอ็น"). A ward tab opened before release #279 (23:21 the night before) still ran `CONSTANTS_VERSION` 2026-11-15.1,
+  because a sign-out remounts the app and loads no new code. The backend took its order (`MIN_SUBMIT_CONSTANTS_VERSION`
+  is still 2026-10-28.1), the doctor's own sheet printed, and the room refused it: "NeoFeed ปรับการคำนวณหลัง order นี้
+  ให้หมอเปิดแล้วกด Submit อีกครั้ง". The same tab sent the same version again, and the order printed after a reload.
+  Reproduced on release `63e4226` with the real `gas-backend.gs` and `tpn-room-core.js`. A room page left open across
+  the release gives the same line for every new order, and no Submit helps. Which of the two it was on the ward that
+  day is not known: the rows' version is in the Sheet, which was not opened.
+- **Submit reads the served release.** Before a Submit (and the publish step, off while `ENABLE_PUBLISH_GATE` is false)
+  the calculator fetches `compiled/tpn-room-version.js` with `cache: "no-store"`. Other versions than the tab's, newer
+  (a release) or older (a rollback): nothing is sent; a banner with a reload button stays until the reload, and a toast
+  says the same; what was typed goes to the draft and is offered back after the reload. It fails open: a failed
+  request, a reply that is not 2xx or a file it cannot read lets the Submit go as before, and the room still refuses an
+  order on other versions. Save draft is not checked: the backend keeps any draft and the room prints none. Center Point
+  is not checked: it never reaches the room. `saving` covers the read, so two presses during it send one save.
+- **The room says who reloads.** An order on an older calculation or sticker schema: "ให้หมอกดโหลดหน้า NeoFeed ใหม่ก่อน
+  แล้วเปิด order กด Submit อีกครั้ง". An order newer than the page means the page is the one left open: "กดโหลดหน้านี้ใหม่ก่อน
+  หมอไม่ต้อง Submit ใหม่". Each list load (opening, รีเฟรช, another date) reads the served version file beside
+  `pharmacyOrders`; a page behind it shows a reload banner above the list, and its rows give no version reason but
+  that one. A file it cannot read changes nothing on the list. Print already refused a page behind the release
+  (2026-11-05).
+- **Not changed.** No figure, dose, rule or backend line. `CONSTANTS_VERSION` stays 2026-11-16.1, so this release leaves
+  no open tab behind. `MIN_SUBMIT_CONSTANTS_VERSION` stays: the check now runs in the frontend on every release, with
+  no `clasp` step. A tab opened before this release has none of it, so the first release after this one that moves
+  `CONSTANTS_VERSION` is the first the check can catch.
+- **Tests.** `verify-stale-tab-1117.cjs`, 45 checks: 29 fail on `origin/main` `0284ee0`; the 16 that pass there guard
+  what stays (a current order prints, the backend takes both tabs, a current tab, a failed request and a 404 still
+  Submit, two presses send one save). `verify-tpn-room-page-1105.cjs` §12b, 4 new checks in Chromium: 3 fail on
+  `0284ee0` (the fourth, no banner after a matching refresh, holds there too). `verify-tpn-room-core-1105.cjs` §2: a newer
+  sticker schema now asks the room to reload its page.
+
 ## Session 2026-11-16 (13) — The TPN unit's answers: bag volume, whole mL, sticker sizes, label lines, a larger print
 
 `data.js` (`preparedVolFor`, `PRINT_FIT_STEPS`, `PRINT_AREA_MM`, `fitPrintSheet`, new; `stickerFigures` `deadMl`;

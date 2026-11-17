@@ -92,7 +92,8 @@ section('§2 what may print');
   ok('a blank bed does not', has(order({ bed: '' }), ctx(), /เตียง/));
   ok('a free-text bed does not', has(order({ bed: 'หน้าห้อง' }), ctx(), /เตียง/));
   ok('an older constants version does not', has(order({ printJson: { ...pj(), constantsVersion: '2000-01-01.1' } }), ctx(), /ปรับการคำนวณ/));
-  ok('another sticker schema does not', has(order({ printJson: { ...pj(), v: 99 } }), ctx(), /คนละรุ่น/));
+  // Which side reloads (2026-11-17, verify § 2b): a newer schema is this page's to reload.
+  ok('another sticker schema does not', has(order({ printJson: { ...pj(), v: 99 } }), ctx(), /โหลดหน้านี้ใหม่/));
   ok('an empty orderDate does not', has(order({ printJson: { ...pj(), orderDate: '' } }), ctx(), /ไม่มีวันที่/));
   ok('another date does not', has(order(), ctx({ date: '2026-11-15' }), /ไม่ตรงกับวันที่เลือก/));
   ok('a blank entryId does not', has(order({ entryId: '' }), ctx(), /entryId/));
