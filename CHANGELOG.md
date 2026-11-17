@@ -7,6 +7,26 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-18 (6) — The QI tab and the Sheet backup set up in the editor; STATUS and BACKLOG catch up
+
+No code change. `STATUS.md`, `BACKLOG.md`, `REFERENCE.md` (the two sections' headings and § Thai PDPA's backups line
+no longer say "not live"), this entry. A branch the next NeoFeed PR merges in, so no PR only records (Pp's choice).
+
+- **The QI tab** (Pp: "ช่วยทำ clasp push กับตั้ง trigger ให้หน่อย"). `clasp pull` into a scratch folder showed HEAD was
+  `@75`'s source (`e1d99cd`); `clasp push --force` at 06:14 ICT as `peeraporn.po@chula.ac.th` from a clean `main` at
+  `d8eac99`; a second pull equals `d8eac99`. `clasp list-deployments`: the ward is still `@75`. Run ▸
+  `qiSubmitTimesRefresh`: "57 rows, 212 submitted TPN orders, 0 erased and 0 without a registry row left out", no
+  consent prompt. Trigger `qiSubmitTimesNightly`: Head, day timer 1am to 2am (GMT+7), failure mail immediately.
+- **The Sheet backup** (Pp: "ทำตอนนี้เลย", after being told steps 1 and 2 lock saves). The project had no trigger at
+  all, and `sheetBackupStatus` read "ok false, 0 good backup(s)": #267's backup had never run. `setupSheetBackups`:
+  "14 slots, 14 created now" (06:26:46 to 06:27:05). Slot 01's settings: Thai locale, GMT+07:00 Bangkok; the live
+  Sheet was not opened, as its grid shows names. `sheetRestoreDrill`: "slot 1, 7 tabs, 7598 rows, 0 old slot(s)
+  emptied, 0 book(s) not opened, differing cells in data tabs: 0, in other tabs: 0, restorable: true" (06:29:23 to
+  06:29:48). Trigger `backupSheetNightly`: Head, day timer 2am to 3am, failure mail immediately. `sheetBackupStatus`:
+  "ok true, 1 good backup(s), newest 0 h old, 0 book(s) not opening, drill due false".
+- **Releases recorded.** #285, #287 and #286 went out in release #289 (`2b45c7e`, tag `release-2026-11-18-pr289`,
+  `verify-release` 0 failures on both hosts); STATUS owed it.
+
 ## Session 2026-11-18 (5) — "TPN ทั้งหอ": Pp keeps never-TPN infants off the page
 
 `REFERENCE.md` (§ The ward's TPN page, *Who is listed*), `test/verify-ward-tpn-page-1115.cjs`. No code change.
