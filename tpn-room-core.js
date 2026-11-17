@@ -107,6 +107,13 @@
     const [y, m, d] = s.split("-");
     return `${d}/${m}/${Number(y) + 543}`;
   }
+  // An ISO time as the ward reads it, Buddhist era: "17/11/2569 09:05". "" when it is not a time.
+  function wardDateTime(iso) {
+    const at = Date.parse(iso || "");
+    if (!isFinite(at)) return "";
+    const day = new Date(at + WARD_OFFSET_MS).toISOString().slice(0, 10);
+    return `${buddhistDate(day)} ${wardTime(iso)}`;
+  }
   function wardTime(iso, now) {
     const at = iso ? Date.parse(iso) : now;
     if (!isFinite(at)) return "";
@@ -186,6 +193,26 @@
       if (id !== sessionId && infants[id].an === want) return id;
     }
     return "";
+  }
+  // The day a mapping counts as seen. From an order row it is that order's date. From the
+  // names page it is the day the infant was last seen, so an edit there is no sighting and
+  // the 30-day purge still counts from the orders. With neither (no list loaded), today.
+  function mappingSeenOn(had, fromList, orderDate, now) {
+    if (fromList && had && isRealDate(had.lastSeen)) return had.lastSeen;
+    return isRealDate(orderDate) ? orderDate : wardToday(now);
+  }
+  // Every infant in the name file, for the names page (Pp, 2026-11-17: "หน้ารวมชื่อทุกคน"):
+  // the one seen in an order most recently first, then by NeoFeed ID. `query` keeps the
+  // rows whose ID, name or AN contains it, case and spaces aside.
+  function namesList(infants, query) {
+    const norm = (s) => String(s == null ? "" : s).toLowerCase().replace(/\s+/g, "");
+    const q = norm(query);
+    return Object.keys(infants || {})
+      .map((id) => ({ sessionId: id, name: infants[id].name, an: infants[id].an, lastSeen: infants[id].lastSeen || "",
+        by: infants[id].by || "", at: infants[id].at || "" }))
+      .filter((r) => !q || [r.sessionId, r.name, r.an].some((v) => norm(v).includes(q)))
+      .sort((a, b) => (a.lastSeen === b.lastSeen ? (a.sessionId < b.sessionId ? -1 : a.sessionId > b.sessionId ? 1 : 0)
+        : a.lastSeen < b.lastSeen ? 1 : -1));
   }
 
   // ── Figures ──
@@ -302,6 +329,34 @@
     for (const p of printLog || []) if (p.sessionId === sessionId && p.date === date) hit = p;
     return hit;
   }
+  // The last print for an ID on any date: the names page has no date.
+  function lastPrintOf(printLog, sessionId) {
+    let hit = null;
+    for (const p of printLog || []) if (p.sessionId === sessionId) hit = p;
+    return hit;
+  }
+  // The name or AN is not the one `last` printed, so that bag still carries the old one
+  // (Vera on the names page, Pp 2026-11-17: "เพิ่มเลย"). The log keeps no name. A print
+  // records the mapping's own time (`mappingAt`), so an edit saved while a print was in
+  // flight, or a PC clock that stepped back, still shows; a log line from before that
+  // field falls back to comparing the edit with the print's time. A print of the current
+  // mapping clears it.
+  function editedAfterPrint(mapping, last) {
+    if (!mapping || !last) return false;
+    if (typeof last.mappingAt === "string") return !!mapping.at && mapping.at !== last.mappingAt;
+    const edited = Date.parse(mapping.at || ""), printed = Date.parse(last.at || "");
+    return isFinite(edited) && isFinite(printed) && edited > printed;
+  }
+  // Every day in `win` (dateWindow) whose last print for this ID has an older name or AN
+  // than `mapping`, oldest first: the names page names each bag that may still be in use
+  // (Vera's second check of the flag), not only the last one printed.
+  function renamedBagDates(mapping, printLog, sessionId, win) {
+    const lastByDate = {};
+    for (const p of printLog || []) if (p.sessionId === sessionId) lastByDate[p.date] = p;
+    return Object.keys(lastByDate)
+      .filter((d) => (!win || (d >= win.min && d <= win.max)) && editedAfterPrint(mapping, lastByDate[d]))
+      .sort();
+  }
   // A nurse's I/O-only revision keeps the bag (gas-backend.gs pharmacyOrders,
   // sameBagEntryIds), so a print of the row it revised is not a change (Vera on
   // the stakeholder-walk fixes, 2026-11-07).
@@ -387,9 +442,9 @@
   const api = {
     PN_FIXED, PN_BLANK, PN_TRIAL, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
-    wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy,
+    wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy, mappingSeenOn, namesList, wardDateTime,
     missingFigures, compareVersions, versionsOf, printReasons, fixedLinesReady, trialNote, trialReprintDue,
-    lastPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
+    lastPrint, lastPrintOf, editedAfterPrint, renamedBagDates, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
     recheck, stickerModel,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

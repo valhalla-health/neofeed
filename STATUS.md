@@ -1,5 +1,7 @@
 # NeoFeed — Status
 
+> ⏳ **2026-11-17 — The TPN room's names page: "รายชื่อทั้งหมด" lists every infant in the name file, searchable, each name and AN editable, an infant with no order on the chosen date included (Pp, from a render: "ใช้แบบนี้"): PR #282, merged into `main` on Praew's instruction.** Frontend only, the TPN room's page alone; reads the open name file only, no request, no figure or rule changes (`CHANGELOG.md` 2026-11-17 (4)).
+>
 > ⏳ **2026-11-17 — The TPN room's PN label prints the AN on its own line under the name, centred, no further right than the label's other lines (Pp, from a render: "ใช้แบบนี้"): PR #281, merged into `main` on Praew's instruction.** Frontend only, the TPN room's page alone; no figure or rule changes (`CHANGELOG.md` 2026-11-17 (3)).
 >
 > ⏳ **2026-11-17 — A tab left open across a release: the calculator reads the served release when the form opens and warns before anyone types; on another release Submit sends nothing and asks for a reload (typed work kept as a draft); the TPN room judges each order against the served release (the doctor reloads NeoFeed and submits an order off it, the room reloads a page behind it) and shows a reload banner when its own page is behind: PR #280, merged into `main` on Praew's instruction.** Frontend only; no figure, dose or backend line moves, `CONSTANTS_VERSION` stays `2026-11-16.1`. Why: on 2026-11-17 an order took three Submits to reach the room (`CHANGELOG.md` 2026-11-17 (1) and (2)).
