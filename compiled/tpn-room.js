@@ -332,7 +332,7 @@ function MappingDialog({ order, infants, onSave, onClose }) {
   };
   return /* @__PURE__ */ React.createElement("div", { className: "scrim" }, /* @__PURE__ */ React.createElement("div", { className: "dialog", role: "dialog", "aria-modal": "true", "aria-label": "ใส่ชื่อกับ AN" }, /* @__PURE__ */ React.createElement("h2", null, "ใส่ชื่อกับ AN"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, "ดูจาก order กระดาษ ซึ่งมีทั้ง NeoFeed ID และสติกเกอร์ผู้ป่วย"), /* @__PURE__ */ React.createElement("dl", { className: "facts" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("dt", null, "NeoFeed ID"), /* @__PURE__ */ React.createElement("dd", null, order.sessionId)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("dt", null, "เตียง"), /* @__PURE__ */ React.createElement("dd", null, order.bed || "ไม่มีเตียง")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("dt", null, "BW"), /* @__PURE__ */ React.createElement("dd", null, order.bw, " g")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("dt", null, "DOL"), /* @__PURE__ */ React.createElement("dd", null, order.dol)), pj && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("dt", null, "น้ำหนักที่ใช้คำนวณ"), /* @__PURE__ */ React.createElement("dd", null, pj.dosingWeightKg, " kg"))), twin && /* @__PURE__ */ React.createElement("p", { className: "twin-big" }, twin), /* @__PURE__ */ React.createElement("form", { onSubmit: submit, className: "stack" }, /* @__PURE__ */ React.createElement("label", null, "ชื่อที่จะพิมพ์", /* @__PURE__ */ React.createElement("input", { autoComplete: "off", value: name, onChange: (e) => setName(e.target.value), maxLength: 80 })), /* @__PURE__ */ React.createElement("label", null, "AN", /* @__PURE__ */ React.createElement("input", { autoComplete: "off", value: an, onChange: (e) => setAn(e.target.value), placeholder: "nnnnn/yy", maxLength: 8 })), error && /* @__PURE__ */ React.createElement("p", { className: "bad", role: "alert" }, error), /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("button", { type: "submit", className: "primary", disabled: busy }, "บันทึก"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: onClose }, "ยกเลิก"))), had && /* @__PURE__ */ React.createElement("div", { className: "history" }, /* @__PURE__ */ React.createElement("h3", null, "ประวัติการแก้"), /* @__PURE__ */ React.createElement("p", { className: "muted" }, "ล่าสุด: ", had.by, " ", had.at), had.history.slice().reverse().map((h, i) => /* @__PURE__ */ React.createElement("p", { key: i, className: "muted" }, h.at, " ", h.by, ": ", h.name, " · ", h.an)))));
 }
-function OrderRow({ order, date, file, onMap, onPrint, busy, pageStale }) {
+function OrderRow({ order, date, file, onMap, onPrint, busy, served }) {
   const state = file ? file.state : null;
   const mapping = state ? state.infants[order.sessionId] : null;
   const reasons = Core.printReasons(order, {
@@ -341,7 +341,7 @@ function OrderRow({ order, date, file, onMap, onPrint, busy, pageStale }) {
     stickerSchema: VERSIONS.stickerSchema,
     nameFileOpen: !!file,
     mapping,
-    pageStale
+    served
   });
   const last = state ? Core.lastPrint(state.printLog, order.sessionId, date) : null;
   const changed = state ? Core.changedAfterPrint(order, state.printLog, date) : false;
@@ -377,7 +377,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const [printJob, setPrintJob] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const fetchDay = React.useCallback(async (day) => {
-    const [r, served] = await Promise.all([
+    const [r, servedText] = await Promise.all([
       gas({ action: "pharmacyOrders", token: user.token, date: day }),
       servedVersionText()
     ]);
@@ -394,8 +394,9 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
       return null;
     }
     if (!r.ok) throw new Error(String(r.error || "โหลด order ไม่สำเร็จ"));
-    const stale = typeof served === "string" && served !== "" && !Core.versionsMatch(served, VERSIONS);
-    const next = { date: day, counts: r.counts, orders: Core.currentOrders(r.orders), loadedAt: Date.now(), stale };
+    const served = Core.versionsOf(servedText);
+    const stale = !!served && !Core.versionsMatch(servedText, VERSIONS);
+    const next = { date: day, counts: r.counts, orders: Core.currentOrders(r.orders), loadedAt: Date.now(), served, stale };
     setReply(next);
     return next;
   }, [user.token]);
@@ -480,7 +481,8 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         constantsVersion: VERSIONS.constantsVersion,
         stickerSchema: VERSIONS.stickerSchema,
         nameFileOpen: true,
-        mapping
+        mapping,
+        served: fresh.served || null
       });
       if (reasons.length) {
         setError(reasons.join(" · "));
@@ -512,7 +514,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const gone = reply && file ? Core.goneAfterPrint(orders, file.state.printLog, reply.date) : [];
   const count = file ? Object.keys(file.state.infants).length : 0;
   const backToDraft = reply && file ? Core.draftAfterPrint(orders, file.state.printLog, reply.date) : [];
-  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob, pageStale: !!reply.stale } : null;
+  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob, served: reply.served || null } : null;
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "screen" }, /* @__PURE__ */ React.createElement("header", { className: "top" }, /* @__PURE__ */ React.createElement("h1", null, "ห้อง TPN"), /* @__PURE__ */ React.createElement("div", { className: "row" }, user.authMethod !== "google" && /* @__PURE__ */ React.createElement("button", { onClick: onChangePassword }, "เปลี่ยนรหัสผ่าน"), /* @__PURE__ */ React.createElement("button", { onClick: onLogout }, "ออกจากระบบ"))), /* @__PURE__ */ React.createElement("p", { className: "status-line", role: "status" }, "ชื่อในไฟล์ ", count, " คน · ", file ? `ไฟล์เปิดอยู่ · โฟลเดอร์ ${file.folderName}` : "ไฟล์ชื่อยังไม่เปิด", " · เข้าระบบ ", who), !file && /* @__PURE__ */ React.createElement(NameFilePanel, { store, onOpen: setFile }), /* @__PURE__ */ React.createElement("section", { className: "controls" }, /* @__PURE__ */ React.createElement("label", { className: "inline" }, "วันที่", /* @__PURE__ */ React.createElement(
     "input",
     {

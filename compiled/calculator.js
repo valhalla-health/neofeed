@@ -6,17 +6,18 @@ const fmt = (n, d = 1) => n === Infinity ? "!!" : D.displayNum(n, d);
 const roundMl = (n) => Number(D.displayNum(n, 1));
 const roundWholeMl = (n) => Number(D.displayNum(n, 0));
 const RELEASE_CHECK_MS = 5e3;
+const RELEASE_FRESH_MS = 6e4;
 const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
 async function tabIsBehindRelease() {
-  if (typeof fetch !== "function") return false;
+  if (typeof fetch !== "function") return null;
   const ctrl = typeof AbortController === "function" ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => ctrl.abort(), RELEASE_CHECK_MS) : null;
   try {
     const res = await fetch("compiled/tpn-room-version.js", { cache: "no-store", ...ctrl ? { signal: ctrl.signal } : {} });
-    if (!res || !res.ok) return false;
-    return D.tabDiffersFromServed(await res.text()) === true;
+    if (!res || !res.ok) return null;
+    return D.tabDiffersFromServed(await res.text());
   } catch {
-    return false;
+    return null;
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -770,6 +771,21 @@ function Calculator({
   const [publishing, setPublishing] = useState(false);
   const [conflict, setConflict] = useState(null);
   const [releaseBehind, setReleaseBehind] = useState(null);
+  const releaseRead = React.useRef({ behind: null, at: 0, pending: null });
+  const readRelease = () => {
+    const r = releaseRead.current;
+    if (r.pending) return r.pending;
+    const pending = tabIsBehindRelease().then((behind) => {
+      releaseRead.current = { behind, at: Date.now(), pending: null };
+      if (behind === true) setReleaseBehind((prev) => prev || { on: "open", draft: false });
+      return behind;
+    });
+    releaseRead.current = { ...r, pending };
+    return pending;
+  };
+  React.useEffect(() => {
+    if (!centerPoint && !scratch) readRelease();
+  }, []);
   const [savedKey, setSavedKey] = useState(null);
   const [savedOrderKey, setSavedOrderKey] = useState(null);
   const [prefillKey, setPrefillKey] = useState(null);
@@ -1874,9 +1890,22 @@ function Calculator({
     const t = setTimeout(go, 1500);
     return () => clearTimeout(t);
   }, [autoPrint, printReady, printable]);
+  const releaseBehindNow = () => {
+    const r = releaseRead.current;
+    return r.pending || Date.now() - r.at < RELEASE_FRESH_MS ? r.behind === true : null;
+  };
+  const releaseBehindForSubmit = (setBusy) => {
+    const now = releaseBehindNow();
+    if (now !== null) return now;
+    setBusy(true);
+    return readRelease().then((behind) => {
+      setBusy(false);
+      return behind === true;
+    });
+  };
   const refuseBehindRelease = () => {
     if (dirty) writeDraft(currentInputs());
-    setReleaseBehind({ draft: !!dirty });
+    setReleaseBehind({ on: "submit", draft: !!dirty });
     showToast(RELEASE_BEHIND_TEXT, "error");
   };
   const handleSave = async (asDraft = false) => {
@@ -1893,9 +1922,8 @@ function Calculator({
       return;
     }
     if (!asDraft && !centerPoint) {
-      setSaving(true);
-      const behind = await tabIsBehindRelease();
-      setSaving(false);
+      let behind = releaseBehindForSubmit(setSaving);
+      if (behind !== true && behind !== false) behind = await behind;
       if (behind) {
         refuseBehindRelease();
         return;
@@ -2223,12 +2251,15 @@ function Calculator({
       showToast(printBlockMessage("ก่อนส่ง"), "error");
       return;
     }
-    setPublishing(true);
-    if (!centerPoint && await tabIsBehindRelease()) {
-      setPublishing(false);
-      refuseBehindRelease();
-      return;
+    if (!centerPoint) {
+      let behind = releaseBehindForSubmit(setPublishing);
+      if (behind !== true && behind !== false) behind = await behind;
+      if (behind) {
+        refuseBehindRelease();
+        return;
+      }
     }
+    setPublishing(true);
     const res = await onPublish(savedEntryId, savedLastModified);
     setPublishing(false);
     if (res.conflict) {
@@ -2260,7 +2291,7 @@ function Calculator({
     alignItems: "center",
     gap: 8,
     flexWrap: "wrap"
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--crit)" }), /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง", releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("button", { className: "btn sm primary", onClick: () => window.location.reload() }, "โหลดหน้าใหม่"))), conflict && /* @__PURE__ */ React.createElement("div", { style: {
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--crit)" }), releaseBehind.on === "submit" ? /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง", releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด") : /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า กดโหลดหน้าใหม่ก่อนกรอก order ถ้ากด Submit จากแท็บนี้ order จะไม่ถึงห้อง TPN"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("button", { className: "btn sm primary", onClick: () => window.location.reload() }, "โหลดหน้าใหม่"))), conflict && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "10px 12px",
     background: "var(--crit-bg)",
     border: "1px solid var(--crit-line)",

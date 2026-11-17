@@ -32,22 +32,26 @@ const roundWholeMl = (n) => Number(D.displayNum(n, 0));
 // code. On 2026-11-17 a tab opened before the 23:21 release went on saving the old
 // calculation: the doctor's own sheet printed, the TPN room refused the order and
 // asked for Submit again, the same tab sent the old calculation again, and it took a
-// third press, after a reload. So Submit reads the served version file first and
-// asks for a reload instead. It fails open: a request that fails or a file it cannot
-// read lets the Submit go as before, and the TPN room's page still refuses an order
-// on other versions than its own.
+// third press, after a reload. So the form reads the served version file when it
+// opens, and warns before anyone types; a Submit then asks for a reload instead of
+// sending. A read less than RELEASE_FRESH_MS old decides the Submit by itself, so a
+// Submit waits on the network only when the form has been open longer than that.
+// It fails open: a read that fails, or a file it cannot read, lets the Submit go as
+// before, and the TPN room's page still refuses an order on other versions than its own.
 const RELEASE_CHECK_MS = 5000;
+const RELEASE_FRESH_MS = 60000;
 const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
+// true: the host serves another release. false: the same one. null: not known.
 async function tabIsBehindRelease() {
-  if (typeof fetch !== "function") return false;
+  if (typeof fetch !== "function") return null;
   const ctrl = typeof AbortController === "function" ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => ctrl.abort(), RELEASE_CHECK_MS) : null;
   try {
     const res = await fetch("compiled/tpn-room-version.js", { cache: "no-store", ...(ctrl ? { signal: ctrl.signal } : {}) });
-    if (!res || !res.ok) return false;
-    return D.tabDiffersFromServed(await res.text()) === true;
+    if (!res || !res.ok) return null;
+    return D.tabDiffersFromServed(await res.text());
   } catch {
-    return false;
+    return null;
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -1245,9 +1249,27 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [published, setPublished] = useState(!!editEntry?.published);
   const [publishing, setPublishing] = useState(false);
   const [conflict, setConflict] = useState(null); // {lastModified, lastModifiedBy} of the row on the server
-  // A Submit refused because the host serves another release (tabIsBehindRelease):
-  // { draft } says whether what was typed went to the draft. Only a reload clears it.
+  // The host serves another release than this tab loaded (tabIsBehindRelease):
+  // { on: "open" | "submit", draft }. "open" is the read when the form opened, before
+  // anyone typed; "submit" a Submit it refused, and `draft` whether what was typed went
+  // to the draft. Only a reload clears it.
   const [releaseBehind, setReleaseBehind] = useState(null);
+  // The last read of the served release: { behind, at, pending }. A ref, so a read
+  // that lands renders nothing unless it finds the tab behind.
+  const releaseRead = React.useRef({ behind: null, at: 0, pending: null });
+  const readRelease = () => {
+    const r = releaseRead.current;
+    if (r.pending) return r.pending;
+    const pending = tabIsBehindRelease().then((behind) => {
+      releaseRead.current = { behind, at: Date.now(), pending: null };
+      if (behind === true) setReleaseBehind((prev) => prev || { on: "open", draft: false });
+      return behind;
+    });
+    releaseRead.current = { ...r, pending };
+    return pending;
+  };
+  // When the form opens. Center Point never reaches the TPN room; the quick calc saves nothing.
+  React.useEffect(() => { if (!centerPoint && !scratch) readRelease(); }, []);
 
   // ── "Is what's on screen what's saved?" ────────────────────────────
   // savedKey is the fingerprint of the inputs as last saved (or as loaded
@@ -2840,11 +2862,29 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // backend refuses a row without one, and every dose hangs off it). The
   // required-field gate, the no-volume stop and the critical-value reason are
   // all asked for at Submit instead — a draft can neither print nor count.
+  // Whether a Submit now is from a tab behind the served release: true or false when
+  // the last read decides it, null when it is too old and a new read must come first.
+  // A read less than RELEASE_FRESH_MS old decides, and so does one still in flight from
+  // the form opening (by the result before it: unknown, so the Submit goes). Answered
+  // without an await, so a Submit the last read decides stays synchronous up to its
+  // first save call, as it was before this check.
+  const releaseBehindNow = () => {
+    const r = releaseRead.current;
+    return r.pending || Date.now() - r.at < RELEASE_FRESH_MS ? r.behind === true : null;
+  };
+  // The same, reading again first when it must, under the given busy flag, so a
+  // second press waits for the read.
+  const releaseBehindForSubmit = (setBusy) => {
+    const now = releaseBehindNow();
+    if (now !== null) return now;
+    setBusy(true);
+    return readRelease().then((behind) => { setBusy(false); return behind === true; });
+  };
   // What typed and unsaved goes to this user's draft before the reload, as on a save
   // conflict, so the reloaded form offers it back (กู้คืน).
   const refuseBehindRelease = () => {
     if (dirty) writeDraft(currentInputs());
-    setReleaseBehind({ draft: !!dirty });
+    setReleaseBehind({ on: "submit", draft: !!dirty });
     showToast(RELEASE_BEHIND_TEXT, "error");
   };
 
@@ -2865,12 +2905,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A tab older (or newer) than the release the host serves submits nothing: the TPN
     // room would refuse what it sends, and pressing again here would send the same
     // (2026-11-17). A draft still saves: the backend keeps any draft, and the room
-    // prints none. `saving` covers the read, so a second press waits for it. Center
-    // Point has its own review and publish step, and never reaches the TPN room.
+    // prints none. Center Point has its own review and publish step, and never
+    // reaches the TPN room.
     if (!asDraft && !centerPoint) {
-      setSaving(true);
-      const behind = await tabIsBehindRelease();
-      setSaving(false);
+      let behind = releaseBehindForSubmit(setSaving);
+      if (behind !== true && behind !== false) behind = await behind;
       if (behind) { refuseBehindRelease(); return; }
     }
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
@@ -3224,8 +3263,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Submit signs specific numbers — they must be the saved ones, held back
     // by nothing that also holds back printing (see printable).
     if (!printable) { showToast(printBlockMessage("ก่อนส่ง"), "error"); return; }
+    if (!centerPoint) {
+      let behind = releaseBehindForSubmit(setPublishing);
+      if (behind !== true && behind !== false) behind = await behind;
+      if (behind) { refuseBehindRelease(); return; }
+    }
     setPublishing(true);
-    if (!centerPoint && await tabIsBehindRelease()) { setPublishing(false); refuseBehindRelease(); return; }
     // savedLastModified makes Submit optimistic-locked (gas-backend.gs
     // publishDailyLog): if someone else saved this row since, it's refused.
     const res = await onPublish(savedEntryId, savedLastModified);
@@ -3258,18 +3301,25 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
   return (
     <>
-      {/* Submit refused: the host serves another release (tabIsBehindRelease, 2026-11-17).
-          Stays until the reload, so it is still there when the toast has gone. */}
+      {/* The host serves another release (tabIsBehindRelease, 2026-11-17): found when the
+          form opened, or on a Submit it refused. Stays until the reload. */}
       {releaseBehind && (
         <div role="alert" className="release-behind" style={{ padding:"10px 12px", background:"var(--crit-bg)", border:"1px solid var(--crit-line)",
              borderRadius:8, marginBottom:10, fontSize:12.5, color:"var(--crit)",
              display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
           <Icon name="info" size={13} color="var(--crit)" />
-          <span>
-            NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN
-            กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง
-            {releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด"}
-          </span>
+          {releaseBehind.on === "submit" ? (
+            <span>
+              NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN
+              กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง
+              {releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด"}
+            </span>
+          ) : (
+            <span>
+              NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า กดโหลดหน้าใหม่ก่อนกรอก order
+              ถ้ากด Submit จากแท็บนี้ order จะไม่ถึงห้อง TPN
+            </span>
+          )}
           <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
             <button className="btn sm primary" onClick={() => window.location.reload()}>โหลดหน้าใหม่</button>
           </div>

@@ -7,16 +7,19 @@
 // printed only after a reload. A room page left open the same way says the same thing about
 // every new order, and no Submit helps.
 //
-//   §1 tpn-room-core printReasons says which side reloads: an older order is the doctor's to
-//      reload before Submit, a newer one the room page's; a page the host has moved past
-//      (ctx.pageStale) only asks to reload itself.
+//   §1 tpn-room-core printReasons judges an order against the release the host serves
+//      (ctx.served): on it, the doctor has nothing to do and the page reloads if it is behind;
+//      off it, older or newer (a rollback), the doctor reloads NeoFeed and submits, and the page
+//      reloads too when behind. Without a served read, the page's own versions stand in.
 //   §2 data.js tabDiffersFromServed reads compiled/tpn-room-version.js as served.
 //   §3 the real gas-backend.gs: the old tab's order is saved and reaches the room, and the room
-//      asks the doctor to reload; the same order on a page older than it asks the room to.
-//   §4 the real <Calculator> in jsdom: Submit reads the served version file first. Another
-//      release: nothing is sent, a banner and a toast say reload, what was typed stays as a
-//      draft. The same release, a request that fails or a 404: the Submit goes as before. A
-//      draft saves either way. A second press during the read sends one save.
+//      asks the doctor to reload; a current order on a page left open asks only the room to.
+//   §4 the real <Calculator> in jsdom: the form reads the served version file when it opens and
+//      warns before anyone types. Another release: Submit sends nothing, a banner and a toast
+//      say reload, what was typed stays as a draft. The same release, a request that fails or a
+//      404: the Submit goes as before. A draft saves either way. A read under a minute old, or
+//      one still in flight, decides the Submit without a wait, so the save call stays in the
+//      same tick; an older read is done again first, and two presses during it send one save.
 //
 // §1, §3 and §4 fail on origin/main 0284ee0, the code before this change. Synthetic infants only.
 process.env.TZ = process.env.TZ || 'Asia/Bangkok';
@@ -69,27 +72,56 @@ section('§1 the room says which side reloads');
   eq('…anything else is not a version', typeof Core.compareVersions === 'function'
     ? [Core.compareVersions('', NOW_V), Core.compareVersions(null, NOW_V), Core.compareVersions('2026-11-16', NOW_V)] : 'no function', [null, null, null]);
 
-  eq('a current order prints', reasons(order(), ctx()), []);
-  const old = reasons(order({ printJson: { ...pj(), constantsVersion: OLDER } }), ctx());
-  ok('an order on an older calculation asks the doctor to reload first, then Submit', old.length === 1 && DOCTOR.test(old[0]), old);
+  const at = (cv, v) => ({ ...pj(), constantsVersion: cv, v: v == null ? VERS.stickerSchema : v });
+  const SERVED_NOW = { constantsVersion: NOW_V, stickerSchema: VERS.stickerSchema };
+  const SERVED_NEWER = { constantsVersion: NEWER, stickerSchema: VERS.stickerSchema };
+  const OLD_PAGE = { constantsVersion: OLDER, stickerSchema: VERS.stickerSchema };
+  const NO_DOCTOR = /หมอไม่ต้อง Submit ใหม่/;
+
+  // Served release read, and this page is on it: the order decides.
+  eq('a current order on a current page prints', reasons(order(), ctx({ served: SERVED_NOW })), []);
+  const old = reasons(order({ printJson: at(OLDER) }), ctx({ served: SERVED_NOW }));
+  ok('an order on an older calculation asks the doctor to reload NeoFeed first, then Submit', old.length === 1 && DOCTOR.test(old[0]), old);
   ok('…and not the room to reload', !old.some((r) => PAGE.test(r)), old);
-  const newer = reasons(order({ printJson: { ...pj(), constantsVersion: NEWER } }), ctx());
-  ok('an order newer than this page asks the room to reload this page', newer.length === 1 && PAGE.test(newer[0]), newer);
-  ok('…and tells the room the doctor has nothing to do', newer.length === 1 && /หมอไม่ต้อง Submit ใหม่/.test(newer[0]), newer);
-  const oldSchema = reasons(order({ printJson: { ...pj(), v: 0 } }), ctx());
-  ok('an older sticker schema asks the doctor to reload first', oldSchema.length === 1 && /ตัวเลขสติกเกอร์เป็นรุ่นเก่า/.test(oldSchema[0]) && /โหลดหน้า NeoFeed ใหม่ก่อน/.test(oldSchema[0]), oldSchema);
-  const both = reasons(order({ printJson: { ...pj(), v: 99, constantsVersion: NEWER } }), ctx());
-  ok('a newer schema and newer constants say "reload this page" once', both.length === 1 && PAGE.test(both[0]), both);
-  const bad = reasons(order({ printJson: { ...pj(), constantsVersion: 'x' } }), ctx());
-  ok('an unreadable version is not "newer": the doctor reloads and submits', bad.length === 1 && DOCTOR.test(bad[0]), bad);
-  const stale = reasons(order(), ctx({ pageStale: true }));
-  ok('a page the host has moved past says only to reload, even on a matching order', stale.length === 1 && PAGE.test(stale[0]), stale);
-  const staleOld = reasons(order({ printJson: { ...pj(), constantsVersion: OLDER } }), ctx({ pageStale: true }));
-  ok('…and judges no order against its own old versions', staleOld.length === 1 && PAGE.test(staleOld[0]), staleOld);
-  const staleDate = reasons(order(), ctx({ pageStale: true, date: '2026-11-16' }));
-  ok('…while the other reasons still show (another date)', staleDate.some((r) => /ไม่ตรงกับวันที่เลือก/.test(r)) && staleDate.some((r) => PAGE.test(r)), staleDate);
-  const keys = reasons(order({ printJson: { ...pj(), v: 0, constantsVersion: OLDER } }), ctx());
-  eq('no reason is listed twice (the list uses each as a React key)', keys.length, new Set(keys).size);
+  const oldSchema = reasons(order({ printJson: at(NOW_V, 0) }), ctx({ served: SERVED_NOW }));
+  ok('an older sticker schema is the doctor\'s too', oldSchema.length === 1 && DOCTOR.test(oldSchema[0]), oldSchema);
+  const rolledBack = reasons(order({ printJson: at(NEWER) }), ctx({ served: SERVED_NOW }));
+  ok('after a rollback, an order newer than the served release is the doctor\'s to reload and Submit (Vera 2)',
+    rolledBack.length === 1 && DOCTOR.test(rolledBack[0]), rolledBack);
+  ok('…and the room is not sent to reload a page that is already current', !rolledBack.some((r) => PAGE.test(r)), rolledBack);
+  const bad = reasons(order({ printJson: at('x') }), ctx({ served: SERVED_NOW }));
+  ok('an unreadable version on the order is the doctor\'s', bad.length === 1 && DOCTOR.test(bad[0]), bad);
+
+  // This page is behind the served release.
+  const pageOnly = reasons(order({ printJson: at(NEWER) }), ctx({ ...OLD_PAGE, served: SERVED_NEWER }));
+  ok('an order on the served release, on a page left open: only the page reloads, the doctor has nothing to do',
+    pageOnly.length === 1 && PAGE.test(pageOnly[0]) && NO_DOCTOR.test(pageOnly[0]), pageOnly);
+  const both = reasons(order({ printJson: at(OLDER) }), ctx({ ...OLD_PAGE, served: SERVED_NEWER }));
+  ok('an order on the page\'s own old version, both left open: the doctor reloads and submits (Vera 1)',
+    both.some((r) => DOCTOR.test(r)), both);
+  ok('…the page reloads too', both.some((r) => PAGE.test(r)), both);
+  ok('…and nothing tells the room the doctor has nothing to do', !both.some((r) => NO_DOCTOR.test(r)), both);
+  const staleDate = reasons(order({ printJson: at(NEWER) }), ctx({ ...OLD_PAGE, served: SERVED_NEWER, date: '2026-11-16' }));
+  ok('the other reasons still show beside it (another date)', staleDate.some((r) => /ไม่ตรงกับวันที่เลือก/.test(r)) && staleDate.some((r) => PAGE.test(r)), staleDate);
+
+  // No served release read: the page's own versions stand in.
+  eq('no served read, the order on the page\'s versions prints', reasons(order(), ctx()), []);
+  const oldNoRead = reasons(order({ printJson: at(OLDER) }), ctx());
+  ok('no served read, an older order is the doctor\'s', oldNoRead.length === 1 && DOCTOR.test(oldNoRead[0]), oldNoRead);
+  const newNoRead = reasons(order({ printJson: at(NEWER) }), ctx());
+  ok('no served read, an order newer than the page can only mean the page was left open', newNoRead.length === 1 && PAGE.test(newNoRead[0]) && NO_DOCTOR.test(newNoRead[0]), newNoRead);
+  const newSchemaNoRead = reasons(order({ printJson: at(NOW_V, 99) }), ctx());
+  ok('…and so can a newer sticker schema', newSchemaNoRead.length === 1 && PAGE.test(newSchemaNoRead[0]), newSchemaNoRead);
+  const badNoRead = reasons(order({ printJson: at('x') }), ctx());
+  ok('no served read, an unreadable version is not "newer": the doctor\'s', badNoRead.length === 1 && DOCTOR.test(badNoRead[0]), badNoRead);
+
+  eq('versionsOf reads the served file', typeof Core.versionsOf === 'function'
+    ? Core.versionsOf(R('compiled/tpn-room-version.js')) : 'no function', VERS);
+  eq('…and nothing else', typeof Core.versionsOf === 'function' ? [Core.versionsOf('<html>'), Core.versionsOf(null)] : 'no function', [null, null]);
+  for (const [name, c] of [['served current', { served: SERVED_NOW }], ['page behind', { ...OLD_PAGE, served: SERVED_NEWER }], ['no read', {}]]) {
+    const keys = reasons(order({ printJson: at(OLDER, 0) }), ctx(c));
+    eq(`no reason is listed twice, ${name} (the list uses each as a React key)`, keys.length, new Set(keys).size);
+  }
 }
 
 section('§2 data.js reads the served version file');
@@ -139,21 +171,21 @@ section('§3 the real backend: the old tab\'s order is saved, and the room says 
       ok(`a tab on ${stale} (the oldest the backend takes) still saves a submitted order`, !!saved.entryId, saved);
       const o = inRoom('NF-111701');
       ok('…which reaches the room', !!o && o.status === 'submitted', o);
-      const why = o ? reasons(o, { date: today, ...VERS, nameFileOpen: true, mapping: MAP, fixed: FIXED }) : [];
+      const why = o ? reasons(o, { date: today, ...VERS, served: VERS, nameFileOpen: true, mapping: MAP, fixed: FIXED }) : [];
       ok('the room asks the doctor to reload before Submit, not only to Submit again', why.length === 1 && DOCTOR.test(why[0]), why);
     }
     ok('the second infant registers', !reg('NF-111702', 'NICU 4').error);
     const fresh = as(dt, { action: 'logDailyNutrition', sessionId: 'NF-111702', entry: entry(NOW_V) });
     ok('a current tab saves too', !!fresh.entryId, fresh);
     const o2 = inRoom('NF-111702');
-    const onOldPage = o2 ? reasons(o2, { date: today, constantsVersion: OLDER, stickerSchema: VERS.stickerSchema, nameFileOpen: true, mapping: MAP, fixed: FIXED }) : [];
+    const onOldPage = o2 ? reasons(o2, { date: today, constantsVersion: OLDER, stickerSchema: VERS.stickerSchema, served: VERS, nameFileOpen: true, mapping: MAP, fixed: FIXED }) : [];
     ok('on a room page from before the release, the room reloads its page and the doctor does nothing', onOldPage.length === 1 && PAGE.test(onOldPage[0]) && !DOCTOR.test(onOldPage[0]), onOldPage);
-    const onPage = o2 ? reasons(o2, { date: today, ...VERS, nameFileOpen: true, mapping: MAP, fixed: FIXED }) : ['no order'];
+    const onPage = o2 ? reasons(o2, { date: today, ...VERS, served: VERS, nameFileOpen: true, mapping: MAP, fixed: FIXED }) : ['no order'];
     eq('on a current page it prints', onPage, []);
   });
 }
 
-section('§4 the real calculator: Submit reads the served release first');
+section('§4 the real calculator: the form reads the served release when it opens; Submit acts on it');
 (async () => {
   const babel = require('@babel/core');
   const { JSDOM } = require('jsdom');
@@ -225,53 +257,94 @@ section('§4 the real calculator: Submit reads the served release first');
       ['Target fluid', 150], ['Other IV', 0], ['Drug volume', 2], ['Input', 180], ['Urine output', 90], ['Drain content', 0]]) setField(l, v);
   }
 
-  try {
-    mountFilled();
-    ok('the filled form can Submit', btn('Submit') && btn('Submit').disabled === false, btn('Submit') && btn('Submit').disabled);
+  const tick = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+  // Date.now moved forward, so the read the form made when it opened is too old to decide.
+  const realNow = Date.now;
+  const later = () => { Date.now = () => realNow() + 61000; };
+  const undoLater = () => { Date.now = realNow; };
+  const submitBtn = () => btn('Submit');
+  const banners = () => container.querySelectorAll('.release-behind').length;
 
+  try {
+    // Another release served when the form opens.
     served.mode = 'other'; served.calls.length = 0; toasts.length = 0;
-    await clickAsync(btn('Submit'));
-    eq('another release served: Submit sends nothing', logged.length, 0);
-    ok('…it read the version file, uncached, at the page\'s own relative path',
+    mountFilled(); logged.length = 0;
+    await tick();
+    ok('the form reads the version file when it opens, uncached, at the page\'s own relative path',
       served.calls.length === 1 && served.calls[0].url === 'compiled/tpn-room-version.js' && served.calls[0].cache === 'no-store', served.calls);
-    ok('…a banner says the tab is old, the order did not reach the TPN room, and to reload then Submit',
-      !!banner() && /แท็บนี้ยังเป็นรุ่นเก่า/.test(banner().textContent) && /ยังไม่ถึงห้อง TPN/.test(banner().textContent)
-        && /กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง/.test(banner().textContent), banner() && banner().textContent);
+    ok('…and warns before anyone types: reload before filling in the order',
+      !!banner() && /แท็บนี้ยังเป็นรุ่นเก่า/.test(banner().textContent) && /กดโหลดหน้าใหม่ก่อนกรอก order/.test(banner().textContent), banner() && banner().textContent);
     ok('…with a reload button', !!banner() && [...banner().querySelectorAll('button')].some((b) => b.textContent.trim() === 'โหลดหน้าใหม่'));
+    ok('the filled form still offers Submit', submitBtn() && submitBtn().disabled === false, submitBtn() && submitBtn().disabled);
+    await clickAsync(submitBtn());
+    eq('Submit sends nothing', logged.length, 0);
+    eq('…decided by the read the form made, with no second request', served.calls.length, 1);
+    ok('…the banner now says the order did not reach the TPN room, and to reload then Submit',
+      !!banner() && /ยังไม่ถึงห้อง TPN/.test(banner().textContent) && /กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง/.test(banner().textContent), banner() && banner().textContent);
+    eq('…one banner, not two', banners(), 1);
     ok('…and says what was typed is kept as a draft', !!banner() && /เก็บเป็นร่างแล้ว/.test(banner().textContent), banner() && banner().textContent);
     ok('…which it is, in this user\'s draft for the order\'s date', !!localStorage.getItem('neofeed_draft_ST-9_2026-11-17'));
     ok('…and a toast says it too', toasts.some((t) => t.type === 'error' && /ออกรุ่นใหม่แล้ว/.test(t.msg)), toasts);
-    ok('…Submit is not left waiting ("กำลังบันทึก")', btn('Submit') && btn('Submit').disabled === false, btn('Submit') && btn('Submit').textContent);
-
+    ok('…Submit is not left waiting ("กำลังบันทึก")', submitBtn() && submitBtn().disabled === false, submitBtn() && submitBtn().textContent);
     await clickAsync(draftBtn());
     eq('another release served: Save draft still saves', logged.map((e) => e.status), ['draft']);
 
-    mountFilled(); logged.length = 0;
-    served.mode = 'same'; served.calls.length = 0;
-    await clickAsync(btn('Submit'));
-    eq('the same release: Submit saves as before', logged.map((e) => e.status), ['submitted']);
-    ok('…and shows no banner', !banner());
-
-    mountFilled(); logged.length = 0;
-    served.mode = 'fail';
-    await clickAsync(btn('Submit'));
-    eq('the request fails: Submit goes on (fails open, the room still checks)', logged.map((e) => e.status), ['submitted']);
-
-    mountFilled(); logged.length = 0;
-    served.mode = '404';
-    await clickAsync(btn('Submit'));
-    eq('a 404: Submit goes on', logged.map((e) => e.status), ['submitted']);
-
-    mountFilled(); logged.length = 0;
+    // The same release.
     served.mode = 'same';
+    mountFilled(); logged.length = 0;
+    await tick();
+    ok('the same release: no banner when the form opens', !banner());
+    await clickAsync(submitBtn());
+    eq('…and Submit saves as before', logged.map((e) => e.status), ['submitted']);
+
+    // A Submit pressed in the same tick as the form opened, the read still in flight: the
+    // save call comes in that tick, as before this check (verify-bed-dol-io re-save).
+    served.mode = 'same';
+    mountFilled(); logged.length = 0;
+    act(() => { click(submitBtn()); });
+    eq('a Submit while the first read is in flight reaches its save in the same tick', logged.map((e) => e.status), ['submitted']);
+    await tick();
+
+    // The read is over a minute old by the Submit, and a release landed since.
+    served.mode = 'same';
+    mountFilled(); logged.length = 0;
+    await tick();
+    served.mode = 'other'; served.calls.length = 0;
+    later();
+    try { await clickAsync(submitBtn()); } finally { undoLater(); }
+    eq('a read over a minute old is done again before the Submit', served.calls.length, 1);
+    eq('…and the release that landed since stops it', logged.length, 0);
+    ok('…with the banner', !!banner() && /ยังไม่ถึงห้อง TPN/.test(banner().textContent), banner() && banner().textContent);
+
+    // The read fails, or the file is not there: fail open.
+    served.mode = 'fail';
+    mountFilled(); logged.length = 0;
+    await tick();
+    later();
+    try { await clickAsync(submitBtn()); } finally { undoLater(); }
+    eq('the request fails: Submit goes on (fails open, the room still checks)', logged.map((e) => e.status), ['submitted']);
+    served.mode = '404';
+    mountFilled(); logged.length = 0;
+    await tick();
+    later();
+    try { await clickAsync(submitBtn()); } finally { undoLater(); }
+    eq('a 404: Submit goes on', logged.map((e) => e.status), ['submitted']);
+    ok('…and neither shows the banner', !banner());
+
+    // Two presses while an old read is done again.
+    served.mode = 'same';
+    mountFilled(); logged.length = 0;
+    await tick();
     let release;
     served.hold = new Promise((r) => { release = r; });
-    await act(async () => { click(btn('Submit')); });
-    await act(async () => { const b = btn('Submit') || [...container.querySelectorAll('button')].find((x) => /กำลังบันทึก/.test(x.textContent)); if (b) click(b); });
-    release(); served.hold = null;
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-    eq('two presses while the file is read send one save', logged.length, 1);
+    later();
+    try {
+      await act(async () => { click(submitBtn()); });
+      await act(async () => { const b = submitBtn() || [...container.querySelectorAll('button')].find((x) => /กำลังบันทึก/.test(x.textContent)); if (b) click(b); });
+      release(); served.hold = null;
+      await tick(); await tick();
+    } finally { undoLater(); }
+    eq('two presses while the file is read again send one save', logged.length, 1);
   } catch (e) {
     ok('§4 ran without throwing', false, String(e && e.stack || e));
   }

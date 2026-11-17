@@ -395,12 +395,12 @@ function MappingDialog({ order, infants, onSave, onClose }) {
 }
 
 // ── One order on the list ────────────────────────────────────
-function OrderRow({ order, date, file, onMap, onPrint, busy, pageStale }) {
+function OrderRow({ order, date, file, onMap, onPrint, busy, served }) {
   const state = file ? file.state : null;
   const mapping = state ? state.infants[order.sessionId] : null;
   const reasons = Core.printReasons(order, {
     date, constantsVersion: VERSIONS.constantsVersion, stickerSchema: VERSIONS.stickerSchema,
-    nameFileOpen: !!file, mapping, pageStale,
+    nameFileOpen: !!file, mapping, served,
   });
   const last = state ? Core.lastPrint(state.printLog, order.sessionId, date) : null;
   const changed = state ? Core.changedAfterPrint(order, state.printLog, date) : false;
@@ -582,11 +582,12 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   // each call adds an Audit_Log row and reads two tabs uncached. The served version
   // file comes with it (2026-11-17): a page left open across a release judged every
   // new order against its old versions and told the room to ask the doctor for another
-  // Submit, which could not help. `stale` is true only when the file was read and holds
-  // other versions; a file it cannot read leaves the list as it was, and Print still
-  // refuses (printOrder).
+  // Submit, which could not help. `served` is the versions the host serves now, or null
+  // when the file could not be read; the rows judge each order against it
+  // (Core.printReasons). `stale`: it was read, and this page is not on it. A file it
+  // cannot read leaves the list as it was, and Print still refuses (printOrder).
   const fetchDay = React.useCallback(async (day) => {
-    const [r, served] = await Promise.all([
+    const [r, servedText] = await Promise.all([
       gas({ action: "pharmacyOrders", token: user.token, date: day }),
       servedVersionText(),
     ]);
@@ -594,8 +595,9 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
     if (r.error === "PasswordChangeRequired") { onMustChange(); return null; }
     if (r.error === "Forbidden") { onExpired("บัญชีนี้ไม่มีสิทธิ์ใช้หน้าห้อง TPN"); return null; }
     if (!r.ok) throw new Error(String(r.error || "โหลด order ไม่สำเร็จ"));
-    const stale = typeof served === "string" && served !== "" && !Core.versionsMatch(served, VERSIONS);
-    const next = { date: day, counts: r.counts, orders: Core.currentOrders(r.orders), loadedAt: Date.now(), stale };
+    const served = Core.versionsOf(servedText);
+    const stale = !!served && !Core.versionsMatch(servedText, VERSIONS);
+    const next = { date: day, counts: r.counts, orders: Core.currentOrders(r.orders), loadedAt: Date.now(), served, stale };
     setReply(next);
     return next;
   }, [user.token]);
@@ -668,7 +670,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
       const mapping = file.state.infants[order.sessionId];
       const reasons = Core.printReasons(check.order, {
         date: fresh.date, constantsVersion: VERSIONS.constantsVersion, stickerSchema: VERSIONS.stickerSchema,
-        nameFileOpen: true, mapping,
+        nameFileOpen: true, mapping, served: fresh.served || null,
       });
       if (reasons.length) { setError(reasons.join(" · ")); return; }
       setPrintJob({
@@ -692,7 +694,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const gone = reply && file ? Core.goneAfterPrint(orders, file.state.printLog, reply.date) : [];
   const count = file ? Object.keys(file.state.infants).length : 0;
   const backToDraft = reply && file ? Core.draftAfterPrint(orders, file.state.printLog, reply.date) : [];
-  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob, pageStale: !!reply.stale } : null;
+  const rowProps = reply ? { date: reply.date, file, onMap: setMappingFor, onPrint: printOrder, busy: busy || !!printJob, served: reply.served || null } : null;
 
   return (
     <>

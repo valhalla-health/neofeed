@@ -633,8 +633,11 @@ const INIT = `
       const stale = pg.locator('.stale-page');
       ok('on load, a page older than the release says so above the list', await within(stale.filter({ hasText: 'หน้านี้ยังเป็นรุ่นเก่า' })));
       ok('…with a reload button', await within(stale.getByRole('button', { name: 'โหลดหน้านี้ใหม่' })));
+      // AA-1 is on this page's release, which the host no longer serves: the doctor submits
+      // again on the new release, and the page reloads too (Vera on this PR, 2026-11-17).
       const rowText = await row(pg, 'AA-1').innerText();
-      ok('…and the row asks the room to reload, not the doctor to Submit', /กดโหลดหน้านี้ใหม่/.test(rowText) && !/ให้หมอ/.test(rowText), rowText);
+      ok('…and an order on the old release asks the doctor to reload NeoFeed and Submit, and the room to reload',
+        /ให้หมอกดโหลดหน้า NeoFeed ใหม่ก่อน/.test(rowText) && /กดโหลดหน้านี้ใหม่ด้วย/.test(rowText) && !/หมอไม่ต้อง Submit ใหม่/.test(rowText), rowText);
       versionFile.body = null;
       await pg.getByRole('button', { name: 'รีเฟรช' }).click();
       await pg.locator('.counts').waitFor();
