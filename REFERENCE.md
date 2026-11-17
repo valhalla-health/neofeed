@@ -158,6 +158,38 @@ that tips the fullest order onto a second page fails it. The provenance footer s
 
 The HMF threshold `patient.ga < 32` still works because all valid values stay under integer 32.
 
+## The ward's TPN page, "TPN ทั้งหอ" (2026-11-15)
+
+One page per ward that lists the infants on TPN, so the team need not open each Dashboard (Pp, 2026-11-14). The rail
+has it after Dashboard; on a phone, the ward list's "TPN ทั้งหอ" button. A tap on a row opens that infant's Dashboard.
+Every role that sees the ward list sees it. Display only: nothing on it is saved, printed or dosed, so it moves no
+`CONSTANTS_VERSION`. The rule is `D.wardTpnRow` in `data.js`, the page `WardTpnPage` in `registry.jsx`, and
+`test/verify-ward-tpn-page-1115.cjs` holds both.
+
+**Who is listed.** An Active infant of the ward whose latest Submitted order has TPN (`orderHadTpn`), or whose latest
+order *with TPN* is at most `WARD_TPN_RECENT_DAYS` (14) days old. The days count from the last order with TPN, not the
+last submit: a No TPN infant is asked for an order every 3 days, so an infant who never had TPN would otherwise stay on
+the page for good (Pp, 2026-11-15). A draft is not an order. Flagged rows first (red, then amber), then by bed.
+
+**The figures** are the latest Submitted order's, as ordered: `calcInput.aaPerKg`, `calcInput.lipidPerKg`, the saved IV
+GIR and `enVolPerKg`. DOL and the day of PN are today's; the day of PN counts from the first order of the current run,
+which a No TPN order ends.
+
+**The care flags**, only what today's order can still change. No QI figure is shown (Pp, 2026-11-14: QI stays in the
+back end, admin only, until the indicators are chosen).
+
+| Flag | When | Source |
+|---|---|---|
+| AA < 2.5 (amber) | preterm, today's DOL 2–7, counted EN < 50 mL/kg/d, AA < 2.5 g/kg/d. By DOL, also for an infant admitted after birth, and today's DOL when the latest order is older (Pp, 2026-11-14, 2026-11-15) | van Goudoever 2018 R 3.2; EN < 50 is NeoFeed's own (`pn_aa_ge_2_5`) |
+| DOL 2 ยังไม่มี lipid (amber) | preterm, today's DOL 2, no lipid | Lapillonne 2018 R 4.2 |
+| GIR > 12 (red), GIR < 4 (amber) | `girStatus`, every GA; a GIR of 0 (no dextrose) is not flagged | `CR-GIR-MAX` |
+| EN ≥ 140 / 120 ยังมี PN (amber) | dextrose, AA or lipid still ordered once counted EN reaches 140 mL/kg/d below 28 wk, 120 from 28 wk and at term; every GA (Pp, 2026-11-15) | NICE NG154 rec 1.8.3; not `FULL_EN_ML_KG` |
+| No TPN (no colour) | the latest order is No TPN (`orderIsNoTpn`); no other flag then | — |
+
+Preterm is GA below `PRETERM_GA_WK` (37) weeks (Pp, 2026-11-15, as QI decision 6.6). A record with no usable GA counts
+as preterm and takes the 120 line, so a missing GA never hides a flag. Counted EN leaves out a MEN feed (`CR-U-MEN`).
+Every number on the page reads `data.js`.
+
 ## Pre-PR review (Vera)
 
 Before you open or update a PR whose diff touches a dose file (`data.js`, `calculator.jsx`,

@@ -7,6 +7,34 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-15 (3) — "TPN ทั้งหอ": one ward's infants on TPN on one page, with care flags
+
+`data.js` (`wardTpnRow`, `wardTpnRows`, `WARD_TPN_RECENT_DAYS`, `PRETERM_GA_WK`, `WARD_AA_FLAG`, `WARD_LIPID_FLAG_DOL`,
+`PN_STOP_EN_ML_KG`, `isPretermGa`, `pnStopEnFor`, `countedEnPerKg`), `registry.jsx` (`WardTpnPage`, the ward list's
+button), `app.jsx` (the rail item and the view), both shells (the page's CSS), `compiled/`, `REFERENCE.md` (§ The ward's
+TPN page), the clinical-rules skill ("Not in this file"), `test/verify-ward-tpn-page-1115.cjs` (new).
+
+- **Why.** Pp, 2026-11-14: each infant's trend is on their Dashboard, but "ไม่มีใครมาเปิดดูเองทีละคน". A mockup on the
+  real app with made-up infants was checked for its clinical content, then Pp chose its rules.
+- **Who is listed.** Active infants of the ward whose latest Submitted order has TPN, or whose last order with TPN is at
+  most 14 days old. Pp, 2026-11-14: "ทุกคนที่ยังมีการสั่ง TPN หรือมีการ submit ครั้งสุดท้ายภายใน 14 วัน" and "เอาแค่คน
+  active อยู่"; asked on 2026-11-15, because a No TPN infant submits every 3 days, she chose to count the 14 days from
+  the last order with TPN, so an infant who never had TPN is not on the page.
+- **What a row shows.** Bed, name, GA and BW, DOL, day of PN, then AA, lipid, GIR and EN as ordered in the latest
+  Submitted order, its flags and when it was last saved. Flagged rows first, then by bed; one card per infant on a phone.
+  A tap opens the infant's Dashboard.
+- **The care flags**, only what today's order can still change: AA < 2.5 g/kg/d on DOL 2–7 with EN < 50 mL/kg/d; no
+  lipid on DOL 2; GIR above 12 (red) or below 4 (amber) by `girStatus`; PN still ordered once EN reaches NICE's line;
+  No TPN. Pp's answers of 2026-11-15: **preterm is GA < 37 weeks** for the AA and lipid flags (as QI decision 6.6);
+  **add the PN-after-EN flag on NICE NG154 rec 1.8.3**, 140 mL/kg/d below 28 weeks and 120 from 28 weeks and at term,
+  every GA (not `FULL_EN_ML_KG` 100, which has no source); **today's DOL** when the latest order is older. Pp, 2026-11-14,
+  for the AA flag: "ให้ดูตาม DOL เพราะใช้ค่า optimum ตาม guideline".
+- **No QI figure** (Pp, 2026-11-14: "งาน QI เก็บข้อมูลหลังบ้านไว้ก่อน ยังไม่โชว์อะไร เอาให้เรา admin เห็นเท่านั้นพอ"): the
+  mockup's trend section is not built.
+- **Nothing printed or dosed moves**: no `CONSTANTS_VERSION`, no backend change.
+- **Seen working** on dev local (the real `gas-backend.gs` in the sandbox, made-up infants only), at 1280 px and on the
+  phone preset, signed in as the made-up doctor and nurse.
+
 ## Session 2026-11-15 (2) — "I/O ใช้น้ำหนักคำนวณ TPN": Intake/Output per kg on the TPN calc. weight, on a tick
 
 `data.js` (`ioDivisorG`'s `tpnWtG`, `ioTpnWeightOn`), `calculator.jsx` (the tick, `normalizeCalcInput`, the

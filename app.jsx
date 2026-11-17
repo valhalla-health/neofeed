@@ -2628,6 +2628,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         <div className="rail-section">Workspace</div>
         <RailItem icon="users" label="Patients" active={view === "registry"} count={patients.length} onClick={() => goTo("registry")} />
         <RailItem icon="log" label="Dashboard" active={view === "log"} count={(log[activeId] || []).length} onClick={() => goTo("log")} />
+        {/* One ward's infants on TPN on one page (Pp, 2026-11-14), beside the
+            per-infant Dashboard. Every role that sees the ward list sees it:
+            it shows what the ward list and each Dashboard already show. */}
+        <RailItem icon="drop" label="TPN ทั้งหอ" active={view === "wardtpn"} onClick={() => goTo("wardtpn")} />
         {(role === "doctor" || role === "nurse") && <RailItem icon="calc" label="Calculator" active={view === "calculator"} onClick={() => goTo("calculator")} />}
         <RailItem icon="chart" label="Growth chart" active={view === "fenton"} onClick={() => goTo("fenton")} />
         <RailItem icon="bell" label="Alerts" active={view === "alerts"} count={alertBadge.count || null}
@@ -2690,7 +2694,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
             <WardPrintBatch batch={printBatch} patients={patients} log={log} onBack={() => setPrintBatch(null)} />}
           {view === "registry" && !(printBatch && printWard === printBatch.ward) && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard}
             printWard={printWard} onPrintWard={setPrintWard} onPrintOrder={openOrderToPrint} onPrintAll={startPrintAll}
-            onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={canDeletePatient ? handleDeletePatient : undefined} />}
+            onSelect={(id) => {setEditEntry(null);setActiveId(id);setView("log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={canDeletePatient ? handleDeletePatient : undefined}
+            onOpenWardTpn={() => goTo("wardtpn")} />}
+          {/* "TPN ทั้งหอ" opens on the ward the list was on; a tap on an infant
+              opens their Dashboard, as a ward-list row does. */}
+          {view === "wardtpn" && <WardTpnPage patients={patients} log={log} ward={ward}
+            onSelect={(id) => { setEditEntry(null); setActiveId(id); setView("log"); }} />}
           {/* Role-checked here as well as in the rail: `view` is plain state,
               and before sessions remounted App an admin's "admin" view was
               still selected for the next user of the tab (SEC-F2). */}

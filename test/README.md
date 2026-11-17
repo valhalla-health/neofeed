@@ -2219,6 +2219,16 @@ install. To run every harness as CI's sources pass does, set `NODE_PATH` as abov
 `verify-no-tpn-ward-tag-1108.cjs`: the latest Submitted order decides by date, whatever the array order; a draft and a
 discharged infant are not tagged; both the phone card and the desktop row show it. Needs the jsdom set above.
 
+## "TPN ทั้งหอ", the ward's TPN page, 2026-11-15 — one harness added
+
+`verify-ward-tpn-page-1115.cjs`: who is listed (Active only; latest order has TPN, or the last order with TPN is at
+most 14 days old; a draft is not an order; one ward at a time), each care flag on both sides of every edge (AA < 2.5 on
+DOL 2–7 with EN < 50, preterm below 37 weeks, by today's DOL; no lipid on DOL 2; GIR above 12 and below 4; PN still
+ordered at NICE's 140 / 120 mL/kg/d; No TPN alone), the day of PN, and the page itself: rows flagged first then by bed,
+the chips in words, no QI figure, a tap or Enter opens the infant, the ward switch, the phone cards, the rail item and
+the ward list's button. Mounts the real `data.js` and `registry.jsx`; needs the jsdom set above. Each assertion was
+seen failing under a planted change of the rule it guards (the PR lists them).
+
 ## Old against new, 2026-11-08 — one harness added
 
 `verify-calc-compare.cjs` (NF-42): `tools/calc-compare.cjs` on a version against itself; one planted change of each kind

@@ -1,6 +1,8 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-15 — "I/O ใช้น้ำหนักคำนวณ TPN": a tick on the Calculator's Intake/Output card divides I/O per kg by the TPN calc. weight; the nurses' I/O card follows a ticked order; a doctor's I/O-only save keeps the order's ฉบับ: this PR, not merged.** Needs a backend `clasp` deploy first, then the frontend release; nothing printed moves (`CHANGELOG.md` 2026-11-15 (2)).
+> ⏳ **2026-11-15 — "TPN ทั้งหอ": one page per ward lists the Active infants on TPN or off it for at most 14 days, with the latest order's AA, lipid, GIR and EN and care flags (AA and lipid in preterm infants, GIR, PN still ordered at NICE's EN line, No TPN); no QI figure: this PR, not merged.** Frontend only; nothing printed or dosed moves, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-15 (3)).
+>
+> ⏳ **2026-11-15 — "I/O ใช้น้ำหนักคำนวณ TPN": a tick on the Calculator's Intake/Output card divides I/O per kg by the TPN calc. weight; the nurses' I/O card follows a ticked order; a doctor's I/O-only save keeps the order's ฉบับ: PR #263, merged into `main` by Praew (2026-11-15); not live.** Needs a backend `clasp` deploy first, then the frontend release; nothing printed moves (`CHANGELOG.md` 2026-11-15 (2)).
 >
 > ⏳ **2026-11-15 — A doctor can Delete session (a patient registered by mistake), not only an admin; the ward's deleted name no longer stays in "อื่นๆ": PR #262, merged into `main` by Praew (2026-11-15); not live.** Needs backend `clasp` deploy first, then the frontend release (`CHANGELOG.md` 2026-11-15).
 >
