@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-15, fixed 2026-11-18 — "TPN ทั้งหอ": one page per ward lists the Active infants on TPN or off it for at most 14 days, with the latest order's AA, lipid, GIR and EN, its Submit time and care flags (AA and lipid in preterm infants, a No TPN order counted as AA 0; GIR; PN still ordered at NICE's EN line; No TPN); no QI figure: this PR, not merged.** Frontend only; nothing printed or dosed moves, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-15 (3), 2026-11-18 (1)).
+> ⏳ **2026-11-15, fixed 2026-11-18 — "TPN ทั้งหอ": one page per ward lists the Active infants on TPN or off it for at most 14 days, with the latest order's AA, lipid, GIR and EN, its Submit time and care flags (AA and lipid in preterm infants, a No TPN order counted as AA 0; GIR; PN still ordered at NICE's EN line; No TPN); no QI figure: PR #285, merged into `main` on Praew's instruction.** Frontend only, not live: the release waits for Pp; nothing printed or dosed moves, `CONSTANTS_VERSION` stays (`CHANGELOG.md` 2026-11-15 (3), 2026-11-18 (1), (2), (5)).
 >
 > ⏳ **2026-11-17 — The TPN room's names page: "รายชื่อทั้งหมด" lists every infant in the name file, searchable, each name and AN editable, an infant with no order on the chosen date included (Pp, from a render: "ใช้แบบนี้"): PR #282, merged into `main` on Praew's instruction.** Frontend only, the TPN room's page alone; reads the open name file only, no request, no figure or rule changes (`CHANGELOG.md` 2026-11-17 (4)).
 >
