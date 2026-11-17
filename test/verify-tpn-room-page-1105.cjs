@@ -229,6 +229,48 @@ const INIT = `
     await dialog.getByRole('button', { name: 'บันทึก' }).click();
     await row(page, 'AA-1').getByText(SENTINEL_AN).waitFor();
 
+    section('§4b the names page (Pp, 2026-11-17: "หน้ารวมชื่อทุกคน")');
+    {
+      // A day with no orders on the list: the names page still lists everyone in the file.
+      const day = page.locator('input[type=date]').first();
+      const yesterday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
+      await day.fill(yesterday);
+      await page.locator('.note').filter({ hasText: 'รายการด้านล่าง' }).waitFor({ state: 'detached' }).catch(() => {});
+      await page.waitForFunction(() => !document.querySelector('li[data-session="AA-1"]'), null, { timeout: 5000 }).catch(() => {});
+      ok('the list for a day with no orders shows neither mapped infant', (await row(page, 'AA-1').count()) === 0 && (await row(page, 'SS-1').count()) === 0);
+      await page.getByRole('button', { name: 'รายชื่อทั้งหมด' }).click();
+      const names = page.getByRole('dialog', { name: 'รายชื่อในไฟล์ชื่อ' });
+      await names.waitFor();
+      const nameRow = (id) => names.locator(`tr[data-session="${id}"]`);
+      ok('the names page heading counts the file', /รายชื่อในไฟล์ชื่อ 2 คน/.test(await names.innerText()));
+      eq('…and lists both infants, with no order on this day', await names.locator('tbody tr').count(), 2);
+      ok('…each with the name and AN from the file', /SENTINEL-NAME-7Q/.test(await nameRow('AA-1').innerText()) && /98765\/69/.test(await nameRow('AA-1').innerText())
+        && /ทารกสังเคราะห์ บี/.test(await nameRow('SS-1').innerText()) && /11111\/69/.test(await nameRow('SS-1').innerText()));
+      await names.getByPlaceholder('NeoFeed ID ชื่อ หรือ AN').fill('บี');
+      eq('the search keeps the matching row', await names.locator('tbody tr').count(), 1);
+      await names.getByPlaceholder('NeoFeed ID ชื่อ หรือ AN').fill('');
+      await nameRow('SS-1').getByRole('button', { name: 'แก้ชื่อ / AN' }).click();
+      const edit = page.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' });
+      await edit.waitFor();
+      const etext = await edit.innerText();
+      ok('the edit from the list shows the ID and the day last seen, and no order facts', /SS-1/.test(etext) && /เห็นใน order ล่าสุด/.test(etext) && !/เตียง/.test(etext) && !/BW/.test(etext));
+      await edit.getByLabel('ชื่อที่จะพิมพ์').fill('ทารกสังเคราะห์ บี แก้จากหน้ารวม');
+      await edit.getByRole('button', { name: 'บันทึก' }).click();
+      await nameRow('SS-1').getByText('ทารกสังเคราะห์ บี แก้จากหน้ารวม').waitFor();
+      ok('the saved name shows on the names page', true);
+      ok('…and "แก้ล่าสุด" names who changed it, in ward time', /Pharmacist Dev \d{2}\/\d{2}\/25\d\d \d{2}:\d{2}/.test(await nameRow('SS-1').innerText()));
+      await names.getByRole('button', { name: 'กลับไปรายการ order' }).click();
+      eq('back to the order list closes the page', await names.count(), 0);
+      await day.fill(today);
+      await row(page, 'SS-1').getByText('ทารกสังเคราะห์ บี แก้จากหน้ารวม').waitFor();
+      ok('the order row on today\'s list shows the name changed there', true);
+      // Put the name back for the sections after this one.
+      await row(page, 'SS-1').getByRole('button', { name: /ชื่อ \/ AN/ }).click();
+      await page.getByLabel('ชื่อที่จะพิมพ์').fill('ทารกสังเคราะห์ บี');
+      await page.getByRole('dialog').getByRole('button', { name: 'บันทึก' }).click();
+      await row(page, 'SS-1').getByText('ทารกสังเคราะห์ บี', { exact: true }).waitFor();
+    }
+
     section('§5 blank fixed lines print a trial sheet (Pp, 2026-11-16)');
     ok('the row says the sheet prints as a trial', /แผ่นทดลอง ห้ามใช้จริง/.test(await row(page, 'AA-1').innerText()));
     const trialPrint = row(page, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' });

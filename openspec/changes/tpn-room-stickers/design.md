@@ -63,6 +63,9 @@ that moved a figure must reload first (Vera, 2026-11-05).
   the pharmacist maps the infant again from the paper order.
 - **Status line:** the number of infants in the table, whether the file is open, its folder, and who is
   signed in.
+- **Names page (2026-11-17):** with the file open, "รายชื่อทั้งหมด" lists every infant in it, searchable, each name
+  and AN editable. It reads the open file only. An edit there keeps the day last seen, so the purge still counts
+  from the orders.
 - **A changed byte stops the file.** The payload's additional data covers the header, and the text must equal
   its canonical form. A wrong passphrase, a damaged file and a missing file each say so, and none opens an
   empty table.

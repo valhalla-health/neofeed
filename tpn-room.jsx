@@ -357,12 +357,19 @@ function MappingDialog({ order, infants, onSave, onClose }) {
       <div className="dialog" role="dialog" aria-modal="true" aria-label="ใส่ชื่อกับ AN">
         <h2>ใส่ชื่อกับ AN</h2>
         <p className="muted">ดูจาก order กระดาษ ซึ่งมีทั้ง NeoFeed ID และสติกเกอร์ผู้ป่วย</p>
+        {/* From the names page there is no order: only the ID and the day it was last seen. */}
         <dl className="facts">
           <div><dt>NeoFeed ID</dt><dd>{order.sessionId}</dd></div>
-          <div><dt>เตียง</dt><dd>{order.bed || "ไม่มีเตียง"}</dd></div>
-          <div><dt>BW</dt><dd>{order.bw} g</dd></div>
-          <div><dt>DOL</dt><dd>{order.dol}</dd></div>
-          {pj && <div><dt>น้ำหนักที่ใช้คำนวณ</dt><dd>{pj.dosingWeightKg} kg</dd></div>}
+          {order.fromList ? (
+            had && had.lastSeen && <div><dt>เห็นใน order ล่าสุด</dt><dd>{Core.buddhistDate(had.lastSeen)}</dd></div>
+          ) : (
+            <>
+              <div><dt>เตียง</dt><dd>{order.bed || "ไม่มีเตียง"}</dd></div>
+              <div><dt>BW</dt><dd>{order.bw} g</dd></div>
+              <div><dt>DOL</dt><dd>{order.dol}</dd></div>
+              {pj && <div><dt>น้ำหนักที่ใช้คำนวณ</dt><dd>{pj.dosingWeightKg} kg</dd></div>}
+            </>
+          )}
         </dl>
         {twin && <p className="twin-big">{twin}</p>}
         <form onSubmit={submit} className="stack">
@@ -377,11 +384,55 @@ function MappingDialog({ order, infants, onSave, onClose }) {
         {had && (
           <div className="history">
             <h3>ประวัติการแก้</h3>
-            <p className="muted">ล่าสุด: {had.by} {had.at}</p>
+            <p className="muted">ล่าสุด: {had.by} {Core.wardDateTime(had.at) || had.at}</p>
             {had.history.slice().reverse().map((h, i) => (
-              <p key={i} className="muted">{h.at} {h.by}: {h.name} · {h.an}</p>
+              <p key={i} className="muted">{Core.wardDateTime(h.at) || h.at} {h.by}: {h.name} · {h.an}</p>
             ))}
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Every infant in the name file (Pp, 2026-11-17: "หน้ารวมชื่อทุกคน") ──
+// A sheet over the order list, with each name and AN editable, an infant with no order on
+// the chosen date included. Nothing here leaves the PC: it reads the open name file only.
+function NamesPage({ infants, onEdit, onClose }) {
+  const [query, setQuery] = React.useState("");
+  const rows = Core.namesList(infants, query);
+  const total = Object.keys(infants).length;
+  return (
+    <div className="scrim">
+      <div className="dialog names-page" role="dialog" aria-modal="true" aria-label="รายชื่อในไฟล์ชื่อ">
+        <div className="row names-top">
+          <h2>รายชื่อในไฟล์ชื่อ {total} คน</h2>
+          <button onClick={onClose}>กลับไปรายการ order</button>
+        </div>
+        <p className="muted">ชื่อกับ AN อยู่ในไฟล์บนเครื่องนี้เท่านั้น ทารกที่ไม่มี order 30 วัน ไฟล์จะลบชื่อออกเอง</p>
+        <label className="inline">ค้นหา
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="NeoFeed ID ชื่อ หรือ AN" autoComplete="off" />
+        </label>
+        {rows.length > 0 ? (
+          <table className="names">
+            <thead>
+              <tr><th>NeoFeed ID</th><th>ชื่อที่จะพิมพ์</th><th>AN</th><th>เห็นใน order ล่าสุด</th><th>แก้ล่าสุด</th><th></th></tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.sessionId} data-session={r.sessionId}>
+                  <td>{r.sessionId}</td>
+                  <td><strong>{r.name}</strong></td>
+                  <td>{r.an}</td>
+                  <td>{Core.buddhistDate(r.lastSeen)}</td>
+                  <td className="muted">{r.by} {Core.wardDateTime(r.at)}</td>
+                  <td><button onClick={() => onEdit(r.sessionId)}>แก้ชื่อ / AN</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="muted">{query.trim() ? "ไม่พบชื่อที่ค้นหา" : "ยังไม่มีชื่อในไฟล์"}</p>
         )}
       </div>
     </div>
@@ -569,6 +620,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
   const [file, setFile] = React.useState(null);
   const [, bump] = React.useReducer((n) => n + 1, 0);
   const [mappingFor, setMappingFor] = React.useState(null);
+  const [namesOpen, setNamesOpen] = React.useState(false);
   const [printJob, setPrintJob] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
 
@@ -633,7 +685,9 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
 
   const saveMapping = async (values) => {
     const order = mappingFor;
-    await file.save((s) => NameStore.mapInfant(s, order.sessionId, values, who, new Date().toISOString(), reply.date));
+    // An edit from the names page is not a sighting in an order (Core.mappingSeenOn).
+    const seenOn = Core.mappingSeenOn(file.state.infants[order.sessionId], order.fromList, reply && reply.date);
+    await file.save((s) => NameStore.mapInfant(s, order.sessionId, values, who, new Date().toISOString(), seenOn));
     setMappingFor(null);
     bump();
   };
@@ -685,6 +739,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         <header className="top">
           <h1>ห้อง TPN</h1>
           <div className="row">
+            {file && <button onClick={() => setNamesOpen(true)}>รายชื่อทั้งหมด</button>}
             {user.authMethod !== "google" && <button onClick={onChangePassword}>เปลี่ยนรหัสผ่าน</button>}
             <button onClick={onLogout}>ออกจากระบบ</button>
           </div>
@@ -749,6 +804,10 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         ))}
         <Contacts />
       </div>
+      {namesOpen && file && (
+        <NamesPage infants={file.state.infants} onClose={() => setNamesOpen(false)}
+          onEdit={(sessionId) => setMappingFor({ sessionId, fromList: true })} />
+      )}
       {mappingFor && file && (
         <MappingDialog order={mappingFor} infants={file.state.infants} onSave={saveMapping} onClose={() => setMappingFor(null)} />
       )}

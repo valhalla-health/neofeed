@@ -107,6 +107,13 @@
     const [y, m, d] = s.split("-");
     return `${d}/${m}/${Number(y) + 543}`;
   }
+  // An ISO time as the ward reads it, Buddhist era: "17/11/2569 09:05". "" when it is not a time.
+  function wardDateTime(iso) {
+    const at = Date.parse(iso || "");
+    if (!isFinite(at)) return "";
+    const day = new Date(at + WARD_OFFSET_MS).toISOString().slice(0, 10);
+    return `${buddhistDate(day)} ${wardTime(iso)}`;
+  }
   function wardTime(iso, now) {
     const at = iso ? Date.parse(iso) : now;
     if (!isFinite(at)) return "";
@@ -186,6 +193,26 @@
       if (id !== sessionId && infants[id].an === want) return id;
     }
     return "";
+  }
+  // The day a mapping counts as seen. From an order row it is that order's date. From the
+  // names page it is the day the infant was last seen, so an edit there is no sighting and
+  // the 30-day purge still counts from the orders. With neither (no list loaded), today.
+  function mappingSeenOn(had, fromList, orderDate, now) {
+    if (fromList && had && isRealDate(had.lastSeen)) return had.lastSeen;
+    return isRealDate(orderDate) ? orderDate : wardToday(now);
+  }
+  // Every infant in the name file, for the names page (Pp, 2026-11-17: "หน้ารวมชื่อทุกคน"):
+  // the one seen in an order most recently first, then by NeoFeed ID. `query` keeps the
+  // rows whose ID, name or AN contains it, case and spaces aside.
+  function namesList(infants, query) {
+    const norm = (s) => String(s == null ? "" : s).toLowerCase().replace(/\s+/g, "");
+    const q = norm(query);
+    return Object.keys(infants || {})
+      .map((id) => ({ sessionId: id, name: infants[id].name, an: infants[id].an, lastSeen: infants[id].lastSeen || "",
+        by: infants[id].by || "", at: infants[id].at || "" }))
+      .filter((r) => !q || [r.sessionId, r.name, r.an].some((v) => norm(v).includes(q)))
+      .sort((a, b) => (a.lastSeen === b.lastSeen ? (a.sessionId < b.sessionId ? -1 : a.sessionId > b.sessionId ? 1 : 0)
+        : a.lastSeen < b.lastSeen ? 1 : -1));
   }
 
   // ── Figures ──
@@ -338,7 +365,7 @@
   const api = {
     PN_FIXED, PN_BLANK, PN_TRIAL, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
-    wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy,
+    wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy, mappingSeenOn, namesList, wardDateTime,
     missingFigures, printReasons, fixedLinesReady, trialNote, trialReprintDue,
     lastPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
     recheck, stickerModel,

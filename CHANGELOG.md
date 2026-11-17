@@ -7,6 +7,35 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (4) — The TPN room's names page: every infant in the name file, each name and AN editable
+
+`tpn-room.jsx` (`NamesPage`; the "รายชื่อทั้งหมด" button; `MappingDialog` from the list shows the ID and the day last
+seen; its history in ward time), `tpn-room-core.js` (`namesList`, `mappingSeenOn`, `wardDateTime`), `tpn-room.css`,
+`compiled/tpn-room.js`, the room shells' `?v=`, `test/verify-tpn-room-names-1117.cjs` (new),
+`test/verify-tpn-room-page-1105.cjs` §4b, `openspec/changes/tpn-room-stickers/design.md` (the name file), `STATUS.md`.
+
+- **Why.** Pp, 2026-11-17: "ในหน้าจอของห้อง TPN Room อันที่ให้แก้ไขชื่อให้สามารถแก้ไขชื่อของแต่ละคนได้จากบนแดชบอร์ดของห้อง
+  TPN". A name could be changed only from an order row, so only for an infant with an order on the chosen date, and
+  only with the name file open. Of two forms she chose a page of everyone ("หน้ารวมชื่อทุกคน"), and approved it from
+  a render ("ใช้แบบนี้").
+- **The page.** With the name file open, "รายชื่อทั้งหมด" opens a sheet over the order list: every infant in the file,
+  the one seen in an order most recently first, with NeoFeed ID, the name to print, AN, the day last seen in an order,
+  and who changed it last and when; a search by ID, name or AN; "แก้ชื่อ / AN" on each row opens the same dialog as an
+  order row, with the ID and the day last seen in place of the order's bed, BW and DOL. The page reads the open name
+  file only: no request, no new storage, nothing leaves the PC (design D7).
+- **An edit from the page is no sighting.** It keeps the day the infant was last seen in an order
+  (`mappingSeenOn`), so the 30-day purge still counts from the orders; an edit from an order row takes that order's
+  date as before.
+- **Also.** The dialog's edit history printed raw ISO times ("2026-11-17T11:59:56.983Z"); it reads "17/11/2569 18:59",
+  ward time (`wardDateTime`).
+- **Tests.** `verify-tpn-room-names-1117.cjs`, 18 checks in Node, all fail on `origin/main` `0284ee0`.
+  `verify-tpn-room-page-1105.cjs` §4b, 10 checks in Chromium (on a day with no orders both mapped infants are on the
+  page; the search; the edit from the list shows no order facts; the saved name on the page and on the order row;
+  back): on `0284ee0` the run stops at the missing button; 125/125 here. `verify-tpn-room-core-1105` 127/127,
+  `verify-tpn-room-store-1105` 51/51, `verify-build-shells` 78/78.
+- **Beside PRs #280 and #281.** All three rebuild `compiled/tpn-room.js` and the room shells' `?v=`; each one merged
+  after another takes `main` and rebuilds.
+
 ## Session 2026-11-16 (13) — The TPN unit's answers: bag volume, whole mL, sticker sizes, label lines, a larger print
 
 `data.js` (`preparedVolFor`, `PRINT_FIT_STEPS`, `PRINT_AREA_MM`, `fitPrintSheet`, new; `stickerFigures` `deadMl`;

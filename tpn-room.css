@@ -69,6 +69,15 @@ button.google { width: 100%; margin: 14px 0 4px; padding: 9px 14px; font-weight:
 .facts dd { margin: 0; font-weight: 700; }
 .twin-big { font-size: 26px; font-weight: 700; text-align: center; background: var(--warn-wash); border-radius: 6px; padding: 6px; }
 .history { margin-top: 12px; border-top: 1px solid var(--line); font-size: 13px; }
+/* The names page (2026-11-17): a wide sheet over the order list. */
+.dialog.names-page { max-width: 960px; }
+.names-top { justify-content: space-between; }
+.names-top h2 { margin: 0; }
+.names-page input[type=search] { width: 280px; }
+.names { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 15px; }
+.names th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 400; border-bottom: 2px solid var(--moss); padding: 4px 8px; }
+.names td { border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: middle; }
+.names td:last-child { text-align: right; }
 
 /* ── The sheet: one A4 page, three parts, each cut by hand along its dashed outline. The
    TPN unit's sizes (2026-11-16): the mixing worksheet 150 × 85 mm with each figure beside
