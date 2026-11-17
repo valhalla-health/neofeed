@@ -25,7 +25,7 @@ PR, and commands for both Windows and Mac.
   tools` and the build). Node 22 or newer passes; 22 is CI's. The harness packages are required, since `AGENTS.md`
   asks for the harnesses before a PR. `--offline` always ends not ready, as it cannot confirm the GitHub sign-in.
 - **`test/verify-maintainer-doctor.cjs`**: 50 checks. The probe list is pinned to an exact literal; outside comments
-  `run` appears twice and `spawnSync` three times, so a bare call or an alias of either fails it; `child_process`
+  `run` appears twice and `spawnSync` three times, so a bare call or a named alias of either fails it; `child_process`
   gives `spawnSync` alone; `--checks` starts exactly the pre-PR checks; a fork or another repo of the org fails; the
   default run leaves the working tree unchanged. Twelve mutations were tried and each fails it: probes for `git push`,
   `clasp run setupSheetBackups` and `npx wrangler rollback`; an extra `execSync`, a bare `run()`, aliases of `run`
@@ -40,9 +40,9 @@ PR, and commands for both Windows and Mac.
   sitting with Pp. A new account is a row typed into the Staff tab with active TRUE, whose `onEdit` writes a
   temporary password (none for Gmail and Chula Google accounts). Deleting a `fail_…` property to lift a lockout that
   returns after its 15 minutes is the one Script Property change allowed, also for Pp to confirm.
-- **Found while writing the guide, not changed here:** the app has no staff page. Adding, disabling, re-roling,
-  resetting or unlocking an account is a Staff-tab edit or an editor-run function, so whoever manages users must be a
-  Sheet editor. `REFERENCE.md` lines 772 and 779 say it is done "from the Admin page". Correcting them waits for Pp's
+- **Found while writing the guide, not changed here:** the app has no staff page. Adding, disabling, re-roling or
+  resetting an account is a Staff-tab edit or an editor-run function, and unlocking one is deleting a Script
+  Property, so whoever manages users must be a Sheet editor. `REFERENCE.md` lines 772 and 779 say it is done "from the Admin page". Correcting them waits for Pp's
   decisions on the co-admin's rights.
 - **Left to PR #284 (`claude/ward-resubmit-tag`):** the STATUS and BACKLOG catch-up owed since #283, and
   `GLOSSARY.md`. That session had both in its tree when this one checked, 2026-11-18 00:05 ICT, so they stay out of
