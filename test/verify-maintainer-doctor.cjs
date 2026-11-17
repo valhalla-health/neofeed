@@ -90,6 +90,14 @@ const ok = (name, cond, detail) => {
   const spawns = (src.match(/spawnSync\(/g) || []).length;
   ok('6.6 it starts commands in two places only: run() and the --checks step', spawns === 2, spawns);
   ok('6.7 no other way to start a process', !/\b(exec|execSync|execFile|execFileSync|spawn|fork)\(/.test(src.replace(/spawnSync\(/g, '')));
+  // A second review routed commands past 6.5-6.7: a bare run("git push"), an aliased execSync
+  // import, and changed --checks arguments. Each of those three doors is pinned here.
+  ok('6.8 run() is called once, and only with a PROBES entry',
+    (src.match(/\brun\(/g) || []).length === 2 && src.includes('const probe = id => run(PROBES[id]);'));
+  ok('6.9 child_process gives spawnSync only, under its own name',
+    (src.match(/child_process/g) || []).length === 1 && src.includes('import { spawnSync } from "node:child_process";'));
+  ok('6.10 --checks starts exactly the pre-PR checks',
+    src.includes('spawnSync(process.execPath, [path.join(ROOT, "tools", "run_checks.js"), "--level", "ci", "--phase", "pre"],'));
 
   console.log('\n── #7 summary ──');
   const r = (id, required, okv) => ({ id, required, ok: okv });
@@ -114,7 +122,13 @@ const ok = (name, cond, detail) => {
   ok('8.6 the working tree is unchanged', status() === before);
   const td = out ? out.results.find(x => x.id === 'testDeps') : null;
   ok('8.7 the harness packages are required (AGENTS.md: run the harnesses before a PR)', td && td.required === true, td);
-  ok('8.8 --offline cannot pass, since it cannot confirm the GitHub sign-in', out !== null && out.exitCode === 1, out && out.exitCode);
+  // CI has no clasp, so the run's own exit code is 1 anyway; check the skipped items themselves.
+  const net = out ? out.results.filter(x => doc.NETWORK_PROBES.includes(x.id)) : [];
+  const ghHere = ids.includes('gh') && out.results.find(x => x.id === 'gh').ok === true;
+  ok('8.8 --offline skips the GitHub checks as required and unanswered, so it cannot pass',
+    !ghHere || (net.length === 2 && net.every(x => x.required === true && x.ok === null) && doc.summarize(net).exitCode === 1), net);
+  const skipped = [{ id: 'ghAuth', required: true, ok: null }, { id: 'ghRepo', required: true, ok: null }];
+  ok('8.9 two skipped required items alone fail the run', doc.summarize(skipped).exitCode === 1);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

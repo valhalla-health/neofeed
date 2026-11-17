@@ -98,7 +98,7 @@ node tools/maintainer-doctor.mjs
 ถ้าทุกข้อที่บังคับผ่าน บรรทัดสุดท้ายจะขึ้นว่า "พร้อมแล้ว" ถ้าไม่ผ่าน จะบอกชื่อข้อที่ยังต้องแก้
 
 - `--checks` รันเช็กก่อน PR ต่อท้าย (`node tools/run_checks.js --level ci --phase pre`) ส่วนนี้ไม่ได้อ่านอย่างเดียว มันรัน `npm ci --prefix tools` (ดาวน์โหลดใหม่) แล้ว build `compiled/` ทับในเครื่อง และไม่ผ่านถ้า `git status` ยังมีไฟล์ค้าง ไฟล์ใหม่ที่ยังไม่ commit ก็นับ
-- `--offline` ข้ามสองข้อที่ต้องต่อ GitHub (sign in และสิทธิ์ใน repo) แบบนี้บรรทัดสุดท้ายจะขึ้น "ยังไม่พร้อม: ghAuth, ghRepo" เสมอ เพราะเช็กสองข้อนั้นไม่ได้
+- `--offline` ข้ามสองข้อที่ต้องต่อ GitHub (sign in และสิทธิ์ใน repo) แบบนี้บรรทัดสุดท้ายจะขึ้น "ยังไม่พร้อม" เสมอ เพราะเช็ก sign in ของ GitHub ไม่ได้
 
 ## 5. เปิดแอปในเครื่อง
 
@@ -122,11 +122,11 @@ node tools/dev-local.mjs
 - **หนึ่งงานหนึ่ง PR** PR มี entry ใน `CHANGELOG.md` และบรรทัดของตัวเองใน `STATUS.md` ด้วย
 - **merge เข้า `main` ยังไม่ deploy อะไร** แต่คนที่ merge ต้องเปิด PR `main → release` ใน session เดียวกัน ถ้ามีเปิดอยู่แล้วก็ใช้อันนั้น (`REFERENCE.md` § Frontend)
 - **merge เข้า `release` คือ deploy ขึ้นทั้งสอง host ทันที** ตอนนี้ต้องให้ Pp บอกก่อนทุกครั้ง (`REFERENCE.md` § Deploying, and rolling back)
-- **ถอย frontend** ทำเมื่อ Pp บอกเท่านั้น และอ่าน `REFERENCE.md` § Deploying, and rolling back ก่อน ถ้าถอยข้าม release ของ 2026-10-28 ต้องถอย backend ก่อน ไม่อย่างนั้น backend จะไม่รับ Submit เลยสักครั้ง ถอยแล้วต้อง revert การแก้นั้นบน `main` และ release ตัว revert ตามไป ไม่อย่างนั้น release ถัดไปจะส่งของเดิมขึ้นอีก
+- **ถอย frontend** ทำเมื่อ Pp บอกเท่านั้น และอ่าน `REFERENCE.md` § Deploying, and rolling back ก่อน ถ้าถอยข้าม release ของ 2026-10-28 ต้องให้ Pp ถอย backend ก่อน ไม่อย่างนั้น backend จะไม่รับ Submit เลยสักครั้ง ถอยแล้วต้อง revert การแก้นั้นบน `main` และ release ตัว revert ตามไป ไม่อย่างนั้น release ถัดไปจะส่งของเดิมขึ้นอีก
 - **backend รันในชื่อคนที่ `update-deployment` ล่าสุด** ห้าม `update-deployment` จากบัญชีตัวเอง ห้าม `clasp deploy` เพราะสร้าง deployment ใหม่ที่ไม่มีใครใช้ และห้ามกดปุ่ม Deploy ใน Apps Script editor ตอนนี้ Pp เป็นคน `update-deployment` (`REFERENCE.md` § Backend (GAS))
 - **`clasp push` ทำตอนนั่ง deploy กับ Pp เท่านั้น** เพราะฟังก์ชันที่รันจาก editor ใช้โค้ดที่ push ล่าสุดทันที และ trigger น่าจะใช้ด้วย
-- **ฟังก์ชันใน editor รันในชื่อคนกด** ตัวที่รันเองได้ตอนนี้มีแค่ `sheetHealthReport` (นับและรายงาน) กับ `setInitialPassword` และ `clearStaffPassword` (งานบัญชีผู้ใช้) ตัวอื่นทุกตัวให้ Pp บอกก่อน เช่น `exportQi`, `lookupResearchId`, `setupQiExportKey`, `setConfig`, `authorizeHelpMail`, `apply…HeaderColumns`, `backfill…` และฟังก์ชัน backup ทุกตัว (`setupSheetBackups`, `repairSheetBackups`, `sheetRestoreDrill`, `backupSheetNightly`) ฟังก์ชัน backup ที่รันจากบัญชีตัวเองจะสร้างไฟล์ backup ใน Drive ของตัวเอง พร้อมข้อมูลทารกทุกราย
-- **Script Properties** ถ้า Pp ไม่ได้บอกให้แก้ ห้ามแตะ
+- **ฟังก์ชันใน editor รันในชื่อคนกด และปุ่ม Run ส่ง argument ไม่ได้** (รายการนี้ยังรอ Pp ยืนยัน) ตัวที่กด Run เองได้มีแค่ `sheetHealthReport` (นับและรายงาน) ส่วน `setInitialPassword` กับ `clearStaffPassword` ต้องส่ง email ไปด้วย เลยต้องเขียนฟังก์ชันหนึ่งบรรทัดใน editor แบบนี้เท่ากับแก้โค้ดที่ trigger ใช้ ทำได้แค่ตอนนั่งกับ Pp บัญชีใหม่ให้เพิ่มแถวใน tab `Staff` แทน ระบบออกรหัสชั่วคราวให้เอง (บัญชี Google ของ Chula ไม่ต้องมีรหัส) ตัวอื่นทุกตัวให้ Pp บอกก่อน เช่น `exportQi`, `lookupResearchId`, `setupQiExportKey`, `setConfig`, `authorizeHelpMail`, `apply…HeaderColumns`, `backfill…` และฟังก์ชัน backup ทุกตัว (`setupSheetBackups`, `repairSheetBackups`, `sheetRestoreDrill`, `backupSheetNightly`) `setupSheetBackups` กับ `repairSheetBackups` สร้างไฟล์ backup ใน Drive ของคนกด พร้อมข้อมูลทารกทุกราย และ trigger ของ `backupSheetNightly` รันในชื่อคนที่สร้าง trigger
+- **Script Properties** ห้ามแก้เองใน Project Settings ถ้า Pp ไม่ได้บอก ยกเว้นลบ `fail_…` เพื่อปลดล็อกบัญชีที่ใส่รหัสผิดห้าครั้ง ตาม `REFERENCE.md` § Backend (GAS) (ข้อนี้ก็รอ Pp ยืนยัน) ฟังก์ชันบางตัวเขียน Script Property เองเป็นปกติ เช่น `setInitialPassword` เขียน epoch ของบัญชีนั้น
 - **งานที่ทำให้ตัวเลข clinical เปลี่ยน** ทั้งบนจอ บนใบสั่ง และบนสติกเกอร์ ต้องให้ Pp อนุมัติก่อน merge งานที่แตะไฟล์ยา ใบสั่งที่พิมพ์ auth หรือข้อมูลผู้ป่วย ต้องรัน Vera ก่อนเปิด PR (`REFERENCE.md` § Pre-PR review (Vera))
 - **log ห้ามมีข้อมูลระบุตัวผู้ป่วย** ห้ามใส่ช่องดิบจาก Sheet หรือค่า Script Property ใช้ `sessionId` หรือจำนวนแทน `tools/ci_bans.js` จะทำให้ PR ไม่ผ่าน
 - **repo นี้เป็น public** โน้ต product คำขอจากหอ และ feedback อยู่นอก repo ห้ามเอาเข้ามา
@@ -137,7 +137,7 @@ node tools/dev-local.mjs
 |---|---|
 | Windows ไม่รู้จัก `winget` | ลง "App Installer" จาก Microsoft Store |
 | ลงโปรแกรมแล้วแต่ terminal ยังหาไม่เจอ | ปิด terminal แล้วเปิดใหม่ |
-| PowerShell ขึ้น `npm.ps1 cannot be loaded` | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` หรือพิมพ์ `npm.cmd` กับ `clasp.cmd` แทน |
+| PowerShell ขึ้น `npm.ps1 cannot be loaded` | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` หรือพิมพ์ `npm.cmd`, `npx.cmd` และ `clasp.cmd` แทน |
 | `node --version` ไม่ใช่ v22 บน Mac | รันบรรทัด PATH ในข้อ 1 แล้วเปิด Terminal ใหม่ |
 | `clasp push` หรือ `clasp list-deployments` ไม่ทำงาน | เปิด Google Apps Script API ตามข้อ 2 |
 | doctor ขึ้น FIX ที่ `gh sign in แล้ว` | `gh auth login` ใหม่ |
