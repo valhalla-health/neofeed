@@ -38,7 +38,9 @@ chip's `chip-unit`), `app.jsx` (the Dashboard's status chip), both shells (`--un
   tomorrow, yesterday; a draft; a No TPN order with nothing to print), the ward list on both layouts and both wards,
   the Print order list (a tap prints nothing and the Calculator says why) and the colour. 17 of them fail on
   `origin/main` `19c938a`. `verify-registry-logged-today.cjs` counted every `.log-badge` over rows that carried no
-  version, which the Print gate holds; they now carry this release's version, as a save today does.
+  version, which the Print gate holds; they now carry this release's version, as a save today does. So do
+  `verify-phone-sweep.cjs`'s: unstamped, its one order of today was held, the Print order list had nothing to tick,
+  and CI's compiled shard failed "เลือกทั้งหมด missing" on all 24 devices (346/346 with the stamp, in Chromium here).
 - **Docs.** `STATUS.md` marks live every entry from #223 to #282, each with the release tag or backend version that
   carried it (checked with `git merge-base --is-ancestor`), so this PR's is the only ⏳ left; `BACKLOG.md` closes two
   overtaken lines and updates four; `GLOSSARY.md`, untracked in the main checkout since 2026-11-10, is added on Pp's

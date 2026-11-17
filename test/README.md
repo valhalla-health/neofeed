@@ -2375,4 +2375,6 @@ Calculator says why, Print ทั้งหมด leaves it out) and the status c
 `<App/>` through `review-0917-boot.cjs`; needs the jsdom set above.
 
 `verify-registry-logged-today.cjs` counts every `.log-badge`, so its rows now carry this release's
-`constantsVersion`: an unstamped row is one the Print gate holds, and the ward list tags it.
+`constantsVersion`: an unstamped row is one the Print gate holds, and the ward list tags it. The same goes for
+`verify-phone-sweep.cjs`, whose print list needs one order that prints: unstamped, Print ทั้งหมด had nothing to
+tick and "เลือกทั้งหมด" was missing on every device.
