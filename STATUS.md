@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-17 — A second maintainer's setup: `docs/MAINTAINER_SETUP.md` (Thai, Windows and Mac) and `tools/maintainer-doctor.mjs`, a read-only check of their computer: PR #287, not merged.** Nothing either host serves changes, so no release is needed (`CHANGELOG.md` 2026-11-17 (11)).
+> ⏳ **2026-11-17 — A second maintainer's setup: `docs/MAINTAINER_SETUP.md` (Thai, Windows and Mac) and `tools/maintainer-doctor.mjs`, a read-only check of their computer: PR #287, merged into `main` on Praew's instruction.** Nothing either host serves changes, so no release is needed (`CHANGELOG.md` 2026-11-17 (11)).
 >
 > ⏳ **2026-11-17 — The ward list tags "ต้อง Submit ใหม่" on today's or tomorrow's order that the Print gate holds after a release moved its figures; the Print order list says why, opens the order and leaves it out of Print ทั้งหมด; Active's chip has its own green, apart from ✓ LOGGED (Pp, from a render: "ใช้แบบนี้"): PR #284, merged into `main` on Praew's instruction; not live.** Frontend only; no figure, rule or backend line moves, `CONSTANTS_VERSION` stays `2026-11-16.1` (`CHANGELOG.md` 2026-11-17 (10)).
 >
