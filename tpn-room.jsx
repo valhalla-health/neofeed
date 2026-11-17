@@ -398,9 +398,14 @@ function MappingDialog({ order, infants, onSave, onClose }) {
 // ── Every infant in the name file (Pp, 2026-11-17: "หน้ารวมชื่อทุกคน") ──
 // A sheet over the order list, with each name and AN editable, an infant with no order on
 // the chosen date included. Nothing here leaves the PC: it reads the open name file only.
-function NamesPage({ infants, onEdit, onClose }) {
+function NamesPage({ infants, printLog, onEdit, onClose }) {
   const [query, setQuery] = React.useState("");
   const rows = Core.namesList(infants, query);
+  // A name or AN edited after that infant's last print: which day's bag still has the old one.
+  const renamedBag = (id) => {
+    const last = Core.lastPrintOf(printLog, id);
+    return Core.editedAfterPrint(infants[id], last) ? last.date : "";
+  };
   const total = Object.keys(infants).length;
   return (
     <div className="scrim">
@@ -422,7 +427,12 @@ function NamesPage({ infants, onEdit, onClose }) {
               {rows.map((r) => (
                 <tr key={r.sessionId} data-session={r.sessionId}>
                   <td>{r.sessionId}</td>
-                  <td><strong>{r.name}</strong></td>
+                  <td>
+                    <strong>{r.name}</strong>
+                    {renamedBag(r.sessionId) && (
+                      <div className="warn renamed">แก้หลังพิมพ์ ถุงของวันที่ {Core.buddhistDate(renamedBag(r.sessionId))} ยังมีชื่อหรือ AN เดิม</div>
+                    )}
+                  </td>
                   <td>{r.an}</td>
                   <td>{Core.buddhistDate(r.lastSeen)}</td>
                   <td className="muted">{r.by} {Core.wardDateTime(r.at)}</td>
@@ -449,6 +459,7 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
   });
   const last = state ? Core.lastPrint(state.printLog, order.sessionId, date) : null;
   const changed = state ? Core.changedAfterPrint(order, state.printLog, date) : false;
+  const renamed = Core.editedAfterPrint(mapping, last);
   const paper = state ? Core.needsPaperCheck(date, state.meta.logLostOn) : false;
   const trial = Core.trialNote();
   const crit = order.printJson && order.printJson.critical;
@@ -480,6 +491,7 @@ function OrderRow({ order, date, file, onMap, onPrint, busy }) {
         </div>
       )}
       {changed && <p className="warn">หมอแก้ order หลังพิมพ์ → ฉบับ {order.revision}</p>}
+      {renamed && <p className="warn renamed">แก้ชื่อหรือ AN หลังพิมพ์ ถุงที่พิมพ์ไปยังมีชื่อหรือ AN เดิม กดพิมพ์ซ้ำ</p>}
       {paper && !last && <p className="warn">เทียบกับ order กระดาษก่อน ไฟล์ชื่อเริ่มใหม่ จึงไม่รู้ว่าพิมพ์ไปแล้วหรือยัง</p>}
       {last && !changed && <p className="muted">พิมพ์แล้ว{last.trial ? " (แผ่นทดลอง)" : ""} {Core.wardTime(last.at)} โดย {last.by}</p>}
       {!changed && Core.trialReprintDue(last) && <p className="warn">ที่พิมพ์ไปเป็นแผ่นทดลอง กดพิมพ์ซ้ำเพื่อได้สติกเกอร์จริง</p>}
@@ -685,8 +697,12 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
 
   const saveMapping = async (values) => {
     const order = mappingFor;
+    // บันทึก with nothing changed writes nothing: a new edit time would flag a printed bag
+    // as carrying an old name (editedAfterPrint) and add a history line that says nothing.
+    const had = file.state.infants[order.sessionId];
+    if (had && had.name === values.name && had.an === values.an) { setMappingFor(null); return; }
     // An edit from the names page is not a sighting in an order (Core.mappingSeenOn).
-    const seenOn = Core.mappingSeenOn(file.state.infants[order.sessionId], order.fromList, reply && reply.date);
+    const seenOn = Core.mappingSeenOn(had, order.fromList, reply && reply.date);
     await file.save((s) => NameStore.mapInfant(s, order.sessionId, values, who, new Date().toISOString(), seenOn));
     setMappingFor(null);
     bump();
@@ -805,7 +821,7 @@ function Room({ user, store, onLogout, onExpired, onMustChange, onChangePassword
         <Contacts />
       </div>
       {namesOpen && file && (
-        <NamesPage infants={file.state.infants} onClose={() => setNamesOpen(false)}
+        <NamesPage infants={file.state.infants} printLog={file.state.printLog} onClose={() => setNamesOpen(false)}
           onEdit={(sessionId) => setMappingFor({ sessionId, fromList: true })} />
       )}
       {mappingFor && file && (

@@ -280,6 +280,20 @@
     for (const p of printLog || []) if (p.sessionId === sessionId && p.date === date) hit = p;
     return hit;
   }
+  // The last print for an ID on any date: the names page has no date.
+  function lastPrintOf(printLog, sessionId) {
+    let hit = null;
+    for (const p of printLog || []) if (p.sessionId === sessionId) hit = p;
+    return hit;
+  }
+  // The name or AN was changed after `last` printed, so that bag still carries the old one
+  // (Vera on the names page, Pp 2026-11-17: "เพิ่มเลย"). The log keeps no name: the times
+  // decide. A print after the edit clears it.
+  function editedAfterPrint(mapping, last) {
+    if (!mapping || !last) return false;
+    const edited = Date.parse(mapping.at || ""), printed = Date.parse(last.at || "");
+    return isFinite(edited) && isFinite(printed) && edited > printed;
+  }
   // A nurse's I/O-only revision keeps the bag (gas-backend.gs pharmacyOrders,
   // sameBagEntryIds), so a print of the row it revised is not a change (Vera on
   // the stakeholder-walk fixes, 2026-11-07).
@@ -367,7 +381,7 @@
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
     wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy, mappingSeenOn, namesList, wardDateTime,
     missingFigures, printReasons, fixedLinesReady, trialNote, trialReprintDue,
-    lastPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
+    lastPrint, lastPrintOf, editedAfterPrint, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
     recheck, stickerModel,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

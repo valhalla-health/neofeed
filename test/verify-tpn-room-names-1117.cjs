@@ -6,8 +6,9 @@
 //   §2 mappingSeenOn: an edit from the names page is no sighting, so it keeps the day last seen and
 //      the 30-day purge still counts from the orders; an edit from an order row takes that order's date.
 //   §3 wardDateTime: an ISO time in ward time, Buddhist era, for "แก้ล่าสุด" and the edit history.
+//   §4 lastPrintOf, editedAfterPrint: a name or AN changed after its sticker printed is flagged until a reprint.
 //
-// Every check fails on origin/main 0284ee0, which has none of the three. Synthetic names only.
+// Every check fails on origin/main 0284ee0, which has none of these. Synthetic names only.
 const path = require('path');
 const Core = require(path.join(__dirname, '..', 'tpn-room-core.js'));
 
@@ -61,6 +62,24 @@ section('§3 wardDateTime');
   eq('an ISO time in ward time, Buddhist era', f('2026-11-17T02:05:00.000Z'), '17/11/2569 09:05');
   eq('after 17:00 UTC it is the next ward day', f('2026-11-17T18:30:00.000Z'), '18/11/2569 01:30');
   eq('not a time: empty', [f(''), f(null), f('yesterday')], ['', '', '']);
+}
+
+section('§4 a name or AN edited after its sticker printed (Vera on the names page; Pp: "เพิ่มเลย")');
+{
+  const LOG = [
+    { sessionId: 'NF-000001', date: '2026-11-16', entryId: 'e1', revision: 1, by: 'Rx A', at: '2026-11-16T02:00:00.000Z' },
+    { sessionId: 'NF-000002', date: '2026-11-17', entryId: 'e2', revision: 1, by: 'Rx A', at: '2026-11-17T01:00:00.000Z' },
+    { sessionId: 'NF-000001', date: '2026-11-17', entryId: 'e3', revision: 1, by: 'Rx B', at: '2026-11-17T02:00:00.000Z' },
+  ];
+  eq('lastPrintOf: the last print for the ID on any date', has('lastPrintOf') ? Core.lastPrintOf(LOG, 'NF-000001').entryId : 'no function', 'e3');
+  eq('…none for an ID never printed', has('lastPrintOf') ? Core.lastPrintOf(LOG, 'NF-000009') : 'no function', null);
+  const f = has('editedAfterPrint') ? Core.editedAfterPrint : () => 'no function';
+  const printed = LOG[2];
+  eq('edited after the print: flagged', f({ at: '2026-11-17T04:00:00.000Z' }, printed), true);
+  eq('mapped before the print: not flagged', f({ at: '2026-11-17T01:30:00.000Z' }, printed), false);
+  eq('the same instant: not flagged', f({ at: printed.at }, printed), false);
+  eq('never printed, or no mapping: not flagged', [f({ at: '2026-11-17T04:00:00.000Z' }, null), f(null, printed)], [false, false]);
+  eq('a time that is not one: not flagged', f({ at: 'x' }, printed), false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

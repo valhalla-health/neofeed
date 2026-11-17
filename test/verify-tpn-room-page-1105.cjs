@@ -691,6 +691,54 @@ const INIT = `
       await c.close();
     }
 
+    section('§12d a name or AN edited after its sticker printed (Vera on the names page; Pp: "เพิ่มเลย")');
+    {
+      const c = await newRoom();
+      const pg = await open(c);
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await row(pg, 'AA-1').waitFor();
+      await createNameFile(pg);
+      await mapInfant(pg, 'AA-1', 'ทารกสังเคราะห์ ดี', '44444/69');
+      await row(pg, 'AA-1').getByText('44444/69').waitFor();
+      const printAndClose = async (label, n) => {
+        await row(pg, 'AA-1').getByRole('button', { name: label }).click();
+        await pg.waitForFunction((k) => window.__prints === k, n);
+        await pg.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+        await pg.waitForFunction(() => !document.getElementById('sticker-sheet'));
+      };
+      await printAndClose('พิมพ์สติกเกอร์', 1);
+      await row(pg, 'AA-1').getByText(/พิมพ์แล้ว/).waitFor();
+      eq('a print with the mapping before it: no flag', await row(pg, 'AA-1').locator('.renamed').count(), 0);
+      // The AN corrected from the names page after the print.
+      await pg.getByRole('button', { name: 'รายชื่อทั้งหมด' }).click();
+      const names = pg.getByRole('dialog', { name: 'รายชื่อในไฟล์ชื่อ' });
+      await names.locator('tr[data-session="AA-1"]').getByRole('button', { name: 'แก้ชื่อ / AN' }).click();
+      await pg.getByLabel('AN', { exact: true }).fill('45444/69');
+      await pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).getByRole('button', { name: 'บันทึก' }).click();
+      await names.locator('tr[data-session="AA-1"]').getByText('45444/69').waitFor();
+      const be = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}`;
+      ok('the names page flags the row: that day\'s bag has the old name or AN',
+        new RegExp(`แก้หลังพิมพ์ ถุงของวันที่ ${be(today).replace(/\//g, '\\/')}`).test(await names.locator('tr[data-session="AA-1"] .renamed').innerText().catch(() => '')));
+      await names.getByRole('button', { name: 'กลับไปรายการ order' }).click();
+      ok('…and the order row says so, and to reprint', /แก้ชื่อหรือ AN หลังพิมพ์.*กดพิมพ์ซ้ำ/.test(await row(pg, 'AA-1').locator('.renamed').innerText().catch(() => '')));
+      // บันทึก with nothing changed writes nothing: no new history line.
+      await row(pg, 'AA-1').getByRole('button', { name: /ชื่อ \/ AN/ }).click();
+      const historyLines = async () => pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).locator('.history p').count();
+      const before = await historyLines();
+      await pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).getByRole('button', { name: 'บันทึก' }).click();
+      await pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).waitFor({ state: 'detached' });
+      await row(pg, 'AA-1').getByRole('button', { name: /ชื่อ \/ AN/ }).click();
+      eq('บันทึก with nothing changed adds no history line', await historyLines(), before);
+      await pg.getByRole('dialog', { name: 'ใส่ชื่อกับ AN' }).getByRole('button', { name: 'ยกเลิก' }).click();
+      // A reprint after the edit clears it.
+      await printAndClose('พิมพ์ซ้ำ', 2);
+      await pg.waitForFunction(() => !document.querySelector('li[data-session="AA-1"] .renamed'), null, { timeout: 5000 }).catch(() => {});
+      eq('a reprint after the edit clears the row\'s flag', await row(pg, 'AA-1').locator('.renamed').count(), 0);
+      await pg.getByRole('button', { name: 'รายชื่อทั้งหมด' }).click();
+      eq('…and the names page\'s', await names.locator('tr[data-session="AA-1"] .renamed').count(), 0);
+      await c.close();
+    }
+
     section('§13 no page error, no CSP violation');
     eq('the console stayed clean', problems, []);
   } catch (e) {

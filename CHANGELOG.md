@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-17 (6) — A name or AN edited after its sticker printed is flagged until a reprint
+
+`tpn-room-core.js` (`lastPrintOf`, `editedAfterPrint`), `tpn-room.jsx` (the order row's and the names page's flag;
+`saveMapping` writes nothing when nothing changed), `compiled/tpn-room.js`, the room shells' `?v=`,
+`test/verify-tpn-room-names-1117.cjs` §4, `test/verify-tpn-room-page-1105.cjs` §12d,
+`openspec/changes/tpn-room-stickers/design.md` (the name file).
+
+- **Why.** Vera's finding 1 on this PR, which entry (5) left to Pp: an AN corrected after the sticker printed leaves the
+  bag with the old one, and no screen asked for a reprint; the names page adds a route to that edit and shows no print
+  status. Pp, 2026-11-17: "เพิ่มเลย".
+- **The flag.** When the mapping's time is later than the last print's, the order row for that date says
+  "แก้ชื่อหรือ AN หลังพิมพ์ ถุงที่พิมพ์ไปยังมีชื่อหรือ AN เดิม กดพิมพ์ซ้ำ", and the names page row says which day's bag:
+  "แก้หลังพิมพ์ ถุงของวันที่ 17/11/2569 ยังมีชื่อหรือ AN เดิม". The print log keeps no name: the two times decide. A
+  reprint clears it. The order row was missing this too before the names page.
+- **บันทึก with nothing changed writes nothing.** A new edit time on an unchanged name would raise the flag for nothing
+  and add an empty history line.
+- **Tests.** `verify-tpn-room-names-1117.cjs` §4, 7 checks (25/25): all 7 fail on `affa29d`. `verify-tpn-room-page-1105.cjs`
+  §12d, 6 checks in Chromium (132/132): on a copy without this change the two flags and the no-change save fail; the
+  two "a reprint clears it" checks hold there because nothing is flagged, and here they follow the flags raised above
+  them.
+
 ## Session 2026-11-17 (5) — Vera on the names page: a test that tells an edit from a sighting, the PDPA note
 
 `test/verify-tpn-room-page-1105.cjs` §4b, `REFERENCE.md` (§ Thai PDPA compliance posture). Corrects entry (4)'s tests,
