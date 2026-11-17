@@ -1210,6 +1210,24 @@ function stickerFigures(o) {
   };
 }
 
+// ── A tab left open across a release (2026-11-17) ─────────────
+// compiled/tpn-room-version.js is the release's own CONSTANTS_VERSION and
+// STICKER_SCHEMA_VERSION, written by tools/build.mjs from this file, and both
+// hosts serve it. `tabDiffersFromServed(text)` reads that file's text as the host
+// serves it now: true when it names other versions than this tab loaded, false
+// when they are the same, null when the text is not that file. A ward PC keeps a
+// tab open for days and a sign-out does not load new code, so on 2026-11-17 a tab
+// opened before the 23:21 release went on saving the old calculation, and the
+// TPN room asked for Submit three times. Other versions either way is a reload:
+// newer is a release, older a rollback.
+function tabDiffersFromServed(text) {
+  const m = /constantsVersion: ("[^"]*"), stickerSchema: (\d+)/.exec(String(text == null ? "" : text));
+  if (!m) return null;
+  let served;
+  try { served = JSON.parse(m[1]); } catch { return null; }
+  return served !== CONSTANTS_VERSION || Number(m[2]) !== STICKER_SCHEMA_VERSION;
+}
+
 // ── Traffic-light status helper ───────────────────────────────
 function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
   if (value === 0) return "empty";
@@ -3533,6 +3551,8 @@ window.NEOFEED_DATA = {
   lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt, lipidRateGrade, tpnOverDelivery, TPN_OVER_NOTE_PCT,
   // The TPN room's sticker figures, computed once and saved with the order
   STICKER_SCHEMA_VERSION, stickerFigures,
+  // A tab left open across a release: Submit reloads first (calculator.jsx)
+  tabDiffersFromServed,
   // The printed order at up to 115 %, shrunk a step at a time to one A4 page
   PRINT_FIT_STEPS, PRINT_AREA_MM, fitPrintSheet,
   // KCMH pharmacy stock strengths + the sheet's hard safety ceilings
