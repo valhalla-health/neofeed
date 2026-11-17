@@ -2,20 +2,24 @@
 // tools/maintainer-doctor.mjs — is this computer ready to maintain NeoFeed?
 //
 // For a new maintainer, after docs/MAINTAINER_SETUP.md (Pp, 2026-11-17: a setup a second admin
-// can run on their own computer). It checks every tool and sign-in that guide asks for, prints
-// one line per item with the fix for anything missing, then runs the pre-PR checks once.
+// can run on their own computer). It checks every tool and sign-in that guide asks for and prints
+// one line per item, with the fix for anything missing.
 //
-//   node tools/maintainer-doctor.mjs              # everything
+//   node tools/maintainer-doctor.mjs              # the checks, read-only
 //   node tools/maintainer-doctor.mjs --offline    # skip the two GitHub reads over the network
-//   node tools/maintainer-doctor.mjs --no-checks  # skip run_checks at the end
+//   node tools/maintainer-doctor.mjs --checks     # then the pre-PR checks too (see below)
 //   node tools/maintainer-doctor.mjs --json       # the results as JSON, nothing else printed
 //
-// It only reads. Every command it starts is in PROBES below: a version, a status, a `git config
-// --get`, or one GitHub read of this repo's permissions. It installs nothing, signs in to
-// nothing, writes no file and never opens a credential: for clasp it asks only whether
-// ~/.clasprc.json exists. The last step is `node tools/run_checks.js --level ci --phase pre`,
-// the command AGENTS.md asks for before any PR. Exit 0 when every required item passes, 1 when
-// one does not. test/verify-maintainer-doctor.cjs pins the checks and the read-only list.
+// By default it only reads. Every command it starts is in PROBES below: a version, a status, a
+// `git config --get`, or one GitHub read of this repo's permissions. It installs nothing, signs in
+// to nothing, writes no file and never opens a credential: for clasp it asks only whether
+// ~/.clasprc.json exists. --offline cannot confirm the GitHub sign-in, so it always ends not ready.
+//
+// --checks is not read-only. It runs `node tools/run_checks.js --level ci --phase pre`, the command
+// AGENTS.md asks for before any PR, whose build-fresh step runs `npm ci --prefix tools` (a download)
+// and `node tools/build.mjs` (it rewrites compiled/ and the shells), then fails on any change in
+// `git status`, an untracked file included. Exit 0 when every required item passes, 1 when one
+// does not. test/verify-maintainer-doctor.cjs pins the checks and the read-only list.
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -77,7 +81,7 @@ export function ghPermissionCheck(jsonText) {
 
 export function claspVersionCheck(text) {
   const m = String(text || "").match(/(\d+)\.(\d+)\.(\d+)/);
-  if (!m) return { ok: false, detail: "clasp ไม่ตอบ", fix: "npm install -g @google/clasp" };
+  if (!m) return { ok: false, detail: "clasp ไม่ตอบ", fix: "npm install -g @google/clasp@3" };
   if (Number(m[1]) !== 3) {
     return { ok: false, detail: `clasp ${m[0]}`, fix: "ขั้นตอนใน REFERENCE.md เขียนสำหรับ clasp 3: npm install -g @google/clasp@3" };
   }
@@ -121,12 +125,12 @@ export function collect({ offline = false } = {}) {
     : { ok: false, detail: "ยังไม่ได้ลง", fix: "npm ci --prefix tools" });
 
   const testDeps = ["jsdom", "react", "react-dom", "@babel/core", "@babel/preset-react"].filter(n => !moduleResolves(n, ROOT));
-  add("testDeps", "ชุดที่ harness ใช้ (jsdom และ React)", false, testDeps.length
-    ? { ok: false, detail: `ยังไม่มี ${testDeps.join(", ")}`, fix: "npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30" }
+  add("testDeps", "ชุดที่ harness ใช้ (jsdom และ React)", true, testDeps.length
+    ? { ok: false, detail: `ยังไม่มี ${testDeps.join(", ")}`, fix: "npm install --no-save --no-package-lock react@18 react-dom@18 @babel/core@7 @babel/preset-react@7 jsdom@30 (AGENTS.md ให้รัน harness ก่อน PR)" }
     : { ok: true, detail: "ครบ" });
   add("playwright", "Playwright (ส่วน browser ของ harness)", false, moduleResolves("playwright", ROOT)
     ? { ok: true, detail: "มี" }
-    : { ok: false, detail: "ไม่มี ส่วน browser จะขึ้น SKIP ในเครื่องนี้ ส่วน CI รันให้เอง", fix: "npm install --no-save --no-package-lock playwright" });
+    : { ok: false, detail: "ไม่มี ส่วน browser จะขึ้น SKIP ในเครื่องนี้ ส่วน CI รันให้เอง", fix: "ใส่ playwright@1 ต่อท้ายคำสั่ง npm install ของชุด harness ในคำสั่งเดียวกัน แล้วรัน npx playwright install chromium" });
 
   const gh = probe("gh");
   add("gh", "GitHub CLI (gh)", true, gh.ran
@@ -145,11 +149,11 @@ export function collect({ offline = false } = {}) {
   const clasp = probe("clasp");
   add("clasp", "clasp", true, clasp.ran
     ? claspVersionCheck(clasp.out)
-    : { ok: false, detail: "ไม่เจอ clasp", fix: "npm install -g @google/clasp" });
+    : { ok: false, detail: "ไม่เจอ clasp", fix: "npm install -g @google/clasp@3" });
   const claspLogin = existsSync(path.join(os.homedir(), ".clasprc.json"));
   add("claspLogin", "clasp sign in แล้ว", true, claspLogin
     ? { ok: true, detail: "มี ~/.clasprc.json (ไม่ได้เปิดอ่าน)" }
-    : { ok: false, detail: "ยังไม่ได้ sign in", fix: "clasp login ด้วยบัญชี Google ของตัวเอง" });
+    : { ok: false, detail: "ยังไม่ได้ sign in", fix: "เปิด Google Apps Script API ที่ script.google.com/home/usersettings แล้ว clasp login ด้วยบัญชี Google ของตัวเอง" });
 
   return results;
 }
@@ -168,8 +172,8 @@ function main() {
   const results = collect({ offline: args.includes("--offline") });
   if (!json) print(results);
 
-  if (!args.includes("--no-checks")) {
-    if (!json) console.log("\nรันเช็กก่อน PR: node tools/run_checks.js --level ci --phase pre");
+  if (args.includes("--checks")) {
+    if (!json) console.log("\nรันเช็กก่อน PR (npm ci และ build ด้วย): node tools/run_checks.js --level ci --phase pre");
     const r = spawnSync(process.execPath, [path.join(ROOT, "tools", "run_checks.js"), "--level", "ci", "--phase", "pre"],
       { cwd: ROOT, stdio: json ? "ignore" : "inherit" });
     results.push({ id: "preChecks", label: "เช็กก่อน PR", required: true, ok: r.status === 0, detail: r.status === 0 ? "ผ่าน" : `ไม่ผ่าน (exit ${r.status})` });

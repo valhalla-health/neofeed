@@ -7,7 +7,7 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
-## Session 2026-11-17 (10) — A second maintainer's setup: a guide, a read-only check, and the STATUS catch-up
+## Session 2026-11-17 (10) — A second maintainer's setup: a guide and a read-only check
 
 Pp, 2026-11-17: a co-admin, not yet named, will look after NeoFeed with her (user accounts and the Admin page, code and
 release, the backend and Sheet; clinical sign-off stays hers). She asked for the handover "ในรูปแบบดีๆ
@@ -18,27 +18,29 @@ PR, and commands for both Windows and Mac.
   Claude Code's installer), sign-ins, clone and tools, the check, dev local, Claude Code in the repo, the rules to know
   before changing anything (summarised from `AGENTS.md` and `REFERENCE.md`, which win on any difference) and
   troubleshooting. Neither host serves `docs/` (`.assetsignore`, `_config.yml`).
-- **`tools/maintainer-doctor.mjs`**: one line per tool and sign-in, with the fix for each one missing, then
-  `node tools/run_checks.js --level ci --phase pre`. Read-only by construction: every command it may start is in a
-  frozen `PROBES` list (versions, statuses, `git config --get`, one GitHub read of this repo's permissions), and for
-  clasp it only asks whether `~/.clasprc.json` exists. Node 22 or newer passes; 22 is CI's. `--offline`, `--no-checks`,
-  `--json`.
-- **`test/verify-maintainer-doctor.cjs`**: 40 checks. The probe list only reads, a fork or another repo of the org fails,
-  and the command line leaves the working tree unchanged. Two mutations were tried and each fails it: a `git push`
-  probe, and a hooks check that always passes.
+- **`tools/maintainer-doctor.mjs`**: one line per tool and sign-in, with the fix for each one missing. By default it
+  only reads: every command it may start is in a frozen `PROBES` list (versions, statuses, `git config --get`, one
+  GitHub read of this repo's permissions), and for clasp it only asks whether `~/.clasprc.json` exists. `--checks`
+  adds `node tools/run_checks.js --level ci --phase pre`, which is not read-only (`build-fresh` runs `npm ci --prefix
+  tools` and the build). Node 22 or newer passes; 22 is CI's. The harness packages are required, since `AGENTS.md`
+  asks for the harnesses before a PR. `--offline` always ends not ready, as it cannot confirm the GitHub sign-in.
+- **`test/verify-maintainer-doctor.cjs`**: 45 checks. The probe list is pinned to an exact literal and `spawnSync(`
+  appears twice in the tool, nothing else starts a process, a fork or another repo of the org fails, and the default
+  run leaves the working tree unchanged. Six mutations were tried and each fails it: probes for `git push`, `clasp run
+  setupSheetBackups` and `npx wrangler rollback`, an extra `execSync`, a hooks check that always passes, and the
+  harness packages made optional.
+- **A new agent read the first commit before any push.** Fixed from it: the read-only claim (now `--checks` is
+  opt-in), the harnesses `AGENTS.md` asks for before a PR, the merge and frontend-rollback rules, the Apps Script API
+  user setting clasp needs, the Windows PATH and execution-policy steps, the in-app admin row, and the Playwright
+  install. Its list of editor functions became an allow-list: `sheetHealthReport`, `setInitialPassword` and
+  `clearStaffPassword`, read from Pp's decision that the co-admin manages user accounts; every other function waits
+  for Pp, who is to confirm the list.
 - **Found while writing the guide, not changed here:** the app has no staff page. Adding, disabling, re-roling,
   resetting or unlocking an account is a Staff-tab edit or an editor-run function, so whoever manages users must be a
   Sheet editor. `REFERENCE.md` lines 772 and 779 say it is done "from the Admin page". Correcting them waits for Pp's
   decisions on the co-admin's rights.
-- **STATUS catch-up** (owed since #283): the banner's 20 lines still marked ⏳ now say where each went live, found with
-  `git merge-base --is-ancestor` against `release`'s merges: #280–#282 via #283; #254 and #259 via #261; #258 via #260;
-  #247 via #248; #245 (in force since its merge) via #246; #240 and #241 via #242; #223 via #230; #226, #227, #232–#235,
-  #237 and #239 via #236, #232 with backend `@69` too; #231 in backend `@69`. The `@69` line now names `@75` as live.
-- **BACKLOG catch-up:** the `GOOGLE_HD_ENFORCE` flip is ticked (on since `@70`, #243); NF-02 is live (#201 and `@66`);
-  the stickers' PR A (#212, release #214 and `@67`) and PR B (#219, release #221) are live in the three lines that said
-  otherwise; the bedside item's stamp reads `@75` + `198faf7` (its checks stay open).
-- **`GLOSSARY.md`**: untracked in the main checkout since 2026-11-10; Pp, 2026-11-17: "put it in the next PR". Added
-  unchanged.
+- **Left to the resubmit-tag PR:** the STATUS and BACKLOG catch-up owed since #283, and `GLOSSARY.md`. That session
+  had both in its tree when this one checked, 2026-11-18 00:05 ICT, so they stay out of this PR.
 - Nothing either host serves changes, so no release is needed. No figure, rule or backend line moves.
 
 ## Session 2026-11-17 (9) — Pp keeps the week on the names page's reprint flag

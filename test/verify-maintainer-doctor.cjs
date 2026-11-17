@@ -9,9 +9,10 @@
 //   #4 gh       write access (push) passes; read-only, no answer or junk fails
 //   #5 clasp    clasp 3 passes; 2, or no version, fails
 //   #6 probes   every command it may start is a version, a status, a `git config --get`
-//               or a GitHub read; nothing installs, signs in, pushes or deploys
+//               or a GitHub read; the list is pinned exactly, and nothing else starts a process
 //   #7 summary  a required item that fails or is skipped fails the run; an optional one does not
-//   #8 cli      --offline --no-checks --json runs to a JSON answer and leaves the tree unchanged
+//   #8 cli      by default (no --checks) --offline --json runs to a JSON answer and leaves the tree
+//               unchanged; --checks, which runs npm ci and a build, is the only step that writes
 const { spawnSync } = require('child_process');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -72,6 +73,23 @@ const ok = (name, cond, detail) => {
   ok('6.2 every git config probe uses --get', probes.filter(([, c]) => /^git config/.test(c)).every(([, c]) => /^git config --get /.test(c)));
   ok('6.3 the GitHub API read is a GET of this repo only', doc.PROBES.ghRepo === 'gh api repos/valhalla-health/neofeed --jq .permissions');
   ok('6.4 the network probes are named', JSON.stringify(doc.NETWORK_PROBES) === JSON.stringify(['ghAuth', 'ghRepo']));
+  // A deny-list cannot name every writing command (a review found `gh workflow run`, `clasp run`,
+  // `clasp redeploy` and `npx wrangler rollback` passed one), so the list itself is pinned: adding
+  // or changing a probe means changing this literal, in a diff a reviewer reads.
+  const EXPECTED = {
+    git: 'git --version',
+    hooks: 'git config --get core.hooksPath',
+    remote: 'git config --get remote.origin.url',
+    gh: 'gh --version',
+    ghAuth: 'gh auth status',
+    ghRepo: 'gh api repos/valhalla-health/neofeed --jq .permissions',
+    clasp: 'clasp --version',
+  };
+  ok('6.5 the probe list is exactly the pinned one', JSON.stringify({ ...doc.PROBES }) === JSON.stringify(EXPECTED), doc.PROBES);
+  const src = require('fs').readFileSync(TOOL, 'utf8');
+  const spawns = (src.match(/spawnSync\(/g) || []).length;
+  ok('6.6 it starts commands in two places only: run() and the --checks step', spawns === 2, spawns);
+  ok('6.7 no other way to start a process', !/\b(exec|execSync|execFile|execFileSync|spawn|fork)\(/.test(src.replace(/spawnSync\(/g, '')));
 
   console.log('\n── #7 summary ──');
   const r = (id, required, okv) => ({ id, required, ok: okv });
@@ -83,7 +101,7 @@ const ok = (name, cond, detail) => {
   console.log('\n── #8 the command line ──');
   const status = () => spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: ROOT, encoding: 'utf8' }).stdout;
   const before = status();
-  const run = spawnSync(process.execPath, [TOOL, '--offline', '--no-checks', '--json'], { cwd: ROOT, encoding: 'utf8', timeout: 120000 });
+  const run = spawnSync(process.execPath, [TOOL, '--offline', '--json'], { cwd: ROOT, encoding: 'utf8', timeout: 120000 });
   let out = null;
   try { out = JSON.parse(run.stdout); } catch (e) { out = null; }
   ok('8.0 it answers 0 or 1, never a crash', run.status === 0 || run.status === 1, { status: run.status, stderr: (run.stderr || '').slice(0, 300) });
@@ -91,9 +109,12 @@ const ok = (name, cond, detail) => {
   const ids = out ? out.results.map(x => x.id) : [];
   ok('8.2 it checks Node, the build tools and clasp sign-in', ['node', 'buildDeps', 'claspLogin'].every(id => ids.includes(id)), ids);
   ok('8.3 --offline skips both network reads', out !== null && !out.results.some(x => doc.NETWORK_PROBES.includes(x.id) && x.ok !== null), ids);
-  ok('8.4 --no-checks runs no pre-PR checks', !ids.includes('preChecks'), ids);
+  ok('8.4 without --checks it runs no pre-PR checks (they run npm ci and a build)', !ids.includes('preChecks'), ids);
   ok('8.5 the exit code matches the summary', out !== null && out.exitCode === run.status, out && out.exitCode);
   ok('8.6 the working tree is unchanged', status() === before);
+  const td = out ? out.results.find(x => x.id === 'testDeps') : null;
+  ok('8.7 the harness packages are required (AGENTS.md: run the harnesses before a PR)', td && td.required === true, td);
+  ok('8.8 --offline cannot pass, since it cannot confirm the GitHub sign-in', out !== null && out.exitCode === 1, out && out.exitCode);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
