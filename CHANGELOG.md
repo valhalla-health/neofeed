@@ -102,6 +102,48 @@ stays as written (append-only); this entry corrects it.
 - **Tests.** 145 assertions; 25 of them fail on the branch before this entry (`8d673ec`), run with this harness.
 - **Nothing printed or dosed moves:** no `CONSTANTS_VERSION`, no backend change.
 
+## Session 2026-11-17 (11) — A second maintainer's setup: a guide and a read-only check
+
+Pp, 2026-11-17: a co-admin, not yet named, will look after NeoFeed with her (user accounts and the Admin page, code and
+release, the backend and Sheet; clinical sign-off stays hers). She asked for the handover "ในรูปแบบดีๆ
+เพื่อให้เขาสามารถไปเซตอัพในคอมของตัวเองได้เลย", then chose a guide in this repo plus a PDF, a check script in the same
+PR, and commands for both Windows and Mac.
+
+- **`docs/MAINTAINER_SETUP.md`** (Thai): the accounts to ask for, installs (winget or Homebrew; Node 22, as CI; clasp 3;
+  Claude Code's installer), sign-ins, clone and tools, the check, dev local, Claude Code in the repo, the rules to know
+  before changing anything (summarised from `AGENTS.md` and `REFERENCE.md`, which win on any difference) and
+  troubleshooting. Neither host serves `docs/` (`.assetsignore`, `_config.yml`).
+- **`tools/maintainer-doctor.mjs`**: one line per tool and sign-in, with the fix for each one missing. By default it
+  only reads: every command it may start is in a frozen `PROBES` list (versions, statuses, `git config --get`, one
+  GitHub read of this repo's permissions), and for clasp it only asks whether `~/.clasprc.json` exists. `--checks`
+  adds `node tools/run_checks.js --level ci --phase pre`, which is not read-only (`build-fresh` runs `npm ci --prefix
+  tools` and the build). Node 22 or newer passes; 22 is CI's. The harness packages are required, since `AGENTS.md`
+  asks for the harnesses before a PR. `--offline` always ends not ready, as it cannot confirm the GitHub sign-in.
+- **`test/verify-maintainer-doctor.cjs`**: 50 checks. The probe list is pinned to an exact literal; outside comments
+  `run` appears twice and `spawnSync` three times, so a bare call or a named alias of either fails it; `child_process`
+  gives `spawnSync` alone; `--checks` starts exactly the pre-PR checks; a fork or another repo of the org fails; the
+  default run leaves the working tree unchanged. Twelve mutations were tried and each fails it: probes for `git push`,
+  `clasp run setupSheetBackups` and `npx wrangler rollback`; an extra `execSync`, a bare `run()`, aliases of `run`
+  and `spawnSync`, an aliased `execSync` import and changed `--checks` arguments; a hooks check that always passes;
+  the harness packages made optional; the skipped GitHub checks made optional.
+- **Three new-agent reads before any push.** Fixed from them: the read-only claim (now `--checks` is opt-in), the
+  harnesses `AGENTS.md` asks for before a PR, the merge and frontend-rollback rules, the Apps Script API user
+  setting clasp needs, the Windows PATH and execution-policy steps, the in-app admin row, and the Playwright install.
+  The editor rule became an allow-list, for Pp to confirm: from the Run button only `sheetHealthReport`.
+  `setInitialPassword` and `clearStaffPassword` need arguments, so running one means saving a one-line wrapper in
+  the editor, which changes the code the editor runs at once and, it is expected, the triggers too; they wait for a
+  sitting with Pp. A new account is a row typed into the Staff tab with active TRUE, whose `onEdit` writes a
+  temporary password (none for Gmail and Chula Google accounts). Deleting a `fail_…` property to lift a lockout that
+  returns after its 15 minutes is the one Script Property change allowed, also for Pp to confirm.
+- **Found while writing the guide, not changed here:** the app has no staff page. Adding, disabling, re-roling or
+  resetting an account is a Staff-tab edit or an editor-run function, and unlocking one is deleting a Script
+  Property, so whoever manages users must be a Sheet editor. `REFERENCE.md` lines 772 and 779 say it is done "from the Admin page". Correcting them waits for Pp's
+  decisions on the co-admin's rights.
+- **Left to PR #284 (`claude/ward-resubmit-tag`):** the STATUS and BACKLOG catch-up owed since #283, and
+  `GLOSSARY.md`. That session had both in its tree when this one checked, 2026-11-18 00:05 ICT, so they stay out of
+  this PR.
+- Nothing either host serves changes, so no release is needed. No figure, rule or backend line moves.
+
 ## Session 2026-11-17 (10) — The ward list tags an order held for a new Submit; Active has its own green
 
 `data.js` (`savedCalcVersionOf`, moved from `calculator.jsx`; `orderHeldForResubmit`, `resubmitDue`), `calculator.jsx`
