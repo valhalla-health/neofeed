@@ -195,7 +195,9 @@ Every role that sees the ward list sees it. Display only: nothing on it is saved
 **Who is listed.** An Active infant of the ward whose latest Submitted order has TPN (`orderHadTpn`), or whose latest
 order *with TPN* is at most `WARD_TPN_RECENT_DAYS` (14) days old. The days count from the last order with TPN, not the
 last submit: a No TPN infant is asked for an order every 3 days, so an infant who never had TPN would otherwise stay on
-the page for good (Pp, 2026-11-15). A draft is not an order. Flagged rows first (red, then amber), then by bed.
+the page for good (Pp, 2026-11-15). That holds where the No TPN AA flag would fire: a preterm infant on DOL 2–7 with
+counted EN < 50 whose orders were all No TPN is not listed (Pp, 2026-11-18: "ไม่ต้องขึ้น"). A draft is not an order.
+Flagged rows first (red, then amber), then by bed.
 
 **The figures** are the latest Submitted order's, as ordered: `calcInput.aaPerKg`, `calcInput.lipidPerKg`, the saved IV
 GIR and `enVolPerKg`. DOL and the day of PN are today's; the day of PN counts from the first order of the current run,

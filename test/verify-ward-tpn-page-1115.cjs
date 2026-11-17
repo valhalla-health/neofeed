@@ -97,6 +97,11 @@ ok('No TPN now, last TPN order 15 days ago: not listed', row(pt('D'), [tpn(day(-
 ok('the 14 days count from the last TPN order, not the last submit (No TPN submitted today)',
   row(pt('D2'), [tpn(day(-20)), noTpn(day(-3)), noTpn(today)]) === null);
 ok('never had TPN, a No TPN order today: not listed', row(pt('E'), [noTpn(day(-3)), noTpn(today)]) === null);
+// Pp, 2026-11-18 ("ไม่ต้องขึ้น"): never had TPN stays off the page even where the No TPN AA flag would fire.
+ok('never had TPN, GA 29, DOL 3, No TPN at EN 20: not listed (the AA flag would fit)',
+  row(pt('E2', { ga: 29, dol: 3 }), [noTpn(day(-1), { en: 10 }), noTpn(today, { en: 20 })]) === null);
+ok('never had TPN, GA 29, DOL 2, No TPN at EN 20: not listed (the lipid flag would fit too)',
+  row(pt('E3', { ga: 29, dol: 2 }), [noTpn(today, { en: 20 })]) === null);
 ok('latest order has TPN though 30 days old: still listed', !!row(pt('F', { dol: 40 }), [tpn(day(-30))]));
 ok('a TPN draft today is not an order (No TPN yesterday, TPN 20 days ago): not listed',
   row(pt('G', { dol: 25 }), [tpn(day(-20)), noTpn(day(-1)), tpn(today, { status: 'draft' })]) === null);

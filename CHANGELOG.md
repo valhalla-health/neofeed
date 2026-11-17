@@ -7,6 +7,17 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-18 (5) — "TPN ทั้งหอ": Pp keeps never-TPN infants off the page
+
+`REFERENCE.md` (§ The ward's TPN page, *Who is listed*), `test/verify-ward-tpn-page-1115.cjs`. No code change.
+
+- **Pp answered entry (2)'s open question** on 2026-11-18: "ไม่ต้องขึ้น". A preterm infant on DOL 2–7 with counted
+  EN < 50 whose orders were all No TPN stays off the page, as her rule of 2026-11-15 already had it. The No TPN AA and
+  lipid flags reach only an infant who had TPN within the last 14 days.
+- **Tests.** Two cases lock it in: GA 29 on DOL 3 and on DOL 2, No TPN at EN 20, never TPN → not listed. With
+  `wardTpnRow` planted to list a never-TPN infant below EN 50, these two fail and the other 149 pass, so the harness
+  could not see this before.
+
 ## Session 2026-11-18 (2) — Vera on "TPN ทั้งหอ": GIR graded as every screen grades it; No TPN lipid below EN 50
 
 `data.js` (`wardTpnRow`), `registry.jsx` (the No TPN AA chip's title), `compiled/`, both shells' tokens, `REFERENCE.md`,
