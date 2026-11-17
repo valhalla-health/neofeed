@@ -115,7 +115,10 @@ const ok = (name, cond, detail) => {
   console.log('\n── #8 the command line ──');
   const status = () => spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: ROOT, encoding: 'utf8' }).stdout;
   const before = status();
-  const run = spawnSync(process.execPath, [TOOL, '--offline', '--json'], { cwd: ROOT, encoding: 'utf8', timeout: 120000 });
+  // A maintainer runs the tool with no preload. CI's compiled phase sets NODE_OPTIONS to
+  // test/compiled-loader.cjs, which prints a line to stdout on exit and would break the JSON.
+  const env = { ...process.env, NODE_OPTIONS: '' };
+  const run = spawnSync(process.execPath, [TOOL, '--offline', '--json'], { cwd: ROOT, encoding: 'utf8', timeout: 120000, env });
   let out = null;
   try { out = JSON.parse(run.stdout); } catch (e) { out = null; }
   ok('8.0 it answers 0 or 1, never a crash', run.status === 0 || run.status === 1, { status: run.status, stderr: (run.stderr || '').slice(0, 300) });
