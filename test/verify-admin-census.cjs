@@ -134,7 +134,7 @@ const LOG = {
   'QXNB-BW1000': [order({ status: 'draft' })],
   'QXSA-BW1000': [order({ gir: 13.5 })],
   // A caution GIR is below the 4–12 band: since 2026-10-27 anything above 12 is critical.
-  'QXSB-BW1000': [order({ gir: 3.5 })],
+  'QXSB-BW1000': [order({ gir: 2 })],   // below the 2.5 floor (Pp, 2026-11-18, Q9; it was 3.5 under a floor of 4)
   'QXDA-BW1000': [order({ gir: 13.5 })],        // would be critical, had they stayed
 };
 // §5: the backend's getUsageWeekly reply, 12 weeks (Mondays 10 Aug → 26 Oct

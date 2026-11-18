@@ -94,7 +94,8 @@ function recompute(s) {
   // Vitalipid rounded down to a whole mL, at least 1, since 2026-10-28 (CR-VITALIPID-CAP).
   const vitalipid = s.lip > 0 ? Math.max(1, Math.floor(Math.min(4 * kg, 10) + 1e-9)) : 0, lipBag = lipG / 0.2 + vitalipid;
   const f = FEED[s.feed], enTot = s.enVol * s.enFreq, enC = s.men ? 0 : enTot;
-  const kcal = 3.4 * dexDel + 4 * aaDel + 9 * lipG + enC / 100 * f[0];
+  // IV lipid 10 kcal/g since 2026-11-18 (Pp, Q8; CR-U-ENERGY); it was 9.
+  const kcal = 3.4 * dexDel + 4 * aaDel + 10 * lipG + enC / 100 * f[0];
   const proG = aaDel + enC / 100 * f[1];
   const naKg = s.naCl + s.naAc + gly * 2, kKg = s.kCl + s.k2;
   const pMg = gly * kg * 31 + s.k2 * kg * 15.5;

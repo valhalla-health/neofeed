@@ -387,7 +387,8 @@ totals per kg:
   ioInput, ioOutput, drainContent }
 ```
 `enVolPerKg` is the PN/EN target-picker switch: `log.jsx`'s `TrendGraph`
-uses `ENTERAL_TARGETS` once `enVolPerKg >= 100`, otherwise `TPN_TARGETS(dol)`.
+uses `ENTERAL_TARGETS` once the counted feed is Full EN (`D.fullEnReached`: 120 mL/kg/d, or 75 % of the
+enteral energy and protein needs; `CR-U-SWITCH`), otherwise `TPN_TARGETS(dol)`.
 Legacy entries (pre "session 8") lack `enVolPerKg` and silently default to
 PN targets. `calcInputJson` is the raw Calculator wizard state as JSON —
 that's what lets an entry be reopened and edited exactly as entered, from

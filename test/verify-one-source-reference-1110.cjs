@@ -317,7 +317,8 @@ try {
     ['Fluid 150–180 (target 165)', row('Fluid', '150', '180', 'mL/kg/day (target 165)')],
     ['Vitamin D at most 1000', 'at most 1000 IU/day'],
     ['MEF 12–24', '1. Start ASAP 12–24 mL/kg/day'],
-    ['Full EN ≥100', '4. Full EN ≥100 mL/kg/day'],
+    ['Full EN ≥120 (100 until 2026-11-18; Pp, Q17)', '4. Full EN ≥120 mL/kg/day'],
+    ['Full EN: or 75 % of enteral energy and protein', 'or feeds give 75% of enteral energy and protein'],
     ['Growth 17–20, 0.8, 0.5', 'Weight ≥ 17–20 g/kg/day · Length ≥ 0.8 cm/wk · HC ≥ 0.5 cm/wk'],
   ]);
   check('WHO', who, [['Protein 2022', 'Protein 3.5–4.5 3.5–4 (max 4.5)']]);

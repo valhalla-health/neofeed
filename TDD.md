@@ -271,7 +271,7 @@ listed by name in §1 but not tabulated — they take props and draw them.
 
 | Method | File | Inputs | Process | Outputs |
 |---|---|---|---|---|
-| `pickTarget` | `log.jsx` | metric key, entry, patient | Chooses the enteral band when `enVolPerKg ≥ 100`, otherwise the parenteral band for that DOL. Legacy entries lacking `enVolPerKg` fall back to parenteral | `[min, max]` or null |
+| `pickTarget` | `log.jsx` | metric key, entry, patient | Chooses the enteral band when the row is Full EN (`D.isFullEn`: 120 mL/kg/d, or 75 % of enteral energy and protein needs; 100 until 2026-11-18), otherwise the parenteral band for that DOL. Legacy entries lacking `enVolPerKg` fall back to parenteral | `[min, max]` or null |
 | `computeAlerts` | `app.jsx` | patient, entries | Stale-weight detection (warn ≥3 days, critical ≥7 days since the last weight) plus weight-trend checks | Alert list |
 | `activeAlertCount` | `app.jsx` | patient, entries | Counts alerts not acknowledged in `neofeed_acked_*` | Integer badge count |
 | percentile math | `fenton.jsx` | measurement, PMA, sex | Positions weight/length/HC against Fenton curves | Plot coordinates + percentile |

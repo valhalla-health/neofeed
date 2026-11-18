@@ -4808,7 +4808,7 @@ function GuidelinesPanel() {
                   ["1. Start ASAP", `${rng(ADV.mef)} mL/kg/day`, "MEF (trophic)", "Day 1 — even ELBW", "GOR B"],
                   ["2. Advance", `+${rng(ADV.step)} mL/kg/day`, "per day", "WHO 2023: up to 30 safe", "Mod certainty"],
                   ["3. Fortify", `≥${n(ADV.hmfStart)} mL/kg/day`, "Start HMF", "<32 wk or <1.5 kg on MOM/DHM", "WHO 2023"],
-                  ["4. Full EN", `≥${n(ADV.fullFeeds)} mL/kg/day`, "Wean PN", "KCMH threshold · switch to EN targets", "KCMH practice"],
+                  ["4. Full EN", `≥${n(ADV.fullFeeds)} mL/kg/day`, "Wean PN", `or feeds give ${n(D_A.FULL_EN_NEEDS_FRACTION * 100)}% of enteral energy and protein · switch to EN targets`, "Avery ch 60 · Thai CPG"],
                   ["5. Oral feed", "PMA ≥32 wks", "Non-nutritive", "Support breastfeeding", ""],
                 ].map(([step, vol, label, note, ref], i) => (
                   <div key={i} style={{ padding: "12px 10px", textAlign: "center",

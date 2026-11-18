@@ -244,21 +244,23 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
   // this one limit. The high side (> 32: excess non-protein energy, fat
   // deposition) is unchanged and still stops the order.
   await section('§4 UP-C4 · NPE:AA is judged on the bag; the low side warns', async () => {
-    // Total NPE:AA 24 (in range) but the bag alone is 17 kcal/g AA.
+    // Total NPE:AA in range but the bag alone is 18 kcal/g AA: (34 + 20) ÷ 3,
+    // IV lipid at 10 kcal/g since 2026-11-18 (Pp, Q8). At 9 it was 17.
     mount({ patient: pt('NP-1000', 1000), onLog: logger().onLog });
     setField('Current weight', 1000); fillRequired(150);
     selectFeed('BM_20'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
     setField('Volume(mL/day)', 80); setField('Dextrose final', 12.5); setField('Amino acid', 3); setField('20% lipid', 2);
     eq('the NPC : Protein TOTAL tile is in range', tileStatus('NPC : Protein'), 'ok');
-    ok('the bag\'s NPE:AA is still judged on the BAG, at 17', /NPE:AA IV 17 kcal\/g AA < 20/.test(alertText('NPE:AA off target')), alertRows());
+    ok('the bag\'s NPE:AA is still judged on the BAG, at 18', /NPE:AA IV 18 kcal\/g AA < 20/.test(alertText('NPE:AA off target')), alertRows());
     eq('…as a warning, so an ordinary ramping order is not stopped',
        alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), ['warn']);
-    ok('…naming the total too', /total incl\. EN 24 kcal\/g/.test(alertText('NPE:AA off target')), alertText('NPE:AA off target'));
-    f1('mixed PN + EN, IV NPE:AA 17');
-    // Pure PN, 19.97 kcal/g: never printed as "20 < 20".
+    ok('…naming the total too', /total incl\. EN 25 kcal\/g/.test(alertText('NPE:AA off target')), alertText('NPE:AA off target'));
+    f1('mixed PN + EN, IV NPE:AA 18');
+    // Pure PN, 19.96 kcal/g (D9.6: 35.9 + 18 kcal over 2.7 g): never printed as
+    // "20 < 20". Until 2026-11-18 the order was D10, 19.97 with lipid at 9 kcal/g.
     mount({ patient: pt('NP-850', 900), onLog: logger().onLog });
     setField('Current weight', 850); fillRequired(150);
-    setField('Volume(mL/day)', 110); setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 2);
+    setField('Volume(mL/day)', 110); setField('Dextrose final', 9.6); setField('Amino acid', 3); setField('20% lipid', 2);
     eq('pure PN: exactly one NPE:AA line, and it warns', alertRows().filter(a => /^NPE:AA/.test(a.title)).map(a => a.level), ['warn']);
     ok('a value just under 20 is not shown as "20"', /NPE:AA IV 19\.\d+ kcal\/g AA < 20/.test(alertText('NPE:AA off target')), alertText('NPE:AA off target'));
     // Since 2026-10-27 (TPN team) there is no high side: ESPGHAN's 30–40
@@ -367,33 +369,40 @@ const pt = (sid, bw, extra) => ({ sessionId: sid, name: sid.slice(0, 2), bw, cur
     // 52. lipid48_k4 did not change: no dead space (D50W keeps 27.5), amino acid
     // 35 and WFI 32 were whole already. Was: 4c15805376de12fb, b05f7580288efc98,
     // 44855b86110a1f9d, 0e0e83347c3316b0.
+    // Recaptured 2026-11-18, IV lipid at 10 kcal/g, not 9 (Pp, Q8), compared
+    // figure by figure with d8eac99. Only the energy lines moved, by 1 kcal per
+    // g of lipid: S5_elbw (1 g) TPN 35 → 36 kcal and 71 → 73 kcal/kg;
+    // parity_plain and parity_dead (3.2 g) 103 → 106 kcal, 83 → 86 kcal/kg,
+    // total 114 → 116; mixed_pn_en (3.3 g) 76 → 79, 69 → 72, total 116 → 119;
+    // lipid48_k4 (4.8 g) 104 → 109, printed twice. Was: 465620d013bf7076,
+    // 23e9333b3ea2f2a4, 6497fe44ac0f85d3, e0cb21941dc2b54a, 7d5e2d0e4b73f9a5.
     const ORDERS = {
-      S5_elbw: ['465620d013bf7076', { ...P, bw: 500, weights: [{ dol: 1, w: 500 }] }, () => {
+      S5_elbw: ['3eb080423227856a', { ...P, bw: 500, weights: [{ dol: 1, w: 500 }] }, () => {
         setField('Current weight', 500); fillRequired(150);
         setField('Volume(mL/day)', 60); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3); setField('20% lipid', 2);
         setField('20% NaCl', 1); setField('Na Acetate', 1); setField('KCl', 1); setField('Glycophos', 1); }],
       // Recaptured 2026-10-27, every stock mL at one decimal (Pp). Exactly 3 of
       // its 105 figures moved: MgSO₄ 0.53 → 0.5 (front and back), heparin
       // 0.69 → 0.7 (was 28dee697feed160b).
-      parity_plain: ['23e9333b3ea2f2a4', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
+      parity_plain: ['7b3506d9c4c76f8d', P, () => PARITY.forEach(([l, v]) => setField(l, v))],
       // Recaptured 2026-09-18 when Soluvit/Peditrace began scaling with the
       // overfill (Praew). Exactly 4 of its 90 figures moved: Soluvit 1.2 → 1.3,
       // Peditrace 1.2 → 1.3, components 93.1 → 93.3, WFI 50.2 → 50 (was aa0510d437c34170).
       // Recaptured 2026-10-27, one decimal: exactly 5 of its 106 moved. K₂HPO₄
       // 1.68 → 1.7 and MgSO₄ 0.56 → 0.6 (front and back), heparin 0.72 → 0.7
       // (was 0db6f59f3b7827db).
-      parity_dead: ['6497fe44ac0f85d3', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
+      parity_dead: ['5bdce7bccce26656', P, () => { PARITY.forEach(([l, v]) => setField(l, v)); setField('ปริมาตรคาสาย', 6.3); }],
       // Recaptured 2026-10-17, when EN_DB was rebuilt from the handbook pages
       // (BM + HMF Ca 115 → 116.05, P 59 → 59.87 mg/100 mL). Exactly 4 of its 86
       // figures moved: EN Ca 67 → 68, EN PO₄ 34 → 35, total Ca 127 → 128,
       // total PO₄ 65 → 66 (was 981b3ea0856ce4b9).
       // Recaptured 2026-10-27, one decimal: exactly 2 of its 86 moved, MgSO₄
       // 0.41 → 0.4 front and back (was 9039368c94184bc9).
-      mixed_pn_en: ['e0cb21941dc2b54a', P, () => {
+      mixed_pn_en: ['a24d429deafa65d3', P, () => {
         setField('Current weight', 1100); fillRequired(150); selectFeed('BM_HMF_24'); setField('Volume(mL/feed)', 8); setField('Frequency', 8);
         setField('Volume(mL/day)', 90); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 10); setField('Amino acid', 3.5); setField('20% lipid', 3);
         setField('20% NaCl', 2); setField('KCl', 2); setField('10% Ca gluconate', 60); setField('Glycophos', 2); setField('MgSO₄', 3.64575); }],   // 0.3 mEq, typed in mg since 2026-10-28
-      lipid48_k4: ['7d5e2d0e4b73f9a5', P, () => {
+      lipid48_k4: ['8dd2b8f9986254fe', P, () => {
         setField('Current weight', 1000); fillRequired(160);
         setField('Volume(mL/day)', 110); setField('ปริมาตรคาสาย', 0); setField('Dextrose final', 12.5); setField('Amino acid', 3.5); setField('20% lipid', 4.8);
         setField('KCl', 4); setField('10% Ca gluconate', 80); setField('Glycophos', 3); }],
