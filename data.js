@@ -626,7 +626,7 @@ function _jochumUnder1500(wtG, bwG) {
   return w > 0 && w < 1500;
 }
 
-// ── TPN_TARGETS — used when EN < 100 mL/kg/d ─────────────────
+// ── TPN_TARGETS — used below Full EN (fullEnReached, CR-U-SWITCH) ──
 // Source: ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Clin Nutr 2018)
 // ESPGHAN 2021 JPGN update for critically ill term infants
 // Thai PN Guideline 2564
@@ -1016,14 +1016,14 @@ const MEN_MAX_ML_KG = 24;
 // total protein and energy requirements are supplied by enteral nutrition";
 // Thai CPG PDF p. 93, 75 %. Until 2026-11-18 the switch was 100 mL/kg/d,
 // NeoFeed's own convention with no source. Breast milk with no fortifier
-// switches at 120; a 24 kcal/oz feed at about 108.
+// switches at 120; Hi-Q LBW 24 at 107.8, the other 24 kcal/oz feeds at 109–120.
 const FULL_EN_ML_KG = 120;
 const FULL_EN_NEEDS_FRACTION = 0.75;
 function fullEnNeeds(fraction = FULL_EN_NEEDS_FRACTION) {
   return { kcalKg: ENTERAL_TARGETS.kcal()[0] * fraction, proKg: ENTERAL_TARGETS.protein()[0] * fraction };
 }
 // `mlKg`, `kcalKg`, `proKg`: what the COUNTED feed gives per kg/day. Float noise
-// is stripped, so 15 mL × 8 at 1 kg is 120, not 119.99999999999999. `limits`
+// is stripped, so 4.3 mL × 12 at 430 g is 120, not 119.99999999999999. `limits`
 // lets the Calculator pass the two constants as it reads them (D.…), so a
 // harness that plants another value sees the switch move with the text.
 function fullEnReached({ mlKg = 0, kcalKg = 0, proKg = 0 } = {}, { fullMlKg = FULL_EN_ML_KG, fraction = FULL_EN_NEEDS_FRACTION } = {}) {
@@ -1412,8 +1412,13 @@ function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = 
   const overDose = (dose) => Number(dose.toPrecision(12)) > LIPID_IV_HARD_HI;
   const overRate = (dose, mlNow) => lipidRateGrade(dose, mlNow + vitalipidMl, hours).status === "crit";
   const typedOverDose = overDose(lipidPerKg);
-  const exactMl = Number((lipidPerKg * wtKg / gPerMl).toPrecision(12));
-  let ml = typedOverDose ? Math.floor(exactMl) : Number(displayNum(exactMl, 0));
+  // Above 4.0 the whole mL below, counted on the 0.1 mL the TPN room measures:
+  // 37.8 mL is 37, and the 4.4 g/kg/d that gives (36.96 mL, measured 37.0) is
+  // 37 again, so a second tap changes nothing. Floored on the exact mL, each
+  // tap took off another mL (4.5 → 4.4 → 4.29; cold reader, 2026-11-18).
+  // Already a whole mL as measured: left as typed, so a dose above 4.0 never goes up.
+  if (typedOverDose && Number.isInteger(mlOf(lipidPerKg)) && mlOf(lipidPerKg) > 0) return lipidPerKg;
+  let ml = typedOverDose ? Math.floor(mlOf(lipidPerKg)) : Number(displayNum(lipidPerKg * wtKg / gPerMl, 0));
   if (!(ml > 0)) return lipidPerKg;
   const typedOverRate = overRate(lipidPerKg, lipidPerKg * wtKg / gPerMl);
   const crosses = (m) => (!typedOverDose && overDose(m * gPerMl / wtKg))
@@ -2000,7 +2005,7 @@ const MOCK_PATIENTS = [
 
 const MOCK_DAILY_LOG = {
   "TT-BW900-A": [
-    // Fields pro/kcal/na/k/ca/p are PN+EN combined (per-kg). enVolPerKg drives target choice (≥100 → EN targets, else PN).
+    // Fields pro/kcal/na/k/ca/p are PN+EN combined (per-kg). enVolPerKg drives target choice (Full EN, isFullEn → EN targets, else PN).
     { dol: 1,  ts: "2026-05-15", weight: 900, fluid: 80,  gir: 5.6, pro: 1.5, kcal: 33,  na: 0,   k: 0,   ca: 40,  p: 22, enVolPerKg: 0,   route: "TPN central",      status: "submitted" },
     { dol: 2,  ts: "2026-05-16", weight: 870, fluid: 100, gir: 7.0, pro: 2.5, kcal: 55,  na: 1.5, k: 0,   ca: 60,  p: 34, enVolPerKg: 0,   route: "TPN central",      status: "submitted" },
     { dol: 3,  ts: "2026-05-17", weight: 850, fluid: 120, gir: 8.0, pro: 3.0, kcal: 75,  na: 2.0, k: 1.0, ca: 75,  p: 42, enVolPerKg: 10,  route: "TPN + trophic",    status: "submitted" },
@@ -2309,8 +2314,9 @@ const WARD_LIPID_FLAG_DOL = 2;
 // every GA): NICE NG154 rec 1.8.2, born before 28+0 weeks, "consider stopping
 // ... within 24 hours once the enteral feed volume is 140 to 150 ml/kg/day",
 // and rec 1.8.3, born at or after 28+0 weeks and term, 120 to 140 (PDF p. 21).
-// The flag takes the lower end of each range. Not FULL_EN_ML_KG (100), which
-// has no source and is where the Calculator starts weaning PN (CR-U-SWITCH). A
+// The flag takes the lower end of each range. Not the Calculator's switch to
+// the enteral targets (CR-U-SWITCH: 120 mL/kg/d, or 75 % of the enteral energy
+// and protein needs), which is a different question. A
 // record with no usable GA takes the lower line, so the flag comes no later.
 const PN_STOP_EN_ML_KG = { belowGaWk: 28, below: 140, atOrAbove: 120 };
 

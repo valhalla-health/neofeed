@@ -2260,8 +2260,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const tpnOver = D.tpnOverDelivery(totalTPN_mL);
   // EN volume: short of D.FULL_EN_ML_KG (120) mL/kg/d is a caution; nothing ordered is not.
   // A feed that is Full EN by its energy and protein (75 % of needs, CR-U-SWITCH)
-  // is not short: the tile and Step 2's done mark follow calc.useEnteralTargets.
-  const enVolStatusAt = (v) => v >= D.FULL_EN_ML_KG ? "ok" : v > 0 ? "warn" : "ok";
+  // is not short: the tile and Step 2's done mark follow calc.useEnteralTargets,
+  // and the bar's amber zone then ends at the volume given, not at 120.
+  const enVolFull = calc.useEnteralTargets ? Math.min(calc.enVolPerKg, D.FULL_EN_ML_KG) : D.FULL_EN_ML_KG;
+  const enVolStatusAt = (v) => v >= enVolFull ? "ok" : v > 0 ? "warn" : "ok";
 
   // ── Hard limits on the IV (TPN) portion only — Praew, 2026-09-17 (UP-C4) ──
   // Lipid, K and NPE:AA are limits on what is infused; their figures are
@@ -3709,7 +3711,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <Tile label="EN volume" value={calc.enVolPerKg} unit=" mL/kg/d" target={[D.FULL_EN_ML_KG, D.ESPGHAN_TARGETS.en.advancement.maxVol]} status={calc.useEnteralTargets ? "ok" : enVolStatusAt(calc.enVolPerKg)} statusAt={enVolStatusAt} decimals={0} max={210} />
+              <Tile label="EN volume" value={calc.enVolPerKg} unit=" mL/kg/d" target={[D.FULL_EN_ML_KG, D.ESPGHAN_TARGETS.en.advancement.maxVol]} status={enVolStatusAt(calc.enVolPerKg)} statusAt={enVolStatusAt} decimals={0} max={210} />
               {(() => {
                 const avail   = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
                 const availKg = wtKg > 0 ? avail / wtKg : 0;

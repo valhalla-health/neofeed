@@ -202,7 +202,7 @@ function TrendGraph({ entries, patient }) {
 
   // ── status of latest point ────────────────────────────────
   const latest = points[points.length - 1];
-  // Dynamic target band based on latest entry's regime (PN vs EN ≥ 100 mL/kg).
+  // Dynamic target band based on latest entry's regime (PN vs Full EN, D_L.isFullEn).
   // Used for the status dot and the legend — i.e. for the LATEST value only,
   // which is the one question it answers correctly. The band drawn on the
   // chart is per-day (bandSteps below).

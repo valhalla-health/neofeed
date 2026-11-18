@@ -1544,7 +1544,8 @@ function Calculator({
   const pumpHoursText = (pump) => pump ? `${fmt(pump.hours, 1)} h` : "—";
   const sLipidGkgh = lipidGrade.status;
   const tpnOver = D.tpnOverDelivery(totalTPN_mL);
-  const enVolStatusAt = (v) => v >= D.FULL_EN_ML_KG ? "ok" : v > 0 ? "warn" : "ok";
+  const enVolFull = calc.useEnteralTargets ? Math.min(calc.enVolPerKg, D.FULL_EN_ML_KG) : D.FULL_EN_ML_KG;
+  const enVolStatusAt = (v) => v >= enVolFull ? "ok" : v > 0 ? "warn" : "ok";
   const ivLipidKg = wtKg > 0 ? calc.lipidG / wtKg : 0;
   const ivKKg = calc.kKg;
   const ivNpeN = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;
@@ -2631,7 +2632,7 @@ function Calculator({
     ["K", calc.enFeedKg.k, 1],
     ["Ca", calc.enFeedKg.ca, 0],
     ["P", calc.enFeedKg.p, 0]
-  ].map(([lab, v, d]) => /* @__PURE__ */ React.createElement("span", { key: lab, style: { whiteSpace: "nowrap" } }, lab, " ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, color: isMEN ? "var(--ink-3)" : "var(--ink)" } }, fmt(v, d))))), calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement(MilkAssumption, { keys: enFeeds.filter((f) => f.mlPerDay > 0).map((f) => f.key) }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "EN volume", value: calc.enVolPerKg, unit: " mL/kg/d", target: [D.FULL_EN_ML_KG, D.ESPGHAN_TARGETS.en.advancement.maxVol], status: calc.useEnteralTargets ? "ok" : enVolStatusAt(calc.enVolPerKg), statusAt: enVolStatusAt, decimals: 0, max: 210 }), (() => {
+  ].map(([lab, v, d]) => /* @__PURE__ */ React.createElement("span", { key: lab, style: { whiteSpace: "nowrap" } }, lab, " ", /* @__PURE__ */ React.createElement("span", { className: "num", style: { fontWeight: 600, color: isMEN ? "var(--ink-3)" : "var(--ink)" } }, fmt(v, d))))), calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement(MilkAssumption, { keys: enFeeds.filter((f) => f.mlPerDay > 0).map((f) => f.key) }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement(Tile, { label: "EN volume", value: calc.enVolPerKg, unit: " mL/kg/d", target: [D.FULL_EN_ML_KG, D.ESPGHAN_TARGETS.en.advancement.maxVol], status: enVolStatusAt(calc.enVolPerKg), statusAt: enVolStatusAt, decimals: 0, max: 210 }), (() => {
     const avail = fluidTargetPerKg * wtKg - totalTPN_mL - calc.lipidBagVol - otherIV_mL - drug_mL;
     const availKg = wtKg > 0 ? avail / wtKg : 0;
     const over = avail < 0;

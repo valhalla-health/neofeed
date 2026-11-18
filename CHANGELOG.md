@@ -18,9 +18,10 @@ block and § Questions for Pp), `docs/CLINICAL_CONSTANTS.md`, `tools/reference-t
 Pp answered seven of the skill's open questions on 2026-11-18. Her words are quoted in each rule's block.
 
 - **Q8, `CR-U-ENERGY`: IV lipid counts 10 kcal/g, not 9** ("ESPGHAN กับ Thai CPG ใช้ 10"; a 20 % emulsion is 2.0
-  kcal/mL). The one printed figure that moves: TPN kcal, kcal/kg/d on screen, on the order and in the copied text,
-  the energy split, NPE:AA and P:E rise by 1 kcal per g of IV lipid (1 kg on D10 100 mL, AA 3, lipid 3: 73 → 76
-  kcal/kg/d). No dose, volume or mL moves. NeoFeed's energy no longer equals the KCMH worksheet's E53, which counts
+  kcal/mL). The one printed figure that moves: TPN kcal and kcal/kg/d, on screen, on the order and in the copied
+  text, rise by 1 kcal per g of IV lipid (1 kg on D10 100 mL, AA 3, lipid 3: 73 → 76 kcal/kg/d). What is computed
+  from energy follows: NPE:AA rises (by lipid g ÷ amino acid g), P:E (protein per 100 kcal) falls, and in the
+  energy split the fat share rises and the other two fall. No dose, volume or mL moves. NeoFeed's energy no longer equals the KCMH worksheet's E53, which counts
   9. Feed fat in the energy split stays 9 kcal/g. The sticker's kcal is the aqueous bag's and does not move.
   `CONSTANTS_VERSION` is `2026-11-18.1`, so every order saved before is held for a re-save before it reprints.
 - **Q6, `CR-TGT-CAP`: a Ca:P of exactly 1.7 is in range.** The ratio is graded with float noise stripped
@@ -40,14 +41,14 @@ Pp answered seven of the skill's open questions on 2026-11-18. Her words are quo
   it was 100, with no source). Asked what "needs" counts, Pp chose energy and protein: the counted feed gives at
   least 75 % of 115 kcal/kg/d (86.25) and of 3.5 g/kg/d (2.625), the lower end of `ENTERAL_TARGETS`. Avery ch 60
   p. 9 (120 mL/kg/day) and p. 1 (75 % of protein and energy requirements). Breast milk with no fortifier switches at
-  120; Hi-Q LBW 24 at 107.8 mL/kg/d; the 27 kcal/oz preterm formulas at 96–101, below the old 100. A saved row
+  120; Hi-Q LBW 24 at 107.8 mL/kg/d; the 27 kcal/oz preterm formulas at 96–101, around the old 100. A saved row
   (`isFullEn`: the Daily log's bands, the Alerts page) follows the same rule from the feeds in `calcInput`; a row
   that names no feed is judged on volume alone. Step 2's EN volume tile shows 120, and it and the done mark turn
   green once the switch is reached either way.
 - **Q22, `CR-R-LIPID-WHOLE-ML`: a whole-mL tap on a dose already above 4.0 g/kg/d rounds down** ("ไม่ต้องกัน
-  แต่ถ้าไขมันเกิน 4.0 อยู่แล้ว ให้ปัดลง"): 4.5 g/kg/d at 1.68 kg, 37.8 mL, becomes 37 mL (4.4), not 38 (4.52). No
+  แต่ถ้าไขมันเกิน 4.0 อยู่แล้ว ให้ปัดลง"): 4.5 g/kg/d at 1.68 kg, 37.8 mL, becomes 37 mL (4.4), not 38 (4.52), and a second tap leaves it there. No
   guard for Energy above 160 or NPE:AA below 12. At or under 4.0 nothing changes, and Vitalipid keeps its 1 mL.
-- **Tests.** `verify-clinical-rules.cjs`: 1,060 checks (was 1,015), each changed rule with an inside and an outside
+- **Tests.** `verify-clinical-rules.cjs`: 1,063 checks (was 1,015), each changed rule with an inside and an outside
   case at the new edge. `verify-calc-sum.cjs` gains tie order T7 (34 + 8 + 1.5 = 43.5 → 44 kcal/kg/d; at 9 kcal/g
   every figure read 43). The oracle and the fuzz recompute energy at 10 and the switch from their own formulas.
   `verify-review-0917-calc.cjs`'s five print digests were recaptured after a figure-by-figure comparison with

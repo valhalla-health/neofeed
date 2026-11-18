@@ -245,7 +245,8 @@ function computeAlerts(patient, allEntries) {
   const last = entries[entries.length - 1];
   if (last) {
     // Route-aware targets — the same switch log.jsx's pickTarget() uses.
-    // ≥100 mL/kg/d enteral means full feeds, so the ESPGHAN 2022 enteral
+    // Full EN (D_A.isFullEn: 120 mL/kg/d, or 75 % of the enteral energy and
+    // protein needs; CR-U-SWITCH) means full feeds, so the ESPGHAN 2022 enteral
     // targets apply; below that this is still a PN prescription and the 2018
     // parenteral targets do. D_A.TARGETS.protein/kcal are NOT safe here: they
     // return the enteral values unconditionally once dol > 7, which told a
