@@ -139,7 +139,8 @@ bed in NICU, iso or SCN. Any other order SHALL show why it cannot print.
 
 The page SHALL print the three parts on one A4 sheet. Every figure on them SHALL be a string from
 `printJson`, unit and decimals included, and the page SHALL compute none. The bag label SHALL print the
-ward as `9B2(NICU)` for NICU and iso beds and `9B2(SCN)` for SCN beds. Dates SHALL print in the Buddhist
+ward as `9B2(NICU)` for NICU and iso beds and `9B1(SCN)` for SCN beds. Each part SHALL carry the AN
+and the NeoFeed ID. Dates SHALL print in the Buddhist
 era. The PN label's date made SHALL be the day the TPN is prepared (TPN unit, 2026-11-03); the page cannot assume
 that is the print day or the order's date, so it SHALL come from a date box beside the print button, today by
 default (design D17).
@@ -151,8 +152,15 @@ default (design D17).
 
 #### Scenario: Zero rows on the worksheet
 
-- **WHEN** `printJson` lists a stock at 0 mL
-- **THEN** the worksheet prints that row with its 0, so the compounder can tick it
+- **WHEN** `printJson` lists a stock at 0 mL ("0" or "0.0")
+- **THEN** the worksheet prints no row for it (TPN unit through Pp, 2026-11-19), and every other stock keeps
+  its row in the unit's order
+- **AND** a missing or null figure is not a zero: the print is held, as before
+
+#### Scenario: An SCN bed
+
+- **WHEN** the infant's bed is `SCN 4`
+- **THEN** the bag label's ward box reads `9B1(SCN)`
 
 #### Scenario: The date made
 

@@ -540,19 +540,27 @@ function StickerSheet({ model: m }) {
     <div className="sheet" id="sticker-sheet">
       <section className={"part part-worksheet" + (m.trial ? " part-trial" : "")}>
         {m.trial && <TrialMark />}
+        {/* AN and the NeoFeed ID beside the name, so the room can check the bag against the
+            paper order (TPN unit through Pp, 2026-11-19). */}
         <div className="part-head">
           <div className="big-name" data-mapped="name">{m.name}</div>
-          <div><Lbl>Ward</Lbl> <span data-mapped="ward">{m.ward}</span></div>
+          <div className="head-ids">
+            <span><Lbl>Ward</Lbl> <span data-mapped="ward">{m.ward}</span></span>
+            <span><Lbl>AN</Lbl> <span data-mapped="an">{m.an}</span></span>
+            <span><Lbl>NeoFeed ID</Lbl> <span data-mapped="id">{m.sessionId}</span></span>
+          </div>
         </div>
         <div className="facts-line">
           <span><Lbl>bw</Lbl> <Fig of="dosingWeightKg">{m.dosingWeightKg}</Fig> <Lbl>kg</Lbl></span>
           <span><Lbl>DOL</Lbl> <Fig of="dol">{m.dol}</Fig></span>
           <span><Lbl>TPN date</Lbl> <span data-date="">{m.orderDate}</span></span>
           <span><Lbl>Factor</Lbl> <Fig of="factor">{m.factor}</Fig></span>
-          <span><Lbl>Prepared</Lbl> <Fig of="preparedMl">{m.preparedMl}</Fig> <Lbl>mL</Lbl></span>
+          <span className="prepared"><Lbl>Prepared</Lbl> <Fig of="preparedMl">{m.preparedMl}</Fig> <Lbl>mL</Lbl></span>
         </div>
         <div className="worksheet-body">
-          <table className="stock">
+          {/* One column as before, zero rows left off (Core.zeroMl), each figure large and
+              right beside its name (TPN unit through Pp, 2026-11-19). */}
+          <table className={"stock" + (m.stock.length > 13 ? " dense" : "")}>
             <tbody>
               {m.stock.map((r) => (
                 <tr key={r.key}>
@@ -564,14 +572,12 @@ function StickerSheet({ model: m }) {
               ))}
             </tbody>
           </table>
-          {/* The ID sits under the SWFI box, so the 85 mm part keeps its sixteen rows (2026-11-16). */}
           <div className="wfi-col">
             <div className="wfi">
               <Lbl>SWFI</Lbl>
               <div className="wfi-value"><Fig of="stockMl.wfi">{m.wfiMl}</Fig></div>
               <Lbl>mL</Lbl>
             </div>
-            <div className="small-id"><Lbl>NeoFeed ID</Lbl> <span data-mapped="id">{m.sessionId}</span></div>
           </div>
         </div>
       </section>
@@ -580,7 +586,10 @@ function StickerSheet({ model: m }) {
         {m.trial && <TrialMark />}
         <div className="fixed-line heading" data-fixed="">{m.heading}</div>
         <div className="big-name" data-mapped="name">{m.name}</div>
-        <div className="an-line"><Lbl>AN</Lbl> <span data-mapped="an">{m.an}</span></div>
+        <div className="an-line">
+          <span><Lbl>AN</Lbl> <span data-mapped="an">{m.an}</span></span>
+          <span><Lbl>NeoFeed ID</Lbl> <span data-mapped="id">{m.sessionId}</span></span>
+        </div>
         <div className="facts-line">
           <span><Lbl>DOL</Lbl> <Fig of="dol">{m.dol}</Fig></span>
           <span><Lbl>Ward</Lbl> <span data-mapped="ward">{m.ward}</span></span>
@@ -590,7 +599,7 @@ function StickerSheet({ model: m }) {
         <div className="facts-line">
           <span><Lbl>Delivered</Lbl> <Fig of="deliveredMl">{m.deliveredMl}</Fig> <Lbl>mL</Lbl></span>
           <span><Lbl>Dead space</Lbl> <Fig of="deadMl">{m.deadMl}</Fig> <Lbl>mL</Lbl></span>
-          <span><Lbl>Prepared</Lbl> <Fig of="preparedMl">{m.preparedMl}</Fig> <Lbl>mL</Lbl></span>
+          <span className="prepared"><Lbl>Prepared</Lbl> <Fig of="preparedMl">{m.preparedMl}</Fig> <Lbl>mL</Lbl></span>
         </div>
         <div className="amounts">
           <span><Lbl>Dextrose</Lbl> <Fig of="delivered.dextrosePct">{m.dextrosePct}</Fig> <Lbl>%</Lbl> <Fig of="delivered.dextroseG">{m.dextroseG}</Fig> <Lbl>g</Lbl></span>
@@ -618,6 +627,7 @@ function StickerSheet({ model: m }) {
         <div className="facts-line">
           <span><Lbl>AN</Lbl> <span data-mapped="an">{m.an}</span></span>
           <span><Lbl>Date</Lbl> <span data-date="">{m.orderDate}</span></span>
+          <span><Lbl>NeoFeed ID</Lbl> <span data-mapped="id">{m.sessionId}</span></span>
         </div>
       </section>
     </div>

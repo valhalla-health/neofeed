@@ -121,10 +121,18 @@
     return `${pad2(t.getUTCHours())}:${pad2(t.getUTCMinutes())}`;
   }
 
-  // ── The ward on a sticker. NICU and iso share a ward (Pp, 2026-10-30). ──
+  // ── The ward on a sticker. NICU and iso share 9B2 (Pp, 2026-10-30); SCN is 9B1, not 9B2
+  //    (TPN unit through Pp, 2026-11-19: "sticker cover bag ไป SCN เขียนว่า 9B2 ที่ถูกต้องคือ 9B1"). ──
   function wardLabel(bed) {
     if (!WARD_BED.test(String(bed || ""))) return "";
-    return /^SCN /.test(bed) ? "9B2(SCN)" : "9B2(NICU)";
+    return /^SCN /.test(bed) ? "9B1(SCN)" : "9B2(NICU)";
+  }
+
+  // A stock the bag does not get: printJson's string reads as zero ("0", "0.0"). The worksheet
+  // leaves that row off (TPN unit through Pp, 2026-11-19: "ถ้าอันไหนไม่เติมก็ทำให้ไม่ขึ้นเลย").
+  // A missing or null figure is not zero: missingFigures holds the print before it gets here.
+  function zeroMl(value) {
+    return typeof value === "string" && /^0+(\.0+)?$/.test(value.trim());
   }
 
   // ── The list is split by ward so the room sees each ward at a glance (Pp, 2026-11-14:
@@ -424,7 +432,7 @@
       deadMl: pj.deadMl,
       preparedMl: pj.preparedMl,
       wfiMl: pj.stockMl.wfi,
-      stock: STOCK_ROWS.map(([k, label]) => ({ key: k, label, value: pj.stockMl[k] })),
+      stock: STOCK_ROWS.map(([k, label]) => ({ key: k, label, value: pj.stockMl[k] })).filter((r) => !zeroMl(r.value)),
       dextrosePct: dl.dextrosePct,
       dextroseG: dl.dextroseG,
       aminoAcidPct: dl.aminoAcidPct,
@@ -442,7 +450,7 @@
   const api = {
     PN_FIXED, PN_BLANK, PN_TRIAL, CONTACTS, STOCK_ROWS, AMINO_ROWS, DELIVERED_ROWS,
     wardToday, isRealDate, addDays, dateWindow, buddhistDate, wardTime,
-    wardLabel, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy, mappingSeenOn, namesList, wardDateTime,
+    wardLabel, zeroMl, wardGroup, ordersByWard, twinLabel, currentOrders, anProblem, anUsedBy, mappingSeenOn, namesList, wardDateTime,
     missingFigures, compareVersions, versionsOf, printReasons, fixedLinesReady, trialNote, trialReprintDue,
     lastPrint, lastPrintOf, editedAfterPrint, renamedBagDates, changedAfterPrint, goneAfterPrint, draftAfterPrint, needsPaperCheck, versionsMatch, preparedDateOk,
     recheck, stickerModel,
