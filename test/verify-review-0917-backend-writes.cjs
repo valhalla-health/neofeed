@@ -233,18 +233,20 @@ T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retr
   const order = [];
   ['Patient_Registry', 'Daily_Log'].forEach(n => { g.sheet(n).hooks.beforeWrite = (s, kind) => { if (kind === 'deleteRow') order.push(n); }; });
   g.sheet('Daily_Log').throwOn.deleteRow = { skip: 1, once: true, err: new Error('Exceeded maximum execution time') };
-  const first = g.as(g.at, { action: 'deletePatient', sessionId: 'AA-1' });
+  // AA-1's three orders are submitted (not locked), so since the code review of 2026-11-19 (H4) the
+  // delete takes the second yes: this section is about the order rows go in, not the confirmation.
+  const first = g.as(g.at, { action: 'deletePatient', sessionId: 'AA-1', confirmPublished: true });
   T.ok('a timeout part-way reports an error', !!first.error, first);
   T.ok('…Daily_Log rows are deleted before the registry row is touched', !order.includes('Patient_Registry'), order);
   T.ok('…so the patient is still visible and deletable', g.rows('Patient_Registry').some(r => r[0] === 'AA-1'));
-  const retry = g.as(g.at, { action: 'deletePatient', sessionId: 'AA-1' });
+  const retry = g.as(g.at, { action: 'deletePatient', sessionId: 'AA-1', confirmPublished: true });
   T.ok('the retry finishes', retry.ok === true, retry);
   T.eq('…every AA-1 row gone, BB-2 untouched', [g.rows('Daily_Log').filter(r => r[1] === 'AA-1').length, g.rows('Patient_Registry').some(r => r[0] === 'AA-1'),
     g.rows('Daily_Log').filter(r => r[1] === 'BB-2').length], [0, false, 1]);
   T.eq('…and the registry row went last', order[order.length - 1], 'Patient_Registry');
   // Registry already gone, log rows left behind by an older partial delete.
   g.sheet('Daily_Log').data.push(g.logRow('CC-3', bkkMidnight('2026-09-01')), g.logRow('CC-3', bkkMidnight('2026-09-02')));
-  const orphan = g.as(g.at, { action: 'deletePatient', sessionId: 'CC-3' });
+  const orphan = g.as(g.at, { action: 'deletePatient', sessionId: 'CC-3', confirmPublished: true });
   T.ok('orphan log rows with no registry row are cleaned up, not "not found"', orphan.ok === true && !g.rows('Daily_Log').some(r => r[1] === 'CC-3'), orphan);
   T.ok('nothing at all for the id is still "not found"', /ไม่พบ/.test(g.as(g.at, { action: 'deletePatient', sessionId: 'NOPE-9' }).error || ''));
   const pub = g.as(g.at, { action: 'logDailyNutrition', sessionId: 'BB-2', entry: E({ ts: '2026-09-11' }) });
@@ -253,7 +255,8 @@ T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retr
   const refused = g.as(g.at, { action: 'deletePatient', sessionId: 'BB-2' });
   // Pp, 2026-11-12: a submitted order no longer blocks the delete outright;
   // the first call asks again, with the count from the Sheet.
-  T.eq('a patient with a submitted row: first call asks again', [refused.needsConfirm, refused.code, refused.publishedCount, !!refused.ok], [true, 'HasPublished', 1, false]);
+  // Two submitted rows: the unlocked one of 2026-09-10 counts too since 2026-11-19 (H4).
+  T.eq('a patient with a submitted row: first call asks again', [refused.needsConfirm, refused.code, refused.publishedCount, !!refused.ok], [true, 'HasPublished', 2, false]);
   T.eq('…nothing deleted, and no start row written', [snapshot(g) === rowsBefore, g.audit().length], [true, auditBefore]);
   const nurseTry = g.as(g.nt, { action: 'deletePatient', sessionId: 'BB-2', confirmPublished: true });
   T.ok('…a nurse with confirmPublished is still Forbidden', /Forbidden/.test(nurseTry.error || '') && snapshot(g) === rowsBefore, nurseTry);
@@ -262,7 +265,7 @@ T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retr
   T.eq('…a doctor is asked again too, nothing deleted', [docFirst.needsConfirm, docFirst.code, !!docFirst.error, snapshot(g) === rowsBefore], [true, 'HasPublished', false, true]);
   const confirmed = g.as(g.at, { action: 'deletePatient', sessionId: 'BB-2', confirmPublished: true });
   T.eq('…the second yes deletes it', [!!confirmed.ok, g.synced('BB-2', g.at)], [true, undefined]);
-  T.ok('…and the audit names the submitted count', g.audit().some(r => String(r[1] || r.action || '').indexOf('deletePatient:published=1') === 0 || JSON.stringify(r).indexOf('deletePatient:published=1') >= 0));
+  T.ok('…and the audit names the submitted count', g.audit().some(r => String(r[1] || r.action || '').indexOf('deletePatient:published=2') === 0 || JSON.stringify(r).indexOf('deletePatient:published=2') >= 0));
   g.seedPatient(P('DD-4'));
   const dpub = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'DD-4', entry: E({ ts: '2026-09-11' }) });
   g.as(g.dt, { action: 'publishLog', sessionId: 'DD-4', entryId: dpub.entryId, expectedLastModified: dpub.lastModified });
@@ -282,6 +285,20 @@ T.section('UP-B6 / SEC-B14 · deletePatient: log rows first, registry last, retr
   T.ok('a doctor is refused an archived record outside the sync window, nothing deleted or audited',
     /Forbidden/.test(docOld.error || '') && snapshot(g) === ffBefore && g.audit().length === ffAudit, docOld);
   T.ok('…an admin deletes it', g.as(g.at, { action: 'deletePatient', sessionId: 'FF-6', confirmPublished: true }).ok === true);
+  // Code review, 2026-11-19 (H4): a submitted order whose lock never landed (AH blank) is still
+  // submitted, and the TPN room lists it, so it asks the second yes too. A draft does not.
+  g.seedPatient(P('HH-8'));
+  const unlocked = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'HH-8', entry: E({ ts: '2026-09-11' }) });
+  const hhRow = g.rows('Daily_Log').find(r => r[1] === 'HH-8');
+  T.eq('a submitted order with no lock: saved, status submitted, AH blank', [!!unlocked.entryId, String(hhRow && hhRow[14]), String((hhRow && hhRow[33]) || '')], [true, 'submitted', '']);
+  const hhBefore = snapshot(g);
+  const hhFirst = g.as(g.dt, { action: 'deletePatient', sessionId: 'HH-8' });
+  T.eq('…a doctor is asked again on the first call, nothing deleted', [hhFirst.needsConfirm, hhFirst.code, hhFirst.publishedCount, snapshot(g) === hhBefore], [true, 'HasPublished', 1, true]);
+  T.ok('…and the second yes deletes it', g.as(g.dt, { action: 'deletePatient', sessionId: 'HH-8', confirmPublished: true }).ok === true);
+  g.seedPatient(P('II-9'));
+  g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'II-9', entry: E({ ts: '2026-09-11', status: 'draft' }) });
+  const iiDel = g.as(g.dt, { action: 'deletePatient', sessionId: 'II-9' });
+  T.eq('a patient with only a draft is deleted on the first call', [!!iiDel.ok, !!iiDel.needsConfirm], [true, false]);
   g.seedPatient(P('GG-7'));
   const pseudo = g.as(g.at, { action: 'pseudonymizePatient', sessionId: 'GG-7' });
   const ggBefore = snapshot(g);
@@ -607,6 +624,31 @@ T.section('SEC-B3 · malformed measurement arrays are refused on every path', ()
   T.ok('a length/HC-only entry (w null) is still accepted', good.ok === true, good);
   const synced = g.synced('AB-900');
   T.ok('every synced array is an array of objects', ['weights', 'lengths', 'hcs', 'bedHistory'].every(f => Array.isArray(synced[f]) && synced[f].every(x => x && typeof x === 'object')));
+});
+
+// Code review, 2026-11-19 (H5): a nurse or a doctor writes only to records the ward sees. A
+// hand-made updatePatient on an infant discharged 90 days ago used to overwrite the record, a
+// blank dob passing the different-infant check, and bring it back as Active.
+T.section('H5 · writes to a record outside the ward\'s sync window are an admin\'s', () => {
+  const g = ward();
+  g.seedPatient(P('ZZ-9', { status: 'Discharged', statusDate: addDays(TODAY, -90) }));
+  const before = JSON.stringify(g.rows('Patient_Registry').find(r => r[0] === 'ZZ-9'));
+  const overwrite = P('ZZ-9', { name: 'Overwritten', dob: '', status: 'Active' });
+  for (const [who, tok] of [['nurse', g.nt], ['doctor', g.dt]]) {
+    const upd = g.as(tok, { action: 'updatePatient', patient: overwrite });
+    T.ok(`a ${who}'s updatePatient on it is Forbidden`, /Forbidden/.test(upd.error || ''), upd);
+    const uw = g.as(tok, { action: 'updateWeights', sessionId: 'ZZ-9', weights: [{ dol: 1, w: 900 }, { dol: 95, w: 4000 }] });
+    T.ok(`…and so is a ${who}'s updateWeights`, /Forbidden/.test(uw.error || ''), uw);
+  }
+  T.eq('…the record is unchanged', JSON.stringify(g.rows('Patient_Registry').find(r => r[0] === 'ZZ-9')), before);
+  const reg = g.as(g.nt, { action: 'registerPatient', isNew: true, patient: P('ZZ-9') });
+  T.eq('a new registration on that id still gets IdTaken, so the client draws another', [reg.needsConfirm, reg.code], [true, 'IdTaken']);
+  const forced = g.as(g.nt, { action: 'registerPatient', isNew: true, confirmOverwrite: true, patient: overwrite });
+  T.ok('…but forcing the overwrite is Forbidden', /Forbidden/.test(forced.error || ''), forced);
+  T.ok('an admin may edit the archived record', g.as(g.at, { action: 'updatePatient', patient: P('ZZ-9', { diagnosis: 'corrected by admin' }) }).ok === true);
+  g.seedPatient(P('YY-8'));
+  T.ok('a nurse still edits an infant on the ward', g.as(g.nt, { action: 'updatePatient', patient: P('YY-8', { diagnosis: 'edited on the ward' }) }).ok === true);
+  T.ok('…and records a weight for one', g.as(g.nt, { action: 'updateWeights', sessionId: 'YY-8', weights: [{ dol: 1, w: 900 }, { dol: 3, w: 950 }] }).ok === true);
 });
 
 T.section('UP-B1 · a newly created Audit_Log tab is 4 columns, not 26', () => {

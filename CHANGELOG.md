@@ -7,6 +7,48 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-19 (2) — The six HIGH findings of the code review: re-dosed orders ask again, Print holds, the delete count, the ward's list, limits at their own value
+
+`calculator.jsx`, `data.js` (`gradeNum`, `rangeStatus`), `gas-backend.gs` (`deletePatient`, `_outsideWardList`,
+`registerPatient`, `updateWeights`, `logNursingEntry`), the `neofeed-clinical-rules` skill (seven cases),
+`test/verify-dosing-weight-1008.cjs` §8, `test/verify-print-holds-1119.cjs` (new),
+`test/verify-review-0917-backend-writes.cjs`, `compiled/` and the shells. Not live: the frontend waits for a release
+and the backend for a `clasp` deploy, both Pp's.
+
+Seven fresh agents reviewed the live code on 2026-11-19 (the report is in Pp's private workspace,
+`NEOFEED_REVIEW_2026-11-19.md`). Pp: "แก้ 6 ข้อ HIGH ใน PR เดียวเลย". Each fix has a check that fails on `0bbeeed`.
+
+- **H1: a re-dosed order asks the critical reason again.** A submitted order with a confirmed critical value, then a
+  corrected birth weight: the dosing weight moves, every per-kg figure with it, and the inputs stay the same. Submit
+  took the doctor's I/O-only path (`ioOnlyByDoctor`), asked nothing and sent the old reason with the new figures, so
+  the front printed "แพทย์ยืนยัน…" beside a GIR nobody had confirmed. `ioOnlyByDoctor` now also needs
+  `!dosingWeightChanged`. Two reviewers found it independently.
+- **H2: a tab behind the served release prints nothing.** A release that moves the calculation holds older orders for a
+  re-Submit, but a tab opened before it compares with its own old `CONSTANTS_VERSION` and printed them, one by one or
+  with Print ทั้งหมด. `printReady` now reads the same release check that refuses Submit. Like Submit, it fails open
+  when the check cannot be made.
+- **H3: an order revised or deleted on another device stops printing on a Calculator left open.** The synced log
+  drops a superseded row; when the open order's row is no longer there, Print is held and says why. The app's own
+  saves land in the log in the same render as the saved id (`handleLogToGAS`).
+- **H4: deletePatient's second yes counts every submitted order**, not only locked ones (AH). An order whose Submit
+  lock failed, or one from before release #201, is submitted (column O) and the TPN room lists it; such a patient
+  was deleted on the first call with no "ตรวจกับเภสัชก่อนลบ". A row with a blank status counts as submitted (the
+  safe reading of a legacy row). Six older checks now pass `confirmPublished` or expect the larger count.
+- **H5: a nurse or a doctor writes only to records on the ward's list.** A hand-made `updatePatient` on an infant
+  discharged 90 days ago overwrote the record (a blank dob passed the different-infant check) and brought it back as
+  Active; `updateWeights` and `logNursingEntry` wrote to it too. They now refuse a non-admin outside the sync window,
+  as `deletePatient` has since 2026-11-15. A new registration whose drawn id is taken still gets `IdTaken`, so the
+  client draws another; forcing the overwrite is refused.
+- **H6: a value exactly at a limit grades at the limit.** `D.rangeStatus` strips float noise (`D.gradeNum`,
+  `toPrecision(12)`), as K⁺ and Ca:P already did, and so does the total-zinc compare. 1.2 kg on 172.8 mL of D12 (the
+  rate box's 7.2 mL/hr) is GIR 12 on paper and computed 12.000000000000002, which raised "GIR critically high" and
+  asked for a reason; protein 4.5 at 960 g, energy 160 at 980 g and zinc 5 mg at 1.6 kg did the same. It is also the
+  Alerts page's GIR grading (`girStatus`). `CONSTANTS_VERSION` stays `2026-11-18.1`: no printed number moves, only
+  which value at a limit raises a line. That is Pp's call on the PR.
+
+Left for later, from the same review: the 13 MEDIUM and 24 LOW findings, among them `PRINTED_FIGURES` still holding
+K⁺ in bag at 0 decimals and the K⁺ stop text rounding to the limit.
+
 ## Session 2026-11-19 (1) — The TPN unit's sticker requests: SCN is 9B1, zero rows off the worksheet, AN and NeoFeed ID on every part; K⁺ in bag on the order's front
 
 `tpn-room-core.js` (`wardLabel`, `zeroMl`, `stickerModel`), `tpn-room.jsx` (`StickerSheet`), `tpn-room.css`,

@@ -281,6 +281,9 @@ minimum, so a preterm infant at 2.5–4 no longer shows amber.
 {"case": "GIR 2.43 (1 kg, 100 mL of D3.5): amber", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 3.5, "Amino acid": 3}, "expect": {"alert": "GIR off target", "level": "warn"}}
 {"case": "12 is still in the band", "side": "inside", "fn": "girStatus", "args": [12], "want": "ok"}
 {"case": "12.01 is critical", "side": "outside", "fn": "girStatus", "args": [12.01], "want": "crit"}
+{"case": "GIR exactly 12 on paper (1.2 kg, 172.8 mL of D12, the rate box's 7.2 mL/hr) is not critical (review, 2026-11-19)", "side": "inside", "infant": {"g": 1200}, "route": "Central", "order": {"Volume(mL/day)": 172.8, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2}, "expect": {"no_alert": "GIR critically high", "submit": "no_reason"}}
+{"case": "GIR exactly 12 on paper (600 g, 86.4 mL of D12) is not critical", "side": "inside", "infant": {"g": 600}, "route": "Central", "order": {"Volume(mL/day)": 86.4, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2}, "expect": {"no_alert": "GIR critically high", "submit": "no_reason"}}
+{"case": "float noise over 12 is still 12", "side": "inside", "fn": "girStatus", "args": [12.000000000000002], "want": "ok"}
 ```
 
 ### CR-DEX-MAX · dextrose ceiling
@@ -370,6 +373,7 @@ acid above 3.5, is over 4.5 anyway.
 
 ```rule
 {"rule": "CR-PROTEIN-MAX", "kind": "critical", "coded": {"PROTEIN_HARD_HI": 4.5}, "where": [{"file": "data.js", "line": 1313, "has": "const PROTEIN_HARD_HI = 4.5;"}, {"file": "calculator.jsx", "line": 2184, "has": "const PRO_HARD = { hardHi: D.PROTEIN_HARD_HI };"}]}
+{"case": "AA 4.5 at 960 g is 4.5 on paper: not critical (review, 2026-11-19)", "side": "inside", "infant": {"g": 960}, "route": "Central", "order": {"Volume(mL/day)": 130, "Dextrose final": 12, "Amino acid": 4.5, "20% lipid": 3}, "expect": {"no_alert": "Protein critically out of range"}}
 {"case": "amino acid 4.5 g/kg/d: amber, not critical", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 4.5, "20% lipid": 3}, "expect": {"no_alert": "Protein critically out of range", "alert": "Protein off target"}}
 {"case": "amino acid 3.5 g/kg/d: no protein line", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3.5, "20% lipid": 3}, "expect": {"no_alert": ["Protein off target", "Protein critically out of range"]}}
 {"case": "amino acid 3.6 g/kg/d: amber, no reason asked (Q10)", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3.6, "20% lipid": 3}, "expect": {"alert": "Protein off target", "level": "warn", "no_alert": "Protein critically out of range", "submit": "no_reason"}}
@@ -460,6 +464,7 @@ one for PN, whose bands stop at 120 (`CR-TGT-KCAL`): Q13.
 
 ```rule
 {"rule": "CR-KCAL-MAX", "kind": "critical", "coded": {"KCAL_HARD_HI": 160}, "where": [{"file": "data.js", "line": 1294, "has": "const KCAL_HARD_HI = 160;"}, {"file": "calculator.jsx", "line": 2191, "has": "const kcalStatusAt = (v) => D.rangeStatus(v, tKcal, { hardHi: D.KCAL_HARD_HI });"}]}
+{"case": "160 kcal/kg/d on paper at 980 g (Hi-Q LBW 24, 24.5 mL × 8): not critical (review, 2026-11-19)", "side": "inside", "infant": {"g": 980}, "fluid": 200, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 24.5, "Frequency": 8}, "tick": {"No TPN": true}, "expect": {"no_alert": "Energy critically out of range"}}
 {"case": "160 kcal/kg/d (Hi-Q LBW 24, 25 mL × 8): amber, not critical", "side": "inside", "infant": {"g": 1000}, "fluid": 200, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 25, "Frequency": 8}, "expect": {"no_alert": "Energy critically out of range", "alert": "Energy off target"}}
 {"case": "161 kcal/kg/d (25.2 mL × 8): critical", "side": "outside", "infant": {"g": 1000}, "fluid": 200, "feed": "FBM_PF_24", "order": {"Volume(mL/feed)": 25.2, "Frequency": 8}, "expect": {"alert": "Energy critically out of range", "level": "crit"}}
 ```
@@ -473,9 +478,10 @@ Source: KCMH TPN team, 2026-09-22: "กำหนด Maximum Zinc 5 mg/day". ESPG
 Peditrace SmPC §2: 250 µg Zn/mL.
 
 ```rule
-{"rule": "CR-ZN-MAX", "kind": "critical", "coded": {"MAX_ZN_MG_DAY": 5, "KCMH_STOCK.peditrace.znMgPerMl": 0.25, "KCMH_STOCK.znso4.znMgPerMl": 1}, "where": [{"file": "data.js", "line": 973, "has": "const MAX_ZN_MG_DAY = 5;"}, {"file": "calculator.jsx", "line": 1947, "has": "const znTotal_mg = znPeditrace_mg + znSO4_mg;"}, {"file": "calculator.jsx", "line": 2595, "has": "if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push"}]}
+{"rule": "CR-ZN-MAX", "kind": "critical", "coded": {"MAX_ZN_MG_DAY": 5, "KCMH_STOCK.peditrace.znMgPerMl": 0.25, "KCMH_STOCK.znso4.znMgPerMl": 1}, "where": [{"file": "data.js", "line": 973, "has": "const MAX_ZN_MG_DAY = 5;"}, {"file": "calculator.jsx", "line": 1947, "has": "const znTotal_mg = znPeditrace_mg + znSO4_mg;"}, {"file": "calculator.jsx", "line": 2596, "has": "if (D.gradeNum(calc.znTotal_mg) > D.MAX_ZN_MG_DAY) alerts.push"}]}
 {"case": "5 kg: Peditrace 1.25 + ZnSO₄ 3.75 = 5 mg/day, not over", "side": "inside", "infant": {"g": 5000}, "route": "Central", "fluid": 140, "order": {"Volume(mL/day)": 600, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3, "ZnSO₄": 0.75}, "expect": {"no_alert": "Zinc total above 5 mg/day"}}
 {"case": "5 kg: 1.25 + 3.8 = 5.05 mg/day, critical", "side": "outside", "infant": {"g": 5000}, "route": "Central", "fluid": 140, "order": {"Volume(mL/day)": 600, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 3, "ZnSO₄": 0.76}, "expect": {"alert": "Zinc total above 5 mg/day", "level": "crit", "submit": "asks_reason"}}
+{"case": "1.6 kg: Peditrace 0.4 + ZnSO₄ 2.875 × 1.6 = 5 mg/day on paper, not over (review, 2026-11-19)", "side": "inside", "infant": {"g": 1600}, "route": "Central", "fluid": 150, "order": {"Volume(mL/day)": 240, "Dextrose final": 10, "Amino acid": 3, "ZnSO₄": 2.875}, "expect": {"no_alert": "Zinc total above 5 mg/day"}}
 ```
 
 ### CR-WT-MANUAL · a typed weight far from the automatic one
@@ -1337,7 +1343,8 @@ no P) critical. Bounds are inclusive.
 
 Every figure a person reads goes through `displayNum`; saved rows keep full precision. Limits are graded
 on the printed figure where the rule says so (osmolarity to 0 decimals, the bottle to 1, the lipid rate
-to 2) or with float noise stripped (K⁺ in the bag, the typed-weight difference). A value just past a
+to 2) or with float noise stripped (K⁺ in the bag, the typed-weight difference, and since 2026-11-19 every
+tile and hard limit graded by `D.rangeStatus`, so GIR, protein and energy, plus total zinc: `D.gradeNum`). A value just past a
 limit gets the decimals it needs to read differently from the limit (`vsLimit`, `CR-GIR-MAX`).
 
 ### CR-R-DISPLAY · numbers a person reads

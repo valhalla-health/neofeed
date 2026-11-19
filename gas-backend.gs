@@ -1561,7 +1561,8 @@ function doPost(e) {
     }
     if (action === "updateWeights") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
-      var uwResult = updateWeights(body.sessionId, body.weights, Array.isArray(body.baseWeights) ? body.baseWeights : null, body.dob);
+      var uwResult = updateWeights(body.sessionId, body.weights, Array.isArray(body.baseWeights) ? body.baseWeights : null, body.dob,
+        user.role === "admin");
       if (uwResult && uwResult.error) return jsonOut(_errorBody(uwResult));
       logAudit("updateWeights", body.sessionId, user.email);
       return jsonOut({ ok: true });
@@ -1659,7 +1660,7 @@ function doPost(e) {
     }
     if (action === "logNursingEntry") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
-      var nlog = logNursingEntry(body.sessionId, body.entry, user.email);
+      var nlog = logNursingEntry(body.sessionId, body.entry, user.email, user.role === "admin");
       if (nlog.error) return jsonOut(_errorBody(nlog));
       logAudit("logNursingEntry", body.sessionId, user.email);
       return jsonOut({ ok: true, entryId: nlog.entryId, lastModified: nlog.lastModified });
@@ -1734,6 +1735,15 @@ function doPost(e) {
 // minimisation this window exists for. They remain in the sheet and in the
 // admin archive (includeArchived), where a readmission can still be found.
 var ARCHIVE_SYNC_DAYS = 30;
+// A write by someone who does not see the archive (a nurse or a doctor) to a record outside the
+// ward's sync window is refused, as deletePatient refuses it (Vera, 2026-11-15). Code review,
+// 2026-11-19 (H5): a hand-made updatePatient on an infant discharged 90 days ago overwrote the
+// record (a blank dob passed the different-infant check) and brought it back as Active, and
+// updateWeights and logNursingEntry wrote to it too. Only an admin edits the archive.
+var OUTSIDE_WARD_LIST_MSG = "Forbidden — ผู้ป่วยรายนี้อยู่นอกรายชื่อของวอร์ด ให้ admin เป็นผู้แก้";
+function _outsideWardList(row, seesArchive) {
+  return seesArchive !== true && !!row && !_patientInSyncWindow(row[9], row[16], _wardDateKey());
+}
 function _patientInSyncWindow(statusValue, statusDateValue, todayKey) {
   if (_onUnitStatus(statusValue)) return true;
   if (!statusDateValue) return false;
@@ -3578,7 +3588,7 @@ function _findNursingOnDate(sheet, sessionId, targetDate) {
   }
   return null;
 }
-function logNursingEntry(sessionId, entry, enteredBy) {
+function logNursingEntry(sessionId, entry, enteredBy, seesArchive) {
   var lock = LockService.getScriptLock();
   _waitLockOrBusy(lock, 10000);
   try {
@@ -3591,6 +3601,12 @@ function logNursingEntry(sessionId, entry, enteredBy) {
     var lastModified = new Date().toISOString();
     // Validates (and throws) inside the lock, as logDailyNutrition does.
     var row = _buildNursingRow(sessionId, entry, entryId, enteredBy, lastModified, enteredBy);
+    if (seesArchive !== true) {
+      var regRows = getSheetPat().getDataRange().getValues();
+      for (var r = 1; r < regRows.length; r++) {
+        if (String(regRows[r][0]) === String(sessionId) && _outsideWardList(regRows[r], seesArchive)) return { error: OUTSIDE_WARD_LIST_MSG };
+      }
+    }
     if (!_patientExists(sessionId)) {
       return { error: "ไม่พบผู้ป่วยรายนี้ในทะเบียน — ลงทะเบียนให้สำเร็จก่อนบันทึก (" + sessionId + ")" };
     }
@@ -3711,7 +3727,11 @@ function deletePatient(sessionId, actorEmail, confirmPublished, seesArchive) {
     for (var j = 1; j < logData.length; j++) {
       if (String(logData[j][1]) !== sid) continue;
       logRows.push(j + 1);
-      if (logData[j][33]) publishedCount++;
+      // A submitted order is column O, not only a locked one (AH): an order whose Submit lock
+      // failed, or one from before release #201, is submitted with AH blank, and the TPN room lists
+      // it (code review, 2026-11-19: such a patient was deleted on the first call).
+      var status = String(logData[j][14] == null ? "" : logData[j][14]).trim().toLowerCase();
+      if (logData[j][33] || status !== "draft") publishedCount++;
     }
     if (!patRows.length && !logRows.length) return { error: "ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว" };
     // A doctor deletes only what the ward sees (Vera, 2026-11-15): a registry
@@ -4543,6 +4563,9 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
       if (String(data[i][0]) === String(p.sessionId)) { rowIndex = i; break; }
     }
     var stored = rowIndex >= 0 ? data[rowIndex] : null;
+    // An edit, or an overwrite, of a record outside the ward's list. A new registration whose drawn
+    // id is taken still gets IdTaken below, so the client draws another.
+    if (_outsideWardList(stored, seesArchive) && (isNew !== true || confirmOverwrite === true)) throw new Error(OUTSIDE_WARD_LIST_MSG);
     // An edit that carries `base` is an edit of a record this device saw. If
     // the row is gone, it was deleted elsewhere — writing would resurrect it.
     if (!stored && base && isNew !== true) {
@@ -4638,7 +4661,7 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
 // `base` (see the three-way merge above), so two devices logging different
 // measurements no longer erase each other's. Every element is validated in
 // full either way (SEC-B3).
-function updateWeights(sessionId, weights, baseWeights, dob) {
+function updateWeights(sessionId, weights, baseWeights, dob, seesArchive) {
   _validateWeightsArray(weights);
   if (!_requiredString(sessionId)) return { error: "sessionId is required" };
   var lock = LockService.getScriptLock();
@@ -4649,6 +4672,7 @@ function updateWeights(sessionId, weights, baseWeights, dob) {
     var data  = sheet.getDataRange().getValues();
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][0]) === String(sessionId)) {
+        if (_outsideWardList(data[i], seesArchive)) return { error: OUTSIDE_WARD_LIST_MSG };
         var toWrite = Array.isArray(baseWeights)
           ? _mergeByDol(_storedPatient(data[i]).weights, baseWeights, weights)
           : weights;

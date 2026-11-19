@@ -1265,7 +1265,16 @@ function tabDiffersFromServed(text) {
 }
 
 // ── Traffic-light status helper ───────────────────────────────
+// Float noise is stripped before grading (toPrecision(12), as kGrade and caPStatus do),
+// so a value that is exactly a limit on paper is graded at the limit. Without it 1.2 kg on
+// 172.8 mL of D12 is GIR 12.000000000000002 and raised "GIR critically high", and protein
+// 4.5 at 960 g, energy 160 at 980 g raised critical too (code review, 2026-11-19). A real
+// decimal stays: 12.01 is above 12.
+function gradeNum(value) {
+  return typeof value === "number" && isFinite(value) ? Number(value.toPrecision(12)) : value;
+}
 function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
+  value = gradeNum(value);
   if (value === 0) return "empty";
   // Positive Infinity = nutrient present with no opposing nutrient (e.g. Ca with zero P)
   if (!isFinite(value)) return value > 0 ? "crit" : "empty";
@@ -3817,7 +3826,7 @@ window.NEOFEED_DATA = {
   rangeStatus, estimateOsmolarity, calcGIR, girToGPerKg, displayNum,
   // The ONE GIR grading — the Calculator and the Alerts page both call it, so
   // the same saved GIR can never be amber on one screen and red on the other.
-  girStatus, GIR_HARD_HI, KCAL_HARD_HI,
+  girStatus, gradeNum, GIR_HARD_HI, KCAL_HARD_HI,
   PROTEIN_HARD_HI, LIPID_IV_KCAL_PER_G, caPStatus, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, NPE_IV_WARN_LO, OSM_PERIPHERAL_MAX, DEX_PERIPHERAL_MAX_PCT,
   // Step 3's Lipid volume tap: the syringe to a whole mL, the dose from it;
   // both pumps' rates to 0.1 mL/hr and the hours they run; lipid g/kg/h on those
