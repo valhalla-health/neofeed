@@ -1414,10 +1414,10 @@ function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = 
   // dose itself and its own syringe volume (dose × kg ÷ 0.2, plus Vitalipid).
   // The typed dose and every candidate are graded the same way, and a candidate
   // is the dose this function would return (2 or 3 decimals), never the
-  // unrounded one: graded unrounded, 2.797 g/kg/d over 16 h read 0.17 and the
-  // 2.8 returned read 0.18, critical; and a dose a tap had just returned could
+  // unrounded one: graded unrounded, 2.797 g/kg/d read 0.17 over the 16 h
+  // ordered (amber) and the 2.8 returned read 0.18, critical; and a dose a tap had just returned could
   // grade differently from its own whole mL, so a second tap took another mL
-  // (new-agent re-check, 2026-11-18; both were there since 2026-11-06).
+  // (new-agent re-check, 2026-11-18; both kinds of fault were there since 2026-11-06).
   const overRate = (dose) => lipidRateGrade(dose, dose * wtKg / gPerMl + vitalipidMl, hours).status === "crit";
   const doseAt = (ml) => {
     const exact = ml * gPerMl / wtKg;
@@ -1439,6 +1439,9 @@ function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = 
   const typedOverRate = overRate(lipidPerKg);
   const crosses = (m) => (!typedOverDose && overDose(doseAt(m))) || (!typedOverRate && overRate(doseAt(m)));
   while (ml > 1 && crosses(ml)) ml -= 1;
+  // Even 1 mL crosses (a tiny infant on lipid over 5 h or less): no whole mL is
+  // safe, so the dose is left as typed, as under 0.5 mL.
+  if (crosses(ml)) return lipidPerKg;
   return doseAt(ml);
 }
 function girStatus(gir) {
