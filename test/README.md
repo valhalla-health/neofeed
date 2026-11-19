@@ -1365,7 +1365,7 @@ the requests that change what the screen and the form show and need no new numbe
 
 Praew's answers the same day added three sections: § 10, K⁺ in the bag by route (peripheral amber above 40,
 critical above 60; central amber above 60, critical above 120, and above 200 not orderable: Submit disabled, a
-draft still possible), on the tile, its alerts, the form and the copied order; § 11, no upper osmolarity limit on a central line; § 12, the lipid rate ceiling (amber above 0.13,
+draft still possible), on the tile, its alerts, the form and the copied order; § 11, no upper osmolarity limit on a central line; § 12, the lipid rate ceiling (amber above 0.13 until 2026-11-18,
 critical above 0.17 g/kg/h, graded on the 2-decimal figure shown). § 5 also pins typed hours kept to one decimal,
 and § 6 that Step 4 no longer shows the to-patient / in-line split.
 
@@ -2226,7 +2226,7 @@ discharged infant are not tagged; both the phone card and the desktop row show i
 
 `verify-ward-tpn-page-1115.cjs`: who is listed (Active only; latest order has TPN, or the last order with TPN is at
 most 14 days old; a draft is not an order; one ward at a time), each care flag on both sides of every edge (AA < 2.5 on
-DOL 2–7 with EN < 50, preterm below 37 weeks, by today's DOL; no lipid on DOL 2; GIR above 12 and below 4; PN still
+DOL 2–7 with EN < 50, preterm below 37 weeks, by today's DOL; no lipid on DOL 2; GIR above 12 and below 2.5 (4 until 2026-11-18); PN still
 ordered at NICE's 140 / 120 mL/kg/d; No TPN, with the AA and lipid flags as AA 0 below EN 50, Pp 2026-11-17), the day of PN,
 AA, lipid and EN graded as printed and GIR as every screen grades it (float tails at every line), the Submit time (`orderSubmittedAt`, not a later I/O save),
 and the page itself: rows flagged first then by bed, the chips in words, no QI figure, a tap or Enter opens the infant,
@@ -2248,7 +2248,7 @@ RangeRow by its own label, the fluid and electrolyte tables, the feeding steps a
 then the real values read today's words and no figure on any tab ends in ".0". 70 of its 85 checks fail on `a360580`.
 `verify-one-source-thresholds-1110.cjs` gains §7 (lipid "Infuse over" and `PUMP_MAX_HOURS`), §8 (the MEN caution's
 MEF range) and §9 (`FULL_EN_ML_KG`: the banner, the P:E tile by its label cell and the alert, and P:E at exactly
-100 mL/kg/d, and the show-working line at a planted 90); 9 of them fail on `a360580`. Both need
+the switch (120 mL/kg/d since 2026-11-18), and the show-working line at a planted 90); 9 of them fail on `a360580`. Both need
 the jsdom set above.
 
 ## Limits written out read data.js, 2026-11-10 — one harness added

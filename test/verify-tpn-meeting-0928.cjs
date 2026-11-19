@@ -23,7 +23,8 @@
 //        this PR, Praew: "max 200 ทั้งสองสาย" — peripheral too (§10, §10b).
 //        Since 2026-10-08 the peripheral maximum is 60 (§14).
 //   §11  "osmolarity ทาง central ไม่มี upper limit".
-//   §12  "lipid เพดาน 0.13-0.17 g/kg/h": amber above 0.13, red above 0.17.
+//   §12  "lipid เพดาน 0.13-0.17 g/kg/h": red above 0.17. The amber above 0.13 went on
+//        2026-11-18 (Pp, Q11: 0.13 is the Thai CPG's ceiling for children over 1 year).
 //   §13  "แสดง acetate ด้วย" — built, and hidden until the vial label gives acetate per mL.
 //
 // Praew, 2026-10-08: "เพดาน K⁺ สาย peripheral จะให้อยู่ที่ 60" (it was 200):
@@ -503,20 +504,20 @@ function baseOrder({ tf = 120 } = {}) {
   });
 
   // ═══════════════════════════ §12 lipid rate ceiling ══════════════════════
-  await section('§12 lipid rate ceiling 0.13–0.17 g/kg/h: amber above 0.13, red above 0.17', async () => {
+  await section('§12 lipid rate ceiling 0.17 g/kg/h: red above it; no amber at 0.13 since 2026-11-18', async () => {
     const log = logger();
     mount({ patient: pt('LC-2000', 2000), onLog: log.onLog });
     baseOrder();   // 2 g/kg/d over 24 h
     const gk = () => container.querySelector('.lipid-gkgh');
     const lipAlerts = () => alertRows().filter(a => /^Lipid rate/.test(a.title)).map(a => `${a.level}:${a.title}`);
-    ok('the pump card names the ceiling', /เพดาน 0\.13–0\.17/.test(text(gk())), text(gk()));
+    ok('the pump card names the ceiling, 0.17 alone', /เพดาน 0\.17$/.test(text(gk())), text(gk()));
     eq('2 over 24 h = 0.08: green, no alert', [statusOf(gk()), lipAlerts()], ['ok', []]);
     lipidHours(16);   // 0.125, shown 0.13
     eq('2 over 16 h = 0.125, shown 0.13: green (graded on the figure shown)', [(text(gk()).match(/[\d.]+ g\/kg\/h/) || [])[0], statusOf(gk()), lipAlerts()], ['0.13 g/kg/h', 'ok', []]);
     setLipid(3); lipidHours(20);   // 0.15
-    eq('3 over 20 h = 0.15: amber, a caution', [statusOf(gk()), lipAlerts()], ['warn', ['warn:Lipid rate near the ceiling']]);
+    eq('3 over 20 h = 0.15: green, no caution (amber above 0.13 until 2026-11-18)', [statusOf(gk()), lipAlerts()], ['ok', []]);
     lipidHours(24); setLipid(4);   // 0.1667, shown 0.17
-    eq('4 over 24 h = 0.17: amber, not red', [statusOf(gk()), lipAlerts()], ['warn', ['warn:Lipid rate near the ceiling']]);
+    eq('4 over 24 h = 0.17: at the ceiling, not above it: green', [statusOf(gk()), lipAlerts()], ['ok', []]);
     setLipid(3); lipidHours(16);   // 0.1875, shown 0.19
     eq('3 over 16 h = 0.19: red, a critical alert', [statusOf(gk()), lipAlerts()], ['crit', ['crit:Lipid rate above the ceiling']]);
     let shown = null;

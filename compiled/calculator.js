@@ -1225,7 +1225,10 @@ function Calculator({
     const enKcal = enCounted / 100 * en.kcal;
     const enProteinG = enCounted / 100 * en.pro;
     const enLipidG = enCounted / 100 * en.fat;
-    const useEnteralTargets = enCounted / wtKg >= D.FULL_EN_ML_KG;
+    const useEnteralTargets = D.fullEnReached(
+      { mlKg: enCounted / wtKg, kcalKg: enKcal / wtKg, proKg: enProteinG / wtKg },
+      { fullMlKg: D.FULL_EN_ML_KG, fraction: D.FULL_EN_NEEDS_FRACTION }
+    );
     const enFeedKg = {
       kcal: enVolTotal / 100 * en.kcal / wtKg,
       pro: enVolTotal / 100 * en.pro / wtKg,
@@ -1240,7 +1243,7 @@ function Calculator({
     const totalFluidPerKg = prescribedFluid / wtKg;
     const dexKcal = dexG * 3.4;
     const aaKcal = aaG * 4;
-    const lipidKcal = lipidG * 9;
+    const lipidKcal = lipidG * D.LIPID_IV_KCAL_PER_G;
     const tpnKcal = dexKcal + aaKcal + lipidKcal;
     const totalKcal = tpnKcal + enKcal;
     const kcalKg = totalKcal / wtKg;
@@ -1484,7 +1487,7 @@ function Calculator({
     3: naCl + naAcet + glycophosP + kCl + caPerKg + mgPerKg > 0 || noTpnOn ? "done" : "empty",
     4: "done",
     // vitamins/TE always defaulted
-    5: calc.enVolPerKg >= D.FULL_EN_ML_KG ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty"
+    5: calc.useEnteralTargets || calc.enVolPerKg >= D.FULL_EN_ML_KG ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty"
   };
   const useEN = calc.useEnteralTargets;
   const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
@@ -1517,12 +1520,12 @@ function Calculator({
   const sK = D.rangeStatus(calc.kTotalDelivered, tK);
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
-  const sCaP = D.rangeStatus(calc.caP, tCaP);
+  const sCaP = D.caPStatus(calc.caP);
   const mgStatusAt = (v) => D.rangeStatus(v, tMg, { hardLo: D.MG_MEQ_HABIT_MG });
   const sMg = mgStatusAt(mgMgPerKg);
   const sTotCa = D.rangeStatus(mineral.totCa, tCa);
   const sTotP = D.rangeStatus(mineral.totP, tP);
-  const sTotCaP = D.rangeStatus(mineral.totCaP, tCaP);
+  const sTotCaP = D.caPStatus(mineral.totCaP);
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   const kLim = D.kBagLimitsFor(route);
@@ -1541,7 +1544,8 @@ function Calculator({
   const pumpHoursText = (pump) => pump ? `${fmt(pump.hours, 1)} h` : "—";
   const sLipidGkgh = lipidGrade.status;
   const tpnOver = D.tpnOverDelivery(totalTPN_mL);
-  const enVolStatusAt = (v) => v >= D.FULL_EN_ML_KG ? "ok" : v > 0 ? "warn" : "ok";
+  const enVolFull = calc.useEnteralTargets ? Math.min(calc.enVolPerKg, D.FULL_EN_ML_KG) : D.FULL_EN_ML_KG;
+  const enVolStatusAt = (v) => v >= enVolFull ? "ok" : v > 0 ? "warn" : "ok";
   const ivLipidKg = wtKg > 0 ? calc.lipidG / wtKg : 0;
   const ivKKg = calc.kKg;
   const ivNpeN = calc.aaG > 0 ? (calc.tpnKcal - calc.aaG * 4) / calc.aaG : null;
@@ -1741,8 +1745,8 @@ function Calculator({
   if (kOverMax) alerts.push({ level: "crit", title: "K⁺ above the maximum", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — the most a ${kRouteLabel} line may carry is ${kLim.hardMax} mEq/L, so this order cannot be saved. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (${kRedIsMax(kLim) ? `max ${kLim.hardMax}` : `critical above ${kLim.red}`}).`, ref: "TPN team, 2026-09-28" });
-  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
-  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: lipidGrade.overByRounding ? `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} because the pump rate rounds up; ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered. The ceiling is ${D.LIPID_GKGH.max} g/kg/h.` : `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
+  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — ceiling ${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
+  else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: lipidGrade.overByRounding ? `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} because the pump rate rounds up; ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered. The ceiling is ${D.LIPID_GKGH.max} g/kg/h.` : `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} as the pump runs, but ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered — above the ceiling of ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28; Pp, 2026-11-18" });
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
   if (bagCannotBeMade) alerts.push({
     level: "crit",
@@ -2621,7 +2625,7 @@ function Calculator({
     display: "flex",
     alignItems: "center",
     gap: 6
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, stroke: 2.4 }), "Full EN ≥", D.FULL_EN_ML_KG, " mL/kg/d — wean PN · ESPGHAN 2022 EN targets active"), /* @__PURE__ */ React.createElement("div", { className: "en-delivered", style: { marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 } }, "Delivered per kg from EN"), twoFeeds && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" } }, "feeds 1 + 2"), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" } }, "MEN — not counted in totals")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" } }, [
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, stroke: 2.4 }), "Full EN (≥", D.FULL_EN_ML_KG, " mL/kg/d, or ≥", D.FULL_EN_NEEDS_FRACTION * 100, "% of enteral energy and protein) — wean PN · ESPGHAN 2022 EN targets active"), /* @__PURE__ */ React.createElement("div", { className: "en-delivered", style: { marginTop: 10, padding: 10, background: "var(--bg-2)", borderRadius: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.05 } }, "Delivered per kg from EN"), twoFeeds && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--ink-2)" } }, "feeds 1 + 2"), isMEN && calc.enVolTotal > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 600, color: "var(--brand-2)" } }, "MEN — not counted in totals")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--ink-2)", flexWrap: "nowrap", overflowX: "auto" } }, [
     ["kcal", calc.enFeedKg.kcal, 0],
     ["pro", calc.enFeedKg.pro, 1],
     ["Na", calc.enFeedKg.na, 1],
@@ -2830,7 +2834,7 @@ function Calculator({
     fontWeight: 600,
     marginTop: 2,
     color: sLipidGkgh === "crit" ? "var(--crit)" : sLipidGkgh === "warn" ? "var(--warn-ink)" : "var(--ink-2)"
-  } }, "= ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(lipidGkgh, 2)), " g/kg/h", /* @__PURE__ */ React.createElement("span", { className: "lipid-ceiling", style: { fontWeight: 400, color: "var(--ink-3)", marginLeft: 6 } }, "เพดาน ", D.LIPID_GKGH.warn, "–", D.LIPID_GKGH.max))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "Infuse over", unit: "h", value: lipidDripHours, onChange: setLipidHoursTyped, step: 1, hint: `1–${D.PUMP_MAX_HOURS} h` }), /* @__PURE__ */ React.createElement("div", { className: "seg", style: { padding: 1 } }, [16, 20, 24].map((h) => /* @__PURE__ */ React.createElement("button", { key: h, className: lipidDripHours === h ? "on" : "", onClick: () => setLipidDripHours(h) }, h, "h"))))), /* @__PURE__ */ React.createElement("div", { className: "s2-lip-row", style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "20% lipid", unit: "g/kg/d", value: lipidPerKg, onChange: setLipidPerKg, step: 0.1 }), /* @__PURE__ */ React.createElement(PresetChips, { values: [0.5, 1, 2, 3, 4], current: lipidPerKg, onSelect: setLipidPerKg })), /* @__PURE__ */ React.createElement(
+  } }, "= ", /* @__PURE__ */ React.createElement("span", { className: "num" }, fmt(lipidGkgh, 2)), " g/kg/h", /* @__PURE__ */ React.createElement("span", { className: "lipid-ceiling", style: { fontWeight: 400, color: "var(--ink-3)", marginLeft: 6 } }, "เพดาน ", D.LIPID_GKGH.max))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "Infuse over", unit: "h", value: lipidDripHours, onChange: setLipidHoursTyped, step: 1, hint: `1–${D.PUMP_MAX_HOURS} h` }), /* @__PURE__ */ React.createElement("div", { className: "seg", style: { padding: 1 } }, [16, 20, 24].map((h) => /* @__PURE__ */ React.createElement("button", { key: h, className: lipidDripHours === h ? "on" : "", onClick: () => setLipidDripHours(h) }, h, "h"))))), /* @__PURE__ */ React.createElement("div", { className: "s2-lip-row", style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(NumField, { label: "20% lipid", unit: "g/kg/d", value: lipidPerKg, onChange: setLipidPerKg, step: 0.1 }), /* @__PURE__ */ React.createElement(PresetChips, { values: [0.5, 1, 2, 3, 4], current: lipidPerKg, onSelect: setLipidPerKg })), /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -3432,7 +3436,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
     if (!row) return `${key}: not in the feed list`;
     return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
   };
-  const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
+  const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d หรือให้ energy และ protein ถึง ${D.FULL_EN_NEEDS_FRACTION * 100}% ของเป้า enteral (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = /* @__PURE__ */ React.createElement(React.Fragment, null, "kg = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "wtG", v: wtG, d: 0 }), " g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)");
   const feedRow = (n, unit, total, k) => {
     if (given.length === 0) return /* @__PURE__ */ React.createElement(React.Fragment, null, "ไม่มีนม: ", /* @__PURE__ */ React.createElement(WorkVal, { k, v: total }), " ", unit);
@@ -3462,7 +3466,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
     const peripheral = route !== "central";
     return /* @__PURE__ */ React.createElement("div", { className: "working-panel", "data-working": "osm", style: box }, /* @__PURE__ */ React.createElement("div", { style: title }, "Osmolarity = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "result", v: calc.osm, d: 0 }), " mOsm/L"), /* @__PURE__ */ React.createElement(WorkRow, { label: "สูตร" }, "mOsm/L = 50 × dextrose % + 100 × AA % + 2 × Na + 2 × K + 1.4 × Ca + 1 × Mg (Na K Ca Mg เป็น mEq/L)"), /* @__PURE__ */ React.createElement(WorkRow, { label: "ค่าที่ใช้" }, "dextrose ", /* @__PURE__ */ React.createElement(WorkVal, { k: "dexPct", v: o.dexPct }), " % → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "t.dex", v: 50 * o.dexPct, d: 1 }), " · AA ", /* @__PURE__ */ React.createElement(WorkVal, { k: "aaPct", v: o.aaPct }), " % → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "t.aa", v: 100 * o.aaPct, d: 1 }), " · Na ", /* @__PURE__ */ React.createElement(WorkVal, { k: "na", v: o.naMeqPerL, d: 1 }), " mEq/L → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "t.na", v: 2 * o.naMeqPerL, d: 1 }), " · K ", /* @__PURE__ */ React.createElement(WorkVal, { k: "k", v: o.kMeqPerL, d: 1 }), " mEq/L → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "t.k", v: 2 * o.kMeqPerL, d: 1 }), " · Ca ", /* @__PURE__ */ React.createElement(WorkVal, { k: "caMg", v: o.caMgPerL, d: 0 }), " mg/L = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "caMeq", v: caMeq, d: 1 }), " mEq/L → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "t.ca", v: 1.4 * caMeq, d: 1 }), " · Mg ", /* @__PURE__ */ React.createElement(WorkVal, { k: "mgMg", v: (o.mgMeqPerL || 0) * D.MG_MG_PER_MEQ, d: 1 }), " mg/L = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "mg", v: o.mgMeqPerL }), " mEq/L → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "t.mg", v: o.mgMeqPerL, d: 1 })), /* @__PURE__ */ React.createElement(WorkRow, { label: "แปลงหน่วย" }, "AA % = AA g ÷ mL ที่ให้จริง × 100 · Na Ca Mg ต่อลิตร = ต่อ kg × kg ÷ ลิตรที่ให้จริง (mL ÷ 1,000) · K = K ในถุง ÷ ลิตรของถุงที่เตรียม ได้ค่าเท่ากัน · Ca mg ÷ 20 = mEq · Mg mg ÷ ", fmt(D.MG_MG_PER_MEQ, 2), " = mEq"), /* @__PURE__ */ React.createElement(WorkRow, { label: "เกณฑ์" }, peripheral ? /* @__PURE__ */ React.createElement(React.Fragment, null, route === "peripheral" ? "peripheral" : "ยังไม่เลือก route เลยตรวจแบบ peripheral", ": ตั้งแต่ ", /* @__PURE__ */ React.createElement(WorkVal, { k: "lim.hard", v: D.OSM_PERIPHERAL_MAX, d: 0 }), " mOsm/L ขึ้นไปเป็น critical ตัดสินจากเลขจำนวนเต็มที่พิมพ์") : /* @__PURE__ */ React.createElement(React.Fragment, null, "central: ไม่มีเพดาน"), " ", "· CR-OSM-PERIPH · CR-U-OSM", noBag && /* @__PURE__ */ React.createElement(React.Fragment, null, " · ไม่มีถุง TPN วันนี้")));
   }
-  if (id === "kcal") return /* @__PURE__ */ React.createElement("div", { className: "working-panel", "data-working": "kcal", style: box }, /* @__PURE__ */ React.createElement("div", { style: title }, "Energy = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "result", t: vsLimit(calc.kcalKg, D.KCAL_HARD_HI, 0) }), " kcal/kg/d"), /* @__PURE__ */ React.createElement(WorkRow, { label: "สูตร" }, "kcal/kg/d = (3.4 × dextrose g + 4 × AA g + 9 × lipid g + kcal จากนม) ÷ kg"), /* @__PURE__ */ React.createElement(WorkRow, { label: "ค่าที่ใช้" }, "dextrose ", /* @__PURE__ */ React.createElement(WorkVal, { k: "dexG", v: calc.dexG }), " g → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "dexKcal", v: calc.dexKcal, d: 1 }), " kcal · AA ", /* @__PURE__ */ React.createElement(WorkVal, { k: "aaG", v: calc.aaG }), " g → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "aaKcal", v: calc.aaKcal, d: 1 }), " kcal · 20% lipid ", /* @__PURE__ */ React.createElement(WorkVal, { k: "lipidG", v: calc.lipidG }), " g → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "lipidKcal", v: calc.lipidKcal, d: 1 }), " kcal"), /* @__PURE__ */ React.createElement(WorkRow, { label: "นม" }, feedRow("kcal", "kcal", calc.enKcal, "enKcal")), /* @__PURE__ */ React.createElement(WorkRow, { label: "แปลงหน่วย" }, "นมคิดต่อ 100 mL เลย ÷ 100 · ", kgRow, " · CR-U-ENERGY"), /* @__PURE__ */ React.createElement(WorkRow, { label: "เกณฑ์" }, /* @__PURE__ */ React.createElement(WorkVal, { k: "lim.lo", v: tKcal[0] }), "–", /* @__PURE__ */ React.createElement(WorkVal, { k: "lim.hi", v: tKcal[1] }), " kcal/kg/d, ", band, " · เกิน ", /* @__PURE__ */ React.createElement(WorkVal, { k: "lim.hard", v: D.KCAL_HARD_HI, d: 0 }), " เป็น critical · CR-TGT-KCAL · CR-KCAL-MAX"));
+  if (id === "kcal") return /* @__PURE__ */ React.createElement("div", { className: "working-panel", "data-working": "kcal", style: box }, /* @__PURE__ */ React.createElement("div", { style: title }, "Energy = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "result", t: vsLimit(calc.kcalKg, D.KCAL_HARD_HI, 0) }), " kcal/kg/d"), /* @__PURE__ */ React.createElement(WorkRow, { label: "สูตร" }, "kcal/kg/d = (3.4 × dextrose g + 4 × AA g + ", D.LIPID_IV_KCAL_PER_G, " × lipid g + kcal จากนม) ÷ kg"), /* @__PURE__ */ React.createElement(WorkRow, { label: "ค่าที่ใช้" }, "dextrose ", /* @__PURE__ */ React.createElement(WorkVal, { k: "dexG", v: calc.dexG }), " g → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "dexKcal", v: calc.dexKcal, d: 1 }), " kcal · AA ", /* @__PURE__ */ React.createElement(WorkVal, { k: "aaG", v: calc.aaG }), " g → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "aaKcal", v: calc.aaKcal, d: 1 }), " kcal · 20% lipid ", /* @__PURE__ */ React.createElement(WorkVal, { k: "lipidG", v: calc.lipidG }), " g → ", /* @__PURE__ */ React.createElement(WorkVal, { k: "lipidKcal", v: calc.lipidKcal, d: 1 }), " kcal"), /* @__PURE__ */ React.createElement(WorkRow, { label: "นม" }, feedRow("kcal", "kcal", calc.enKcal, "enKcal")), /* @__PURE__ */ React.createElement(WorkRow, { label: "แปลงหน่วย" }, "นมคิดต่อ 100 mL เลย ÷ 100 · ", kgRow, " · CR-U-ENERGY"), /* @__PURE__ */ React.createElement(WorkRow, { label: "เกณฑ์" }, /* @__PURE__ */ React.createElement(WorkVal, { k: "lim.lo", v: tKcal[0] }), "–", /* @__PURE__ */ React.createElement(WorkVal, { k: "lim.hi", v: tKcal[1] }), " kcal/kg/d, ", band, " · เกิน ", /* @__PURE__ */ React.createElement(WorkVal, { k: "lim.hard", v: D.KCAL_HARD_HI, d: 0 }), " เป็น critical · CR-TGT-KCAL · CR-KCAL-MAX"));
   return /* @__PURE__ */ React.createElement("div", { className: "working-panel", "data-working": "protein", style: box }, /* @__PURE__ */ React.createElement("div", { style: title }, "Protein = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "result", t: vsLimit(calc.proteinKg, D.PROTEIN_HARD_HI, 1) }), " g/kg/d"), /* @__PURE__ */ React.createElement(WorkRow, { label: "สูตร" }, "g/kg/d = (AA g + protein จากนม g) ÷ kg"), /* @__PURE__ */ React.createElement(WorkRow, { label: "ค่าที่ใช้" }, "AA ", /* @__PURE__ */ React.createElement(WorkVal, { k: "aaPerKg", v: aaPerKg }), " g/kg/d × ", /* @__PURE__ */ React.createElement(WorkVal, { k: "wtG", v: wtG, d: 0 }), " g ÷ 1,000 = ", /* @__PURE__ */ React.createElement(WorkVal, { k: "aaG", v: calc.aaG }), " g"), /* @__PURE__ */ React.createElement(WorkRow, { label: "นม" }, feedRow("pro", "g", calc.enProteinG, "enProG")), /* @__PURE__ */ React.createElement(WorkRow, { label: "แปลงหน่วย" }, "นมคิดต่อ 100 mL เลย ÷ 100 · ", kgRow), /* @__PURE__ */ React.createElement(WorkRow, { label: "เกณฑ์" }, /* @__PURE__ */ React.createElement(WorkVal, { k: "lim.lo", v: tPro[0] }), "–", /* @__PURE__ */ React.createElement(WorkVal, { k: "lim.hi", v: tPro[1] }), " g/kg/d, ", band, " · เกิน ", /* @__PURE__ */ React.createElement(WorkVal, { k: "lim.hard", v: D.PROTEIN_HARD_HI }), " เป็น critical นับ TPN กับนมรวมกัน · CR-TGT-PROTEIN · CR-PROTEIN-MAX"));
 }
 function PrintOrderForm({

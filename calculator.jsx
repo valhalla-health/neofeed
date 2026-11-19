@@ -1156,7 +1156,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // mL/day, and 20% lipid set to the dose that volume gives, so the pump rate
   // and g/kg/h follow (Pp, 2026-11-06). D.lipidDoseAtWholeMl never makes a
   // critical lipid line the typed dose did not have (4.0 g/kg/d, the g/kg/h
-  // ceiling over the pump's actual hours); the toast says what moved.
+  // ceiling over the pump's actual hours), and a dose typed above 4.0 goes to
+  // the whole mL below (Pp, 2026-11-18); the toast says what moved.
   const roundLipidToWholeMl = () => {
     const dose = D.lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours: lipidDripHours, vitalipidMl: calc.vitalipidVol });
     if (dose == null) return;
@@ -1833,7 +1834,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     const enProteinG = enCounted / 100 * en.pro;
     const enLipidG = enCounted / 100 * en.fat;
     // A MEN feed is not nutrition, so it never switches on the enteral targets.
-    const useEnteralTargets = enCounted / wtKg >= D.FULL_EN_ML_KG;
+    // The switch (CR-U-SWITCH; Pp, 2026-11-18): the counted feed at 120 mL/kg/d,
+    // or giving 75 % of the enteral energy and protein needs, whichever first.
+    const useEnteralTargets = D.fullEnReached({ mlKg: enCounted / wtKg, kcalKg: enKcal / wtKg, proKg: enProteinG / wtKg },
+      { fullMlKg: D.FULL_EN_ML_KG, fraction: D.FULL_EN_NEEDS_FRACTION });
     // What the feed itself provides per kg/day, counted or not — Step 2 shows
     // it, marked "not counted" when MEN is ticked.
     const enFeedKg = {
@@ -1851,10 +1855,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Energy
     const dexKcal = dexG * 3.4;
     const aaKcal = aaG * 4;
-    // 9 kcal/g fat — matches the official KCMH sheet (E53 = 3.4×dex + 4×AA + 9×fat)
-    // so NeoFeed's kcal/kg/d reconciles with the pharmacy printout. Note this is
-    // the pure-fat figure; a 20% emulsion incl. glycerol runs ~10 kcal/g.
-    const lipidKcal = lipidG * 9;
+    // IV lipid at D.LIPID_IV_KCAL_PER_G, 10 kcal/g: a 20 % emulsion is 2.0 kcal/mL
+    // with its glycerol (ESPGHAN 2018, Thai CPG; Pp, 2026-11-18, Q8). Until then
+    // 9, the KCMH sheet's figure (E53 = 3.4×dex + 4×AA + 9×fat), so the kcal here
+    // now reads 1 kcal per g of IV lipid above the pharmacy printout.
+    const lipidKcal = lipidG * D.LIPID_IV_KCAL_PER_G;
     const tpnKcal = dexKcal + aaKcal + lipidKcal;
     const totalKcal = tpnKcal + enKcal;
     const kcalKg = totalKcal / wtKg;
@@ -1867,7 +1872,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Distribution per kg
     const kcalCho = (dexKcal + enCounted / 100 * en.cho * 4) / wtKg;
     const kcalPro = (aaKcal + enProteinG * 4) / wtKg;
-    const kcalFat = (lipidKcal + enLipidG * 9) / wtKg;
+    const kcalFat = (lipidKcal + enLipidG * 9) / wtKg;   // feed fat stays 9 kcal/g: not an emulsion
     const kcalProtPct = kcalKg > 0 ? kcalPro / kcalKg * 100 : 0;
     const kcalFatPct = kcalKg > 0 ? kcalFat / kcalKg * 100 : 0;
     const kcalChoPct = kcalKg > 0 ? kcalCho / kcalKg * 100 : 0;
@@ -2119,7 +2124,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
        : (totalTPN_mL > 0 || dexPct > 0 || aaPerKg > 0) ? "partial" : "empty",
     3: (naCl + naAcet + glycophosP + kCl + caPerKg + mgPerKg) > 0 || noTpnOn ? "done" : "empty",
     4: "done", // vitamins/TE always defaulted
-    5: calc.enVolPerKg >= D.FULL_EN_ML_KG ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty",
+    5: calc.useEnteralTargets || calc.enVolPerKg >= D.FULL_EN_ML_KG ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty",
   };
 
   // StepHead is inlined in each card below (not a component — avoids unmount/remount issue)
@@ -2128,7 +2133,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const useEN = calc.useEnteralTargets;
   const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
   const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);   // wtG already floors at bw; pass bw so the tier does too
-  const tGir   = D.TARGETS.gir();                         // [4, 12] display range
+  const tGir   = D.TARGETS.gir();                         // [2.5, 12] display range
   const tPro   = T.protein(dol);
   const tKcal  = T.kcal(dol);
   const tLip   = T.lipid(dol);
@@ -2193,7 +2198,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sK = D.rangeStatus(calc.kTotalDelivered, tK);
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
-  const sCaP = D.rangeStatus(calc.caP, tCaP);
+  // Ca:P graded with float noise stripped (D.caPStatus; Pp, 2026-11-18, Q6):
+  // 52.7 / 31 is 1.7 on paper, and graded High beside a printed "1.7:1".
+  const sCaP = D.caPStatus(calc.caP);
   // Below D.MG_MEQ_HABIT_MG the dose was most likely typed in mEq, the unit
   // this box took until 2026-10-28: critical, so Submit asks (Pp, 2026-10-29).
   // The tile's bar draws it red through statusAt, as GIR's does.
@@ -2202,7 +2209,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Step 6 total-intake statuses — same targets as Step 4, applied to IV + feed + oral
   const sTotCa  = D.rangeStatus(mineral.totCa, tCa);
   const sTotP   = D.rangeStatus(mineral.totP, tP);
-  const sTotCaP = D.rangeStatus(mineral.totCaP, tCaP);
+  const sTotCaP = D.caPStatus(mineral.totCaP);
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // K⁺ concentration of the bag, by route (D.K_BAG_MEQ_PER_L; TPN team and
@@ -2251,8 +2258,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const pumpHoursText = (pump) => pump ? `${fmt(pump.hours, 1)} h` : "—";
   const sLipidGkgh = lipidGrade.status;
   const tpnOver = D.tpnOverDelivery(totalTPN_mL);
-  // EN volume: short of 100 mL/kg/d is a caution; nothing ordered is not.
-  const enVolStatusAt = (v) => v >= D.FULL_EN_ML_KG ? "ok" : v > 0 ? "warn" : "ok";
+  // EN volume: short of D.FULL_EN_ML_KG (120) mL/kg/d is a caution; nothing ordered is not.
+  // A feed that is Full EN by its energy and protein (75 % of needs, CR-U-SWITCH)
+  // is not short: the tile and Step 2's done mark follow calc.useEnteralTargets,
+  // and the bar's amber zone then ends at the volume given, not at 120.
+  const enVolFull = calc.useEnteralTargets ? Math.min(calc.enVolPerKg, D.FULL_EN_ML_KG) : D.FULL_EN_ML_KG;
+  const enVolStatusAt = (v) => v >= enVolFull ? "ok" : v > 0 ? "warn" : "ok";
 
   // ── Hard limits on the IV (TPN) portion only — Praew, 2026-09-17 (UP-C4) ──
   // Lipid, K and NPE:AA are limits on what is infused; their figures are
@@ -2575,10 +2586,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (${kRedIsMax(kLim) ? `max ${kLim.hardMax}` : `critical above ${kLim.red}`}).`, ref: "TPN team, 2026-09-28" });
   // Lipid infusion rate, per the ceiling the TPN team set (2026-09-28).
-  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
+  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — ceiling ${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
   else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: lipidGrade.overByRounding
     ? `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} because the pump rate rounds up; ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered. The ceiling is ${D.LIPID_GKGH.max} g/kg/h.`
-    : `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
+    : `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} as the pump runs, but ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered — above the ceiling of ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28; Pp, 2026-11-18" });
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
   if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
@@ -3674,7 +3685,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   borderRadius: 6, fontSize: 11.5, color: "var(--ok)", marginTop: 8, fontWeight: 600,
                   display: "flex", alignItems: "center", gap: 6 }}>
                   <Icon name="check" size={14} stroke={2.4} />
-                  Full EN ≥{D.FULL_EN_ML_KG} mL/kg/d — wean PN · ESPGHAN 2022 EN targets active
+                  Full EN (≥{D.FULL_EN_ML_KG} mL/kg/d, or ≥{D.FULL_EN_NEEDS_FRACTION * 100}% of enteral energy and protein) — wean PN · ESPGHAN 2022 EN targets active
                 </div>
               )}
 
@@ -3997,13 +4008,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   </div>
                   {/* The same rate as lipid per kg per hour (TPN team,
                       2026-09-22), to 2 decimals and against the team's ceiling
-                      (2026-09-28): amber above 0.13, red above 0.17. Lipid only:
+                      (2026-09-28): red above 0.17 (D.lipidRateGrade); the amber at 0.13 went on 2026-11-18. Lipid only:
                       Vitalipid in the bag is not fat. */}
                   {lipidPerKg > 0 && (
                     <div className={`lipid-gkgh s-${sLipidGkgh}`} style={{ fontSize:12, fontWeight:600, marginTop:2,
                       color: sLipidGkgh === "crit" ? "var(--crit)" : sLipidGkgh === "warn" ? "var(--warn-ink)" : "var(--ink-2)" }}>
                       = <span className="num">{fmt(lipidGkgh, 2)}</span> g/kg/h
-                      <span className="lipid-ceiling" style={{ fontWeight:400, color:"var(--ink-3)", marginLeft:6 }}>เพดาน {D.LIPID_GKGH.warn}–{D.LIPID_GKGH.max}</span>
+                      <span className="lipid-ceiling" style={{ fontWeight:400, color:"var(--ink-3)", marginLeft:6 }}>เพดาน {D.LIPID_GKGH.max}</span>
                     </div>
                   )}
                 </div>
@@ -5209,7 +5220,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
     if (!row) return `${key}: not in the feed list`;
     return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
   };
-  const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
+  const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d หรือให้ energy และ protein ถึง ${D.FULL_EN_NEEDS_FRACTION * 100}% ของเป้า enteral (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = <>kg = <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)</>;
   // `n` is the EN_DB nutrient; with two feeds calc.en is their mix, so each
   // feed's line reads its own row and the lines add up to calc's total.
@@ -5284,7 +5295,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
   if (id === "kcal") return (
     <div className="working-panel" data-working="kcal" style={box}>
       <div style={title}>Energy = <WorkVal k="result" t={vsLimit(calc.kcalKg, D.KCAL_HARD_HI, 0)} /> kcal/kg/d</div>
-      <WorkRow label="สูตร">kcal/kg/d = (3.4 × dextrose g + 4 × AA g + 9 × lipid g + kcal จากนม) ÷ kg</WorkRow>
+      <WorkRow label="สูตร">kcal/kg/d = (3.4 × dextrose g + 4 × AA g + {D.LIPID_IV_KCAL_PER_G} × lipid g + kcal จากนม) ÷ kg</WorkRow>
       <WorkRow label="ค่าที่ใช้">
         dextrose <WorkVal k="dexG" v={calc.dexG} /> g → <WorkVal k="dexKcal" v={calc.dexKcal} d={1} /> kcal ·
         AA <WorkVal k="aaG" v={calc.aaG} /> g → <WorkVal k="aaKcal" v={calc.aaKcal} d={1} /> kcal ·

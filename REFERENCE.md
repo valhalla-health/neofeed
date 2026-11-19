@@ -219,7 +219,7 @@ back end, admin only, until the indicators are chosen).
 |---|---|---|
 | AA < 2.5 (amber) | preterm, today's DOL 2–7, counted EN < 50 mL/kg/d, AA < 2.5 g/kg/d. By DOL, also for an infant admitted after birth, and today's DOL when the latest order is older (Pp, 2026-11-14, 2026-11-15). A No TPN order counts as AA 0 and its chip reads "หยุด PN ตอน EN < 50" (Pp, 2026-11-17) | van Goudoever 2018 R 3.2; EN < 50 is NeoFeed's own (`pn_aa_ge_2_5`) |
 | DOL 2 ยังไม่มี lipid (amber) | preterm, today's DOL 2, no lipid; a No TPN order too while counted EN < 50 mL/kg/d (Pp, 2026-11-17, asked about EN < 50) | Lapillonne 2018 R 4.2 |
-| GIR > 12 (red), GIR < 4 (amber) | `girStatus`, every GA; a GIR of 0 (no dextrose) is not flagged | `CR-GIR-MAX` |
+| GIR > 12 (red), GIR < 2.5 (amber; 4 until 2026-11-18) | `girStatus`, every GA; a GIR of 0 (no dextrose) is not flagged | `CR-GIR-MAX` |
 | EN ≥ 140 / 120 ยังมี PN (amber) | dextrose, AA or lipid still ordered once counted EN reaches 140 mL/kg/d below 28 wk, 120 from 28 wk and at term; every GA (Pp, 2026-11-15) | NICE NG154 rec 1.8.2 (born before 28+0 wk, 140–150) and rec 1.8.3 (28+0 wk or later and term, 120–140), the lower end of each; not `FULL_EN_ML_KG` |
 | No TPN (no colour) | the latest order is No TPN (`orderIsNoTpn`); the AA and lipid flags above may come with it, never the GIR or PN-after-EN flag | — |
 

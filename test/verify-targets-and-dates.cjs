@@ -117,7 +117,7 @@ eq('80 mg/kg/d P is on target for growing PN', D.rangeStatus(80, D.TPN_TARGETS.p
 // Issue #2 — route-aware targets: a PN infant is never held to enteral numbers
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n── #2 parenteral vs enteral target selection ──');
-// Mirrors computeAlerts()/pickTarget(): >=100 mL/kg/d enteral means full feeds.
+// Mirrors computeAlerts()/pickTarget(): Full EN (D.isFullEn, 120 mL/kg/d or 75 % of needs since 2026-11-18) means full feeds.
 // Since 2026-11-10 both go through D.isFullEn, which never counts a MEN feed.
 const pickT = (entry) => (D.isFullEn(entry) ? D.ENTERAL_TARGETS : D.TPN_TARGETS);
 
