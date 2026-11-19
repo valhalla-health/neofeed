@@ -829,6 +829,39 @@ const INIT = `
       await c.close();
     }
 
+    section('§12e the fullest real worksheet at full size, under a name that wraps (Vera on the 2026-11-19 stickers)');
+    {
+      // SS-1 is gone by now, so AA-1 (an iso bed) carries it. Thirteen stocks: one amino acid product, and no Addamel N (it holds the print). That is the most
+      // a real order prints, and it stays at the full 12 pt; a long name wraps beside Ward, AN and ID.
+      const aa13 = pjOf('AA-1');
+      Core.STOCK_ROWS.forEach(([k]) => { aa13.stockMl[k] = ['amiparen10', 'aminoplasmal15', 'addamel'].includes(k) ? '0' : '188.8'; });
+      logRowOf('AA-1')[38] = JSON.stringify(aa13);
+      const c = await newRoom();
+      const pg = await open(c);
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await row(pg, 'AA-1').waitFor();
+      await createNameFile(pg);
+      await mapInfant(pg, 'AA-1', 'ทารกสังเคราะห์ เอ ชื่อยาวมากสำหรับทดสอบการตัดบรรทัดบนสติกเกอร์ห้อง TPN', '55555/69');
+      await row(pg, 'AA-1').getByText('55555/69').waitFor();
+      await row(pg, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' }).click();
+      await pg.waitForFunction(() => window.__prints === 1);
+      const ws = await pg.evaluate(() => {
+        const part = document.querySelector('#sticker-sheet .part-worksheet');
+        const name = part.querySelector('.big-name');
+        return { rows: part.querySelectorAll('.stock tr').length, dense: part.querySelector('.stock').classList.contains('dense'),
+          nameLines: Math.round(name.getBoundingClientRect().height / parseFloat(getComputedStyle(name).lineHeight || '0')) };
+      });
+      eq('thirteen rows at full size, not the dense step', [ws.rows, ws.dense], [13, false]);
+      ok('the name wraps onto a second line, so the case means something', ws.nameLines >= 2);
+      await pg.emulateMedia({ media: 'print' });
+      const fit13 = await pg.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
+      const pdf13 = await pg.pdf({ preferCSSPageSize: true, printBackground: true });
+      ok('every part fits, measured under print', fit13.length === 4 && fit13.every(Boolean));
+      eq('…on one A4 page', (pdf13.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length, 1);
+      if (process.env.TPN_ROOM_13_PDF_OUT) fs.writeFileSync(process.env.TPN_ROOM_13_PDF_OUT, pdf13);
+      await c.close();
+    }
+
     section('§13 no page error, no CSP violation');
     eq('the console stayed clean', problems, []);
   } catch (e) {

@@ -117,7 +117,7 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
   ever moves, not the paper's fixed text (Pp, PR #240: "ตามค่าในแอป"). **An addition (2026-11-15):** the Total
   Volume line ends with the bag's own osmolarity in small grey type, "· Bag osm N mOsm/L", rounded as the
   Osmolarity tile (Pp, PR #265: "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้"). **An addition (2026-11-19):** the "2. K⁺" group line ends with the bag's
-  K⁺ concentration in the same small grey type, "· K⁺ in bag N mEq/L", rounded as the K⁺ in bag tile (TPN unit
+  K⁺ concentration in the same small grey type, "· K⁺ in bag N mEq/L", the K⁺ in bag tile's figure at one decimal (TPN unit
   through Pp: K⁺ is a high-alert drug; the back sheet's line never reached paper). **An addition (2026-11-16):** the "7. Heparin" line
   prints the mL of 100 unit/mL stock the prepared bag takes (`calc.solVol.heparin`, the back sheet's figure; ward:
   the paper had no heparin volume), and the amino-acid choices drop the age range after "10% Aminoven infant /

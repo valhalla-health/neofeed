@@ -5626,9 +5626,11 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             {/* The bag's K⁺ concentration in small type on the front, beside the K⁺ group, since K⁺ is a
                 high-alert drug (TPN unit through Pp, 2026-11-19: "K in bag ถ้าพอเติมได้ ตัวเล็กๆ ให้ pharmacy
                 มั่นใจ"). The back sheet's line did not reach paper (.print-back is hidden in print). Same
-                guard as the Bag osm line: no figure without a bag volume and a dosing weight. */}
+                guard as the Bag osm line: no figure without a bag volume and a dosing weight. One decimal,
+                not the tile's whole number: pharmacy reads it against the limits printed beside it, and a
+                central bag graded 120.4 (critical) would print "120" next to "confirm > 120" (Vera). */}
             <td style={tdGroup} colSpan={3}>2. K⁺{totalTPN_mL > 0 && wtKg > 0 && (
-              <span className="print-kbag" style={{ fontSize:9, color:"#333", fontWeight:400 }}> · K⁺ in bag {fmt(calc.kMeqPerL, 0)} mEq/L</span>
+              <span className="print-kbag" style={{ fontSize:9, color:"#333", fontWeight:400 }}> · K⁺ in bag {fmt(calc.kMeqPerL, 1)} mEq/L</span>
             )}</td>
             <td style={td} rowSpan={3}>K⁺ {rng(targets?.k)} mEq/kg/day<br/>P {rng(targets?.p)} mg/kg/day<br/>K⁺ in bag: {kBagLimitParts(D.kBagLimitsFor(route), "confirm >").join(" · ")} mEq/L ({route === "central" ? "central" : route === "peripheral" ? "peripheral" : "no route"})</td>
           </tr>

@@ -351,6 +351,7 @@ the supplier's stability data).
 {"case": "central 61 mEq/L: caution", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 50, "Dextrose final": 5, "Amino acid": 1, "KCl": 3.05}, "expect": {"alert": "K⁺ concentration high", "level": "warn"}}
 {"case": "central 120 mEq/L (25 mL, KCl 3): amber, not red", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 25, "Dextrose final": 5, "Amino acid": 1, "KCl": 3}, "expect": {"no_alert": "K⁺ concentration too high", "alert": "K⁺ concentration high"}}
 {"case": "central 121 mEq/L: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 25, "Dextrose final": 5, "Amino acid": 1, "KCl": 3.025}, "expect": {"alert": "K⁺ concentration too high", "level": "crit", "submit": "asks_reason"}}
+{"case": "central 120.4 mEq/L (KCl 3.01): critical, and the front prints 120.4, not 120 beside confirm > 120 (Vera, 2026-11-19)", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 25, "Dextrose final": 5, "Amino acid": 1, "KCl": 3.01}, "expect": {"alert": "K⁺ concentration too high", "level": "crit", "submit": "asks_reason", "prints": "K⁺ in bag 120.4 mEq/L"}}
 ```
 
 ### CR-PROTEIN-MAX · protein ceiling

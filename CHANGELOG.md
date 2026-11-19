@@ -28,17 +28,20 @@ she asked to keep the worksheet's left side as it was, one column, rather than t
 - **Figures larger and right beside the name.** The stock figure is 12 pt (it was the part's 9 pt), the name
   column takes only its own width, so each figure sits against the longest name. Fourteen rows or more step it
   to 10.5 pt; no order reaches that today (one amino acid product per bag, and Addamel N holds the print). The
-  page harness prints all sixteen stocks at "188.8" and checks every part still fits one A4 page; before the step
+  page harness prints all sixteen stocks at "188.8", and (Vera) the fullest real set, thirteen at full size under a
+  name that wraps, and checks every part still fits one A4 page; before the step
   the sixteen-row sheet overflowed and the page refused the print, as `sheetOverflows` should.
 - **AN and NeoFeed ID on all three parts.** The worksheet's head line reads Ward, AN, NeoFeed ID beside the name
   (the ID moves up from small type under the SWFI box); the PN label's centred AN line adds the ID; the bag sticker
   adds it after the date. The ID lets the room check a bag against the paper order.
 - **Prepared, label and figure, bold** on the worksheet and the PN label.
 - **The printed order's front shows "K⁺ in bag N mEq/L"** in 9 pt grey after "2. K⁺" ("K in bag ถ้าพอเติมได้
-  ตัวเล็กๆ ให้ pharmacy มั่นใจ"). The figure is the K⁺ in bag tile's `calc.kMeqPerL`, rounded as the tile, under
-  the Bag osm line's guard (a bag volume and a dosing weight). The back sheet's K⁺ line never reached paper.
-  `verify-calc-sum.cjs` checks the printed figure against the tile on every order; a planted `+ 1` failed it.
-  `CONSTANTS_VERSION` stays `2026-11-18.1`, by the reasoning that kept it for Bag osm.
+  ตัวเล็กๆ ให้ pharmacy มั่นใจ"). The figure is the K⁺ in bag tile's `calc.kMeqPerL` at one decimal (the tile shows a
+  whole number; Vera: a central bag graded 120.4, critical, would otherwise print "120" beside "confirm > 120"),
+  under the Bag osm line's guard (a bag volume and a dosing weight). The back sheet's K⁺ line never reached paper.
+  `verify-calc-sum.cjs` checks the printed figure against the tile on every order (a planted `+ 1` failed it),
+  and a new `CR-K-BAG-RED` case prints 120.4 for KCl 3.01 (it failed on the whole-number print).
+  `CONSTANTS_VERSION` stays `2026-11-18.1`, by the reasoning that kept it for Bag osm; that is Pp's call on the PR.
 
 Left as is: the PN label still prints its zero amounts (Amiparen 0 g, Addamel N 0 mL); the unit asked about the
 worksheet only. Precipitation (a Ca × P curve from the unit) waits for the unit to send its graph.

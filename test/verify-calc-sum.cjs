@@ -611,9 +611,13 @@ function sumCheck(sc, label, Vd) {
     // A bag with no dextrose, amino acid or electrolyte estimates 0: the sheet prints no figure for it.
     ok(sc, `${label}: front sheet's Bag osm = on-screen Osmolarity tile (none when it reads 0)`,
       scr.osm !== null && (scr.osm === 0 ? printedOsm() === null : printedOsm() === scr.osm), { ...detail, printedOsm: printedOsm() });
-    // K⁺ in bag on the front (TPN unit, 2026-11-19): the tile's figure, 0 included.
-    ok(sc, `${label}: front sheet's K⁺ in bag = on-screen K⁺ in bag tile`,
-      scr.kBag !== null && printedKBag() === scr.kBag, { ...detail, tileKBag: scr.kBag, printedKBag: printedKBag() });
+    // K⁺ in bag on the front (TPN unit, 2026-11-19): the tile's figure at one decimal, 0 included.
+    // The tile shows the same value as a whole number, so the two sit within half a unit (rounding twice
+    // can move the tile's side by 0.05: 44.46 prints 44.5, the tile 44).
+    const pk = printedKBag();
+    ok(sc, `${label}: front sheet's K⁺ in bag, one decimal, agrees with the on-screen K⁺ in bag tile`,
+      scr.kBag !== null && pk !== null && /^-?\d+(\.\d)?$/.test(String(pk)) && Math.abs(pk - scr.kBag) <= 0.55,
+      { ...detail, tileKBag: scr.kBag, printedKBag: pk });
     // The heparin mL reached paper only on the back sheet, which does not print (ward, 2026-11-16):
     // the front's heparin line now prints it, and it must be the back's stock line, mL for mL.
     const backHep = parts.find(p => /^Heparin /.test(p.name));
