@@ -58,7 +58,7 @@ const P = (sid, extra) => Object.assign({ sessionId: sid, name: 'ทารกใ
   dob: day(-5), admissionDate: day(-5), twinSuffix: '', status: 'Active', currentBed: '', diagnosis: 'RDS',
   weights: [{ dol: 1, w: 1000 }], lengths: [], hcs: [], bedHistory: [], statusDate: '', multiplesCount: 0 }, extra);
 const E = (status, calcInput) => ({ dol: 5, weight: 1000, fluid: 150, gir: 7, pro: 2, kcal: 42, na: 2, k: 2.5, ca: 0, p: 0,
-  enVolPerKg: 0, route: 'TPN central', status, constantsVersion: '2026-10-28.1', calcInput });
+  enVolPerKg: 0, route: 'TPN central', status, constantsVersion: '2026-11-18.1', calcInput });
 // A calcInput whose serialised length is exactly n.
 function sized(n) {
   const c = { tpnWtG: 1000, stops: [], pad: '' };

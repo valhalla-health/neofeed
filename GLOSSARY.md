@@ -84,7 +84,8 @@ _Avoid_: MEF, trophic feed
 The EN on an Order that is not marked MEN.
 
 **Full EN**:
-Counted EN of at least 100 mL/kg/d on Dosing weight.
+Counted EN of at least 120 mL/kg/d on Dosing weight, or giving 75 % of the enteral energy and protein needs,
+whichever comes first (`CR-U-SWITCH`; 100 mL/kg/d until 2026-11-18).
 _Avoid_: full feeds
 
 **EN targets**:

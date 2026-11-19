@@ -146,16 +146,17 @@ T.section('update · an order submitted before the list is revised, never overwr
 // through: no live client sends either.
 T.section('a submitted save computed on an older calculation is refused', () => {
   const g = ward();
-  const OLD = { constantsVersion: '2026-10-27.2' };
+  const OLD = { constantsVersion: '2026-11-16.1' };
   const old = g.log('2026-10-01', E(OLD, { stops: [] }));
-  T.ok('submitted, version 2026-10-27.2 → refused, reload asked', !old.entryId && STALE.test(old.error || ''), old);
+  T.ok('submitted, version 2026-11-16.1 (the release before the floor) → refused, reload asked', !old.entryId && STALE.test(old.error || ''), old);
   const draft = g.log('2026-10-01', E(Object.assign({ status: 'draft' }, OLD), { stops: [] }));
   T.ok('…the same as a draft → saved', !!draft.entryId, draft);
   const up = g.as(g.dt, { action: 'updateDailyNutrition', sessionId: 'ST-1', entryId: draft.entryId, expectedLastModified: draft.lastModified, entry: E(OLD, { stops: [] }) });
   T.ok('…and submitting that draft from the old tab → refused', !up.ok && STALE.test(up.error || ''), up);
-  const cur = g.log('2026-10-02', E({ constantsVersion: '2026-10-28.1' }, { stops: [] }));
-  T.ok('submitted, version 2026-10-28.1 → saved', !!cur.entryId, cur);
-  const later = g.log('2026-10-03', E({ constantsVersion: '2026-11-02.1' }, { stops: [] }));
+  // The floor since the release of PR #291 (Pp, 2026-11-19); it was 2026-10-28.1.
+  const cur = g.log('2026-10-02', E({ constantsVersion: '2026-11-18.1' }, { stops: [] }));
+  T.ok('submitted, version 2026-11-18.1 → saved', !!cur.entryId, cur);
+  const later = g.log('2026-10-03', E({ constantsVersion: '2026-11-19.1' }, { stops: [] }));
   T.ok('a later version → saved', !!later.entryId, later);
   const none = g.log('2026-10-04', E({}, { stops: [] }));
   T.ok('no version at all → saved', !!none.entryId, none);

@@ -23,8 +23,10 @@
 //   §7  lipid "Infuse over": its hint and the hours it holds follow PUMP_MAX_HOURS
 //   §8  the MEN caution's "MEF 12–24" follows ESPGHAN_TARGETS.en.advancement.mef
 //   §9  Full EN follows FULL_EN_ML_KG: the banner, the P:E tile and its alert, and
-//       at the real 100 the P:E alert shows from 100 itself (Pp, 2026-11-10: "≥ 100
-//       เหมือนกันหมด"; it was above 100 only)
+//       at the real 120 the P:E alert shows from 120 itself (Pp, 2026-11-10: "≥ 100
+//       เหมือนกันหมด"; it was above the switch only). The switch is 120 mL/kg/d, or
+//       75 % of the enteral energy and protein needs, since 2026-11-18 (Pp, Q17); it
+//       was 100
 //
 // Fails against e555695, where every one of these is a literal. Mounts the real
 // <Calculator> in jsdom (the dev-only deps every calculator harness uses — see
@@ -327,7 +329,7 @@ const printText = () => text(__printFormTicked(container));
     plant({ FULL_EN_ML_KG: 90 });
     mountPatient('Central');
     feedOnly(11.5);   // 92 mL/kg/d
-    ok('92 mL/kg/d is Full EN at a planted 90: "Full EN ≥90 mL/kg/d"', text(container).includes('Full EN ≥90 mL/kg/d'), '');
+    ok('92 mL/kg/d is Full EN at a planted 90: "Full EN (≥90 mL/kg/d"', text(container).includes('Full EN (≥90 mL/kg/d, or ≥75% of enteral energy and protein)'), '');
     ok('…the P:E tile shows', peTile(), '');
     ok('…and breast milk\'s P:E is flagged', alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
     // The show-working panels name the switch: "นมที่นับได้ถึง 90 mL/kg/d (CR-U-SWITCH)".
@@ -338,16 +340,19 @@ const printText = () => text(__printFormTicked(container));
     restore();
     mountPatient('Central');
     feedOnly(11.5);
-    ok('at the real 100, 92 mL/kg/d is not Full EN', !text(container).includes('Full EN ≥'), '');
+    ok('at the real 120, 92 mL/kg/d of breast milk is not Full EN', !text(container).includes('Full EN (≥'), '');
     ok('…and has no P:E tile', !peTile(), '');
     mountPatient('Central');
-    feedOnly(12.5);   // exactly 100: the switch and P:E together (CR-TGT-PE, Pp 2026-11-10)
-    ok('exactly 100 mL/kg/d: "Full EN ≥100 mL/kg/d"', text(container).includes('Full EN ≥100 mL/kg/d'), '');
-    ok('…the P:E tile shows at 100 itself', peTile(), '');
-    ok('…and its alert fires at 100 itself', alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
+    feedOnly(12.5);   // 100, the switch until 2026-11-18
+    ok('100 mL/kg/d of breast milk is not Full EN any more', !text(container).includes('Full EN (≥') && !peTile(), '');
     mountPatient('Central');
-    feedOnly(12.5, true);
-    ok('100 mL/kg/d ticked MEN: no P:E tile, no alert', !peTile() && !alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
+    feedOnly(15);   // exactly 120: the switch and P:E together (CR-TGT-PE, Pp 2026-11-10; CR-U-SWITCH, Pp 2026-11-18)
+    ok('exactly 120 mL/kg/d: "Full EN (≥120 mL/kg/d"', text(container).includes('Full EN (≥120 mL/kg/d'), '');
+    ok('…the P:E tile shows at 120 itself', peTile(), '');
+    ok('…and its alert fires at 120 itself', alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
+    mountPatient('Central');
+    feedOnly(15, true);
+    ok('120 mL/kg/d ticked MEN: no P:E tile, no alert', !peTile() && !alertTexts().some(t => t.includes('Protein : Energy off target')), alertTexts());
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);

@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-11-16.1";
+const CONSTANTS_VERSION = "2026-11-18.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -626,7 +626,7 @@ function _jochumUnder1500(wtG, bwG) {
   return w > 0 && w < 1500;
 }
 
-// ── TPN_TARGETS — used when EN < 100 mL/kg/d ─────────────────
+// ── TPN_TARGETS — used below Full EN (fullEnReached, CR-U-SWITCH) ──
 // Source: ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Clin Nutr 2018)
 // ESPGHAN 2021 JPGN update for critically ill term infants
 // Thai PN Guideline 2564
@@ -715,14 +715,24 @@ const TPN_TARGETS = {
 };
 
 // ── Full EN on a saved row (Pp, 2026-11-10) ──────────────────
-// Counted EN of at least FULL_EN_ML_KG (100) mL/kg/d. A MEN feed never counts,
-// the same rule the calculator's useEnteralTargets applies before saving.
-// enVolPerKg stays the feed actually given, so the MEN tick in calcInput
-// decides. A row without enVolPerKg (legacy) is parenteral, the safer of the two.
+// The same rule the calculator's useEnteralTargets applies before saving
+// (fullEnReached, CR-U-SWITCH): the counted feed at FULL_EN_ML_KG (120) mL/kg/d,
+// or giving 75 % of the enteral energy and protein needs, whichever comes
+// first. A MEN feed never counts. enVolPerKg stays the feed actually given, so
+// the MEN tick in calcInput decides. The feed's energy and protein are read
+// from the feeds calcInput names (EN_DB); a row without them (legacy, or a
+// feed EN_DB no longer holds) is judged on its volume alone, and one without
+// enVolPerKg is parenteral, the safer of the two.
 function isFullEn(entry) {
   if (!entry) return false;
-  if (entry.calcInput && entry.calcInput.isMEN) return false;
-  return (Number(entry.enVolPerKg) || 0) >= FULL_EN_ML_KG;
+  const ci = entry.calcInput || {};
+  if (ci.isMEN) return false;
+  const num = (v) => { const x = Number(v); return isFinite(x) ? x : 0; };
+  const mlKg = num(entry.enVolPerKg);
+  const feeds = [{ key: ci.enType, mlPerDay: num(ci.enVol) * num(ci.enFreq) },
+                 { key: ci.enType2, mlPerDay: num(ci.enVol2) * num(ci.enFreq2) }];
+  const mix = feeds.some(f => f.mlPerDay > 0) ? enMixPer100mL(feeds) : null;
+  return fullEnReached({ mlKg, kcalKg: mix ? mlKg / 100 * mix.kcal : 0, proKg: mix ? mlKg / 100 * mix.pro : 0 });
 }
 
 // ── ENTERAL_TARGETS — used when Full EN (isFullEn) ──────────
@@ -794,8 +804,10 @@ const TARGETS = {
 
   // GIR mg/kg/min — Joosten K et al. 2018 (ESPGHAN)
   // Preterm: start 4–8, target 8–10, max 12
-  // Return: [safe lower, max upper] for the meter bar
-  gir: () => [4, 12],
+  // Return: [safe lower, max upper] for the meter bar. The amber floor is 2.5
+  // for every infant, preterm included (Pp, 2026-11-18, Q9: "ใช้ 2.5 ทั้งหมด");
+  // it was 4, Mesotten R 5.4's preterm minimum, where the term minimum is 2.5.
+  gir: () => [2.5, 12],
   girTarget: () => [8, 10],    // optimal anabolic GIR
   girPreterm: () => ({ start: [4, 8], target: [8, 10], max: 12, step: 2 }),
   girTerm:    () => ({ start: [2.5, 5], target: [5, 10], max: 12 }),
@@ -950,9 +962,12 @@ const K_BAG_MEQ_PER_L = {
 };
 const kBagLimitsFor = (route) => K_BAG_MEQ_PER_L[route === "central" ? "central" : "peripheral"];
 // Lipid infusion rate ceiling, g/kg/h (TPN team meeting and Praew, 2026-09-28):
-// amber above `warn`, critical above `max`. Graded on the figure the pump card
-// shows (2 decimals), so its colour never disagrees with its number.
-const LIPID_GKGH = { warn: 0.13, max: 0.17, pumpMax: 0.2 };
+// the ceiling is `max`. Graded on the figure the pump card shows (2 decimals),
+// so its colour never disagrees with its number. Until 2026-11-18 a `warn` of
+// 0.13 turned the line amber; that is the Thai CPG's ceiling for children over
+// 1 year, and Pp dropped it for infants (Q11). Amber is now a figure above
+// `max` that lipidRateGrade does not call critical.
+const LIPID_GKGH = { max: 0.17, pumpMax: 0.2 };
 // Total elemental zinc reaching the infant per day — Peditrace plus ZnSO₄ —
 // above which an order is a critical alert (KCMH TPN team, 2026-09-22).
 const MAX_ZN_MG_DAY = 5;
@@ -990,12 +1005,33 @@ const GLYCO_P_HABIT_MG = 10;
 // from yesterday, so MEN still ticked above this is a warning (never a stop):
 // the feed was probably advanced and the tick left on (Praew, 2026-09-18).
 const MEN_MAX_ML_KG = 24;
-// Full enteral feeding, mL/kg/day: from this counted feed (at or above) the
-// tiles switch to ENTERAL_TARGETS (CR-U-SWITCH), a saved row is Full EN
-// (isFullEn), and the Protein : Energy tile and its alert show (CR-TGT-PE; above
-// it only until 2026-11-10, when Pp made P:E start at the switch: "≥ 100
-// เหมือนกันหมด"). NeoFeed's own convention, no source gives it (Q17).
-const FULL_EN_ML_KG = 100;
+// Full enteral feeding (CR-U-SWITCH). The tiles switch to ENTERAL_TARGETS, a
+// saved row is Full EN (isFullEn), and the Protein : Energy tile and its alert
+// show (CR-TGT-PE) when the counted feed reaches FULL_EN_ML_KG mL/kg/day, or
+// gives FULL_EN_NEEDS_FRACTION of the enteral energy AND protein needs (the
+// lower end of ENTERAL_TARGETS: 75 % of 115 kcal = 86.25 kcal/kg/d and 75 % of
+// 3.5 g = 2.625 g/kg/d), whichever comes first. Pp, 2026-11-18, Q17: "หรือ",
+// and asked what "needs" counts she chose energy and protein. Avery ch 60 p. 9:
+// PN "until enteral intake is 120 mL/kg/day"; p. 1: "until at least 75% of the
+// total protein and energy requirements are supplied by enteral nutrition";
+// Thai CPG PDF p. 93, 75 %. Until 2026-11-18 the switch was 100 mL/kg/d,
+// NeoFeed's own convention with no source. Breast milk with no fortifier
+// switches at 120; Hi-Q LBW 24 at 107.8, the other 24 kcal/oz feeds at 109–120.
+const FULL_EN_ML_KG = 120;
+const FULL_EN_NEEDS_FRACTION = 0.75;
+function fullEnNeeds(fraction = FULL_EN_NEEDS_FRACTION) {
+  return { kcalKg: ENTERAL_TARGETS.kcal()[0] * fraction, proKg: ENTERAL_TARGETS.protein()[0] * fraction };
+}
+// `mlKg`, `kcalKg`, `proKg`: what the COUNTED feed gives per kg/day. Float noise
+// is stripped, so 4.3 mL × 12 at 430 g is 120, not 119.99999999999999. `limits`
+// lets the Calculator pass the two constants as it reads them (D.…), so a
+// harness that plants another value sees the switch move with the text.
+function fullEnReached({ mlKg = 0, kcalKg = 0, proKg = 0 } = {}, { fullMlKg = FULL_EN_ML_KG, fraction = FULL_EN_NEEDS_FRACTION } = {}) {
+  const g = (v) => { const x = Number(v); return isFinite(x) ? Number(x.toPrecision(12)) : 0; };
+  if (g(mlKg) >= fullMlKg) return true;
+  const needs = fullEnNeeds(fraction);
+  return g(kcalKg) >= needs.kcalKg && g(proKg) >= needs.proKg;
+}
 // A day ticked "No TPN" in Step 3: the counted feed must reach this many
 // mL/kg/day, or the day's fluid requirement where that is lower (TARGETS.fluid's
 // lower bound: DOL 1 at 1,000–1,499 g 70 and 1,500–2,499 g 60; term DOL 1–4 40,
@@ -1246,7 +1282,8 @@ function rangeStatus(value, [lo, hi], { hardHi = null, hardLo = null } = {}) {
 // the alert list, with no way for a nurse to tell which screen to believe
 // (2026-09-23). The threshold was never in dispute — only that two screens
 // each carried their own copy of it. It now lives here, and both call this.
-//   4–12 mg/kg/min  ok   · outside that  warn  · above GIR_HARD_HI  crit
+//   2.5–12 mg/kg/min  ok   · outside that  warn  · above GIR_HARD_HI  crit
+// (the floor was 4 until Pp, 2026-11-18)
 // 12 is Mesotten 2018 R 5.4's maximum (TPN team, 2026-10-25: follow the
 // source). From 2026-09-22 to 2026-10-27 it was 13, with 12–13 an amber
 // margin (Praew: "GIR bar turn red at >13").
@@ -1268,7 +1305,24 @@ const KCAL_HARD_HI = 160;
 //   osmolarity, peripheral, mOsm/L:  900 and above as printed (the KCMH form
 //                                    says "<900"; Pp, 2026-10-27); the 850
 //                                    caution had no source and is gone
+// Protein stays critical only above 4.5 on TPN + feed. Parenteral amino acid
+// above 3.5 is amber, not critical (Pp, 2026-11-18, Q10): TPN_TARGETS.protein
+// tops out at 3.5, and a feed large enough for the enteral band (fullEnReached)
+// adds at least 1.4 g/kg/d (breast milk at 120 mL/kg/d, the leanest EN_DB feed),
+// which with amino acid above 3.5 is over 4.5 anyway.
 const PROTEIN_HARD_HI = 4.5;
+// Energy of IV lipid, kcal/g: a 20 % emulsion is 2.0 kcal/mL with its glycerol
+// (ESPGHAN 2018, Lapillonne; Thai CPG 10 kcal/g). Pp, 2026-11-18, Q8: "ESPGHAN
+// กับ Thai CPG ใช้ 10". Until then 9, the KCMH worksheet's Atwater figure (E53),
+// so NeoFeed's kcal now reads 1 kcal per g of IV lipid above that printout.
+// Feed fat in the energy split stays 9 kcal/g: it is not an emulsion.
+const LIPID_IV_KCAL_PER_G = 10;
+// Ca:P is graded with float noise stripped: 52.7 / 31 is 1.7 on paper and
+// 1.7000000000000002 in JS, which graded High beside a printed "1.7:1" (Pp,
+// 2026-11-18, Q6). A real decimal stays: 1.71 is above 1.7.
+function caPStatus(ratio) {
+  return rangeStatus(isFinite(ratio) ? Number(ratio.toPrecision(12)) : ratio, TARGETS.caP());
+}
 const LIPID_IV_HARD_HI = 4.0;
 const K_IV_HARD_HI = 5.0;
 const NPE_IV_CRIT_LO = 12;
@@ -1311,12 +1365,16 @@ function lipidGkghAt(lipidPerKg, bagMl, hours) {
 // 4 g/kg/d over 24 h it did at 30 of the 50 weights under 1 kg, each asking a
 // reason (Pp, 2026-11-09). Above LIPID_GKGH.pumpMax at the pump it is critical
 // whatever the hours ordered: 200 g on 4 g/kg/d runs 0.24 (Vera; Pp, 2026-11-10).
-// `overByRounding` marks an amber line above the ceiling.
+// `overByRounding` marks an amber line above the ceiling. Amber, since the 0.13
+// line went (Pp, 2026-11-18, Q11), is either figure above the ceiling without
+// both: the pump's hours only (the rate rounded up) or the hours ordered only
+// (the rate rounded down and the run grew longer).
 function lipidRateGrade(lipidPerKg, bagMl, hours) {
   const gkgh = lipidGkghAt(lipidPerKg, bagMl, hours);
   const gkghOrdered = lipidPerKg > 0 && hours > 0 ? Math.round(lipidPerKg / hours * 100) / 100 : 0;
   const over = gkgh > LIPID_GKGH.max;
-  const status = (over && gkghOrdered > LIPID_GKGH.max) || gkgh > LIPID_GKGH.pumpMax ? "crit" : gkgh > LIPID_GKGH.warn ? "warn" : "ok";
+  const status = (over && gkghOrdered > LIPID_GKGH.max) || gkgh > LIPID_GKGH.pumpMax ? "crit"
+    : over || gkghOrdered > LIPID_GKGH.max ? "warn" : "ok";
   return { status, gkgh, gkghOrdered, overByRounding: over && status !== "crit" };
 }
 // The ward sets no volume limit on the TPN pump (Pp, 2026-11-10), so it runs its
@@ -1339,7 +1397,9 @@ function tpnOverDelivery(volMl) {
 // critical lipid line the typed dose did not have (Pp, the same day, for 4.0): where
 // the nearest mL would take the dose above 4.0 g/kg/d (CR-LIPID-IV-MAX) or make the
 // g/kg/h grade critical (lipidRateGrade, CR-LIPID-RATE), the whole mL below is
-// used. A line the typed dose already had stays. Under 0.5 mL there is no whole mL
+// used. A dose typed above 4.0 already rounds down, to the whole mL below it, never
+// up (Pp, 2026-11-18, Q22: "ถ้าไขมันเกิน 4.0 อยู่แล้ว ให้ปัดลง"); at or under 4.0
+// the nearest mL stays. Under 0.5 mL there is no whole mL
 // to round to, and the dose is returned unchanged (Vera on this PR: 1 mL would
 // multiply a small dose). The dose is kept to 2 decimals, else 3, whichever still
 // gives exactly that mL at the 0.1 mL the TPN room measures (CR-R-STOCK-ML); 3 is
@@ -1349,21 +1409,40 @@ function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = 
   const gPerMl = KCMH_STOCK.smof20.gPerMl;
   if (!(lipidPerKg > 0) || !(wtKg > 0)) return null;
   const mlOf = (dose) => Number(displayNum(dose * wtKg / gPerMl, 1));
-  let ml = Number(displayNum(lipidPerKg * wtKg / gPerMl, 0));
-  if (!(ml > 0)) return lipidPerKg;
   const overDose = (dose) => Number(dose.toPrecision(12)) > LIPID_IV_HARD_HI;
-  const overRate = (dose, mlNow) => lipidRateGrade(dose, mlNow + vitalipidMl, hours).status === "crit";
+  // Both guards grade a dose the way the Calculator will once it is set: on the
+  // dose itself and its own syringe volume (dose × kg ÷ 0.2, plus Vitalipid).
+  // The typed dose and every candidate are graded the same way, and a candidate
+  // is the dose this function would return (2 or 3 decimals), never the
+  // unrounded one: graded unrounded, 2.797 g/kg/d read 0.17 over the 16 h
+  // ordered (amber) and the 2.8 returned read 0.18, critical; and a dose a tap had just returned could
+  // grade differently from its own whole mL, so a second tap took another mL
+  // (new-agent re-check, 2026-11-18; both kinds of fault were there since 2026-11-06).
+  const overRate = (dose) => lipidRateGrade(dose, dose * wtKg / gPerMl + vitalipidMl, hours).status === "crit";
+  const doseAt = (ml) => {
+    const exact = ml * gPerMl / wtKg;
+    for (const d of [2, 3]) {
+      const dose = Math.round(exact * 10 ** d) / 10 ** d;
+      if (mlOf(dose) === ml) return dose;
+    }
+    return exact;
+  };
   const typedOverDose = overDose(lipidPerKg);
-  const typedOverRate = overRate(lipidPerKg, lipidPerKg * wtKg / gPerMl);
-  const crosses = (m) => (!typedOverDose && overDose(m * gPerMl / wtKg))
-    || (!typedOverRate && overRate(m * gPerMl / wtKg, m));
+  // Above 4.0 the whole mL below, counted on the 0.1 mL the TPN room measures:
+  // 37.8 mL is 37, and the 4.4 g/kg/d that gives (36.96 mL, measured 37.0) is
+  // 37 again. Floored on the exact mL, each tap took off another mL (4.5 → 4.4
+  // → 4.29; cold reader, 2026-11-18). A dose that already measures a whole mL
+  // is left as typed, so a dose above 4.0 never goes up.
+  if (typedOverDose && Number.isInteger(mlOf(lipidPerKg)) && mlOf(lipidPerKg) > 0) return lipidPerKg;
+  let ml = typedOverDose ? Math.floor(mlOf(lipidPerKg)) : Number(displayNum(lipidPerKg * wtKg / gPerMl, 0));
+  if (!(ml > 0)) return lipidPerKg;
+  const typedOverRate = overRate(lipidPerKg);
+  const crosses = (m) => (!typedOverDose && overDose(doseAt(m))) || (!typedOverRate && overRate(doseAt(m)));
   while (ml > 1 && crosses(ml)) ml -= 1;
-  const exact = ml * gPerMl / wtKg;
-  for (const d of [2, 3]) {
-    const dose = Math.round(exact * 10 ** d) / 10 ** d;
-    if (mlOf(dose) === ml) return dose;
-  }
-  return exact;
+  // Even 1 mL crosses (a tiny infant on lipid over 5 h or less): no whole mL is
+  // safe, so the dose is left as typed, as under 0.5 mL.
+  if (crosses(ml)) return lipidPerKg;
+  return doseAt(ml);
 }
 function girStatus(gir) {
   return rangeStatus(gir, TARGETS.gir(), { hardHi: GIR_HARD_HI });
@@ -1505,7 +1584,7 @@ const ESPGHAN_TARGETS = {
       mef:      [12, MEN_MAX_ML_KG],   // mL/kg/day minimal enteral feeding; the top is the MEN ceiling
       step:     [18,30],   // advance per day (WHO 2023: up to 30 mL/kg/day safe)
       hmfStart: 40,         // start HMF at ≥40 mL/kg/day
-      fullFeeds: FULL_EN_ML_KG, // KCMH threshold: ≥100 mL/kg/day = full EN → wean PN + switch to EN targets
+      fullFeeds: FULL_EN_ML_KG, // ≥120 mL/kg/day, or 75 % of enteral energy and protein needs (fullEnReached) = full EN → wean PN + switch to EN targets
       maxVol: 200,           // max enteral volume — attending discretion, some go to 200 mL/kg/day
       hmfIndication: "<32 wk gestation or <1.5 kg birth weight on MOM or DHM",
       grNote: "No routine gastric residual monitoring in stable infants (ESPGHAN 2022 GOR B)",
@@ -1939,7 +2018,7 @@ const MOCK_PATIENTS = [
 
 const MOCK_DAILY_LOG = {
   "TT-BW900-A": [
-    // Fields pro/kcal/na/k/ca/p are PN+EN combined (per-kg). enVolPerKg drives target choice (≥100 → EN targets, else PN).
+    // Fields pro/kcal/na/k/ca/p are PN+EN combined (per-kg). enVolPerKg drives target choice (Full EN, isFullEn → EN targets, else PN).
     { dol: 1,  ts: "2026-05-15", weight: 900, fluid: 80,  gir: 5.6, pro: 1.5, kcal: 33,  na: 0,   k: 0,   ca: 40,  p: 22, enVolPerKg: 0,   route: "TPN central",      status: "submitted" },
     { dol: 2,  ts: "2026-05-16", weight: 870, fluid: 100, gir: 7.0, pro: 2.5, kcal: 55,  na: 1.5, k: 0,   ca: 60,  p: 34, enVolPerKg: 0,   route: "TPN central",      status: "submitted" },
     { dol: 3,  ts: "2026-05-17", weight: 850, fluid: 120, gir: 8.0, pro: 3.0, kcal: 75,  na: 2.0, k: 1.0, ca: 75,  p: 42, enVolPerKg: 10,  route: "TPN + trophic",    status: "submitted" },
@@ -2248,8 +2327,9 @@ const WARD_LIPID_FLAG_DOL = 2;
 // every GA): NICE NG154 rec 1.8.2, born before 28+0 weeks, "consider stopping
 // ... within 24 hours once the enteral feed volume is 140 to 150 ml/kg/day",
 // and rec 1.8.3, born at or after 28+0 weeks and term, 120 to 140 (PDF p. 21).
-// The flag takes the lower end of each range. Not FULL_EN_ML_KG (100), which
-// has no source and is where the Calculator starts weaning PN (CR-U-SWITCH). A
+// The flag takes the lower end of each range. Not the Calculator's switch to
+// the enteral targets (CR-U-SWITCH: 120 mL/kg/d, or 75 % of the enteral energy
+// and protein needs), which is a different question. A
 // record with no usable GA takes the lower line, so the flag comes no later.
 const PN_STOP_EN_ML_KG = { belowGaWk: 28, below: 140, atOrAbove: 120 };
 
@@ -3723,7 +3803,7 @@ window.NEOFEED_DATA = {
   // for by mistake alongside KCMH_STOCK; see the warning at its declaration.
   SALT_SOURCES_REFERENCE_ONLY: SALT_SOURCES,
   // Target systems (backward-compatible function API)
-  TARGETS, TPN_TARGETS, ENTERAL_TARGETS, isFullEn,
+  TARGETS, TPN_TARGETS, ENTERAL_TARGETS, isFullEn, fullEnReached, fullEnNeeds, FULL_EN_NEEDS_FRACTION,
   // mg per mmol (Na, K, Ca, P), for a page that converts between them
   EN_MG_PER_MMOL,
   // Comprehensive ESPGHAN reference object (for display panels)
@@ -3738,7 +3818,7 @@ window.NEOFEED_DATA = {
   // The ONE GIR grading — the Calculator and the Alerts page both call it, so
   // the same saved GIR can never be amber on one screen and red on the other.
   girStatus, GIR_HARD_HI, KCAL_HARD_HI,
-  PROTEIN_HARD_HI, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, NPE_IV_WARN_LO, OSM_PERIPHERAL_MAX, DEX_PERIPHERAL_MAX_PCT,
+  PROTEIN_HARD_HI, LIPID_IV_KCAL_PER_G, caPStatus, LIPID_IV_HARD_HI, K_IV_HARD_HI, NPE_IV_CRIT_LO, NPE_IV_WARN_LO, OSM_PERIPHERAL_MAX, DEX_PERIPHERAL_MAX_PCT,
   // Step 3's Lipid volume tap: the syringe to a whole mL, the dose from it;
   // both pumps' rates to 0.1 mL/hr and the hours they run; lipid g/kg/h on those
   lipidDoseAtWholeMl, pumpRate, PUMP_MAX_HOURS, lipidGkghAt, lipidRateGrade, tpnOverDelivery, TPN_OVER_NOTE_PCT,

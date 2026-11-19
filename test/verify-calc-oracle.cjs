@@ -106,7 +106,10 @@ const STOCK = {
   soluvitPerKg: 1, soluvitMax: 10, pediPerKg: 1, pediMax: 15, pediZn: 0.25, hep: 100,
   znSO4: 1,   // mg elemental Zn per mL (pharmacy, 2026-10-25)
 };
-const KCAL = { dex: 3.4, aa: 4, fat: 9 };
+// IV lipid 10 kcal/g since 2026-11-18 (Pp, Q8: ESPGHAN 2018 and the Thai CPG;
+// a 20 % emulsion is 2.0 kcal/mL). It was the KCMH worksheet's 9. Feed fat in
+// the energy split stays 9 (fatPct below).
+const KCAL = { dex: 3.4, aa: 4, fat: 10 };
 // Feeds, from the printed sources (2026-10-17), not from data.js. The Chula
 // Pediatric Nutrition Handbook 3rd ed. prints formulas per 100 kcal, Na and K
 // in mg: [protein g, fat g, CHO g, Na mg, K mg, Ca mg, P mg].
@@ -267,7 +270,11 @@ function expected(sc) {
   e.enKcal = counted(0); e.enPro = counted(1); e.enFat = counted(2); e.enCho = counted(3);
   e.enNaKg = counted(4) / W; e.enKKg = counted(5) / W; e.enCaKg = counted(6) / W; e.enPKg = counted(7) / W;
   e.enFeed = { kcal: given(0) / W, pro: given(1) / W, na: given(4) / W, k: given(5) / W, ca: given(6) / W, p: given(7) / W };
-  e.useEN = W > 0 && cnt / W >= 100;
+  // Enteral targets from 120 mL/kg/d of counted feed, or 75 % of the enteral
+  // energy and protein needs (115 kcal, 3.5 g), whichever first (Pp, 2026-11-18,
+  // Q17; Avery ch 60 p. 1 and p. 9). It was 100 mL/kg/d.
+  const r12 = (x) => Number(x.toPrecision(12));
+  e.useEN = W > 0 && (r12(cnt / W) >= 120 || (r12(counted(0) / W) >= 0.75 * 115 && r12(counted(1) / W) >= 0.75 * 3.5));
   // fluid
   e.prescribed = Vd + e.lipBag + sc.otherIV + sc.drug + cnt;
   e.fluidKg = e.prescribed / W;
@@ -359,7 +366,7 @@ function expectedAlerts(sc, e) {
   const bagIngr = [sc.aa, sc.dex, sc.naCl, sc.naAc, sc.glyNa, sc.kCl, sc.k2, sc.mg, sc.ca, sc.zn].some(v => v > 0);
   const zeroVolBag = e.Vd === 0 && bagIngr;
   const bagOrdered = e.Vd > 0 || zeroVolBag;
-  if (e.Vd > 0) { const s = st(e.gir, [4, 12], { hi: 12 }); if (s === 'crit') add('crit', 'GIR critically high'); else if (s === 'warn') add('warn', 'GIR off target'); }
+  if (e.Vd > 0) { const s = st(e.gir, [2.5, 12], { hi: 12 });   /* floor 2.5 for every infant, Pp 2026-11-18, Q9 */ if (s === 'crit') add('crit', 'GIR critically high'); else if (s === 'warn') add('warn', 'GIR off target'); }
   const ivNpe = e.aaDel > 0 ? (e.tpnKcal - 4 * e.aaDel) / e.aaDel : null;
   // NPE:AA on the IV portion: critical below 12 (TPN team, 2026-10-25), a
   // caution below 20 (the ordinary shape of a ramping PN order), and no upper
@@ -378,9 +385,10 @@ function expectedAlerts(sc, e) {
   const oral = sc.oCa > 0 || sc.oP > 0;
   if (oral) { tile(st(e.totCa, T.ca), 'Calcium (total incl. oral)'); tile(st(e.totP, T.p), 'Phosphate (total incl. oral)'); }
   else { tile(st(e.caKg, T.ca), 'Calcium'); tile(st(e.pKg, T.p), 'Phosphorus'); }
-  { const s = st(oral ? e.totCaP : e.caP, [1.0, 1.7]); const scope = oral ? ' (รวม oral supp)' : '';
+  { const cp = oral ? e.totCaP : e.caP;   // float noise stripped: 1.7 on paper is in range (Pp, 2026-11-18, Q6)
+    const s = st(isFinite(cp) ? Number(cp.toPrecision(12)) : cp, [1.0, 1.7]); const scope = oral ? ' (รวม oral supp)' : '';
     if (s === 'crit') add('crit', `Ca:P ratio${scope} — ไม่มี P`); else if (s === 'warn') add('warn', `Ca:P ratio${scope} off target`); }
-  if (!sc.men && e.enPerKg > 100 && st(e.pe, [2.8, 3.6]) === 'warn') add('warn', 'Protein : Energy off target');
+  if (e.useEN && st(e.pe, [2.8, 3.6]) === 'warn') add('warn', 'Protein : Energy off target');
   if (sc.men && e.enPerKg > 24) add('warn', 'MEN ticked above trophic volume');
   if (bagOrdered) {
     // 900 alone since 2026-10-27 (the 850 caution had no source).
@@ -413,12 +421,13 @@ function expectedAlerts(sc, e) {
     const v = Number(e.kPerL.toPrecision(12));
     if (k.hardMax && v > k.hardMax) add('crit', 'K⁺ above the maximum');
     else if (v > k.red) add('crit', 'K⁺ concentration too high'); else if (v > k.warn) add('warn', 'K⁺ concentration high'); }
-  // Lipid g/kg/h against 0.13 / 0.17, on the 2-decimal figure shown (TPN team and Praew, 2026-09-28),
+  // Lipid g/kg/h against 0.17, on the 2-decimal figure shown; the amber at 0.13
+  // went on 2026-11-18 (Pp, Q11), and amber is now either figure above 0.17 short of critical (TPN team and Praew, 2026-09-28),
   // over the hours the pump actually runs (Pp, 2026-11-06).
   // Critical only when it is above the ceiling over the hours ordered as well: a rate
   // rounded up cannot make it critical by itself (Pp, 2026-11-09).
   if (sc.lip > 0) { const g = Math.round(e.lipGkgh * 100) / 100, ordered = Math.round(sc.lip / sc.lipH * 100) / 100;
-    if ((g > 0.17 && ordered > 0.17) || g > 0.2) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.13) add('warn', 'Lipid rate near the ceiling'); }
+    if ((g > 0.17 && ordered > 0.17) || g > 0.2) add('crit', 'Lipid rate above the ceiling'); else if (g > 0.17 || ordered > 0.17) add('warn', 'Lipid rate near the ceiling'); }
   // The TPN pump runs 24 h with no volume limit; 5 % or more above the volume is said (Pp, 2026-11-10, Q21).
   if (e.Vd > 0) { let r = Math.round(e.Vd / 24 * 10 + 1e-9) / 10;
     if (!(r > 0) || e.Vd / r > 24 + 1e-9) r = Math.ceil(e.Vd / 24 * 10 - 1e-9) / 10;
@@ -486,8 +495,9 @@ const SCEN = [
     ioOut: 80, tpn: 60, dead: 30, dex: 10, aa: 2, lip: 1, naCl: 1, kCl: 1, ca: 30, glyNa: 1, hep: 1,
     feed: 'BM_HMF_24', enVol: 20, enFreq: 4, feed2: 'INFATRINI_30', enVol2: 20, enFreq2: 4,
     weights: [{ dol: 1, w: 1300 }, { dol: 17, w: 1440 }] },
-  { name: 'K2 two feeds reach full EN only together: BM 22 mL × 4 and Enfalac Premature 24 at 6 mL × 4', bw: 1000, cur: 1000, dol: 14,
-    fluid: 160, ioOut: 60, tpn: 0, feed: 'BM_20', enVol: 22, enFreq: 4, feed2: 'ENFALAC_PREM_24', enVol2: 6, enFreq2: 4,
+  // 24 × 4 + 6 × 4 = 120 mL/kg/d, the switch since 2026-11-18 (it was 22 × 4 + 6 × 4 = 112 against 100).
+  { name: 'K2 two feeds reach full EN only together: BM 24 mL × 4 and Enfalac Premature 24 at 6 mL × 4', bw: 1000, cur: 1000, dol: 14,
+    fluid: 160, ioOut: 60, tpn: 0, feed: 'BM_20', enVol: 24, enFreq: 4, feed2: 'ENFALAC_PREM_24', enVol2: 6, enFreq2: 4,
     weights: [{ dol: 1, w: 1000 }] },
   // A prepared volume with a second decimal: 80.45 + 50 = 130.45 mL prints as
   // 130.5, and the WFI must be taken from that (NF-17; it printed 42.9, now 43).
@@ -749,7 +759,7 @@ async function run(scIn) {
   near(sc, 'tile Calcium', tileVal('Calcium'), e.caKg, 0);
   near(sc, 'tile Phosphorus', tileVal('Phosphorus'), e.pKg, 0);
   near(sc, 'tile Ca:P', tileVal('Ca:P ratio'), e.caP, 2);
-  if (!sc.men && e.enPerKg > 100) near(sc, 'tile Protein:Energy', tileVal('Protein : Energy'), e.pe, 1);
+  if (e.useEN) near(sc, 'tile Protein:Energy', tileVal('Protein : Energy'), e.pe, 1);
   if (tiles()['Calcium (total)']) {
     near(sc, 'tile Calcium (total)', tileVal('Calcium (total)'), e.totCa, 0);
     near(sc, 'tile Phosphate (total)', tileVal('Phosphate (total)'), e.totP, 0);

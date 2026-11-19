@@ -11,7 +11,7 @@
 //   2  AA flag        AA < 2.5 g/kg/d, DOL 2–7, counted EN < 50, preterm (GA < 37)
 //                     only, by today's DOL, also for an infant admitted later
 //   3  lipid flag     no lipid on DOL 2, preterm only
-//   4  GIR flag       girStatus: above 12 red, below 4 amber, 0 (no dextrose) none
+//   4  GIR flag       girStatus: above 12 red, below 2.5 amber (4 until 2026-11-18; Pp, Q9), 0 (no dextrose) none
 //   5  PN after EN    PN still ordered at NICE's line: 140 below 28 wk, 120 from 28
 //                     wk and term, every GA
 //   6  No TPN         the latest order is No TPN: that chip, and since 2026-11-17
@@ -158,13 +158,14 @@ ok('GA 37+0: not flagged', !has(lipRow({}, { ga: 37 }), 'lipid'));
 ok('by today\'s DOL: DOL 2 today, DOL 1\'s order without lipid: flagged',
   has(row(pt('LY', { dol: 2 }), [tpn(day(-1), { aa: 3, lipid: 0 })]), 'lipid'));
 
-console.log('\n── 4. GIR: above 12 red, below 4 amber ──');
+console.log('\n── 4. GIR: above 12 red, below 2.5 amber ──');
 const girRow = (gir) => row(pt('GI', { dol: 10, ga: 38 }), [tpn(today, { gir, en: 20 })]);
 const girFlag = (gir) => (girRow(gir)?.flags || []).find(f => f.key === 'gir');
 ok('GIR 12: no flag', !girFlag(12), girFlag(12));
 ok('GIR 12.01: red', girFlag(12.01)?.level === 'crit', girFlag(12.01));
-ok('GIR 4: no flag', !girFlag(4));
-ok('GIR 3.99: amber, low', girFlag(3.99)?.level === 'warn' && girFlag(3.99)?.low === true, girFlag(3.99));
+ok('GIR 2.5: no flag', !girFlag(2.5));
+ok('GIR 2.49: amber, low', girFlag(2.49)?.level === 'warn' && girFlag(2.49)?.low === true, girFlag(2.49));
+ok('GIR 3.99, amber until 2026-11-18: no flag', !girFlag(3.99), girFlag(3.99));
 ok('GIR 0 (no dextrose, lipid only): no flag', !girFlag(0));
 ok('a red GIR makes the row red', girRow(12.5)?.level === 'crit');
 ok('GIR applies at every GA (term, GA 40)', row(pt('GT', { ga: 40, dol: 10 }), [tpn(today, { gir: 13 })])?.level === 'crit');
@@ -349,7 +350,7 @@ ok('AA 2.494 prints 2.49: AA flag', has(aaRow({ aa: 2.494 }), 'aa'), keys(aaRow(
 // GIR is the exception (Vera, 2026-11-18): the Calculator and the Alerts page grade the
 // saved GIR raw through girStatus, so this page does too: one GIR, one grading.
 const girLevel = (g) => girFlag(g)?.level || 'ok';
-const girs = [12, tail(12, 1), 12.004, 12.006, 4, tail(4, -1), 3.996, 8];
+const girs = [12, tail(12, 1), 12.004, 12.006, 2.5, tail(2.5, -1), 2.496, 4, 8];
 ok('GIR graded as girStatus grades the saved number, as the Alerts page does: ' + girs.map(g => String(g).slice(0, 8)).join(' '),
   girs.every(g => girLevel(g) === D.girStatus(g)), girs.map(g => [g, girLevel(g), D.girStatus(g)]));
 ok('…so 12.004 is red here as on the Alerts page', girLevel(12.004) === 'crit');

@@ -7,6 +7,105 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-19 (1) — The TPN unit's sticker requests: SCN is 9B1, zero rows off the worksheet, AN and NeoFeed ID on every part; K⁺ in bag on the order's front
+
+`tpn-room-core.js` (`wardLabel`, `zeroMl`, `stickerModel`), `tpn-room.jsx` (`StickerSheet`), `tpn-room.css`,
+`calculator.jsx` (`PrintOrderForm`, the "2. K⁺" group line), `test/verify-tpn-room-core-1105.cjs`,
+`test/verify-tpn-room-page-1105.cjs`, `test/verify-calc-sum.cjs`, `openspec/changes/tpn-room-stickers/`
+(design and spec), `REFERENCE.md`, `docs/CLINICAL_CONSTANTS.md`, `compiled/` and the shells. Not live: frontend
+only, the release waits for Pp.
+
+Pp brought these back from the TPN unit on 2026-11-19, with the unit's mock-up of the sheet (`tpn_A4_v2.pdf`);
+she asked to keep the worksheet's left side as it was, one column, rather than the mock-up's two.
+
+- **SCN bags print `9B1(SCN)`.** The ward is 9B1; `9B2(SCN)` was wrong since the room's first print. NICU and
+  iso stay `9B2(NICU)`.
+- **The worksheet leaves off a stock at 0 mL** ("ถ้าอันไหนไม่เติมก็ทำให้ไม่ขึ้นเลย"). `zeroMl` matches only a
+  printJson string that reads as zero ("0", "0.0"); a missing or null figure still holds the print through
+  `missingFigures`, as before. An ordered stock cannot print as 0: `CR-R-STOCK-ML` refuses a Submit whose stock
+  rounds to 0 mL as printed, so a 0 row is always a stock the bag does not get. The spec's scenario that kept
+  zero rows "so the compounder can tick it" is replaced.
+- **Figures larger and right beside the name.** The stock figure is 12 pt (it was the part's 9 pt), the name
+  column takes only its own width, so each figure sits against the longest name. Fourteen rows or more step it
+  to 10.5 pt; no order reaches that today (one amino acid product per bag, and Addamel N holds the print). The
+  page harness prints all sixteen stocks at "188.8", and (Vera) the fullest real set, thirteen at full size under a
+  name that wraps, and checks every part still fits one A4 page; before the step
+  the sixteen-row sheet overflowed and the page refused the print, as `sheetOverflows` should.
+- **AN and NeoFeed ID on all three parts.** The worksheet's head line reads Ward, AN, NeoFeed ID beside the name
+  (the ID moves up from small type under the SWFI box); the PN label's centred AN line adds the ID; the bag sticker
+  adds it after the date. The ID lets the room check a bag against the paper order.
+- **Prepared, label and figure, bold** on the worksheet and the PN label.
+- **The printed order's front shows "K⁺ in bag N mEq/L"** in 9 pt grey after "2. K⁺" ("K in bag ถ้าพอเติมได้
+  ตัวเล็กๆ ให้ pharmacy มั่นใจ"). The figure is the K⁺ in bag tile's `calc.kMeqPerL` at one decimal (the tile shows a
+  whole number; Vera: a central bag graded 120.4, critical, would otherwise print "120" beside "confirm > 120"),
+  under the Bag osm line's guard (a bag volume and a dosing weight). The back sheet's K⁺ line never reached paper.
+  `verify-calc-sum.cjs` checks the printed figure against the tile on every order (a planted `+ 1` failed it),
+  and a new `CR-K-BAG-RED` case prints 120.4 for KCl 3.01 (it failed on the whole-number print).
+  `CONSTANTS_VERSION` stays `2026-11-18.1`, by the reasoning that kept it for Bag osm (Pp, on the PR: "คงไว้").
+
+- **The backend's submit floor rises to `2026-11-18.1`** (`MIN_SUBMIT_CONSTANTS_VERSION`, `gas-backend.gs`), the
+  question Vera left for the release of PR #291 (Pp, 2026-11-19: "ขยับและ deploy backend"). A tab opened before
+  that release can no longer submit an order with IV lipid at 9 kcal/g or the old 100 mL/kg/d switch; it is asked
+  to reload, and its draft still saves. The backend goes live after the frontend release, in the same sitting.
+  Five backend harnesses that submitted at the old floor now submit at the new one; `verify-backend-stops-1028`
+  refuses `2026-11-16.1`, the release before it.
+
+Left as is: the PN label still prints its zero amounts (Amiparen 0 g, Addamel N 0 mL); the unit asked about the
+worksheet only. Precipitation (a Ca × P curve from the unit) waits for the unit to send its graph.
+
+## Session 2026-11-18 (6) — Pp's answers to Q6, Q8, Q9, Q10, Q11, Q17 and Q22: lipid at 10 kcal/g, GIR floor 2.5, the EN switch at 120 or 75 %
+
+`data.js` (`CONSTANTS_VERSION` `2026-11-18.1`, `LIPID_IV_KCAL_PER_G`, `caPStatus`, `TARGETS.gir`, `LIPID_GKGH`,
+`lipidRateGrade`, `lipidDoseAtWholeMl`, `FULL_EN_ML_KG`, `FULL_EN_NEEDS_FRACTION`, `fullEnReached`, `isFullEn`),
+`calculator.jsx`, `app.jsx` (the Reference page's Full EN step), the `neofeed-clinical-rules` skill (each rule's
+block and § Questions for Pp), `docs/CLINICAL_CONSTANTS.md`, `tools/reference-tabs.json`, `REFERENCE.md`, `TDD.md`,
+`app-walkthrough.md`, `compiled/` and both shells. Not live: frontend only, the release waits for Pp.
+
+Pp answered seven of the skill's open questions on 2026-11-18. Her words are quoted in each rule's block.
+
+- **Q8, `CR-U-ENERGY`: IV lipid counts 10 kcal/g, not 9** ("ESPGHAN กับ Thai CPG ใช้ 10"; a 20 % emulsion is 2.0
+  kcal/mL). The one printed figure that moves: TPN kcal and kcal/kg/d, on screen, on the order and in the copied
+  text, rise by 1 kcal per g of IV lipid (1 kg on D10 100 mL, AA 3, lipid 3: 73 → 76 kcal/kg/d). What is computed
+  from energy follows: NPE:AA rises (by lipid g ÷ amino acid g), P:E (protein per 100 kcal) falls, and in the
+  energy split the fat share rises and the other two fall. No dose, volume or mL moves. NeoFeed's energy no longer equals the KCMH worksheet's E53, which counts
+  9. Feed fat in the energy split stays 9 kcal/g. The sticker's kcal is the aqueous bag's and does not move.
+  `CONSTANTS_VERSION` is `2026-11-18.1`, so every order saved before is held for a re-save before it reprints.
+- **Q6, `CR-TGT-CAP`: a Ca:P of exactly 1.7 is in range.** The ratio is graded with float noise stripped
+  (`D.caPStatus`, `toPrecision(12)`), for the bag + feed tile and the total with oral supplement. 52.7 / 31 graded
+  High beside a printed "1.7:1".
+- **Q9, `CR-GIR-MAX`: the amber floor is 2.5 mg/kg/min for every infant** ("ใช้ 2.5 ทั้งหมด"; it was 4). One
+  `girStatus`, so the Calculator, the ward Alerts page and "TPN ทั้งหอ" all move: a logged GIR of 2.5–4 no longer
+  shows amber anywhere.
+- **Q10, `CR-PROTEIN-MAX`: no code change.** Parenteral amino acid above 3.5 is amber and 4.5 on TPN + feed stays
+  the only critical line; that is what the parenteral band already does (two cases added). An order on the enteral
+  band has a feed that adds at least 1.4 g/kg/d, so amino acid above 3.5 there is over 4.5 anyway.
+- **Q11, `CR-LIPID-RATE`: the 0.13 g/kg/h amber is gone** ("ปรับตามนั้น"; it is the Thai CPG's ceiling for children
+  over 1 year). The ceiling is 0.17; amber is now a figure above 0.17 that is not critical: at the pump only (the
+  rate rounded up) or over the hours ordered only (the rate rounded down). The second kept its amber on purpose: a
+  dose above the ceiling as ordered would otherwise show nothing. The pump card reads "เพดาน 0.17".
+- **Q17, `CR-U-SWITCH`: enteral targets from 120 mL/kg/d or 75 % of needs, whichever is reached first** ("หรือ";
+  it was 100, with no source). Asked what "needs" counts, Pp chose energy and protein: the counted feed gives at
+  least 75 % of 115 kcal/kg/d (86.25) and of 3.5 g/kg/d (2.625), the lower end of `ENTERAL_TARGETS`. Avery ch 60
+  p. 9 (120 mL/kg/day) and p. 1 (75 % of protein and energy requirements). Breast milk with no fortifier switches at
+  120; Hi-Q LBW 24 at 107.8 mL/kg/d; the 27 kcal/oz preterm formulas at 96–101, around the old 100. A saved row
+  (`isFullEn`: the Daily log's bands, the Alerts page) follows the same rule from the feeds in `calcInput`; a row
+  that names no feed is judged on volume alone. Step 2's EN volume tile shows 120, and it and the done mark turn
+  green once the switch is reached either way.
+- **Q22, `CR-R-LIPID-WHOLE-ML`: a whole-mL tap on a dose already above 4.0 g/kg/d rounds down** ("ไม่ต้องกัน
+  แต่ถ้าไขมันเกิน 4.0 อยู่แล้ว ให้ปัดลง"): 4.5 g/kg/d at 1.68 kg, 37.8 mL, becomes 37 mL (4.4), not 38 (4.52). The tap's two guards now grade the dose it returns, so a second tap never
+  moves the dose and a tap never turns the hourly rate critical (where even 1 mL would, the dose is left as
+  typed); both kinds of fault dated from 2026-11-06 and were found by the new-agent re-checks (1,430 g over 16 h:
+  2.73 returned 2.8, critical, since 2026-11-10; now 2.66). No
+  guard for Energy above 160 or NPE:AA below 12. At or under 4.0 nothing changes, and Vitalipid keeps its 1 mL.
+- **Tests.** `verify-clinical-rules.cjs`: 1,067 checks (was 1,015), each changed rule with an inside and an outside
+  case at the new edge. `verify-calc-sum.cjs` gains tie order T7 (34 + 8 + 1.5 = 43.5 → 44 kcal/kg/d; at 9 kcal/g
+  every figure read 43). The oracle and the fuzz recompute energy at 10 and the switch from their own formulas.
+  `verify-review-0917-calc.cjs`'s five print digests were recaptured after a figure-by-figure comparison with
+  `d8eac99`: only the energy lines moved. Fixtures that used a GIR of 3.5 as their caution now use 2
+  (`verify-alarm-fatigue`, `verify-admin-census`, `verify-safety-fixes-0923`, `verify-ward-tpn-page-1115`).
+- **Not done.** No second clinician signed off (step 3 of the change protocol). No before-and-after from dev local
+  yet: that belongs to the release PR (NF-05).
+
 ## Session 2026-11-18 (5) — "TPN ทั้งหอ": Pp keeps never-TPN infants off the page
 
 `REFERENCE.md` (§ The ward's TPN page, *Who is listed*), `test/verify-ward-tpn-page-1115.cjs`. No code change.

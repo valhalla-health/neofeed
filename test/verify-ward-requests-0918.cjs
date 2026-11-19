@@ -195,7 +195,8 @@ const W = 2, EN_ML = 40, BM = D.EN_DB.BM_20;
 const FEED = {};   // what the feed provides per kg/d — an independent transcription
 for (const k of ['kcal', 'pro', 'fat', 'na', 'k', 'ca', 'p']) FEED[k] = EN_ML / 100 * BM[k] / W;
 const TPN = {
-  kcal: (180 * 0.10 * 3.4 + 2 * W * 4 + 2 * W * 9) / W,   // 3.4 kcal/g dextrose, 4 AA, 9 fat — the KCMH sheet's E53
+  // 3.4 kcal/g dextrose, 4 AA, 10 IV lipid (Pp, 2026-11-18, Q8; CR-U-ENERGY). Until then 9, the KCMH sheet's E53: 56.6, now 58.6.
+  kcal: (180 * 0.10 * 3.4 + 2 * W * 4 + 2 * W * 10) / W,
   pro: 2, lipid: 2, na: 1 + 3, k: 3, ca: 0, p: 1.5 * 31,
 };
 function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {

@@ -349,15 +349,16 @@ const BM = D.EN_DB.BM_20, BMH = D.EN_DB.BM_HMF_24;
       && !po.querySelector('[data-v="lim.hard"]'), to);
     // ── Energy ──
     const pk = panel('kcal'), tk = text(pk);
-    ok('Energy: the formula, (3.4 × dextrose g + 4 × AA g + 9 × lipid g + feed kcal) ÷ kg', tk.includes('(3.4 × dextrose g + 4 × AA g + 9 × lipid g + kcal จากนม) ÷ kg'), tk);
-    ok('Energy: 10 g → 34, AA 3 g → 12, lipid 2 g → 18 kcal', vOf(pk, 'dexG') === 10 && vOf(pk, 'dexKcal') === 34 && vOf(pk, 'aaG') === 3 && vOf(pk, 'aaKcal') === 12
-      && vOf(pk, 'lipidG') === 2 && vOf(pk, 'lipidKcal') === 18, tk);
+    // IV lipid at 10 kcal/g since 2026-11-18 (Pp, Q8; CR-U-ENERGY). It was 9: 18 kcal and a tile of 75.
+    ok('Energy: the formula, (3.4 × dextrose g + 4 × AA g + 10 × lipid g + feed kcal) ÷ kg', tk.includes('(3.4 × dextrose g + 4 × AA g + 10 × lipid g + kcal จากนม) ÷ kg'), tk);
+    ok('Energy: 10 g → 34, AA 3 g → 12, lipid 2 g → 20 kcal', vOf(pk, 'dexG') === 10 && vOf(pk, 'dexKcal') === 34 && vOf(pk, 'aaG') === 3 && vOf(pk, 'aaKcal') === 12
+      && vOf(pk, 'lipidG') === 2 && vOf(pk, 'lipidKcal') === 20, tk);
     ok('Energy: each term is its grams × its kcal/g as the formula says', near(vOf(pk, 'dexG') * 3.4, vOf(pk, 'dexKcal'), 0.05)
-      && near(vOf(pk, 'aaG') * 4, vOf(pk, 'aaKcal'), 0.05) && near(vOf(pk, 'lipidG') * 9, vOf(pk, 'lipidKcal'), 0.05), tk);
+      && near(vOf(pk, 'aaG') * 4, vOf(pk, 'aaKcal'), 0.05) && near(vOf(pk, 'lipidG') * 10, vOf(pk, 'lipidKcal'), 0.05), tk);
     ok(`Energy: feed 16 mL × ${BM.kcal} kcal/100 mL ÷ 100 = 10.72 kcal`, vOf(pk, 'enMl') === 16 && vOf(pk, 'enPer100') === BM.kcal && vOf(pk, 'enKcal') === 10.72, tk);
     ok('Energy: the feed names its source row', tk.includes(BM.source), tk);
-    ok('Energy: total ÷ kg is the tile (75)', near((34 + 12 + 18 + 10.72) / (vOf(pk, 'wtG') / 1000), tileVal('Energy (total)'), 0.5)
-      && vOf(pk, 'result') === tileVal('Energy (total)') && tileVal('Energy (total)') === 75, { tile: tileVal('Energy (total)') });
+    ok('Energy: total ÷ kg is the tile (77)', near((34 + 12 + 20 + 10.72) / (vOf(pk, 'wtG') / 1000), tileVal('Energy (total)'), 0.5)
+      && vOf(pk, 'result') === tileVal('Energy (total)') && tileVal('Energy (total)') === 77, { tile: tileVal('Energy (total)') });
     const tKcal = D.TPN_TARGETS.kcal(10);
     ok(`Energy: checked against PN DOL 10 ${tKcal.join('–')} and critical above ${D.KCAL_HARD_HI}`, vOf(pk, 'lim.lo') === tKcal[0] && vOf(pk, 'lim.hi') === tKcal[1]
       && vOf(pk, 'lim.hard') === D.KCAL_HARD_HI && tk.includes('CR-TGT-KCAL') && tk.includes('CR-KCAL-MAX') && tk.includes('CR-U-ENERGY'), tk);

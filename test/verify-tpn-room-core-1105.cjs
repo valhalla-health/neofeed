@@ -47,7 +47,7 @@ section('§1 dates, ward, twins, AN');
   ok('isRealDate refuses a typed junk date', !Core.isRealDate('2026-13-01'));
   eq('NICU prints 9B2(NICU)', Core.wardLabel('NICU 3'), '9B2(NICU)');
   eq('iso 2-1 prints 9B2(NICU)', Core.wardLabel('iso 2-1'), '9B2(NICU)');
-  eq('SCN prints 9B2(SCN)', Core.wardLabel('SCN 4'), '9B2(SCN)');
+  eq('SCN prints 9B1(SCN), not 9B2 (TPN unit, 2026-11-19)', Core.wardLabel('SCN 4'), '9B1(SCN)');
   eq('a blank bed has no ward', Core.wardLabel(''), '');
   eq('a free-text bed has no ward', Core.wardLabel('หน้าห้อง'), '');
   // The list's ward groups (Pp, 2026-11-14) are the registry's: data.js wardGroup, with
@@ -178,12 +178,21 @@ section('§4 the sticker model copies strings');
 {
   const j = pj();
   const m = Core.stickerModel(order({ printJson: j }), MAP, '2026-11-17', FIXED);
-  eq('rows in the unit\'s order, less the three it dropped', m.stock.map((r) => r.key),
+  eq('the stock list in the unit\'s order, less the three it dropped', Core.STOCK_ROWS.map(([k]) => k),
     ['d50w', 'aminoven10', 'amiparen10', 'aminoplasmal15', 'nacl20', 'glycophos', 'k2hpo4', 'naAcetate', 'kcl', 'mgso4_10', 'caGluconate', 'soluvit', 'peditrace', 'heparin', 'znso4', 'addamel']);
+  // A stock the bag does not get prints no row (TPN unit through Pp, 2026-11-19).
+  eq('the worksheet keeps the non-zero stocks, in that order', m.stock.map((r) => r.key),
+    Core.STOCK_ROWS.map(([k]) => k).filter((k) => !Core.zeroMl(j.stockMl[k])));
   ok('every stock value is the same string', m.stock.every((r) => r.value === j.stockMl[r.key]));
   ok('every delivered value is the same string', m.delivered.every((r) => r.value === j.delivered[r.key]));
   ok('every amino value is the same string', m.amino.every((r) => r.value === j.delivered.aminoAcidG[r.key]));
-  eq('a zero row keeps its 0', m.stock.find((r) => r.key === 'amiparen10').value, '0');
+  eq('the sample has a zero stock (Amiparen)', j.stockMl.amiparen10, '0');
+  eq('…and the worksheet leaves it off', m.stock.find((r) => r.key === 'amiparen10'), undefined);
+  eq('zero strings read as zero', ['0', '0.0', '00', ' 0 ', '0.00'].map(Core.zeroMl), [true, true, true, true, true]);
+  eq('a real figure, a blank, null or a number is not a zero string', ['0.1', '0.05', '10', '', null, undefined, 0, '-0'].map(Core.zeroMl),
+    [false, false, false, false, false, false, false, false]);
+  const allIn = pj(); Core.STOCK_ROWS.forEach(([k]) => { allIn.stockMl[k] = '1.5'; });
+  eq('every stock non-zero lists all sixteen', Core.stickerModel(order({ printJson: allIn }), MAP, '2026-11-17', FIXED).stock.length, 16);
   eq('a typed dextrose stays as typed', m.dextrosePct, j.delivered.dextrosePct);
   eq('WFI is printJson\'s', m.wfiMl, j.stockMl.wfi);
   eq('order date in the Buddhist era', m.orderDate, '16/11/2569');

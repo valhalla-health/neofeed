@@ -105,12 +105,16 @@ One A4 sheet, three parts, cut by hand, as in the unit's current print.
 
 | Part | Content |
 |---|---|
-| 1 Compounding worksheet | Name, ward, dosing weight, DOL, TPN date, Factor, prepared volume; every stock row `printJson` lists, zeros included, so the compounder can tick each one; WFI on the right; the NeoFeed ID in small type |
-| 2 PN label | The unit's heading; name, AN, DOL, ward; order date and a blank "เวลาที่เริ่มให้"; delivered, dead-space and prepared volumes; the delivered amounts; osmolarity; kcal; date made (the day the TPN is prepared: TPN unit, 2026-11-03); the storage line and the unit's extension (both configured in the page) |
-| 3 Bag label | Name in large type; the ward in a large box; AN; date |
+| 1 Compounding worksheet | Name, ward, AN, NeoFeed ID, dosing weight, DOL, TPN date, Factor, prepared volume in bold; one column of the stocks the bag gets, in the unit's order, each figure large and right beside its name (a stock at 0 mL prints no row: TPN unit through Pp, 2026-11-19; until then zeros printed); WFI on the right |
+| 2 PN label | The unit's heading; name, AN, NeoFeed ID, DOL, ward; order date and a blank "เวลาที่เริ่มให้"; delivered, dead-space and prepared volumes; the delivered amounts; osmolarity; kcal; date made (the day the TPN is prepared: TPN unit, 2026-11-03); the storage line and the unit's extension (both configured in the page) |
+| 3 Bag label | Name in large type; the ward in a large box; AN; date; NeoFeed ID |
 
-- **Ward on the bag label:** NICU and iso beds print `9B2(NICU)`, SCN beds print `9B2(SCN)` (Pp,
-  2026-10-30). A blank or free-text bed blocks printing until NeoFeed has a bed.
+The prepared volume is bold on parts 1 and 2, and the NeoFeed ID and AN print on all three so the room
+can check a bag against the paper order (TPN unit through Pp, 2026-11-19).
+
+- **Ward on the bag label:** NICU and iso beds print `9B2(NICU)` (Pp, 2026-10-30), SCN beds print
+  `9B1(SCN)` (TPN unit through Pp, 2026-11-19; `9B2(SCN)` until then was wrong). A blank or free-text
+  bed blocks printing until NeoFeed has a bed.
 - **Dates and font:** dates print in the Buddhist era, as now. The font is Sarabun (OFL) served with the
   page, so every PC prints the same.
 - **Rows:** the worksheet lists the sample's stock rows in its order, less Aminoleban, Nephrosteril and
