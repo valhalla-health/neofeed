@@ -2365,8 +2365,9 @@ function _validateLogEntry(entry) {
 
 // The oldest CONSTANTS_VERSION (data.js) a submitted order may be computed on.
 // Raise it with a release whose old sheet must not print any more, and deploy
-// the backend after that frontend, as with the stop list.
-var MIN_SUBMIT_CONSTANTS_VERSION = "2026-10-28.1";
+// the backend after that frontend, as with the stop list. 2026-11-18.1 since the release
+// of PR #291 (IV lipid 10 kcal/g, the 120 / 75 % enteral switch), Pp, 2026-11-19: "ขยับ".
+var MIN_SUBMIT_CONSTANTS_VERSION = "2026-11-18.1";
 // "YYYY-MM-DD.N" before "YYYY-MM-DD.N", the number compared as a number. A
 // blank or unreadable version is never "before": no live client sends one,
 // and this guards against stale tabs, not against a hand-made POST.

@@ -31,7 +31,7 @@ const atNoon = (fn) => () => withNow(NOON, fn);
 // saved for a 1.6 kg order in verify-sticker-figures-1030.cjs §2, dated 20 October. The server holds
 // printJson to that schema, so a fixture with fewer keys is refused (§13). The nested objects are built
 // per call, so a case may change one without touching the next.
-const PJ = (extra) => Object.assign({ v: 1, constantsVersion: '2026-10-28.1', orderDate: '2026-10-20', dol: '10',
+const PJ = (extra) => Object.assign({ v: 1, constantsVersion: '2026-11-18.1', orderDate: '2026-10-20', dol: '10',
   dosingWeightKg: '1.6', factor: '1.9', deliveredMl: '160', deadMl: '30', preparedMl: '190',
   stockMl: { d50w: '38', aminoven10: '38', amiparen10: '0', aminoplasmal15: '0', nacl20: '1.1', glycophos: '0',
     k2hpo4: '0', naAcetate: '0', kcl: '2.4', mgso4_10: '0.9', caGluconate: '0', soluvit: '1.9', peditrace: '1.9',
@@ -44,7 +44,7 @@ const PJ = (extra) => Object.assign({ v: 1, constantsVersion: '2026-10-28.1', or
 // An order the figures above belong to: DOL 10, dosing weight 1600 g, the same constants. The date is
 // not in it: the sections that log "today" use ED, which dates the sticker too.
 const E = (extra, ci) => Object.assign({ dol: 10, weight: 1600, fluid: 150, gir: 7, pro: 2, kcal: 42, na: 2, k: 2.5, ca: 0, p: 0,
-  enVolPerKg: 0, route: 'TPN central', status: 'submitted', constantsVersion: '2026-10-28.1', printJson: PJ(),
+  enVolPerKg: 0, route: 'TPN central', status: 'submitted', constantsVersion: '2026-11-18.1', printJson: PJ(),
   calcInput: Object.assign({ wtG: 1600, tpnWtG: 1600, stops: [] }, ci) }, extra || {});
 // The same order dated `date`. The sticker carries the order's date and the server holds it to the row's,
 // so a section that logs on the ward's today (or tomorrow) says so once, here.

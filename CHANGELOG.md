@@ -43,6 +43,13 @@ she asked to keep the worksheet's left side as it was, one column, rather than t
   and a new `CR-K-BAG-RED` case prints 120.4 for KCl 3.01 (it failed on the whole-number print).
   `CONSTANTS_VERSION` stays `2026-11-18.1`, by the reasoning that kept it for Bag osm (Pp, on the PR: "คงไว้").
 
+- **The backend's submit floor rises to `2026-11-18.1`** (`MIN_SUBMIT_CONSTANTS_VERSION`, `gas-backend.gs`), the
+  question Vera left for the release of PR #291 (Pp, 2026-11-19: "ขยับและ deploy backend"). A tab opened before
+  that release can no longer submit an order with IV lipid at 9 kcal/g or the old 100 mL/kg/d switch; it is asked
+  to reload, and its draft still saves. The backend goes live after the frontend release, in the same sitting.
+  Five backend harnesses that submitted at the old floor now submit at the new one; `verify-backend-stops-1028`
+  refuses `2026-11-16.1`, the release before it.
+
 Left as is: the PN label still prints its zero amounts (Amiparen 0 g, Addamel N 0 mL); the unit asked about the
 worksheet only. Precipitation (a Ca × P curve from the unit) waits for the unit to send its graph.
 
