@@ -48,7 +48,7 @@ Seven fresh agents reviewed the live code on 2026-11-19 (the report is in Pp's p
   rate box's 7.2 mL/hr) is GIR 12 on paper and computed 12.000000000000002, which raised "GIR critically high" and
   asked for a reason; protein 4.5 at 960 g, energy 160 at 980 g and zinc 5 mg at 1.6 kg did the same. It is also the
   Alerts page's GIR grading (`girStatus`). `CONSTANTS_VERSION` stays `2026-11-18.1`: no printed number moves, only
-  which value at a limit raises a line. That is Pp's call on the PR. No second clinician's sign-off.
+  which value at a limit raises a line. Pp kept it (2026-11-20, on the PR: "คงไว้"). No second clinician's sign-off.
 
 Left for later, from the same review: the 13 MEDIUM and 24 LOW findings, among them `PRINTED_FIGURES` still holding
 K⁺ in bag at 0 decimals and the K⁺ stop text rounding to the limit.
