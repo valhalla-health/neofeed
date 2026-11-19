@@ -41,7 +41,7 @@ she asked to keep the worksheet's left side as it was, one column, rather than t
   under the Bag osm line's guard (a bag volume and a dosing weight). The back sheet's K⁺ line never reached paper.
   `verify-calc-sum.cjs` checks the printed figure against the tile on every order (a planted `+ 1` failed it),
   and a new `CR-K-BAG-RED` case prints 120.4 for KCl 3.01 (it failed on the whole-number print).
-  `CONSTANTS_VERSION` stays `2026-11-18.1`, by the reasoning that kept it for Bag osm; that is Pp's call on the PR.
+  `CONSTANTS_VERSION` stays `2026-11-18.1`, by the reasoning that kept it for Bag osm (Pp, on the PR: "คงไว้").
 
 Left as is: the PN label still prints its zero amounts (Amiparen 0 g, Addamel N 0 mL); the unit asked about the
 worksheet only. Precipitation (a Ca × P curve from the unit) waits for the unit to send its graph.
