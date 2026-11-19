@@ -1410,26 +1410,36 @@ function lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours = 24, vitalipidMl = 0 } = 
   if (!(lipidPerKg > 0) || !(wtKg > 0)) return null;
   const mlOf = (dose) => Number(displayNum(dose * wtKg / gPerMl, 1));
   const overDose = (dose) => Number(dose.toPrecision(12)) > LIPID_IV_HARD_HI;
-  const overRate = (dose, mlNow) => lipidRateGrade(dose, mlNow + vitalipidMl, hours).status === "crit";
+  // Both guards grade a dose the way the Calculator will once it is set: on the
+  // dose itself and its own syringe volume (dose × kg ÷ 0.2, plus Vitalipid).
+  // The typed dose and every candidate are graded the same way, and a candidate
+  // is the dose this function would return (2 or 3 decimals), never the
+  // unrounded one: graded unrounded, 2.797 g/kg/d over 16 h read 0.17 and the
+  // 2.8 returned read 0.18, critical; and a dose a tap had just returned could
+  // grade differently from its own whole mL, so a second tap took another mL
+  // (new-agent re-check, 2026-11-18; both were there since 2026-11-06).
+  const overRate = (dose) => lipidRateGrade(dose, dose * wtKg / gPerMl + vitalipidMl, hours).status === "crit";
+  const doseAt = (ml) => {
+    const exact = ml * gPerMl / wtKg;
+    for (const d of [2, 3]) {
+      const dose = Math.round(exact * 10 ** d) / 10 ** d;
+      if (mlOf(dose) === ml) return dose;
+    }
+    return exact;
+  };
   const typedOverDose = overDose(lipidPerKg);
   // Above 4.0 the whole mL below, counted on the 0.1 mL the TPN room measures:
   // 37.8 mL is 37, and the 4.4 g/kg/d that gives (36.96 mL, measured 37.0) is
-  // 37 again, so a second tap changes nothing. Floored on the exact mL, each
-  // tap took off another mL (4.5 → 4.4 → 4.29; cold reader, 2026-11-18).
-  // Already a whole mL as measured: left as typed, so a dose above 4.0 never goes up.
+  // 37 again. Floored on the exact mL, each tap took off another mL (4.5 → 4.4
+  // → 4.29; cold reader, 2026-11-18). A dose that already measures a whole mL
+  // is left as typed, so a dose above 4.0 never goes up.
   if (typedOverDose && Number.isInteger(mlOf(lipidPerKg)) && mlOf(lipidPerKg) > 0) return lipidPerKg;
   let ml = typedOverDose ? Math.floor(mlOf(lipidPerKg)) : Number(displayNum(lipidPerKg * wtKg / gPerMl, 0));
   if (!(ml > 0)) return lipidPerKg;
-  const typedOverRate = overRate(lipidPerKg, lipidPerKg * wtKg / gPerMl);
-  const crosses = (m) => (!typedOverDose && overDose(m * gPerMl / wtKg))
-    || (!typedOverRate && overRate(m * gPerMl / wtKg, m));
+  const typedOverRate = overRate(lipidPerKg);
+  const crosses = (m) => (!typedOverDose && overDose(doseAt(m))) || (!typedOverRate && overRate(doseAt(m)));
   while (ml > 1 && crosses(ml)) ml -= 1;
-  const exact = ml * gPerMl / wtKg;
-  for (const d of [2, 3]) {
-    const dose = Math.round(exact * 10 ** d) / 10 ** d;
-    if (mlOf(dose) === ml) return dose;
-  }
-  return exact;
+  return doseAt(ml);
 }
 function girStatus(gir) {
   return rangeStatus(gir, TARGETS.gir(), { hardHi: GIR_HARD_HI });
