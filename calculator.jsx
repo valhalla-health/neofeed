@@ -41,6 +41,8 @@ const roundWholeMl = (n) => Number(D.displayNum(n, 0));
 const RELEASE_CHECK_MS = 5000;
 const RELEASE_FRESH_MS = 60000;
 const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
+const RELEASE_PRINT_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า พิมพ์ใบสั่งไม่ได้ กดโหลดหน้าใหม่ แล้วเปิด order อีกครั้ง";
+const OPEN_ORDER_GONE_TEXT = "order นี้ถูกแก้หรือลบจากเครื่องอื่นแล้ว พิมพ์ฉบับนี้ไม่ได้ กลับไปที่รายชื่อแล้วเปิด order ใหม่";
 const RELEASE_SENT_TEXT = "order ที่เพิ่ง Submit ส่งจากแท็บรุ่นเก่า ห้อง TPN จะไม่รับ กดโหลดหน้าใหม่ แล้วเปิด order กด Submit อีกครั้ง";
 // true: the host serves another release. false: the same one. null: not known.
 async function tabIsBehindRelease() {
@@ -2592,7 +2594,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} as the pump runs, but ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered — above the ceiling of ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28; Pp, 2026-11-18" });
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
-  if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
+  // Graded with float noise stripped (D.gradeNum): 1.6 kg on ZnSO₄ 2.875 is 5 mg on paper (review, 2026-11-19).
+  if (D.gradeNum(calc.znTotal_mg) > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
   // One title for both limits since 2026-11-01 (Pp). It was "Bag cannot be
   // compounded" (and "Bag larger than the largest bottle"): a reason saved
   // before 2026-10-28 names the old one, and such a row is held all the same,
@@ -2722,7 +2725,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // exactly what must not leave the test area. Save and Submit still work.
   const testOrder = D.isTestSession(patient?.sessionId);
   const TEST_NO_PRINT_TEXT = "คนไข้ทดสอบพิมพ์ใบสั่งไม่ได้ ใช้ทดลองบันทึกเท่านั้น";
-  const printReady = printable && unackedRed.length === 0 && !testOrder;
+  // A tab behind the served release prints nothing (code review, 2026-11-19, H2): a release that
+  // moves the calculation holds orders saved before it for a re-Submit, and an old tab cannot know
+  // that, since it compares with its own CONSTANTS_VERSION. The same read that refuses Submit; it
+  // fails open on a read that could not be made, as Submit does.
+  const releaseHoldsPrint = !!releaseBehind && !centerPoint && !scratch;
+  // The order on screen is no longer the current one in the synced log (code review, 2026-11-19,
+  // H3): another device revised it (the old row is superseded, so the log drops it) or deleted it.
+  // A Calculator left open would otherwise go on printing the old figures. The app hands in the
+  // patient's log; its own saves land there in the same render as savedEntryId (handleLogToGAS).
+  const openOrderGone = !!savedEntryId && !centerPoint && !scratch && Array.isArray(entries)
+    && !entries.some(e => e && e.entryId === savedEntryId);
+  const printReady = printable && unackedRed.length === 0 && !testOrder && !releaseHoldsPrint && !openOrderGone;
   const printAckText = `ติ๊กรับทราบค่าวิกฤตทุกข้อก่อนพิมพ์ (${unackedRed.length} ข้อ): ${unackedRed.join(" · ")}`;
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
   // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01);
@@ -2748,6 +2762,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}`
     : "";
   const printBlockToast = testOrder ? TEST_NO_PRINT_TEXT
+    : openOrderGone ? OPEN_ORDER_GONE_TEXT
+    : releaseHoldsPrint ? RELEASE_PRINT_TEXT
     : !printable ? printBlockMessage("ก่อนพิมพ์") : unackedRed.length > 0 ? printAckText : "";
 
   // N1: a nurse account saves Intake/Output on a doctor's submitted order, and
@@ -2806,12 +2822,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         showToast(printBlockToast || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนพิมพ์", "error");
         return;
       }
-      setOpenSteps(ALL);
-      // Wait one frame for React to render all card-b sections
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        window.print();
-        window.onafterprint = () => setOpenSteps(new Set([1]));
-      }));
+      releaseBeforePrint().then((behind) => {
+        if (behind) { showToast(RELEASE_PRINT_TEXT, "error"); return; }
+        setOpenSteps(ALL);
+        // Wait one frame for React to render all card-b sections
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          window.print();
+          window.onafterprint = () => setOpenSteps(new Set([1]));
+        }));
+      });
     };
     document.addEventListener('__neofeed_print', handler);
     return () => document.removeEventListener('__neofeed_print', handler);
@@ -2847,7 +2866,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       if (yes) { setPrintAcks({ key: printAckKey, titles: redAlertTitles }); return; }
       go(); return;
     }
-    if (printReady) { go(); return; }
+    // Behind the release: readRelease has set releaseBehind, printReady turns false, and this
+    // effect runs again and sends the hold reason after the short wait below.
+    if (printReady) {
+      releaseBeforePrint().then((behind) => { if (!behind && autoPrintDone.current !== autoPrint) go(); });
+      return;
+    }
     const t = setTimeout(go, 1500);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2873,6 +2897,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const releaseBehindNow = () => {
     const r = releaseRead.current;
     return r.pending || Date.now() - r.at < RELEASE_FRESH_MS ? r.behind === true : null;
+  };
+  // Print reads the release with Submit's timing (Vera on the code review's H2, 2026-11-19):
+  // it waits for a read still in flight and reads again when the last one is over a minute
+  // old, so a Calculator left open across a release, or an order opened from the print list
+  // before the first read lands, does not print. A read that cannot be made does not hold
+  // it (null), as it does not hold Submit. Resolves true when the tab is behind.
+  const releaseBeforePrint = () => {
+    if (centerPoint || scratch) return Promise.resolve(false);
+    const r = releaseRead.current;
+    if (r.pending) return r.pending.then((behind) => behind === true);
+    if (Date.now() - r.at < RELEASE_FRESH_MS) return Promise.resolve(r.behind === true);
+    return readRelease().then((behind) => behind === true);
   };
   // The same, reading again first when it must, under the given busy flag, so a
   // second press waits for the read.
@@ -3053,6 +3089,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // on a nurse's I/O save; asking again would make it a new version (Vera).
     const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
       && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
+      // The dosing weight moved after the save (a corrected birth weight): every per-kg figure is
+      // re-dosed while the inputs stay the same, so it is a new order and its critical values are
+      // asked again (code review, 2026-11-19: the old reason went out beside a GIR nobody confirmed).
+      && !dosingWeightChanged
       && uncoveredCritical.length === 0;
     const critical = asDraft || nurseIoOnly || ioOnlyByDoctor ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
     let override = (nurseIoOnly || ioOnlyByDoctor) && !asDraft ? critOverride : null;
@@ -4678,6 +4718,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                     )}
                   </div>
                 )}
+              </div>
+            )}
+            {/* Settled and saved, but this tab is behind the release (H2) or the order was revised or
+                deleted on another device (H3): Print is held, and says why. */}
+            {printable && (releaseHoldsPrint || openOrderGone) && (
+              <div className="print-blocked print-held-elsewhere" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                ● {openOrderGone ? OPEN_ORDER_GONE_TEXT : RELEASE_PRINT_TEXT}
               </div>
             )}
 
