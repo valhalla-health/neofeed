@@ -7,6 +7,52 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-19 (1) — The TPN unit's sticker requests: SCN is 9B1, zero rows off the worksheet, AN and NeoFeed ID on every part; K⁺ in bag on the order's front
+
+`tpn-room-core.js` (`wardLabel`, `zeroMl`, `stickerModel`), `tpn-room.jsx` (`StickerSheet`), `tpn-room.css`,
+`calculator.jsx` (`PrintOrderForm`, the "2. K⁺" group line), `test/verify-tpn-room-core-1105.cjs`,
+`test/verify-tpn-room-page-1105.cjs`, `test/verify-calc-sum.cjs`, `openspec/changes/tpn-room-stickers/`
+(design and spec), `REFERENCE.md`, `docs/CLINICAL_CONSTANTS.md`, `compiled/` and the shells. Not live: frontend
+only, the release waits for Pp.
+
+Pp brought these back from the TPN unit on 2026-11-19, with the unit's mock-up of the sheet (`tpn_A4_v2.pdf`);
+she asked to keep the worksheet's left side as it was, one column, rather than the mock-up's two.
+
+- **SCN bags print `9B1(SCN)`.** The ward is 9B1; `9B2(SCN)` was wrong since the room's first print. NICU and
+  iso stay `9B2(NICU)`.
+- **The worksheet leaves off a stock at 0 mL** ("ถ้าอันไหนไม่เติมก็ทำให้ไม่ขึ้นเลย"). `zeroMl` matches only a
+  printJson string that reads as zero ("0", "0.0"); a missing or null figure still holds the print through
+  `missingFigures`, as before. An ordered stock cannot print as 0: `CR-R-STOCK-ML` refuses a Submit whose stock
+  rounds to 0 mL as printed, so a 0 row is always a stock the bag does not get. The spec's scenario that kept
+  zero rows "so the compounder can tick it" is replaced.
+- **Figures larger and right beside the name.** The stock figure is 12 pt (it was the part's 9 pt), the name
+  column takes only its own width, so each figure sits against the longest name. Fourteen rows or more step it
+  to 10.5 pt; no order reaches that today (one amino acid product per bag, and Addamel N holds the print). The
+  page harness prints all sixteen stocks at "188.8", and (Vera) the fullest real set, thirteen at full size under a
+  name that wraps, and checks every part still fits one A4 page; before the step
+  the sixteen-row sheet overflowed and the page refused the print, as `sheetOverflows` should.
+- **AN and NeoFeed ID on all three parts.** The worksheet's head line reads Ward, AN, NeoFeed ID beside the name
+  (the ID moves up from small type under the SWFI box); the PN label's centred AN line adds the ID; the bag sticker
+  adds it after the date. The ID lets the room check a bag against the paper order.
+- **Prepared, label and figure, bold** on the worksheet and the PN label.
+- **The printed order's front shows "K⁺ in bag N mEq/L"** in 9 pt grey after "2. K⁺" ("K in bag ถ้าพอเติมได้
+  ตัวเล็กๆ ให้ pharmacy มั่นใจ"). The figure is the K⁺ in bag tile's `calc.kMeqPerL` at one decimal (the tile shows a
+  whole number; Vera: a central bag graded 120.4, critical, would otherwise print "120" beside "confirm > 120"),
+  under the Bag osm line's guard (a bag volume and a dosing weight). The back sheet's K⁺ line never reached paper.
+  `verify-calc-sum.cjs` checks the printed figure against the tile on every order (a planted `+ 1` failed it),
+  and a new `CR-K-BAG-RED` case prints 120.4 for KCl 3.01 (it failed on the whole-number print).
+  `CONSTANTS_VERSION` stays `2026-11-18.1`, by the reasoning that kept it for Bag osm (Pp, on the PR: "คงไว้").
+
+- **The backend's submit floor rises to `2026-11-18.1`** (`MIN_SUBMIT_CONSTANTS_VERSION`, `gas-backend.gs`), the
+  question Vera left for the release of PR #291 (Pp, 2026-11-19: "ขยับและ deploy backend"). A tab opened before
+  that release can no longer submit an order with IV lipid at 9 kcal/g or the old 100 mL/kg/d switch; it is asked
+  to reload, and its draft still saves. The backend goes live after the frontend release, in the same sitting.
+  Five backend harnesses that submitted at the old floor now submit at the new one; `verify-backend-stops-1028`
+  refuses `2026-11-16.1`, the release before it.
+
+Left as is: the PN label still prints its zero amounts (Amiparen 0 g, Addamel N 0 mL); the unit asked about the
+worksheet only. Precipitation (a Ca × P curve from the unit) waits for the unit to send its graph.
+
 ## Session 2026-11-18 (6) — Pp's answers to Q6, Q8, Q9, Q10, Q11, Q17 and Q22: lipid at 10 kcal/g, GIR floor 2.5, the EN switch at 120 or 75 %
 
 `data.js` (`CONSTANTS_VERSION` `2026-11-18.1`, `LIPID_IV_KCAL_PER_G`, `caPStatus`, `TARGETS.gir`, `LIPID_GKGH`,

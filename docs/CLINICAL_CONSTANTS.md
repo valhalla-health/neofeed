@@ -116,6 +116,11 @@ the `calc.osm` the doctor already saw on the Osmolarity tile and the order was g
 saved under another version is still held by `calcMoved`. A bump would only make the ward re-save every
 old order before reprinting it, for a figure that changes no dose (Pp, 2026-11-16: "คงไว้").
 
+A third, 2026-11-19, keeps `2026-11-18.1` on the same grounds (Pp, 2026-11-19, on PR #292: "คงไว้"): the front sheet's "K⁺ in bag N mEq/L",
+small type beside the "2. K⁺" group (TPN unit through Pp: "K in bag ถ้าพอเติมได้ ตัวเล็กๆ ให้ pharmacy
+มั่นใจ"). It is the `calc.kMeqPerL` of the K⁺ in bag tile, which `CR-K-BAG-MAX` and `CR-K-BAG-RED` already
+grade, at one decimal so a bag graded above a printed limit never reads at it; no number moved.
+
 Format `YYYY-MM-DD` or `YYYY-MM-DD.N`. `test/verify-provenance-stamp.cjs` enforces the format and
 rejects a leading `=`, `+`, `-` or `@`, which a spreadsheet would read as a formula.
 

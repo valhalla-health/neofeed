@@ -92,23 +92,30 @@ button.google { width: 100%; margin: 14px 0 4px; padding: 9px 14px; font-weight:
 .part-label { flex: 0 0 80mm; width: 200mm; font-size: 11pt; }
 .part-bag { flex: 1 1 auto; width: 200mm; }
 .part-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
+.head-ids { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 4mm; }
+.an-line { display: flex; justify-content: center; gap: 8mm; }
+/* Prepared volume in bold on the worksheet and the PN label (TPN unit through Pp, 2026-11-19). */
+.prepared, .prepared .lbl { font-weight: 700; }
 .big-name { font-size: 15pt; font-weight: 700; overflow-wrap: anywhere; }
-.an-line { text-align: center; }
 .part-worksheet .big-name { font-size: 13pt; }
 .facts-line { display: flex; flex-wrap: wrap; gap: .5mm 6mm; margin: .5mm 0; }
 .fig { font-weight: 700; }
 .worksheet-body { display: flex; align-items: flex-start; gap: 10mm; margin-top: .5mm; }
-/* Each figure beside its name, not across the part (TPN unit, 2026-11-16). */
+/* Each figure beside its name, not across the part (TPN unit, 2026-11-16); since 2026-11-19
+   larger and right up against the longest name, since the name column takes only its own width. */
 .stock { flex: 0 0 auto; border-collapse: collapse; }
-.stock td { padding: .2mm 1mm; border-bottom: 1px solid #999; line-height: 1.15; white-space: nowrap; }
-.stock .tick { width: 5mm; }
-.stock .name { width: 34mm; }
-.stock .num { text-align: right; width: 12mm; }
-.stock .unit { width: 7mm; }
+.stock td { padding: 0 .6mm; border-bottom: 1px solid #999; line-height: 1.1; white-space: nowrap; vertical-align: middle; }
+.stock .tick { width: 4mm; }
+.stock .name { padding-right: 2mm; }
+.stock .num { text-align: right; font-size: 12pt; padding-left: 0; }
+.stock .unit { padding-left: .8mm; }
+/* Fourteen rows or more (no order so far: one amino acid product per bag, and Addamel N holds the
+   print) step the figures down a size, so the part still fits instead of the print being refused. */
+.stock.dense td { line-height: 1.05; }
+.stock.dense .num { font-size: 10.5pt; }
 .wfi-col { flex: 0 0 34mm; }
 .wfi { border: 2px solid #000; padding: 1.5mm; text-align: center; }
 .wfi-value { font-size: 22pt; line-height: 1.15; }
-.small-id { font-size: 7pt; margin-top: 1.5mm; }
 .fixed-line { min-height: 1.2em; }
 .heading { font-weight: 700; text-align: center; }
 /* A trial sheet (blank fixed lines): a mark across each part, so none passes for a real one. */
