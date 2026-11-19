@@ -1755,7 +1755,11 @@ var WARD_LIST_WRITES = { logDailyNutrition: true, updateDailyNutrition: true, pu
   updateNursingEntry: true, deleteNursingEntry: true };
 function _wardListRefusalFor(sessionId, seesArchive) {
   if (seesArchive === true || !_requiredString(sessionId)) return null;
-  var rows = getSheetPat().getDataRange().getValues();
+  // Fails open on a read that cannot be made: the threat is a hand-made request, and a Sheets
+  // hiccup must not stop the ward saving an order (verify-usage-log's injected read failure).
+  var rows;
+  try { rows = getSheetPat().getDataRange().getValues(); }
+  catch (e) { Logger.log("ward-list check skipped: the registry read failed"); return null; }
   for (var i = 1; i < rows.length; i++) {
     if (String(rows[i][0]) === String(sessionId) && _outsideWardList(rows[i], seesArchive)) return { error: OUTSIDE_WARD_LIST_MSG };
   }
