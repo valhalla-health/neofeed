@@ -41,13 +41,16 @@ Object.assign(global, {
 });
 const toasts = [];
 global.showToast = (msg) => { toasts.push(String(msg)); };
-window.print = () => {};
+let printed = 0;
+window.print = () => { printed++; };
 window.confirm = () => true;
 window.prompt = () => 'reason';
 // The served release, as compiled/tpn-room-version.js reads. `served` is what the host
 // answers: "same", "newer", or "down" (the read fails).
 let served = 'same';
+let fetchDelayMs = 0;
 global.fetch = async () => {
+  if (fetchDelayMs) await new Promise((r) => setTimeout(r, fetchDelayMs));
   if (served === 'down') throw new Error('offline');
   const v = served === 'same' ? global.window.NeoFeedData_CONSTANTS : '2099-01-01.1';
   return { ok: true, text: async () => `window.TPN_ROOM_VERSIONS = { constantsVersion: ${JSON.stringify(v)}, stickerSchema: 1 };\n` };
@@ -158,6 +161,49 @@ async function openSaved(row) {
     eq('deleted (the log holds no row for it): no sheet', !!sheet(), false);
     render({ entries: [{ entryId: 'e-1', ts: '2026-11-19', status: 'submitted', lastModified: 'lm-1' }] });
     eq('the row back in the log: the sheet renders again', !!sheet(), true);
+  });
+
+  // Vera on the fix (2026-11-19): Print must read the release with Submit's timing, waiting for a
+  // read in flight and reading again when the last one is over a minute old.
+  await section('§3 (H2) Print waits for the release read, and reads again when it is stale', async () => {
+    served = 'same';
+    await mountAndSubmit();
+    const row = { ...lastEntry, entryId: 'e-1', lastModified: 'lm-1', status: 'submitted' };
+
+    // (a) Opened from the print list while the first read is still in flight, and it finds a newer release.
+    served = 'newer'; fetchDelayMs = 300;
+    const asked = [];
+    act(() => { root.unmount(); });
+    root = ReactDOM.createRoot(container);
+    props = { ...props, editEntry: row, entries: [row], autoPrint: 'tok-1', requestPrint: (why) => asked.push(why) };
+    render({});
+    await act(async () => { await new Promise(r => setTimeout(r, 50)); });
+    eq('the read is still in flight: nothing asked to print yet', asked.length, 0);
+    // act holds the read's state update until its callback ends, so the read lands in one act and
+    // the held order's short wait (1.5 s) runs in the next.
+    await act(async () => { await new Promise(r => setTimeout(r, 600)); });
+    await act(async () => { await new Promise(r => setTimeout(r, 1800)); });
+    eq('after the read: one print request, carrying the hold reason', asked.map(a => /ออกรุ่นใหม่แล้ว/.test(a || '') ? 'held' : String(a)), ['held']);
+    eq('…and no sheet', !!sheet(), false);
+    fetchDelayMs = 0;
+
+    // (b) A Calculator left open across a release: the read made on opening is over a minute old.
+    served = 'same';
+    act(() => { root.unmount(); });
+    root = ReactDOM.createRoot(container);
+    props = { ...props, editEntry: row, entries: [row], autoPrint: null, requestPrint: null };
+    render({});
+    await settle();
+    eq('opened on the same release: the sheet renders', !!sheet(), true);
+    const realNow = Date.now;
+    Date.now = () => realNow() + 61000;
+    served = 'newer';
+    printed = 0; toasts.length = 0;
+    await act(async () => { document.dispatchEvent(new window.CustomEvent('__neofeed_print')); await new Promise(r => setTimeout(r, 50)); });
+    Date.now = realNow;
+    eq('a minute later, after a release: Print reads again and prints nothing', printed, 0);
+    eq('…and the toast says why', toasts.some(t => /ออกรุ่นใหม่แล้ว.*พิมพ์ใบสั่งไม่ได้/.test(t)), true);
+    served = 'same';
   });
 
   console.log(`\n${fail === 0 ? 'PRINT HOLDS 2026-11-19: ALL PASS' : `PRINT HOLDS 2026-11-19: ${fail} FAILED`} (${pass} passed)`);

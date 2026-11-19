@@ -645,10 +645,28 @@ T.section('H5 · writes to a record outside the ward\'s sync window are an admin
   T.eq('a new registration on that id still gets IdTaken, so the client draws another', [reg.needsConfirm, reg.code], [true, 'IdTaken']);
   const forced = g.as(g.nt, { action: 'registerPatient', isNew: true, confirmOverwrite: true, patient: overwrite });
   T.ok('…but forcing the overwrite is Forbidden', /Forbidden/.test(forced.error || ''), forced);
-  T.ok('an admin may edit the archived record', g.as(g.at, { action: 'updatePatient', patient: P('ZZ-9', { diagnosis: 'corrected by admin' }) }).ok === true);
+  T.ok('an admin may edit the archived record', g.as(g.at, { action: 'updatePatient', patient: P('ZZ-9', { status: 'Discharged', statusDate: addDays(TODAY, -90), diagnosis: 'corrected by admin' }) }).ok === true);
   g.seedPatient(P('YY-8'));
   T.ok('a nurse still edits an infant on the ward', g.as(g.nt, { action: 'updatePatient', patient: P('YY-8', { diagnosis: 'edited on the ward' }) }).ok === true);
   T.ok('…and records a weight for one', g.as(g.nt, { action: 'updateWeights', sessionId: 'YY-8', weights: [{ dol: 1, w: 900 }, { dol: 3, w: 950 }] }).ok === true);
+  // Vera on the fix: the order and nursing writes too, since pharmacyOrders lists a date's orders
+  // whatever the infant's status.
+  const docOrder = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'ZZ-9', entry: E({ ts: TODAY }) });
+  T.ok('a doctor\'s order for the archived infant is Forbidden', /Forbidden/.test(docOrder.error || ''), docOrder);
+  T.ok('…and nothing reached Daily_Log', !g.rows('Daily_Log').some(r => r[1] === 'ZZ-9'));
+  const wardOrder = g.as(g.dt, { action: 'logDailyNutrition', sessionId: 'YY-8', entry: E({ ts: TODAY }) });
+  T.ok('a doctor\'s order for an infant on the ward still saves', !!wardOrder.entryId, wardOrder);
+  const pub = g.as(g.dt, { action: 'publishLog', sessionId: 'YY-8', entryId: wardOrder.entryId, expectedLastModified: wardOrder.lastModified });
+  T.ok('…and locks', pub.ok === true, pub);
+  g.props.set('NURSING_LOG_ENABLED', 'true');
+  const nurseIo = g.as(g.nt, { action: 'logNursingEntry', sessionId: 'ZZ-9',
+    entry: { ts: TODAY, ivInMl: 120, enInMl: 40, feedType: 'BM_20', urineMl: 80, drainMl: 0, stoolCount: 2, appVersion: 'test' } });
+  T.ok('a nurse\'s I/O for the archived infant is Forbidden', /Forbidden/.test(nurseIo.error || ''), nurseIo);
+  const nurseWard = g.as(g.nt, { action: 'logNursingEntry', sessionId: 'YY-8',
+    entry: { ts: TODAY, ivInMl: 120, enInMl: 40, feedType: 'BM_20', urineMl: 80, drainMl: 0, stoolCount: 2, appVersion: 'test' } });
+  T.ok('…and for an infant on the ward it saves', !!nurseWard.entryId, nurseWard);
+  const adminOrder = g.as(g.at, { action: 'logDailyNutrition', sessionId: 'ZZ-9', entry: E({ ts: TODAY }) });
+  T.ok('an admin may still write an order for the archived infant', !!adminOrder.entryId, adminOrder);
 });
 
 T.section('UP-B1 · a newly created Audit_Log tab is 4 columns, not 26', () => {

@@ -1490,6 +1490,10 @@ function doPost(e) {
     var canWriteOrder = user.role === "doctor" || user.role === "admin" || !_nursingEnabled();
     var ORDER_FORBIDDEN = { error: "พยาบาลใช้ Calculator ได้ แต่บันทึกหรือ Submit ใบสั่ง TPN ไม่ได้ — บันทึก I/O ที่ Dashboard", code: "Forbidden" };
 
+    if (WARD_LIST_WRITES.hasOwnProperty(action)) {
+      var wardListRefusal = _wardListRefusalFor(body.sessionId, user.role === "admin");
+      if (wardListRefusal) return jsonOut(wardListRefusal);
+    }
     if (action === "logDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
       if (!canWriteOrder) return jsonOut(ORDER_FORBIDDEN);
@@ -1743,6 +1747,19 @@ var ARCHIVE_SYNC_DAYS = 30;
 var OUTSIDE_WARD_LIST_MSG = "Forbidden — ผู้ป่วยรายนี้อยู่นอกรายชื่อของวอร์ด ให้ admin เป็นผู้แก้";
 function _outsideWardList(row, seesArchive) {
   return seesArchive !== true && !!row && !_patientInSyncWindow(row[9], row[16], _wardDateKey());
+}
+// The order and nursing writes that name a sessionId check the same rule before they run (Vera on
+// the H5 fix, 2026-11-19): pharmacyOrders lists every current order of a date whatever the
+// infant's status, so a hand-made order for an archived infant reached the TPN room.
+var WARD_LIST_WRITES = { logDailyNutrition: true, updateDailyNutrition: true, publishLog: true,
+  updateNursingEntry: true, deleteNursingEntry: true };
+function _wardListRefusalFor(sessionId, seesArchive) {
+  if (seesArchive === true || !_requiredString(sessionId)) return null;
+  var rows = getSheetPat().getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(sessionId) && _outsideWardList(rows[i], seesArchive)) return { error: OUTSIDE_WARD_LIST_MSG };
+  }
+  return null;
 }
 function _patientInSyncWindow(statusValue, statusDateValue, todayKey) {
   if (_onUnitStatus(statusValue)) return true;

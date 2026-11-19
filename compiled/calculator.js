@@ -1855,11 +1855,17 @@ function Calculator({
         showToast(printBlockToast || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนพิมพ์", "error");
         return;
       }
-      setOpenSteps(ALL);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        window.print();
-        window.onafterprint = () => setOpenSteps(/* @__PURE__ */ new Set([1]));
-      }));
+      releaseBeforePrint().then((behind) => {
+        if (behind) {
+          showToast(RELEASE_PRINT_TEXT, "error");
+          return;
+        }
+        setOpenSteps(ALL);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          window.print();
+          window.onafterprint = () => setOpenSteps(/* @__PURE__ */ new Set([1]));
+        }));
+      });
     };
     document.addEventListener("__neofeed_print", handler);
     return () => document.removeEventListener("__neofeed_print", handler);
@@ -1886,7 +1892,9 @@ function Calculator({
       return;
     }
     if (printReady) {
-      go();
+      releaseBeforePrint().then((behind) => {
+        if (!behind && autoPrintDone.current !== autoPrint) go();
+      });
       return;
     }
     const t = setTimeout(go, 1500);
@@ -1895,6 +1903,13 @@ function Calculator({
   const releaseBehindNow = () => {
     const r = releaseRead.current;
     return r.pending || Date.now() - r.at < RELEASE_FRESH_MS ? r.behind === true : null;
+  };
+  const releaseBeforePrint = () => {
+    if (centerPoint || scratch) return Promise.resolve(false);
+    const r = releaseRead.current;
+    if (r.pending) return r.pending.then((behind) => behind === true);
+    if (Date.now() - r.at < RELEASE_FRESH_MS) return Promise.resolve(r.behind === true);
+    return readRelease().then((behind) => behind === true);
   };
   const releaseBehindForSubmit = (setBusy) => {
     const now = releaseBehindNow();

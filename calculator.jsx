@@ -2822,12 +2822,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         showToast(printBlockToast || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนพิมพ์", "error");
         return;
       }
-      setOpenSteps(ALL);
-      // Wait one frame for React to render all card-b sections
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        window.print();
-        window.onafterprint = () => setOpenSteps(new Set([1]));
-      }));
+      releaseBeforePrint().then((behind) => {
+        if (behind) { showToast(RELEASE_PRINT_TEXT, "error"); return; }
+        setOpenSteps(ALL);
+        // Wait one frame for React to render all card-b sections
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          window.print();
+          window.onafterprint = () => setOpenSteps(new Set([1]));
+        }));
+      });
     };
     document.addEventListener('__neofeed_print', handler);
     return () => document.removeEventListener('__neofeed_print', handler);
@@ -2863,7 +2866,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       if (yes) { setPrintAcks({ key: printAckKey, titles: redAlertTitles }); return; }
       go(); return;
     }
-    if (printReady) { go(); return; }
+    // Behind the release: readRelease has set releaseBehind, printReady turns false, and this
+    // effect runs again and sends the hold reason after the short wait below.
+    if (printReady) {
+      releaseBeforePrint().then((behind) => { if (!behind && autoPrintDone.current !== autoPrint) go(); });
+      return;
+    }
     const t = setTimeout(go, 1500);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2889,6 +2897,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const releaseBehindNow = () => {
     const r = releaseRead.current;
     return r.pending || Date.now() - r.at < RELEASE_FRESH_MS ? r.behind === true : null;
+  };
+  // Print reads the release with Submit's timing (Vera on the code review's H2, 2026-11-19):
+  // it waits for a read still in flight and reads again when the last one is over a minute
+  // old, so a Calculator left open across a release, or an order opened from the print list
+  // before the first read lands, does not print. A read that cannot be made does not hold
+  // it (null), as it does not hold Submit. Resolves true when the tab is behind.
+  const releaseBeforePrint = () => {
+    if (centerPoint || scratch) return Promise.resolve(false);
+    const r = releaseRead.current;
+    if (r.pending) return r.pending.then((behind) => behind === true);
+    if (Date.now() - r.at < RELEASE_FRESH_MS) return Promise.resolve(r.behind === true);
+    return readRelease().then((behind) => behind === true);
   };
   // The same, reading again first when it must, under the given busy flag, so a
   // second press waits for the read.

@@ -121,6 +121,11 @@ small type beside the "2. K⁺" group (TPN unit through Pp: "K in bag ถ้า�
 มั่นใจ"). It is the `calc.kMeqPerL` of the K⁺ in bag tile, which `CR-K-BAG-MAX` and `CR-K-BAG-RED` already
 grade, at one decimal so a bag graded above a printed limit never reads at it; no number moved.
 
+A fourth, 2026-11-19 (the code review's H6), keeps `2026-11-18.1` pending Pp's word on the PR: every tile and hard
+limit graded by `D.rangeStatus`, and the total-zinc limit, now strip float noise (`D.gradeNum`, `toPrecision(12)`),
+as K⁺ and Ca:P already did. A value exactly at GIR 12, protein 4.5, energy 160 or zinc 5 mg/day no longer raises a
+critical line, and the amber edges move the same way. No printed number moves. No second clinician's sign-off.
+
 Format `YYYY-MM-DD` or `YYYY-MM-DD.N`. `test/verify-provenance-stamp.cjs` enforces the format and
 rejects a leading `=`, `+`, `-` or `@`, which a spreadsheet would read as a formula.
 

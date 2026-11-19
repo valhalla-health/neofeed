@@ -25,8 +25,10 @@ Seven fresh agents reviewed the live code on 2026-11-19 (the report is in Pp's p
   `!dosingWeightChanged`. Two reviewers found it independently.
 - **H2: a tab behind the served release prints nothing.** A release that moves the calculation holds older orders for a
   re-Submit, but a tab opened before it compares with its own old `CONSTANTS_VERSION` and printed them, one by one or
-  with Print ทั้งหมด. `printReady` now reads the same release check that refuses Submit. Like Submit, it fails open
-  when the check cannot be made.
+  with Print ทั้งหมด. `printReady` now reads the same release check that refuses Submit, with Submit's timing (Vera):
+  Print and the print list's request wait for a check still in flight and check again when the last one is over a
+  minute old, so a Calculator left open across a release holds too. Like Submit, it fails open when the check cannot
+  be made.
 - **H3: an order revised or deleted on another device stops printing on a Calculator left open.** The synced log
   drops a superseded row; when the open order's row is no longer there, Print is held and says why. The app's own
   saves land in the log in the same render as the saved id (`handleLogToGAS`).
@@ -37,14 +39,16 @@ Seven fresh agents reviewed the live code on 2026-11-19 (the report is in Pp's p
 - **H5: a nurse or a doctor writes only to records on the ward's list.** A hand-made `updatePatient` on an infant
   discharged 90 days ago overwrote the record (a blank dob passed the different-infant check) and brought it back as
   Active; `updateWeights` and `logNursingEntry` wrote to it too. They now refuse a non-admin outside the sync window,
-  as `deletePatient` has since 2026-11-15. A new registration whose drawn id is taken still gets `IdTaken`, so the
+  as `deletePatient` has since 2026-11-15, and so do the order and nursing writes (`WARD_LIST_WRITES`:
+  logDailyNutrition, updateDailyNutrition, publishLog, updateNursingEntry, deleteNursingEntry; Vera), since
+  `pharmacyOrders` lists a date's orders whatever the infant's status. A new registration whose drawn id is taken still gets `IdTaken`, so the
   client draws another; forcing the overwrite is refused.
 - **H6: a value exactly at a limit grades at the limit.** `D.rangeStatus` strips float noise (`D.gradeNum`,
   `toPrecision(12)`), as K⁺ and Ca:P already did, and so does the total-zinc compare. 1.2 kg on 172.8 mL of D12 (the
   rate box's 7.2 mL/hr) is GIR 12 on paper and computed 12.000000000000002, which raised "GIR critically high" and
   asked for a reason; protein 4.5 at 960 g, energy 160 at 980 g and zinc 5 mg at 1.6 kg did the same. It is also the
   Alerts page's GIR grading (`girStatus`). `CONSTANTS_VERSION` stays `2026-11-18.1`: no printed number moves, only
-  which value at a limit raises a line. That is Pp's call on the PR.
+  which value at a limit raises a line. That is Pp's call on the PR. No second clinician's sign-off.
 
 Left for later, from the same review: the 13 MEDIUM and 24 LOW findings, among them `PRINTED_FIGURES` still holding
 K⁺ in bag at 0 decimals and the K⁺ stop text rounding to the limit.
