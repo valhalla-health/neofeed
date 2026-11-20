@@ -684,8 +684,9 @@ const TPN_TARGETS = {
   // DOL 1–5 are Table 1's day columns, DOL 6–7 Table 2 (intermediate phase),
   // DOL 8 on Table 3 (stable growth). The weight group is the fluid tier's
   // weight (_jochumUnder1500 below). A bracketed upper value in the tables,
-  // "(7)", is for high urinary Na loss and is not the band. DOL 1–7 use the
-  // preterm rows for every infant. From DOL 8 (Table 3, stable growth) the
+  // "(7)", is for high urinary Na loss and is not the band. A term infant has
+  // Jochum's term Na rows from DOL 3 (Q25); K's term rows equal the preterm
+  // ones to DOL 7. From DOL 8 (Table 3, stable growth) the
   // three rows are Jochum's own, term included (Pp, 2026-11-20, Q5: "แยกตาม
   // Table 3"); the term row from PMA 37 weeks at 1,500 g or more (_jochumTerm,
   // Q23).
@@ -1573,9 +1574,10 @@ const ESPGHAN_TARGETS = {
     },
     electrolytes: {
       // TPN_TARGETS.na/k: Jochum Table 1 to DOL 5, Table 2 DOL 6–7, Table 3 DOL 8+.
-      // over1500 is preterm 1,500 g or more; term is PMA 37 weeks or more at
-      // 1,500 g or more (2,500 g with no GA), on the preterm rows to DOL 7 and
-      // its own Table 3 row from DOL 8 (Q5 and Q23, 2026-11-20).
+      // under1500 is preterm 1,500 g or less, over1500 above it (Q26); term is
+      // PMA 37 weeks or more at 1,500 g or more (2,500 g with no GA), with
+      // Jochum's term Na rows from DOL 3 and its Table 3 rows from DOL 8 (Q5,
+      // Q23, Q25, 2026-11-20). K's term rows equal the preterm ones to DOL 7.
       na: {
         under1500: { d1to2:[0,2], d3:[0,5], d4to7:[2,5], stable:[3,5] },
         over1500:  { d1to2:[0,2], d3:[0,3], d4to7:[2,5], stable:[3,5] },

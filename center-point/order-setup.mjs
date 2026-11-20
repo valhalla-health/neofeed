@@ -18,6 +18,12 @@ export function orderSetup({ bw, ga, dob, order }, D, today) {
   const orderDate = D.normalizeDateStr(order);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(orderDate)) return { error: 'วันที่ให้ TPN ไม่ถูกต้อง' };
   if (birth > orderDate) return { error: `วันเกิด ${birth} อยู่หลังวันที่ให้ TPN ${orderDate}` };
-  const patient = { bw: Number(bw), ga: Number(ga), dob: birth, weights: [] };
+  // GA in weeks and days, "36+4" or NeoFeed's own "36.4" (days 0–6), so the
+  // term rows that read GA (fluid, Na and K; Pp, 2026-11-20) see the days. A
+  // day above 6 is refused, not clamped (Vera on PR #296).
+  const m = String(ga ?? '').trim().match(/^(\d{2})(?:[+.](\d))?$/);
+  const gaW = m ? Number(m[1]) : NaN, gaD = m && m[2] != null ? Number(m[2]) : 0;
+  if (!m || gaD > 6 || gaW < 20 || gaW > 45) return { error: 'อายุครรภ์: พิมพ์เป็นสัปดาห์+วัน เช่น 36+4 (วัน 0–6)' };
+  const patient = { bw: Number(bw), ga: gaW + gaD / 10, dob: birth, weights: [] };
   return { patient, dol: D.dolAtDate(patient, orderDate) };
 }

@@ -18,8 +18,8 @@ Pp answered seven open questions on 2026-11-20, after a session read them agains
 agent checked that reading (16 of 17 claims, one corrected). Her words are in the skill's § Questions for Pp.
 
 - **Q5, Na and K from DOL 8.** Jochum Table 3's three rows: Na term 2–3, preterm 3–5; K term 1.5–3, preterm ≥ 1,500 g
-  1–3, < 1,500 g 2–5. Before, every infant had Na 2–5 and K 2–3 at or above 1,500 g. Jochum's Table 2 term rows
-  (DOL 6–7) are not used: Pp's answer covers stable growth.
+  1–3, < 1,500 g 2–5. Before, every infant had Na 2–5 and K 2–3 at or above 1,500 g. Jochum's term Na rows
+  for DOL 3–7 came in with Q25 below.
 - **Q23, which infant takes the term row.** PMA 37 weeks or more on the day of the order (GA at birth + DOL − 1,
   `pmaShort`) and 1,500 g or more; with no GA recorded, 2,500 g or more (Pp: "ใช้ GA", then "ดู PMA ด้วย", and of the
   options "PMA ≥ 37 wk และ ≥ 1,500 g"). A 34+0-week infant born at 2,600 g is preterm on DOL 10 (Na 3–5, K 1–3); a

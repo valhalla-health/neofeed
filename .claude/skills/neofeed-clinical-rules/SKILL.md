@@ -907,8 +907,8 @@ options, "ใช้แถว term"). 1,500 g itself is on the ≤ 1,500 g row si
 term). So a term-born infant is term from DOL 8, an ex-preterm moves to it at PMA 37 weeks, and one still
 under 1,500 g stays on the preterm row. Weights are the fluid tier's (held at birth weight). Until
 2026-11-20 DOL 8 on was 2–5 for every infant. Enteral 3.0–5.0.
-Source: Jochum Tables 1–3 (TPN team, 2026-10-25); Thai CPG PDF p. 56–57 repeats them. DOL 1–7 use the
-preterm rows for every infant. From DOL 8, Table 3 (stable growth, p. 2349): term 2–3, preterm > 1,500 g
+Source: Jochum Tables 1–3 (TPN team, 2026-10-25); Thai CPG PDF p. 56–57 repeats them. A term infant has
+Jochum's term rows from DOL 3 (Table 1 term D3 0–2, D4–5 1–3; Table 2 term 2–3; Q25). From DOL 8, Table 3 (stable growth, p. 2349): term 2–3, preterm > 1,500 g
 3–5, preterm < 1,500 g 3–5 (7): Pp, 2026-11-20, Q5, "แยกตาม Table 3". Term by PMA and weight: Pp, the
 same day, Q23: "ใช้ GA", then "ดู PMA ด้วย", and of the options she chose "PMA ≥ 37 wk และ ≥ 1,500 g".
 Enteral: Embleton Table 1.
@@ -954,7 +954,7 @@ PN, mEq/kg/d: DOL 1–3 0–3; DOL 4–5 2–3; DOL 6–7 1–3 (Jochum's term r
 DOL 8 on 1.5–3 on the term row, else 2–5 at 1,500 g or less and 1–3 above. The term row and the weights as `CR-TGT-NA` (PMA 37 weeks or more at 1,500 g or
 more; with no GA, 2,500 g or more). Until 2026-11-20 DOL 8 on was 2–3 at or above 1,500 g. Enteral 2.3–4.6.
 The IV ceiling is `CR-K-IV-MAX`.
-Source: Jochum 2018 Tables 1–3 (TPN team, 2026-10-25); DOL 1–7 the preterm rows for every infant. From
+Source: Jochum 2018 Tables 1–3 (TPN team, 2026-10-25); to DOL 7 Jochum's term K rows equal the preterm ones. From
 DOL 8, Table 3 (p. 2349): term 1.5–3, preterm > 1,500 g 1–3, preterm < 1,500 g 2–5: Pp, 2026-11-20, Q5,
 "แยกตาม Table 3"; the term row by PMA and weight, Q23.
 

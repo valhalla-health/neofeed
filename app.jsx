@@ -4705,19 +4705,20 @@ function GuidelinesPanel() {
                   The old table's "ELBW" row was Jochum's < 1500 g row and its
                   phase columns were Table 1's day columns (targets audit
                   2026-09-28 § 3.7). Term (PMA 37 weeks or more, at 1500 g or
-                  more) has its own D8+ row from Table 3 and the preterm rows
-                  before (Q5, Q23). */}
+                  more) has Jochum's term Na rows from D3 and Table 3 from D8;
+                  K's term rows equal the preterm ones to D7 (Q5, Q23, Q25).
+                  1500 g itself is on the lighter row (Q26). */}
               <PhaseTable
                 cols={["Electrolyte","D1–2","D3","D4–5","D6–7","D8+","Notes"]}
                 rows={[
                   // Na and K from ESPGHAN_TARGETS (D1–2, D3, D4–5, D6–7, D8+).
                   // Cl and the notes' figures are typed: data.js holds no Cl band.
-                  ...[["Na — preterm <1500g",       EL.na.under1500, "Up to 7 with high urinary Na loss"],
-                      ["Na — preterm ≥1500g",       EL.na.over1500,  ""],
+                  ...[["Na — preterm ≤1500g",       EL.na.under1500, "Up to 7 with high urinary Na loss"],
+                      ["Na — preterm >1500g",       EL.na.over1500,  ""],
                       ["Na — term (PMA ≥37 wk)",    EL.na.term,      "At ≥1500g; no GA: ≥2500g"]]
                     .map(([label, t, note]) => [label, rng(t.d1to2), rng(t.d3), rng(t.d4to5 || t.d4to7), rng(t.d6to7 || t.d4to7), rng(t.stable), note]),
-                  ...[["K — preterm <1500g",        EL.k.under1500,  "Watch for non-oliguric hyperkalaemia in VLBW"],
-                      ["K — preterm ≥1500g",        EL.k.over1500,   ""],
+                  ...[["K — preterm ≤1500g",        EL.k.under1500,  "Watch for non-oliguric hyperkalaemia in VLBW"],
+                      ["K — preterm >1500g",        EL.k.over1500,   ""],
                       ["K — term (PMA ≥37 wk)",     EL.k.term,       "At ≥1500g; no GA: ≥2500g"]]
                     .map(([label, t, note]) => [label, rng(t.d1to3), rng(t.d1to3), rng(t.d4to5), rng(t.d6to7), rng(t.stable), note]),
                   ["Cl — preterm",        "0–3","0–3","2–5","2–5","3–5", "Keep Na+K > Cl by 1–2 mmol/kg to avoid acidosis"],
