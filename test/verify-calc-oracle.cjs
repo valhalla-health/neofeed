@@ -344,7 +344,7 @@ function expectedAlerts(sc, e) {
   const d = sc.dol, en = e.useEN;
   const tierG = (sc.bw > 0 && e.wG < sc.bw) ? sc.bw : e.wG;
   const vlbw = tierG > 0 && tierG <= 1500;   // 1,500 g on the lighter row since 2026-11-20 (Jochum, Avery, Fanaroff)
-  // Jochum Table 3's term row from DOL 8 (Q5): PMA 37 weeks or more at 1,500 g or more
+  // Jochum Table 3's term row from DOL 8 (Q5): PMA 37 weeks or more above 1,500 g
   // (Q23). Every oracle patient is GA 30+0, so PMA is 30 weeks + DOL − 1 days.
   const term = 30 * 7 + Math.max(0, d - 1) >= 37 * 7 && !(tierG > 0 && tierG <= 1500);   // above 1,500 g (Q26)
   const T = {
@@ -397,6 +397,9 @@ function expectedAlerts(sc, e) {
     const allP = e.pTpnMg + e.enPKg * e.W + (sc.oP || 0) * e.W;
     let s = st(isFinite(cp) ? Number(cp.toPrecision(12)) : cp, early ? [1.0, 1.3] : [1.0, 1.7]);
     if (early && s === 'crit' && allP > 0) s = 'warn';
+    // No P from any source is critical on every day, oral Ca with an empty bag included (Vera on #296).
+    const allCa = sc.ca * e.W + e.enCaKg * e.W + (sc.oCa || 0) * e.W;
+    if (early && allCa > 0 && allP === 0) s = 'crit';
     const critScope = oral ? ' (รวม oral supp)' : '', warnScope = early ? ' (TPN)' : critScope;
     if (s === 'crit') add('crit', `Ca:P ratio${critScope} — ไม่มี P`); else if (s === 'warn') add('warn', `Ca:P ratio${warnScope} off target`); }
   if (e.useEN && st(e.pe, [2.8, 3.6]) === 'warn') add('warn', 'Protein : Energy off target');
@@ -524,6 +527,10 @@ const SCEN = [
   { name: 'I VLBW DOL 3, heparin 10, ZnSO₄, K 4.5, GIR > 12', bw: 1200, cur: 1150, dol: 3, fluid: 120,
     ioOut: 40, tpn: 130, dead: 30, dex: 16, aa: 2, lip: 3, lipH: 24, naCl: 4, kCl: 4.5, mg: 0.3, ca: 60,
     zn: 0.4, hep: 10, weights: [{ dol: 1, w: 1200 }] },
+  // DOL 1–7 grade Ca:P on the bag, but "no P from any source" still counts oral Ca (Vera on #296).
+  { name: 'K2 DOL 5, empty bag of Ca and P, oral Ca with no P anywhere', bw: 1000, cur: 1000, dol: 5, fluid: 140,
+    ioOut: 30, tpn: 100, dead: 30, dex: 10, aa: 3, lip: 2, lipH: 24, oCa: 20, caType: 'CA_CACO3_350', oP: 0,
+    weights: [{ dol: 1, w: 1000 }] },
   { name: 'J bag above the 1,250 mL bottle cannot be ordered', bw: 7000, cur: 7500, dol: 60, fluid: 160,
     ioOut: 300, tpn: 1240, dead: 30, dex: 10, aa: 2.5, naCl: 3, kCl: 2, mg: 0.4, ca: 60, hep: 1 },
   // Whole-mL D50W at the peripheral limit (Pp, 2026-11-16): 35 + 30 mL is

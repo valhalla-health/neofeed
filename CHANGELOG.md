@@ -21,7 +21,7 @@ agent checked that reading (16 of 17 claims, one corrected). Her words are in th
   1–3, < 1,500 g 2–5. Before, every infant had Na 2–5 and K 2–3 at or above 1,500 g. Jochum's term Na rows
   for DOL 3–7 came in with Q25 below.
 - **Q23, which infant takes the term row.** PMA 37 weeks or more on the day of the order (GA at birth + DOL − 1,
-  `pmaShort`) and 1,500 g or more; with no GA recorded, 2,500 g or more (Pp: "ใช้ GA", then "ดู PMA ด้วย", and of the
+  `pmaShort`) and more than 1,500 g (Q26); with no GA recorded, 2,500 g or more (Pp: "ใช้ GA", then "ดู PMA ด้วย", and of the
   options "PMA ≥ 37 wk และ ≥ 1,500 g"). A 34+0-week infant born at 2,600 g is preterm on DOL 10 (Na 3–5, K 1–3); a
   28-weeker at 1,600 g takes the term row on DOL 64 (PMA 37+0), or stays on the < 1,500 g row while under it. Vera
   found the first reading, by weight alone, gave that 34-weeker the term row. `TPN_TARGETS.na/k` take `patient.ga`

@@ -1,6 +1,6 @@
 // The Log tab's Na and K trend bands read GA, as the Calculator's tiles do
 // (Pp, 2026-11-20, Q23: the Jochum Table 3 term row from PMA 37 weeks at
-// 1,500 g or more; with no GA, 2,500 g).
+// more than 1,500 g; with no GA, 2,500 g).
 //
 // log.jsx's pickTarget passes patient.ga into TPN_TARGETS.na/k. Vera on PR
 // #296: nothing called pickTarget, so a dropped argument would put a 34-week

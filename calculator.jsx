@@ -2210,12 +2210,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // A bag with Ca and no P, beside P from a feed or oral supplement, is amber;
   // critical stays "no P from any source" (CR-CAP-NO-P).
   const caPTpnOnly = dol <= D.FIRST_DAYS_LAST_DOL;
-  // Checked first, on every source: Ca from the bag, a feed or an oral
-  // supplement with no P anywhere (Vera on PR #296: oral Ca with an empty bag
-  // read "empty" here and lost the critical).
-  const caPTpnStatus = (mineral.totCa > 0 && !(mineral.totP > 0)) ? "crit"
-    : (!isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0) ? "warn"
-    : D.caPStatus(mineral.tpnCaP, dol);
+  // "No P from any source" (Ca from the bag, a feed or an oral supplement, with
+  // no P anywhere) is checked on every source first: it is the alert's
+  // critical and the Step 6 total tile's (Vera on PR #296: oral Ca with an
+  // empty bag lost the critical). The bag tile is graded on the bag alone:
+  // empty with no Ca in it, amber for bag Ca with P only elsewhere.
+  const caPNoPAnywhere = mineral.totCa > 0 && !(mineral.totP > 0);
+  const caPTpnStatus = (!isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0)
+    ? (caPNoPAnywhere ? "crit" : "warn") : D.caPStatus(mineral.tpnCaP, dol);
   const sCaP = caPTpnOnly ? caPTpnStatus : D.caPStatus(calc.caP, dol);
   // Below D.MG_MEQ_HABIT_MG the dose was most likely typed in mEq, the unit
   // this box took until 2026-10-28: critical, so Submit asks (Pp, 2026-10-29).
@@ -2225,7 +2227,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Step 6 total-intake statuses — same targets as Step 4, applied to IV + feed + oral
   const sTotCa  = D.rangeStatus(mineral.totCa, tCa);
   const sTotP   = D.rangeStatus(mineral.totP, tP);
-  const sTotCaP = caPTpnOnly ? "empty" : D.caPStatus(mineral.totCaP, dol);   // DOL 1–7: not graded, the TPN ratio is
+  const sTotCaP = caPTpnOnly ? (caPNoPAnywhere ? "crit" : "empty") : D.caPStatus(mineral.totCaP, dol);   // DOL 1–7: only "no P anywhere"; the band grades the bag
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // K⁺ concentration of the bag, by route (D.K_BAG_MEQ_PER_L; TPN team and
@@ -2543,7 +2545,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     pushTile(sCa, "Calcium",    calc.caKg, 0, tCa, "mg/kg/d");
     pushTile(sP,  "Phosphorus", calc.pKg,  0, tP,  "mg/kg/d");
   }
-  const caPStatus = caPTpnOnly ? sCaP : mineral.hasOral ? sTotCaP : sCaP;
+  const caPStatus = caPTpnOnly ? (caPNoPAnywhere ? "crit" : sCaP) : mineral.hasOral ? sTotCaP : sCaP;
   const caPValue  = caPTpnOnly && sCaP !== "crit" ? mineral.tpnCaP : mineral.hasOral ? mineral.totCaP : calc.caP;
   const caPScope  = caPTpnOnly ? " (TPN)" : mineral.hasOral ? " (รวม oral supp)" : "";
   // The critical is "no P from any source" (CR-CAP-NO-P) on every DOL, so its

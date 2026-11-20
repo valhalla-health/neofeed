@@ -1523,13 +1523,14 @@ function Calculator({
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
   const caPTpnOnly = dol <= D.FIRST_DAYS_LAST_DOL;
-  const caPTpnStatus = mineral.totCa > 0 && !(mineral.totP > 0) ? "crit" : !isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0 ? "warn" : D.caPStatus(mineral.tpnCaP, dol);
+  const caPNoPAnywhere = mineral.totCa > 0 && !(mineral.totP > 0);
+  const caPTpnStatus = !isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0 ? caPNoPAnywhere ? "crit" : "warn" : D.caPStatus(mineral.tpnCaP, dol);
   const sCaP = caPTpnOnly ? caPTpnStatus : D.caPStatus(calc.caP, dol);
   const mgStatusAt = (v) => D.rangeStatus(v, tMg, { hardLo: D.MG_MEQ_HABIT_MG });
   const sMg = mgStatusAt(mgMgPerKg);
   const sTotCa = D.rangeStatus(mineral.totCa, tCa);
   const sTotP = D.rangeStatus(mineral.totP, tP);
-  const sTotCaP = caPTpnOnly ? "empty" : D.caPStatus(mineral.totCaP, dol);
+  const sTotCaP = caPTpnOnly ? caPNoPAnywhere ? "crit" : "empty" : D.caPStatus(mineral.totCaP, dol);
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   const kLim = D.kBagLimitsFor(route);
@@ -1715,7 +1716,7 @@ function Calculator({
     pushTile(sCa, "Calcium", calc.caKg, 0, tCa, "mg/kg/d");
     pushTile(sP, "Phosphorus", calc.pKg, 0, tP, "mg/kg/d");
   }
-  const caPStatus = caPTpnOnly ? sCaP : mineral.hasOral ? sTotCaP : sCaP;
+  const caPStatus = caPTpnOnly ? caPNoPAnywhere ? "crit" : sCaP : mineral.hasOral ? sTotCaP : sCaP;
   const caPValue = caPTpnOnly && sCaP !== "crit" ? mineral.tpnCaP : mineral.hasOral ? mineral.totCaP : calc.caP;
   const caPScope = caPTpnOnly ? " (TPN)" : mineral.hasOral ? " (รวม oral supp)" : "";
   if (caPStatus === "crit") alerts.push({ level: "crit", title: `Ca:P ratio${mineral.hasOral ? " (รวม oral supp)" : ""} — ไม่มี P`, body: `Ca ${fmt(mineral.hasOral ? mineral.totCa : calc.caKg, 0)} mg/kg/d แต่ P = 0 — เสี่ยง metabolic bone disease / สั่ง phosphate ร่วมด้วย.`, ref: "ESPGHAN 2018" });
