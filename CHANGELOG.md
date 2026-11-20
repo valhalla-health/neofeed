@@ -7,6 +7,19 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-20 (1) — PR #290 brought up to `main`; STATUS catches up with releases #293 and #295 and backends `@76`, `@77`
+
+No code change. `STATUS.md`, `BACKLOG.md`, this entry. PR #290 had sat in conflict with `main` since #294 merged: both
+edited the top of `STATUS.md` and of this file. `main` merged in, and the two conflicts resolved by hand.
+
+- **STATUS top.** Two lines replace `main`'s four ⏳ lines for #294, #292, #291 and #286, which all went live since:
+  release #293 (`1755f16`) with backend `@76` on 2026-11-19, and release #295 (`c135539`) with backend `@77` on
+  2026-11-20. The figures come from the release and deploy comments on #293, #294 and #295. The QI line now says its
+  code reached the ward deployment in `@76`, and the old "now `@75`" note says `@77`.
+- **This file.** This branch's entry was written as 2026-11-18 (6) before #291's entry of the same number reached
+  `main`. It is now 2026-11-18 (7), and the three lines that cited it (two in `STATUS.md`, one in `BACKLOG.md`) say (7).
+  Its text is unchanged.
+
 ## Session 2026-11-19 (2) — The six HIGH findings of the code review: re-dosed orders ask again, Print holds, the delete count, the ward's list, limits at their own value
 
 `calculator.jsx`, `data.js` (`gradeNum`, `rangeStatus`), `gas-backend.gs` (`deletePatient`, `_outsideWardList`,
@@ -151,6 +164,26 @@ Pp answered seven of the skill's open questions on 2026-11-18. Her words are quo
   (`verify-alarm-fatigue`, `verify-admin-census`, `verify-safety-fixes-0923`, `verify-ward-tpn-page-1115`).
 - **Not done.** No second clinician signed off (step 3 of the change protocol). No before-and-after from dev local
   yet: that belongs to the release PR (NF-05).
+
+## Session 2026-11-18 (7) — The QI tab and the Sheet backup set up in the editor; STATUS and BACKLOG catch up
+
+No code change. `STATUS.md`, `BACKLOG.md`, `REFERENCE.md` (the two sections' headings and § Thai PDPA's backups line
+no longer say "not live"), this entry. A branch the next NeoFeed PR merges in, so no PR only records (Pp's choice).
+
+- **The QI tab** (Pp: "ช่วยทำ clasp push กับตั้ง trigger ให้หน่อย"). `clasp pull` into a scratch folder showed HEAD was
+  `@75`'s source (`e1d99cd`); `clasp push --force` at 06:14 ICT as `peeraporn.po@chula.ac.th` from a clean `main` at
+  `d8eac99`; a second pull equals `d8eac99`. `clasp list-deployments`: the ward is still `@75`. Run ▸
+  `qiSubmitTimesRefresh`: "57 rows, 212 submitted TPN orders, 0 erased and 0 without a registry row left out", no
+  consent prompt. Trigger `qiSubmitTimesNightly`: Head, day timer 1am to 2am (GMT+7), failure mail immediately.
+- **The Sheet backup** (Pp: "ทำตอนนี้เลย", after being told steps 1 and 2 lock saves). The project had no trigger at
+  all, and `sheetBackupStatus` read "ok false, 0 good backup(s)": #267's backup had never run. `setupSheetBackups`:
+  "14 slots, 14 created now" (06:26:46 to 06:27:05). Slot 01's settings: Thai locale, GMT+07:00 Bangkok; the live
+  Sheet was not opened, as its grid shows names. `sheetRestoreDrill`: "slot 1, 7 tabs, 7598 rows, 0 old slot(s)
+  emptied, 0 book(s) not opened, differing cells in data tabs: 0, in other tabs: 0, restorable: true" (06:29:23 to
+  06:29:48). Trigger `backupSheetNightly`: Head, day timer 2am to 3am, failure mail immediately. `sheetBackupStatus`:
+  "ok true, 1 good backup(s), newest 0 h old, 0 book(s) not opening, drill due false".
+- **Releases recorded.** #285, #287 and #286 went out in release #289 (`2b45c7e`, tag `release-2026-11-18-pr289`,
+  `verify-release` 0 failures on both hosts); STATUS owed it.
 
 ## Session 2026-11-18 (5) — "TPN ทั้งหอ": Pp keeps never-TPN infants off the page
 
