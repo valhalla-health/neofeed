@@ -638,7 +638,8 @@ function _jochumUnder1500(wtG, bwG) {
 function _jochumTerm(dol, wtG, bwG, ga) {
   if (gaTotalDays(Number(ga)) > 0) {
     // "≥ 1,500 g" is Pp's option for Q23, so 1,500 g itself is term here even
-    // though it is on the lighter preterm row (the term row is checked first).
+    // though it is on the lighter preterm row (the term row is checked first;
+    // Pp, 2026-11-20: "คงแถว term").
     const w = (bwG && wtG < bwG) ? bwG : wtG;
     return gaTotalDays(pmaShort(Number(ga), dol)) >= PRETERM_GA_WK * 7 && !(w > 0 && w < 1500);
   }

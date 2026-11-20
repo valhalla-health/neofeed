@@ -1722,7 +1722,7 @@ An answered question keeps its evidence, so it can be reopened.
   (D3 0–2, D4–5 1–3, D6–7 2–3). Before: a term infant had the preterm rows to DOL 7.
 - **Q26 · `CR-TGT-FLUID`, `CR-TGT-NA`, `CR-TGT-K`:** answered, Pp 2026-11-20: "ย้ายตามแหล่งอ้างอิง": 1,500 g itself is
   on the lighter row, as Jochum, Avery and Fanaroff put it. Before: 1,500 g read as > 1,500 g. On the Na/K term row,
-  Q23's "≥ 1,500 g" still counts 1,500 g as term (a reading for Pp to confirm).
+  Q23's "≥ 1,500 g" still counts 1,500 g as term: Pp, 2026-11-20, "คงแถว term".
 
 ## Sources
 

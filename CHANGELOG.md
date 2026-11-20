@@ -34,7 +34,7 @@ agent checked that reading (16 of 17 claims, one corrected). Her words are in th
 - **Q25, Na on DOL 3–7 for a term infant.** Jochum's own term rows: D3 0–2, D4–5 1–3, D6–7 2–3 (Pp: "ใช้แถว term").
   K's term rows equal the preterm ones on those days.
 - **Q26, the 1,500 g edge.** 1,500 g itself is on the lighter row for fluid, Na and K, as Jochum, Avery and Fanaroff put
-  it (Pp: "ย้ายตามแหล่งอ้างอิง"); it read as > 1,500 g. On the Na/K term row Q23's "≥ 1,500 g" still counts 1,500 g.
+  it (Pp: "ย้ายตามแหล่งอ้างอิง"); it read as > 1,500 g. On the Na/K term row Q23's "≥ 1,500 g" still counts 1,500 g (Pp: "คงแถว term").
 - **Q7, Ca:P.** DOL 1–7 is 1.0–1.3 by mass (R 8.12, molar 0.8–1.0); DOL 8 on stays 1.0–1.7. The wrong "ESPGHAN molar
   0.8–1.3" is gone from the code comments, the amber line and the Reference page, which now shows both mass bands and
   molar 0.8–1.0 with 1.3 as the stable-growth figure. Float noise is stripped at 1.3 as at 1.7 (Q6).
