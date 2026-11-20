@@ -1498,8 +1498,8 @@ function Calculator({
   const tPro = T.protein(dol);
   const tKcal = T.kcal(dol);
   const tLip = T.lipid(dol);
-  const tNa = T.na(dol, wtG, patient?.bw);
-  const tK = T.k(dol, wtG, patient?.bw);
+  const tNa = T.na(dol, wtG, patient?.bw, patient?.ga);
+  const tK = T.k(dol, wtG, patient?.bw, patient?.ga);
   const tCa = T.ca(dol, calc.useEnteralTargets);
   const tP = T.p(dol, calc.useEnteralTargets);
   const tCaP = D.TARGETS.caP(dol);

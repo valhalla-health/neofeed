@@ -19,10 +19,13 @@ agent checked that reading (16 of 17 claims, one corrected). Her words are in th
 
 - **Q5, Na and K from DOL 8.** Jochum Table 3's three rows: Na term 2–3, preterm 3–5; K term 1.5–3, preterm ≥ 1,500 g
   1–3, < 1,500 g 2–5. Before, every infant had Na 2–5 and K 2–3 at or above 1,500 g. Jochum's Table 2 term rows
-  (DOL 6–7) are not used: Pp's answer covers stable growth. **Term by weight is a reading for Pp to confirm, not her
-  decision:** the code takes the fluid tier's term, 2,500 g or more held at birth weight, where Jochum's rows are by
-  gestation. A 34-week infant born at 2,600 g reads term, and so does an ex-preterm infant who grows past 2,500 g;
-  `isPretermGa` (`patient.ga`) would read both as preterm (Vera, finding 1).
+  (DOL 6–7) are not used: Pp's answer covers stable growth.
+- **Q23, which infant takes the term row.** PMA 37 weeks or more on the day of the order (GA at birth + DOL − 1,
+  `pmaShort`) and 1,500 g or more; with no GA recorded, 2,500 g or more (Pp: "ใช้ GA", then "ดู PMA ด้วย", and of the
+  options "PMA ≥ 37 wk และ ≥ 1,500 g"). A 34+0-week infant born at 2,600 g is preterm on DOL 10 (Na 3–5, K 1–3); a
+  28-weeker at 1,600 g takes the term row on DOL 64 (PMA 37+0), or stays on the < 1,500 g row while under it. Vera
+  found the first reading, by weight alone, gave that 34-weeker the term row. `TPN_TARGETS.na/k` take `patient.ga`
+  (the Calculator, the Log tab).
 - **Q7, Ca:P.** DOL 1–7 is 1.0–1.3 by mass (R 8.12, molar 0.8–1.0); DOL 8 on stays 1.0–1.7. The wrong "ESPGHAN molar
   0.8–1.3" is gone from the code comments, the amber line and the Reference page, which now shows both mass bands and
   molar 0.8–1.0 with 1.3 as the stable-growth figure. Float noise is stripped at 1.3 as at 1.7 (Q6).

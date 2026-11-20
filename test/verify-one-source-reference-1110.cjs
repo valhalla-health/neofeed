@@ -203,10 +203,10 @@ try {
   ]);
   check('Electrolytes', pn, [
     ['Na <1500 g row', 'Na — preterm <1500g 0.1–2.1 0.2–5.2 2.3–5.3 2.3–5.3 2.4–5.4'],
-    ['K 1500–2499 g row', 'K — preterm 1500–2499g 0.5–3.5 0.5–3.5 2.6–3.6 1.7–3.7 2.8–3.8'],
-    ['Na 1500–2499 g row', 'Na — preterm 1500–2499g 0.3–2.3 0.4–3.4 2.5–5.5 2.5–5.5 2.6–5.6'],
-    ['Na term row', 'Na — term ≥2500g 0.2–2.2 0.3–3.3 2.4–5.4 2.4–5.4 2.1–3.1'],
-    ['K term row', 'K — term ≥2500g 0.4–3.4 0.4–3.4 2.4–3.4 1.4–3.4 1.6–3.1'],
+    ['K 1500–2499 g row', 'K — preterm ≥1500g 0.5–3.5 0.5–3.5 2.6–3.6 1.7–3.7 2.8–3.8'],
+    ['Na 1500–2499 g row', 'Na — preterm ≥1500g 0.3–2.3 0.4–3.4 2.5–5.5 2.5–5.5 2.6–5.6'],
+    ['Na term row', 'Na — term (PMA ≥37 wk) 0.2–2.2 0.3–3.3 2.4–5.4 2.4–5.4 2.1–3.1'],
+    ['K term row', 'K — term (PMA ≥37 wk) 0.4–3.4 0.4–3.4 2.4–3.4 1.4–3.4 1.6–3.1'],
     ['K <1500 g row', 'K — preterm <1500g 0.6–3.6 0.6–3.6 2.7–3.7 1.8–3.8 2.9–5.9'],
     ['Cu 41 preterm, 21 term', '41 preterm · 21 term µg/kg/day'],
     ['Zn 401–501', '401–501 µg/kg/day'],
@@ -316,9 +316,9 @@ try {
     ['Glycophos 1 mmol P + 2 mmol Na', '1 mL = 1 mmol P + 2 mmol Na'],
     ['ELBW fluid row', 'ELBW <1000g 80–100 100–120 120–140 140–160 160–180 140–160'],
     ['Na <1500 g row (D8+ 3–5 since 2026-11-20, Q5)', 'Na — preterm <1500g 0–2 0–5 2–5 2–5 3–5'],
-    ['Na term row', 'Na — term ≥2500g 0–2 0–3 2–5 2–5 2–3'],
-    ['K 1500–2499 g row', 'K — preterm 1500–2499g 0–3 0–3 2–3 1–3 1–3'],
-    ['K term row', 'K — term ≥2500g 0–3 0–3 2–3 1–3 1.5–3'],
+    ['Na term row', 'Na — term (PMA ≥37 wk) 0–2 0–3 2–5 2–5 2–3'],
+    ['K 1500–2499 g row', 'K — preterm ≥1500g 0–3 0–3 2–3 1–3 1–3'],
+    ['K term row', 'K — term (PMA ≥37 wk) 0–3 0–3 2–3 1–3 1.5–3'],
     ['Peditrace 1 (max 15)', 'Peditrace® 1 mL/kg/day (maximum 15 mL/day)'],
   ]);
   check('EN', en, [

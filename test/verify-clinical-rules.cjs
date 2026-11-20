@@ -16,7 +16,7 @@
 //     fn       a data.js function, called with `args` (or a value, read as is);
 //              the result must equal `want`, or lie `within` that much of it
 //     otherwise an order typed into the real <Calculator>:
-//       infant {g, bw?, dol?, bed?} · route "Central" | "Peripheral" (none if
+//       infant {g, bw?, dol?, bed?, ga?} · route "Central" | "Peripheral" (none if
 //       left out) · fluid (target, default 150) · feed (an EN_DB key) ·
 //       order {on-screen field label: value, typed in that order} ·
 //       tick {checkbox label: true | false} · then {field label: value, typed
@@ -180,7 +180,7 @@ function mount(c, log) {
   window.localStorage.clear();
   const inf = c.infant || {};
   const bw = inf.bw ?? inf.g;
-  const patient = { sessionId: 'CR-' + c._at, name: 'CR', bw, currentBed: inf.bed || 'NICU 5', diagnosis: '-',
+  const patient = { sessionId: 'CR-' + c._at, name: 'CR', bw, ...(inf.ga != null ? { ga: inf.ga } : {}), currentBed: inf.bed || 'NICU 5', diagnosis: '-',
     weights: [{ dol: 1, w: bw }], admissionDate: '2026-10-18' };
   act(() => { root.render(React.createElement(window.Calculator, {
     patient, dol: inf.dol ?? 10, editEntry: null, baselineEntry: null, previousEntry: null, logDate: '2026-10-27',

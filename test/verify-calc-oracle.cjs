@@ -342,7 +342,9 @@ function expectedAlerts(sc, e) {
   const d = sc.dol, en = e.useEN;
   const tierG = (sc.bw > 0 && e.wG < sc.bw) ? sc.bw : e.wG;
   const vlbw = tierG > 0 && tierG < 1500;
-  const term = tierG >= 2500;   // Jochum Table 3's term row from DOL 8 (Pp, 2026-11-20, Q5)
+  // Jochum Table 3's term row from DOL 8 (Q5): PMA 37 weeks or more at 1,500 g or more
+  // (Q23). Every oracle patient is GA 30+0, so PMA is 30 weeks + DOL − 1 days.
+  const term = 30 * 7 + Math.max(0, d - 1) >= 37 * 7 && !vlbw;
   const T = {
     pro: en ? [3.5, 4.0] : (d <= 1 ? [1.5, 2.5] : [2.5, 3.5]),
     kcal: en ? [115, 140] : (d <= 2 ? [45, 55] : d <= 7 ? [70, 100] : [90, 120]),

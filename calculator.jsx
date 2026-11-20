@@ -2142,8 +2142,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Phase-aware electrolyte targets (updated ESPGHAN 2018 + 2022). The PN rows
   // also take the weight group (Jochum 2018 < 1500 g), on the fluid tier's
   // weight; the enteral rows ignore it.
-  const tNa    = T.na(dol, wtG, patient?.bw);             // mmol/kg/day, DOL-specific
-  const tK     = T.k(dol, wtG, patient?.bw);              // mmol/kg/day, DOL-specific
+  const tNa    = T.na(dol, wtG, patient?.bw, patient?.ga); // mmol/kg/day, DOL-specific; term by GA (Q23)
+  const tK     = T.k(dol, wtG, patient?.bw, patient?.ga);  // mmol/kg/day, DOL-specific; term by GA (Q23)
   const tCa    = T.ca(dol, calc.useEnteralTargets);      // mg/kg/day, route-aware
   const tP     = T.p(dol, calc.useEnteralTargets);       // mg/kg/day, route-aware
   // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 × (40/31) → mass 1.0–1.7.

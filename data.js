@@ -625,10 +625,17 @@ function _jochumUnder1500(wtG, bwG) {
   const w = (bwG && wtG < bwG) ? bwG : wtG;
   return w > 0 && w < 1500;
 }
-// Jochum 2018's "term neonate", on the same weight: TARGETS.fluid's term tier,
-// 2,500 g or more. NeoFeed's tiers are by weight, not gestation, from the same
-// Jochum tables (TPN team, 2026-10-25). With no weight known, not term.
-function _jochumTerm(wtG, bwG) {
+// Jochum 2018's "term neonate" row, by PMA on the day of the order (GA at birth
+// + DOL − 1, pmaShort): PMA 37 weeks or more and 1,500 g or more on the fluid
+// tier's weight (Pp, 2026-11-20, Q23: "ใช้ GA", then "ดู PMA ด้วย", and of the
+// options "PMA ≥ 37 wk และ ≥ 1,500 g"). So a term-born infant is term, an
+// ex-preterm moves to the term row at PMA 37 weeks, and one still under 1,500 g
+// stays on the < 1,500 g row. With no GA recorded, the fluid tier's term,
+// 2,500 g or more on the weight held at birth weight. With neither, not term.
+function _jochumTerm(dol, wtG, bwG, ga) {
+  if (gaTotalDays(Number(ga)) > 0) {
+    return gaTotalDays(pmaShort(Number(ga), dol)) >= PRETERM_GA_WK * 7 && !_jochumUnder1500(wtG, bwG);
+  }
   const w = (bwG && wtG < bwG) ? bwG : wtG;
   return w >= 2500;
 }
@@ -674,23 +681,24 @@ const TPN_TARGETS = {
   // "(7)", is for high urinary Na loss and is not the band. DOL 1–7 use the
   // preterm rows for every infant. From DOL 8 (Table 3, stable growth) the
   // three rows are Jochum's own, term included (Pp, 2026-11-20, Q5: "แยกตาม
-  // Table 3"); term is the fluid tier's term, 2,500 g or more (_jochumTerm).
-  na: (dol, wtG, bwG) => {
+  // Table 3"); the term row from PMA 37 weeks at 1,500 g or more (_jochumTerm,
+  // Q23).
+  na: (dol, wtG, bwG, ga) => {
     if (!dol || dol <= 2) return [0, 2];   // Table 1 D1–2: 0–2 (3)
     if (dol === 3) return _jochumUnder1500(wtG, bwG) ? [0, 5] : [0, 3];  // D3: < 1500 g 0–5 (7), > 1500 g 0–3
     if (dol <= 7) return [2, 5];           // D4–5 2–5 (7) · Table 2 preterm 2–5
     // Table 3: term 2–3, preterm > 1500 g 3–5, preterm < 1500 g 3–5 (7).
     // Until 2026-11-20 every infant was 2–5 here.
-    return _jochumTerm(wtG, bwG) ? [2, 3] : [3, 5];
+    return _jochumTerm(dol, wtG, bwG, ga) ? [2, 3] : [3, 5];
   },
-  k: (dol, wtG, bwG) => {
+  k: (dol, wtG, bwG, ga) => {
     if (!dol || dol <= 3) return [0, 3];   // Table 1 D1–3: 0–3
     if (dol <= 5) return [2, 3];           // Table 1 D4–5: 2–3
     if (dol <= 7) return [1, 3];           // Table 2 (intermediate): 1–3
     // Table 3: term 1.5–3, preterm > 1500 g 1–3, preterm < 1500 g 2–5.
     // Until 2026-11-20 every infant at or above 1500 g was 2–3 here.
-    if (_jochumUnder1500(wtG, bwG)) return [2, 5];
-    return _jochumTerm(wtG, bwG) ? [1.5, 3] : [1, 3];
+    if (_jochumTerm(dol, wtG, bwG, ga)) return [1.5, 3];
+    return _jochumUnder1500(wtG, bwG) ? [2, 5] : [1, 3];
   },
 
   // Calcium mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
@@ -849,8 +857,8 @@ const TARGETS = {
 
   // Sodium and potassium mEq/kg/day — the PN rows, TPN_TARGETS.na/k (Jochum
   // 2018 Tables 1–3; TPN team, 2026-10-25). One copy, so the two cannot drift.
-  na: (dol, wtG, bwG) => TPN_TARGETS.na(dol, wtG, bwG),
-  k:  (dol, wtG, bwG) => TPN_TARGETS.k(dol, wtG, bwG),
+  na: (dol, wtG, bwG, ga) => TPN_TARGETS.na(dol, wtG, bwG, ga),
+  k:  (dol, wtG, bwG, ga) => TPN_TARGETS.k(dol, wtG, bwG, ga),
 
   // Calcium mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
   // First days (DOL 1–7): 0.8–2.0 mmol/kg × 40 = 32–80 mg/kg
@@ -1548,8 +1556,9 @@ const ESPGHAN_TARGETS = {
     },
     electrolytes: {
       // TPN_TARGETS.na/k: Jochum Table 1 to DOL 5, Table 2 DOL 6–7, Table 3 DOL 8+.
-      // over1500 is preterm 1,500–2,499 g; term is 2,500 g or more, on the
-      // preterm rows to DOL 7 and its own Table 3 row from DOL 8 (Q5, 2026-11-20).
+      // over1500 is preterm 1,500 g or more; term is PMA 37 weeks or more at
+      // 1,500 g or more (2,500 g with no GA), on the preterm rows to DOL 7 and
+      // its own Table 3 row from DOL 8 (Q5 and Q23, 2026-11-20).
       na: {
         under1500: { d1to2:[0,2], d3:[0,5], d4to7:[2,5], stable:[3,5] },
         over1500:  { d1to2:[0,2], d3:[0,3], d4to7:[2,5], stable:[3,5] },

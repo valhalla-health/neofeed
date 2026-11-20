@@ -2911,13 +2911,13 @@ function GuidelinesPanel() {
         // Cl and the notes' figures are typed: data.js holds no Cl band.
         ...[
           ["Na — preterm <1500g", EL.na.under1500, "Up to 7 with high urinary Na loss"],
-          ["Na — preterm 1500–2499g", EL.na.over1500, ""],
-          ["Na — term ≥2500g", EL.na.term, "Term rows from D8 only"]
+          ["Na — preterm ≥1500g", EL.na.over1500, ""],
+          ["Na — term (PMA ≥37 wk)", EL.na.term, "From D8, at ≥1500g; no GA: ≥2500g"]
         ].map(([label, t, note]) => [label, rng(t.d1to2), rng(t.d3), rng(t.d4to7), rng(t.d4to7), rng(t.stable), note]),
         ...[
           ["K — preterm <1500g", EL.k.under1500, "Watch for non-oliguric hyperkalaemia in VLBW"],
-          ["K — preterm 1500–2499g", EL.k.over1500, ""],
-          ["K — term ≥2500g", EL.k.term, "Term rows from D8 only"]
+          ["K — preterm ≥1500g", EL.k.over1500, ""],
+          ["K — term (PMA ≥37 wk)", EL.k.term, "From D8, at ≥1500g; no GA: ≥2500g"]
         ].map(([label, t, note]) => [label, rng(t.d1to3), rng(t.d1to3), rng(t.d4to5), rng(t.d6to7), rng(t.stable), note]),
         ["Cl — preterm", "0–3", "0–3", "2–5", "2–5", "3–5", "Keep Na+K > Cl by 1–2 mmol/kg to avoid acidosis"]
       ]
