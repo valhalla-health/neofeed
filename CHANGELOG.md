@@ -7,6 +7,29 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-20 (2) — Pp's answers to Q5, Q7, Q12–Q15 and Q18: Na and K by Jochum Table 3, Ca:P 1.0–1.3 on DOL 1–7, DOL-1 lipid 1.0–2.0, one feed at most 8 a day
+
+`data.js` (`TPN_TARGETS.na`, `.k`, `.lipid`, `.caP`; `TARGETS.caP(dol)`, `.lipid`; `caPStatus(ratio, dol)`;
+`_jochumTerm`; `ESPGHAN_TARGETS.pn`), `calculator.jsx` (Ca:P by DOL, the feeds cap), `app.jsx` (Reference page),
+`tools/reference-tabs.json`, the `neofeed-clinical-rules` skill, `docs/CLINICAL_CONSTANTS.md`, `compiled/` and the shells.
+`CONSTANTS_VERSION` `2026-11-18.1` → `2026-11-20.1`. Not live: merging and the release are Pp's.
+
+Pp answered seven open questions on 2026-11-20, after a session read them against ESPGHAN 2018 and ASPEN 2023 and a new
+agent checked that reading (16 of 17 claims, one corrected). Her words are in the skill's § Questions for Pp.
+
+- **Q5, Na and K from DOL 8.** Jochum Table 3's three rows: Na term 2–3, preterm 3–5; K term 1.5–3, preterm ≥ 1,500 g
+  1–3, < 1,500 g 2–5. Term is the fluid tier's term (2,500 g or more, held at birth weight). Before, every infant had Na
+  2–5 and K 2–3 at or above 1,500 g. Jochum's Table 2 term rows (DOL 6–7) are not used: Pp's answer covers stable growth.
+- **Q7, Ca:P.** DOL 1–7 is 1.0–1.3 by mass (R 8.12, molar 0.8–1.0); DOL 8 on stays 1.0–1.7. The wrong "ESPGHAN molar
+  0.8–1.3" is gone from the code comments, the amber line and the Reference page, which now shows both mass bands and
+  molar 0.8–1.0 with 1.3 as the stable-growth figure. Float noise is stripped at 1.3 as at 1.7 (Q6).
+- **Q15, DOL-1 lipid.** 1.0–2.0 g/kg/d, was 0.5–1.0. The Reference page's "Start (Day 1–2)" reads 1–2.
+- **Q18, the feeds cap.** One feed above 8 a day (q2h) is refused, as two feeds together already were. A feed with no
+  volume is not counted. Center Point's one feed is held to it too.
+- **Q12–Q14.** Kept as coded; the rules say so.
+
+Checks: `verify-clinical-rules` 1,122 passing (new cases at each new edge, on screen and on the printed order).
+
 ## Session 2026-11-20 (1) — PR #290 brought up to `main`; STATUS catches up with releases #293 and #295 and backends `@76`, `@77`
 
 No code change. `STATUS.md`, `BACKLOG.md`, this entry. PR #290 had sat in conflict with `main` since #294 merged: both

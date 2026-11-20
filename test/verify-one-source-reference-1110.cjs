@@ -143,7 +143,7 @@ try {
     Object.assign(G.pn.lipid, { start: 0.44, step: 0.99, max: 3.77, tgCutoff: 222, kcalPerMl_20pct: 1.9 });
     Object.assign(G.pn.electrolytes, {
       ca: { dol1: [0.71, 1.91], growing: [1.51, 3.31] }, p: { dol1: [0.91, 1.81], growing: [1.41, 3.21] },
-      mg: { dol1: [0.11, 0.21], growing: [0.21, 0.31] }, caP_molar: [0.71, 1.21], caP_mass: [0.91, 1.61],
+      mg: { dol1: [0.11, 0.21], growing: [0.21, 0.31] }, caP_molar: { firstDays: [0.71, 0.91], growingOptimum: 1.21 }, caP_mass: { firstDays: [0.91, 1.21], growing: [0.91, 1.61] },
     });
     d.TPN_TARGETS.ca = (dol) => dol <= REAL_FD ? [33, 81] : [65, 141];
     d.TPN_TARGETS.p = (dol) => dol <= REAL_FD ? [32, 63] : [51, 109];
@@ -153,6 +153,8 @@ try {
     G.pn.fluid.vlbw = { d1: [71, 91], d2: [92, 112], d3: [113, 133], d4: [134, 154], d5: [161, 181], d6plus: [142, 162] };
     G.pn.fluid.preterm = { d1: [61, 81], d2: [82, 102], d3: [103, 123], d4: [124, 144], d5: [145, 165], d6plus: [143, 163] };
     G.pn.electrolytes.na.over1500 = { d1to2: [0.3, 2.3], d3: [0.4, 3.4], d4to7: [2.5, 5.5], stable: [2.6, 5.6] };
+    G.pn.electrolytes.na.term = { d1to2: [0.2, 2.2], d3: [0.3, 3.3], d4to7: [2.4, 5.4], stable: [2.1, 3.1] };
+    G.pn.electrolytes.k.term = { d1to3: [0.4, 3.4], d4to5: [2.4, 3.4], d6to7: [1.4, 3.4], stable: [1.6, 3.1] };
     G.pn.electrolytes.k.under1500 = { d1to3: [0.6, 3.6], d4to5: [2.7, 3.7], d6to7: [1.8, 3.8], stable: [2.9, 5.9] };
     G.pn.micronutrients.cu = { ...G.pn.micronutrients.cu, preterm: 41, term: 21 };
     d.KCMH_STOCK.smof20 = { ...d.KCMH_STOCK.smof20, gPerMl: 0.25 };
@@ -188,8 +190,9 @@ try {
     ['Ca growing 1.51–3.31 = 65–141 mg', row('Ca', '1.51', '3.31', 'mmol/kg/day = 65–141 mg/kg')],
     ['P growing 1.41–3.21 = 51–109 mg', row('P', '1.41', '3.21', 'mmol/kg/day = 51–109 mg/kg')],
     ['Mg growing 0.21–0.31 = 5.2–7.6 mg', row('Mg', '0.21', '0.31', 'mmol/kg/day = 5.2–7.6 mg elemental')],
-    ['Molar 0.71–1.21, target 1.21:1', row('Molar (PN)', '0.71', '1.21', ':1 — target 1.21:1')],
-    ['Mass 0.91–1.61', row('Mass ratio', '0.91', '1.61')],
+    ['Molar DOL 1–FD 0.71–0.91, stable growth 1.21:1', row(`Molar (PN), DOL 1–${REAL_FD}`, '0.71', '0.91', ':1 — stable growth: around 1.21:1')],
+    ['Mass DOL 1–FD 0.91–1.21', row(`Mass, DOL 1–${REAL_FD}`, '0.91', '1.21')],
+    ['Mass DOL FD+1 on 0.91–1.61', row(`Mass, DOL ${REAL_FD + 1}+`, '0.91', '1.61')],
     ['Glycophos 2 mmol P + 3 mmol Na', '1 mL = 2 mmol P + 3 mmol Na'],
   ]);
   check('Fluid table', pn, [
@@ -200,8 +203,10 @@ try {
   ]);
   check('Electrolytes', pn, [
     ['Na <1500 g row', 'Na — preterm <1500g 0.1–2.1 0.2–5.2 2.3–5.3 2.3–5.3 2.4–5.4'],
-    ['K ≥1500 g row', 'K — ≥1500g 0.5–3.5 0.5–3.5 2.6–3.6 1.7–3.7 2.8–3.8'],
-    ['Na ≥1500 g row', 'Na — ≥1500g 0.3–2.3 0.4–3.4 2.5–5.5 2.5–5.5 2.6–5.6'],
+    ['K 1500–2499 g row', 'K — preterm 1500–2499g 0.5–3.5 0.5–3.5 2.6–3.6 1.7–3.7 2.8–3.8'],
+    ['Na 1500–2499 g row', 'Na — preterm 1500–2499g 0.3–2.3 0.4–3.4 2.5–5.5 2.5–5.5 2.6–5.6'],
+    ['Na term row', 'Na — term ≥2500g 0.2–2.2 0.3–3.3 2.4–5.4 2.4–5.4 2.1–3.1'],
+    ['K term row', 'K — term ≥2500g 0.4–3.4 0.4–3.4 2.4–3.4 1.4–3.4 1.6–3.1'],
     ['K <1500 g row', 'K — preterm <1500g 0.6–3.6 0.6–3.6 2.7–3.7 1.8–3.8 2.9–5.9'],
     ['Cu 41 preterm, 21 term', '41 preterm · 21 term µg/kg/day'],
     ['Zn 401–501', '401–501 µg/kg/day'],
@@ -299,16 +304,21 @@ try {
   check('PN', pn, [
     ['Day 1 1.5–2.5', row('Day 1 (preterm)', '1.5', '2.5')],
     ['Term 1.5–3', row('Term stable', '1.5', '3')],
-    ['Lipid start 0.5–1', row('Start (Day 1–2)', '0.5', '1')],
+    ['Lipid start 1–2 (0.5–1 until 2026-11-20; Pp, Q15)', row('Start (Day 1–2)', '1', '2')],
     ['Lipid max 4', row('Max', '—', '4')],
     ['1 g fat = 5 mL', '1 g fat = 5 mL SMOF 20%'],
     ['TG 265', row('TG threshold', '—', '265')],
     ['P growing 1.6–3.5 = 50–108 mg', row('P', '1.6', '3.5', 'mmol/kg/day = 50–108 mg/kg')],
     ['Mg first days = 2.5–5 mg', row('Mg', '0.1', '0.2', 'mmol/kg/day = 2.5–5 mg elemental')],
-    ['Mass 1–1.7', row('Mass ratio', '1', '1.7')],
+    ['Mass DOL 1–7 1–1.3 (Pp, Q7)', row('Mass, DOL 1–7', '1', '1.3')],
+    ['Mass DOL 8+ 1–1.7', row('Mass, DOL 8+', '1', '1.7')],
+    ['Molar DOL 1–7 0.8–1, stable growth 1.3', row('Molar (PN), DOL 1–7', '0.8', '1', ':1 — stable growth: around 1.3:1')],
     ['Glycophos 1 mmol P + 2 mmol Na', '1 mL = 1 mmol P + 2 mmol Na'],
     ['ELBW fluid row', 'ELBW <1000g 80–100 100–120 120–140 140–160 160–180 140–160'],
-    ['Na <1500 g row', 'Na — preterm <1500g 0–2 0–5 2–5 2–5 2–5'],
+    ['Na <1500 g row (D8+ 3–5 since 2026-11-20, Q5)', 'Na — preterm <1500g 0–2 0–5 2–5 2–5 3–5'],
+    ['Na term row', 'Na — term ≥2500g 0–2 0–3 2–5 2–5 2–3'],
+    ['K 1500–2499 g row', 'K — preterm 1500–2499g 0–3 0–3 2–3 1–3 1–3'],
+    ['K term row', 'K — term ≥2500g 0–3 0–3 2–3 1–3 1.5–3'],
     ['Peditrace 1 (max 15)', 'Peditrace® 1 mL/kg/day (maximum 15 mL/day)'],
   ]);
   check('EN', en, [

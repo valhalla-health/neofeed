@@ -4651,8 +4651,11 @@ function GuidelinesPanel() {
               <RangeRow label="P" {...span(EL.p.growing)} unit={`mmol/kg/day = ${rng(D_A.TPN_TARGETS.p(FD + 1))} mg/kg`} highlight />
               <RangeRow label="Mg" {...span(EL.mg.growing)} unit={`mmol/kg/day = ${rng(D_A.TPN_TARGETS.mg(FD + 1))} mg elemental Mg/kg`} />
               <SectionHead>Ca:P ratio</SectionHead>
-              <RangeRow label="Molar (PN)" {...span(EL.caP_molar)} unit={`:1 — target ${n(EL.caP_molar[1])}:1 for stable growth`} highlight />
-              <RangeRow label="Mass ratio" {...span(EL.caP_mass)} unit=":1 (Ca g / P g)" />
+              {/* By mass, the tiles' own bands (TARGETS.caP, CR-TGT-CAP); molar
+                  from Mihatsch R 8.12 and its stable-growth optimum (Q7). */}
+              <RangeRow label={`Molar (PN), DOL 1–${FD}`} {...span(EL.caP_molar.firstDays)} unit={`:1 — stable growth: around ${n(EL.caP_molar.growingOptimum)}:1`} highlight />
+              <RangeRow label={`Mass, DOL 1–${FD}`} {...span(EL.caP_mass.firstDays)} unit=":1 (Ca g / P g)" highlight />
+              <RangeRow label={`Mass, DOL ${FD + 1}+`} {...span(EL.caP_mass.growing)} unit=":1 (Ca g / P g)" />
               {/* The strength the Calculator doses with, KCMH_STOCK.glycophos:
                   31 mg P a mL is 1 mmol (÷ EN_MG_PER_MMOL.p, 30.97). */}
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-3)" }}>
@@ -4701,17 +4704,20 @@ function GuidelinesPanel() {
                   Table 2 for DOL 6–7, Table 3 from DOL 8 (TPN team, 2026-10-25).
                   The old table's "ELBW" row was Jochum's < 1500 g row and its
                   phase columns were Table 1's day columns (targets audit
-                  2026-09-28 § 3.7). Term rows wait for the term question. */}
+                  2026-09-28 § 3.7). Term (2,500 g or more) has its own D8+ row
+                  from Table 3 and the preterm rows before (Q5, 2026-11-20). */}
               <PhaseTable
                 cols={["Electrolyte","D1–2","D3","D4–5","D6–7","D8+","Notes"]}
                 rows={[
                   // Na and K from ESPGHAN_TARGETS (D1–2, D3, D4–5, D6–7, D8+).
                   // Cl and the notes' figures are typed: data.js holds no Cl band.
-                  ...[["Na — preterm <1500g", EL.na.under1500, "Up to 7 with high urinary Na loss"],
-                      ["Na — ≥1500g",         EL.na.over1500,  "Jochum stable: preterm 3–5, term 2–3"]]
+                  ...[["Na — preterm <1500g",       EL.na.under1500, "Up to 7 with high urinary Na loss"],
+                      ["Na — preterm 1500–2499g",   EL.na.over1500,  ""],
+                      ["Na — term ≥2500g",          EL.na.term,      "Term rows from D8 only"]]
                     .map(([label, t, note]) => [label, rng(t.d1to2), rng(t.d3), rng(t.d4to7), rng(t.d4to7), rng(t.stable), note]),
-                  ...[["K — preterm <1500g", EL.k.under1500, "Watch for non-oliguric hyperkalaemia in VLBW"],
-                      ["K — ≥1500g",         EL.k.over1500,  ""]]
+                  ...[["K — preterm <1500g",        EL.k.under1500,  "Watch for non-oliguric hyperkalaemia in VLBW"],
+                      ["K — preterm 1500–2499g",    EL.k.over1500,   ""],
+                      ["K — term ≥2500g",           EL.k.term,       "Term rows from D8 only"]]
                     .map(([label, t, note]) => [label, rng(t.d1to3), rng(t.d1to3), rng(t.d4to5), rng(t.d6to7), rng(t.stable), note]),
                   ["Cl — preterm",        "0–3","0–3","2–5","2–5","3–5", "Keep Na+K > Cl by 1–2 mmol/kg to avoid acidosis"],
                 ]}

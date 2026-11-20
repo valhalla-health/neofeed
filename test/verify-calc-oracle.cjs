@@ -342,12 +342,13 @@ function expectedAlerts(sc, e) {
   const d = sc.dol, en = e.useEN;
   const tierG = (sc.bw > 0 && e.wG < sc.bw) ? sc.bw : e.wG;
   const vlbw = tierG > 0 && tierG < 1500;
+  const term = tierG >= 2500;   // Jochum Table 3's term row from DOL 8 (Pp, 2026-11-20, Q5)
   const T = {
     pro: en ? [3.5, 4.0] : (d <= 1 ? [1.5, 2.5] : [2.5, 3.5]),
     kcal: en ? [115, 140] : (d <= 2 ? [45, 55] : d <= 7 ? [70, 100] : [90, 120]),
-    lip: en ? [4.8, 8.1] : (d <= 1 ? [0.5, 1.0] : [1.0, 4.0]),
-    na: en ? [3, 5] : (d <= 2 ? [0, 2] : d === 3 ? (vlbw ? [0, 5] : [0, 3]) : [2, 5]),
-    k: en ? [2.3, 4.6] : (d <= 3 ? [0, 3] : d <= 5 ? [2, 3] : d <= 7 ? [1, 3] : (vlbw ? [2, 5] : [2, 3])),
+    lip: en ? [4.8, 8.1] : (d <= 1 ? [1.0, 2.0] : [1.0, 4.0]),   // DOL 1 1–2 (Q15)
+    na: en ? [3, 5] : (d <= 2 ? [0, 2] : d === 3 ? (vlbw ? [0, 5] : [0, 3]) : d <= 7 ? [2, 5] : (term ? [2, 3] : [3, 5])),
+    k: en ? [2.3, 4.6] : (d <= 3 ? [0, 3] : d <= 5 ? [2, 3] : d <= 7 ? [1, 3] : (vlbw ? [2, 5] : term ? [1.5, 3] : [1, 3])),
     ca: en ? [120, 200] : (d <= 7 ? [32, 80] : [64, 140]),
     p: en ? [70, 115] : (d <= 7 ? [31, 62] : [50, 108]),
     mg: d <= 7 ? [2.5, 5] : [5, 7.5],   // elemental mg/kg/d since 2026-10-28 (was 0.2-0.4 / 0.4-0.6 mEq)
@@ -385,8 +386,8 @@ function expectedAlerts(sc, e) {
   const oral = sc.oCa > 0 || sc.oP > 0;
   if (oral) { tile(st(e.totCa, T.ca), 'Calcium (total incl. oral)'); tile(st(e.totP, T.p), 'Phosphate (total incl. oral)'); }
   else { tile(st(e.caKg, T.ca), 'Calcium'); tile(st(e.pKg, T.p), 'Phosphorus'); }
-  { const cp = oral ? e.totCaP : e.caP;   // float noise stripped: 1.7 on paper is in range (Pp, 2026-11-18, Q6)
-    const s = st(isFinite(cp) ? Number(cp.toPrecision(12)) : cp, [1.0, 1.7]); const scope = oral ? ' (รวม oral supp)' : '';
+  { const cp = oral ? e.totCaP : e.caP;   // float noise stripped: 1.7 on paper is in range (Pp, 2026-11-18, Q6); DOL 1–7 1.0–1.3 (Q7, 2026-11-20)
+    const s = st(isFinite(cp) ? Number(cp.toPrecision(12)) : cp, sc.dol <= 7 ? [1.0, 1.3] : [1.0, 1.7]); const scope = oral ? ' (รวม oral supp)' : '';
     if (s === 'crit') add('crit', `Ca:P ratio${scope} — ไม่มี P`); else if (s === 'warn') add('warn', `Ca:P ratio${scope} off target`); }
   if (e.useEN && st(e.pe, [2.8, 3.6]) === 'warn') add('warn', 'Protein : Energy off target');
   if (sc.men && e.enPerKg > 24) add('warn', 'MEN ticked above trophic volume');

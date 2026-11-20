@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-11-18.1";
+const CONSTANTS_VERSION = "2026-11-20.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -625,6 +625,13 @@ function _jochumUnder1500(wtG, bwG) {
   const w = (bwG && wtG < bwG) ? bwG : wtG;
   return w > 0 && w < 1500;
 }
+// Jochum 2018's "term neonate", on the same weight: TARGETS.fluid's term tier,
+// 2,500 g or more. NeoFeed's tiers are by weight, not gestation, from the same
+// Jochum tables (TPN team, 2026-10-25). With no weight known, not term.
+function _jochumTerm(wtG, bwG) {
+  const w = (bwG && wtG < bwG) ? bwG : wtG;
+  return w >= 2500;
+}
 
 // ── TPN_TARGETS — used below Full EN (fullEnReached, CR-U-SWITCH) ──
 // Source: ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Clin Nutr 2018)
@@ -651,8 +658,11 @@ const TPN_TARGETS = {
 
   // Lipid g/kg/day — Lapillonne A et al. 2018
   // Start immediately (no later than DOL 2). SMOF preferred over pure soy.
+  // DOL 1 is 1.0–2.0 (Pp, 2026-11-20, Q15: "1.0–2.0 g/kg/d"); until then
+  // 0.5–1.0, which no source gave as a day-1 dose. Lapillonne R 4.2 sets no
+  // starting dose; SMOF needs 1 g/kg/d for the minimum linoleic acid (p2327).
   lipid: (dol) => {
-    if (dol <= 1) return [0.5, 1.0];  // Day 1: start 0.5–1 g/kg
+    if (dol <= 1) return [1.0, 2.0];  // Day 1: start 1–2 g/kg
     return [1.0, 4.0];                 // Advance by 0.5–1 g/kg/day, max 4.0
   },
 
@@ -661,25 +671,26 @@ const TPN_TARGETS = {
   // DOL 1–5 are Table 1's day columns, DOL 6–7 Table 2 (intermediate phase),
   // DOL 8 on Table 3 (stable growth). The weight group is the fluid tier's
   // weight (_jochumUnder1500 below). A bracketed upper value in the tables,
-  // "(7)", is for high urinary Na loss and is not the band. Term rows are not
-  // used: whether term infants get their own rows is still open (§ 2.5 item 7).
+  // "(7)", is for high urinary Na loss and is not the band. DOL 1–7 use the
+  // preterm rows for every infant. From DOL 8 (Table 3, stable growth) the
+  // three rows are Jochum's own, term included (Pp, 2026-11-20, Q5: "แยกตาม
+  // Table 3"); term is the fluid tier's term, 2,500 g or more (_jochumTerm).
   na: (dol, wtG, bwG) => {
     if (!dol || dol <= 2) return [0, 2];   // Table 1 D1–2: 0–2 (3)
     if (dol === 3) return _jochumUnder1500(wtG, bwG) ? [0, 5] : [0, 3];  // D3: < 1500 g 0–5 (7), > 1500 g 0–3
     if (dol <= 7) return [2, 5];           // D4–5 2–5 (7) · Table 2 preterm 2–5
-    // Stable: 2–5 as before. Table 3 gives 3–5 for both preterm rows (< 1500
-    // and > 1500 g) and 2–3 for term; raising the floor to 3 by weight would
-    // push term infants off their own row, so it waits for the term question.
-    return [2, 5];
+    // Table 3: term 2–3, preterm > 1500 g 3–5, preterm < 1500 g 3–5 (7).
+    // Until 2026-11-20 every infant was 2–5 here.
+    return _jochumTerm(wtG, bwG) ? [2, 3] : [3, 5];
   },
   k: (dol, wtG, bwG) => {
     if (!dol || dol <= 3) return [0, 3];   // Table 1 D1–3: 0–3
     if (dol <= 5) return [2, 3];           // Table 1 D4–5: 2–3
     if (dol <= 7) return [1, 3];           // Table 2 (intermediate): 1–3
-    // Table 3 splits K by weight as printed: preterm < 1500 g 2–5, preterm
-    // > 1500 g 1–3, term 1.5–3. At or above 1500 g NeoFeed keeps its old 2–3,
-    // inside both of those rows, until the term rows are decided.
-    return _jochumUnder1500(wtG, bwG) ? [2, 5] : [2, 3];
+    // Table 3: term 1.5–3, preterm > 1500 g 1–3, preterm < 1500 g 2–5.
+    // Until 2026-11-20 every infant at or above 1500 g was 2–3 here.
+    if (_jochumUnder1500(wtG, bwG)) return [2, 5];
+    return _jochumTerm(wtG, bwG) ? [1.5, 3] : [1, 3];
   },
 
   // Calcium mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
@@ -709,9 +720,10 @@ const TPN_TARGETS = {
     return [5, 7.5];
   },
 
-  // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 → mass 1.0–1.7 (×40/31=1.29)
-  // Full acceptable range [1.0, 1.7]; order form targets upper end ~1.7:1
-  caP: () => [1.0, 1.7],   // mass ratio; full ESPGHAN range; KCMH aim 1.7:1
+  // Ca:P mass ratio: one copy, TARGETS.caP (CR-TGT-CAP; Q7, 2026-11-20). The
+  // "ESPGHAN 2018 molar 0.8–1.3" this comment cited until then is not the
+  // guideline's: early PN is molar 0.8–1.0 (Mihatsch R 8.12).
+  caP: (dol) => TARGETS.caP(dol),
 };
 
 // ── Full EN on a saved row (Pp, 2026-11-10) ──────────────────
@@ -828,9 +840,9 @@ const TARGETS = {
     return [115, 140];                 // Full nutrition target (ESPGHAN 2022 EN; was 110 — the 2010 floor)
   },
 
-  // Lipid g/kg/day
+  // Lipid g/kg/day (DOL 1 as TPN_TARGETS.lipid: Pp, 2026-11-20, Q15)
   lipid: (dol) => {
-    if (dol <= 1) return [0.5, 1.0];
+    if (dol <= 1) return [1.0, 2.0];
     if (dol <= 7) return [1.0, 4.0];
     return [4.8, 8.1];   // Full enteral
   },
@@ -860,9 +872,14 @@ const TARGETS = {
   // the bounds the Mg chips sit on
   mg: (dol) => TPN_TARGETS.mg(dol),
 
-  // Ca:P mass ratio — order form: Ca:P ~1.7:1 target
-  // ESPGHAN 2018 molar 0.8–1.3:1 → mass 1.0–1.68 ≈ 1.7:1
-  caP: () => [1.0, 1.7],   // mass ratio; ESPGHAN molar 0.8–1.3 → mass 1.0–1.7; KCMH aim 1.7:1
+  // Ca:P mass ratio (mass = molar × 40.08 / 30.97 = molar × 1.294).
+  // DOL 1–7 (FIRST_DAYS_LAST_DOL): 1.0–1.3, Mihatsch 2018 R 8.12's molar
+  // 0.8–1.0 in early PN (p2363; Pp, 2026-11-20, Q7: "แคบลงช่วง DOL 1–7").
+  // From DOL 8: 1.0–1.7, the unit's own (TPN team, 2026-10-25). Mihatsch gives
+  // no range there: molar 1.3 (mass 1.7) is the stable-growth optimum, which
+  // p2363 quotes from previous recommendations. Until 2026-11-20 this comment
+  // said "ESPGHAN molar 0.8–1.3", which the guideline does not say.
+  caP: (dol) => (!dol || dol <= FIRST_DAYS_LAST_DOL) ? [1.0, 1.3] : [1.0, 1.7],
 
   // Non-protein energy per gram amino acid (classic NPC:N 150 ÷ 6.25 g AA/g N
   // = 24 kcal/g AA). No upper end: ESPGHAN's 30–40 kcal/g is a minimum, not a
@@ -1329,8 +1346,8 @@ const LIPID_IV_KCAL_PER_G = 10;
 // Ca:P is graded with float noise stripped: 52.7 / 31 is 1.7 on paper and
 // 1.7000000000000002 in JS, which graded High beside a printed "1.7:1" (Pp,
 // 2026-11-18, Q6). A real decimal stays: 1.71 is above 1.7.
-function caPStatus(ratio) {
-  return rangeStatus(isFinite(ratio) ? Number(ratio.toPrecision(12)) : ratio, TARGETS.caP());
+function caPStatus(ratio, dol) {
+  return rangeStatus(isFinite(ratio) ? Number(ratio.toPrecision(12)) : ratio, TARGETS.caP(dol));
 }
 const LIPID_IV_HARD_HI = 4.0;
 const K_IV_HARD_HI = 5.0;
@@ -1513,7 +1530,7 @@ const ESPGHAN_TARGETS = {
       peripheralMaxDex: DEX_PERIPHERAL_MAX_PCT, // % max for peripheral IV
     },
     lipid: {
-      start:   0.5,   // g/kg/day, Day 1 or no later than Day 2
+      start:   1.0,   // g/kg/day, Day 1 or no later than Day 2: TPN_TARGETS.lipid(1)'s floor (Q15)
       step:    1.0,   // advance 0.5–1 g/kg/day
       max:     4.0,
       tgCutoff:265,   // mg/dL — reduce ILE if above
@@ -1531,14 +1548,18 @@ const ESPGHAN_TARGETS = {
     },
     electrolytes: {
       // TPN_TARGETS.na/k: Jochum Table 1 to DOL 5, Table 2 DOL 6–7, Table 3 DOL 8+.
+      // over1500 is preterm 1,500–2,499 g; term is 2,500 g or more, on the
+      // preterm rows to DOL 7 and its own Table 3 row from DOL 8 (Q5, 2026-11-20).
       na: {
-        under1500: { d1to2:[0,2], d3:[0,5], d4to7:[2,5], stable:[2,5] },
-        over1500:  { d1to2:[0,2], d3:[0,3], d4to7:[2,5], stable:[2,5] },
+        under1500: { d1to2:[0,2], d3:[0,5], d4to7:[2,5], stable:[3,5] },
+        over1500:  { d1to2:[0,2], d3:[0,3], d4to7:[2,5], stable:[3,5] },
+        term:      { d1to2:[0,2], d3:[0,3], d4to7:[2,5], stable:[2,3] },
         unit: "mmol/kg/day",
       },
       k: {
         under1500: { d1to3:[0,3], d4to5:[2,3], d6to7:[1,3], stable:[2,5] },
-        over1500:  { d1to3:[0,3], d4to5:[2,3], d6to7:[1,3], stable:[2,3] },
+        over1500:  { d1to3:[0,3], d4to5:[2,3], d6to7:[1,3], stable:[1,3] },
+        term:      { d1to3:[0,3], d4to5:[2,3], d6to7:[1,3], stable:[1.5,3] },
         unit: "mmol/kg/day",
       },
       // First days = DOL 1–7 (FIRST_DAYS_LAST_DOL; TPN team, 2026-10-25).
@@ -1547,8 +1568,11 @@ const ESPGHAN_TARGETS = {
       // TPN_TARGETS.p (1.6–3.5 mmol = 50–108 mg/kg) never reached this display copy.
       p:  { dol1:[1.0,2.0], growing:[1.6,3.5], unit:"mmol/kg/day" },  // × 30.97 = mg/kg
       mg: { dol1:[0.1,0.2], growing:[0.2,0.3], unit:"mmol/kg/day" },
-      caP_molar:  [0.8, 1.3],   // molar Ca:P ratio — aim 1.3:1 (ESPGHAN 2018)
-      caP_mass:   TARGETS.caP(),   // the tile's band (TARGETS.caP, CR-TGT-CAP) — mass ratio — ESPGHAN 0.8–1.3 molar × 1.29 = 1.0–1.7; KCMH aim 1.7:1
+      // Molar Ca:P: early PN 0.8–1.0 (Mihatsch R 8.12); 1.3 is the stable-growth
+      // optimum (p2363, from previous recommendations), not the top of a range.
+      caP_molar:  { firstDays: [0.8, 1.0], growingOptimum: 1.3 },
+      // The tile's bands (TARGETS.caP, CR-TGT-CAP), by mass: DOL 1–7 1.0–1.3, then 1.0–1.7
+      caP_mass:   { firstDays: TARGETS.caP(1), growing: TARGETS.caP(FIRST_DAYS_LAST_DOL + 1) },
     },
     micronutrients: {
       zn: { preterm:[400,500], term:[250,250], unit:"µg/kg/day" },
