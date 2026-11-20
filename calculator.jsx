@@ -4602,7 +4602,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="capo4-tiles">
                 <Tile label="Calcium (total)"   value={mineral.totCa}  unit=" mg/kg/d"   target={tCa}  status={sTotCa}  decimals={0} max={220} />
                 <Tile label="Phosphate (total)" value={mineral.totP}   unit=" mg/kg/d"   target={tP}   status={sTotP}   decimals={0} max={130} />
-                <Tile label="Ca:P ratio (total)" value={mineral.totCaP} unit=":1 (mass)" target={tCaP} status={sTotCaP} decimals={2} max={2.5} exact />
+                <Tile label="Ca:P ratio (total)" value={mineral.totCaP} unit=":1 (mass)" target={caPTpnOnly ? null : tCaP} status={sTotCaP} decimals={2} max={2.5} exact />
               </div>
               {mineral.oralCa > 0 && mineral.oralP === 0 && (
                 <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 8, display: "flex", alignItems: "flex-start", gap: 4 }}>

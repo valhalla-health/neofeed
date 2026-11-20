@@ -227,7 +227,8 @@ console.log('\n── § 3 no needle for 0 or "!!" ──');
   ok('mixed order · EN volume 0 is "nothing ordered": green tile, no needle', en && en.status === 'ok' && en.needle === null, en);
   const p0 = hard.find((x) => x.label === 'Phosphorus');
   ok('no phosphate ordered · Phosphorus 0 is "empty": no needle', p0 && p0.status === 'empty' && p0.needle === null, p0);
-  const caP = hard.find((x) => x.label === 'Ca:P ratio');
+  // On DOL 1–7 the Step 4 tile is the bag's own ratio, "Ca:P ratio (TPN)" (Q27, 2026-11-20).
+  const caP = hard.find((x) => x.label === 'Ca:P ratio' || x.label === 'Ca:P ratio (TPN)');
   ok('calcium with no phosphate · Ca:P reads "!!", critical, with no needle', caP && caP.value.startsWith('!!') &&
     caP.status === 'crit' && caP.needle === null, caP);
   const needles = thin.filter((r) => r.needle !== null).length;
