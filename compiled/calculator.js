@@ -792,7 +792,7 @@ function Calculator({
   const [savedCalcVersion, setSavedCalcVersion] = useState(null);
   const [savedFiguresV, setSavedFiguresV] = useState(() => savedFiguresVOf(editEntry));
   const fluidMidpoint = (weightG) => {
-    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1e3, patient?.bw);
+    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1e3, patient?.bw, patient?.ga);
     return Math.round((r[0] + r[1]) / 2);
   };
   const applyCalcInput = (src, fallbackWeight, ioTouched = true, fallbackFluid) => {
@@ -1493,7 +1493,7 @@ function Calculator({
   };
   const useEN = calc.useEnteralTargets;
   const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
-  const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);
+  const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw, patient?.ga);
   const tGir = D.TARGETS.gir();
   const tPro = T.protein(dol);
   const tKcal = T.kcal(dol);
@@ -1725,7 +1725,7 @@ function Calculator({
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
     ref: `Feeding Advancement · MEF ${D.ESPGHAN_TARGETS.en.advancement.mef[0]}–${D.MEN_MAX_ML_KG} mL/kg/d`
   });
-  const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw);
+  const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw, patient?.ga);
   const enCountedPerKg = calc.wtKg > 0 ? calc.enCounted / calc.wtKg : 0;
   const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
   const noTpnEnBasis = noTpnEnMin < D.NO_TPN_EN_MIN_ML_KG ? `fluid requirement DOL ${dol} ${tFluid[0]}–${tFluid[1]} mL/kg/d` : `เกณฑ์ ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d`;

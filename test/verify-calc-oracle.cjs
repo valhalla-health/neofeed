@@ -341,15 +341,15 @@ const oralScenario = (sc) => !!sc.mtv || ['vitD', 'oCa', 'oP', 'fe'].some(k => s
 function expectedAlerts(sc, e) {
   const d = sc.dol, en = e.useEN;
   const tierG = (sc.bw > 0 && e.wG < sc.bw) ? sc.bw : e.wG;
-  const vlbw = tierG > 0 && tierG < 1500;
+  const vlbw = tierG > 0 && tierG <= 1500;   // 1,500 g on the lighter row since 2026-11-20 (Jochum, Avery, Fanaroff)
   // Jochum Table 3's term row from DOL 8 (Q5): PMA 37 weeks or more at 1,500 g or more
   // (Q23). Every oracle patient is GA 30+0, so PMA is 30 weeks + DOL − 1 days.
-  const term = 30 * 7 + Math.max(0, d - 1) >= 37 * 7 && !vlbw;
+  const term = 30 * 7 + Math.max(0, d - 1) >= 37 * 7 && !(tierG > 0 && tierG < 1500);
   const T = {
     pro: en ? [3.5, 4.0] : (d <= 1 ? [1.5, 2.5] : [2.5, 3.5]),
     kcal: en ? [115, 140] : (d <= 2 ? [45, 55] : d <= 7 ? [70, 100] : [90, 120]),
     lip: en ? [4.8, 8.1] : (d <= 1 ? [1.0, 2.0] : [1.0, 4.0]),   // DOL 1 1–2 (Q15)
-    na: en ? [3, 5] : (d <= 2 ? [0, 2] : d === 3 ? (vlbw ? [0, 5] : [0, 3]) : d <= 7 ? [2, 5] : (term ? [2, 3] : [3, 5])),
+    na: en ? [3, 5] : (d <= 2 ? [0, 2] : d === 3 ? (vlbw ? [0, 5] : [0, 3]) : d <= 7 ? (term ? (d <= 5 ? [1, 3] : [2, 3]) : [2, 5]) : (term ? [2, 3] : [3, 5])),
     k: en ? [2.3, 4.6] : (d <= 3 ? [0, 3] : d <= 5 ? [2, 3] : d <= 7 ? [1, 3] : (vlbw ? [2, 5] : term ? [1.5, 3] : [1, 3])),
     ca: en ? [120, 200] : (d <= 7 ? [32, 80] : [64, 140]),
     p: en ? [70, 115] : (d <= 7 ? [31, 62] : [50, 108]),
@@ -408,8 +408,9 @@ function expectedAlerts(sc, e) {
   const noTpn = noTpnScenario(sc);
   let noTpnShort = false;
   if (noTpn && e.W > 0) {
-    const lo = tierG < 1000 ? [80, 100, 120, 140, 160, 140, 140] : tierG < 1500 ? [70, 90, 110, 130, 160, 140, 140]
-      : tierG < 2500 ? [60, 80, 100, 120, 140, 140, 140] : [40, 50, 60, 60, 100, 140, 140];
+    // Fluid: 1,500 g on the 1000–1500 g row; term needs GA ≥ 37 at birth (every oracle patient is GA 30) and ≥ 2,500 g (2026-11-20).
+    const lo = tierG < 1000 ? [80, 100, 120, 140, 160, 140, 140] : tierG <= 1500 ? [70, 90, 110, 130, 160, 140, 140]
+      : [60, 80, 100, 120, 140, 140, 140];
     const bar = Math.min(80, lo[Math.min(d, 7) - 1]);
     const enKg = Number((e.enCounted / e.W).toPrecision(12));
     if (enKg < bar) { add('crit', "No TPN: feeds below 80 mL/kg/d or the day's minimum"); noTpnShort = true; }

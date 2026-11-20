@@ -4680,7 +4680,7 @@ function GuidelinesPanel() {
                 cols={["BW category", "DOL 1", "DOL 2", "DOL 3", "DOL 4", "DOL 5", "DOL 6+"]}
                 rows={[
                   ["ELBW <1000g", PN.fluid.elbw], ["VLBW 1000–1500g", PN.fluid.vlbw],
-                  ["Preterm >1500g", PN.fluid.preterm], ["Term ≥2500g", PN.fluid.term],
+                  ["Preterm >1500g", PN.fluid.preterm], ["Term GA ≥37 wk, ≥2500g", PN.fluid.term],
                 ].map(([label, t]) => [label, ...["d1", "d2", "d3", "d4", "d5", "d6plus"].map((d) => rng(t[d]))])}
               />
               {/* Typed: IWL 30 and 120 are held only in PN.fluid.note's text, the
@@ -4714,11 +4714,11 @@ function GuidelinesPanel() {
                   // Cl and the notes' figures are typed: data.js holds no Cl band.
                   ...[["Na — preterm <1500g",       EL.na.under1500, "Up to 7 with high urinary Na loss"],
                       ["Na — preterm ≥1500g",       EL.na.over1500,  ""],
-                      ["Na — term (PMA ≥37 wk)",    EL.na.term,      "From D8, at ≥1500g; no GA: ≥2500g"]]
-                    .map(([label, t, note]) => [label, rng(t.d1to2), rng(t.d3), rng(t.d4to7), rng(t.d4to7), rng(t.stable), note]),
+                      ["Na — term (PMA ≥37 wk)",    EL.na.term,      "At ≥1500g; no GA: ≥2500g"]]
+                    .map(([label, t, note]) => [label, rng(t.d1to2), rng(t.d3), rng(t.d4to5 || t.d4to7), rng(t.d6to7 || t.d4to7), rng(t.stable), note]),
                   ...[["K — preterm <1500g",        EL.k.under1500,  "Watch for non-oliguric hyperkalaemia in VLBW"],
                       ["K — preterm ≥1500g",        EL.k.over1500,   ""],
-                      ["K — term (PMA ≥37 wk)",     EL.k.term,       "From D8, at ≥1500g; no GA: ≥2500g"]]
+                      ["K — term (PMA ≥37 wk)",     EL.k.term,       "At ≥1500g; no GA: ≥2500g"]]
                     .map(([label, t, note]) => [label, rng(t.d1to3), rng(t.d1to3), rng(t.d4to5), rng(t.d6to7), rng(t.stable), note]),
                   ["Cl — preterm",        "0–3","0–3","2–5","2–5","3–5", "Keep Na+K > Cl by 1–2 mmol/kg to avoid acidosis"],
                 ]}

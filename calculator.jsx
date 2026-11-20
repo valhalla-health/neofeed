@@ -1304,7 +1304,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // ESPGHAN fluid-plan midpoint for this DOL/weight — the default when a
   // source carries no fluid plan of its own.
   const fluidMidpoint = (weightG) => {
-    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1000, patient?.bw);
+    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1000, patient?.bw, patient?.ga);
     return Math.round((r[0] + r[1]) / 2);
   };
   const applyCalcInput = (src, fallbackWeight, ioTouched = true, fallbackFluid) => {
@@ -2134,7 +2134,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Target switching
   const useEN = calc.useEnteralTargets;
   const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
-  const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);   // wtG already floors at bw; pass bw so the tier does too
+  const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw, patient?.ga);   // wtG already floors at bw; pass bw so the tier does too; term needs GA ≥ 37 too
   const tGir   = D.TARGETS.gir();                         // [2.5, 12] display range
   const tPro   = T.protein(dol);
   const tKcal  = T.kcal(dol);
@@ -2553,7 +2553,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Float noise stripped, as for K⁺, so 80 is not 79.99…. Its title is
   // D.NO_TPN_FEEDS_LOW_TITLE: the ward list reads it off a Submitted order's
   // critOverride and keeps that infant on daily entries (Pp, 2026-11-14).
-  const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw);
+  const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw, patient?.ga);
   const enCountedPerKg = calc.wtKg > 0 ? calc.enCounted / calc.wtKg : 0;
   const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
   const noTpnEnBasis = noTpnEnMin < D.NO_TPN_EN_MIN_ML_KG

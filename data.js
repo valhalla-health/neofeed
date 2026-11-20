@@ -621,9 +621,12 @@ const FIRST_DAYS_LAST_DOL = 7;
 // Jochum 2018's "preterm neonate < 1500 g", on the weight the fluid tier uses
 // (TARGETS.fluid): the dosing weight, held at birth weight until it is
 // regained. With no weight known, the ≥ 1500 g row.
+// 1,500 g itself is on the lighter row, as Jochum's "1000–1500 g", Avery
+// Table 20.1 and Fanaroff Table 96.1 put it (Pp, 2026-11-20: "ย้ายตามแหล่ง
+// อ้างอิง"); until then 1,500 g read as > 1500 g.
 function _jochumUnder1500(wtG, bwG) {
   const w = (bwG && wtG < bwG) ? bwG : wtG;
-  return w > 0 && w < 1500;
+  return w > 0 && w <= 1500;
 }
 // Jochum 2018's "term neonate" row, by PMA on the day of the order (GA at birth
 // + DOL − 1, pmaShort): PMA 37 weeks or more and 1,500 g or more on the fluid
@@ -634,7 +637,10 @@ function _jochumUnder1500(wtG, bwG) {
 // 2,500 g or more on the weight held at birth weight. With neither, not term.
 function _jochumTerm(dol, wtG, bwG, ga) {
   if (gaTotalDays(Number(ga)) > 0) {
-    return gaTotalDays(pmaShort(Number(ga), dol)) >= PRETERM_GA_WK * 7 && !_jochumUnder1500(wtG, bwG);
+    // "≥ 1,500 g" is Pp's option for Q23, so 1,500 g itself is term here even
+    // though it is on the lighter preterm row (the term row is checked first).
+    const w = (bwG && wtG < bwG) ? bwG : wtG;
+    return gaTotalDays(pmaShort(Number(ga), dol)) >= PRETERM_GA_WK * 7 && !(w > 0 && w < 1500);
   }
   const w = (bwG && wtG < bwG) ? bwG : wtG;
   return w >= 2500;
@@ -685,7 +691,10 @@ const TPN_TARGETS = {
   // Q23).
   na: (dol, wtG, bwG, ga) => {
     if (!dol || dol <= 2) return [0, 2];   // Table 1 D1–2: 0–2 (3)
-    if (dol === 3) return _jochumUnder1500(wtG, bwG) ? [0, 5] : [0, 3];  // D3: < 1500 g 0–5 (7), > 1500 g 0–3
+    // The term row on DOL 3–7 too (Pp, 2026-11-20: of the options, "ใช้แถว
+    // term"): Table 1 term D3 0–2, D4–5 1–3; Table 2 term 2–3.
+    if (dol <= 7 && _jochumTerm(dol, wtG, bwG, ga)) return dol === 3 ? [0, 2] : dol <= 5 ? [1, 3] : [2, 3];
+    if (dol === 3) return _jochumUnder1500(wtG, bwG) ? [0, 5] : [0, 3];  // D3: ≤ 1500 g 0–5 (7), > 1500 g 0–3
     if (dol <= 7) return [2, 5];           // D4–5 2–5 (7) · Table 2 preterm 2–5
     // Table 3: term 2–3, preterm > 1500 g 3–5, preterm < 1500 g 3–5 (7).
     // Until 2026-11-20 every infant was 2–5 here.
@@ -798,7 +807,14 @@ const TARGETS = {
   // (postnatal loss) the tier is held at birth weight rather than dropping into
   // a lighter, higher-fluid tier off the nadir, and it tracks current weight
   // once regained. Called without bwG it floors nothing (legacy behaviour).
-  fluid: (dol, wtG, bwG) => {
+  // The term tier needs GA at birth of 37 weeks or more AND 2,500 g or more
+  // (Pp, 2026-11-20: of the options, "GA ≥ 37 และ ≥ 2,500 g"); a late-preterm
+  // infant of 2,500 g or more is on the preterm > 1500 g row, and a term SGA
+  // infant under 2,500 g stays there too, as Avery Table 20.1 and Fanaroff
+  // Table 96.1 (birth weight only) would have it. GA at birth, not PMA, so no
+  // infant changes row partway through Table 1. With no GA recorded, 2,500 g.
+  // 1,500 g itself is on the 1000–1500 g row (Pp, the same day).
+  fluid: (dol, wtG, bwG, ga) => {
     // From DOL 6 every preterm tier is Jochum's Tables 2–3: 140–160. Until
     // 2026-10-27 ELBW stayed at 160–180 for the rest of the stay and VLBW had
     // 140–160 on DOL 5, where Table 1 gives 160–180 (TPN team, 2026-10-25:
@@ -809,15 +825,16 @@ const TARGETS = {
       const map = {1:[80,100], 2:[100,120], 3:[120,140], 4:[140,160], 5:[160,180], 6:[140,160], 7:[140,160]};
       return map[d] || [140, 160];
     }
-    if (w < 1500) {           // VLBW 1000–1500g
+    if (w <= 1500) {          // VLBW 1000–1500g (1,500 g included since 2026-11-20)
       const map = {1:[70,90], 2:[90,110], 3:[110,130], 4:[130,150], 5:[160,180], 6:[140,160], 7:[140,160]};
       return map[d] || [140, 160];
     }
-    if (w < 2500) {           // Preterm >1500g
+    const termTier = w >= 2500 && (gaTotalDays(Number(ga)) > 0 ? !isPretermGa(ga) : true);
+    if (!termTier) {          // Preterm >1500g (a late preterm of 2,500 g or more too)
       const map = {1:[60,80], 2:[80,100], 3:[100,120], 4:[120,140], 5:[140,160], 6:[140,160], 7:[140,160]};
       return map[d] || [140, 160];
     }
-    // Term ≥2500g
+    // Term: GA ≥ 37 weeks and ≥ 2500 g
     const map = {1:[40,60], 2:[50,70], 3:[60,80], 4:[60,100], 5:[100,140], 6:[140,160], 7:[140,160]};
     return map[d] || [140, 160];
   },
@@ -1067,8 +1084,8 @@ function fullEnReached({ mlKg = 0, kcalKg = 0, proKg = 0 } = {}, { fullMlKg = FU
 const NO_TPN_EN_MIN_ML_KG = 80;
 // The feed a no-TPN day needs, mL/kg/day: 80, or the day's fluid requirement
 // (the lower bound of TARGETS.fluid, on the same weight tier) if that is less.
-function noTpnEnMinPerKg(dol, wtG, bwG) {
-  return Math.min(NO_TPN_EN_MIN_ML_KG, TARGETS.fluid(dol, wtG, bwG)[0]);
+function noTpnEnMinPerKg(dol, wtG, bwG, ga) {
+  return Math.min(NO_TPN_EN_MIN_ML_KG, TARGETS.fluid(dol, wtG, bwG, ga)[0]);
 }
 // A day ticked "No TPN" whose counted feed is more than this many mL/kg/day
 // below Step 1's fluid plan: an amber line, in case the TPN was forgotten (Pp,
@@ -1562,7 +1579,7 @@ const ESPGHAN_TARGETS = {
       na: {
         under1500: { d1to2:[0,2], d3:[0,5], d4to7:[2,5], stable:[3,5] },
         over1500:  { d1to2:[0,2], d3:[0,3], d4to7:[2,5], stable:[3,5] },
-        term:      { d1to2:[0,2], d3:[0,3], d4to7:[2,5], stable:[2,3] },
+        term:      { d1to2:[0,2], d3:[0,2], d4to5:[1,3], d6to7:[2,3], stable:[2,3] },
         unit: "mmol/kg/day",
       },
       k: {

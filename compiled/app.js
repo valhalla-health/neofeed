@@ -2899,7 +2899,7 @@ function GuidelinesPanel() {
         ["ELBW <1000g", PN.fluid.elbw],
         ["VLBW 1000–1500g", PN.fluid.vlbw],
         ["Preterm >1500g", PN.fluid.preterm],
-        ["Term ≥2500g", PN.fluid.term]
+        ["Term GA ≥37 wk, ≥2500g", PN.fluid.term]
       ].map(([label, t]) => [label, ...["d1", "d2", "d3", "d4", "d5", "d6plus"].map((d) => rng(t[d]))])
     }
   ), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: "var(--ink-3)" } }, "ELBW in humidified incubator (80–90%): IWL ≈30 mL/kg/day. Open warmer: IWL up to 120 mL/kg/day. Target UO 1–3 mL/kg/hr."))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { gridColumn: "1 / -1" } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "drop", size: 14, color: "var(--brand)" }), "Electrolytes (mmol/kg/day) by phase", /* @__PURE__ */ React.createElement(Badge, null, "Jochum 2018")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement(
@@ -2912,12 +2912,12 @@ function GuidelinesPanel() {
         ...[
           ["Na — preterm <1500g", EL.na.under1500, "Up to 7 with high urinary Na loss"],
           ["Na — preterm ≥1500g", EL.na.over1500, ""],
-          ["Na — term (PMA ≥37 wk)", EL.na.term, "From D8, at ≥1500g; no GA: ≥2500g"]
-        ].map(([label, t, note]) => [label, rng(t.d1to2), rng(t.d3), rng(t.d4to7), rng(t.d4to7), rng(t.stable), note]),
+          ["Na — term (PMA ≥37 wk)", EL.na.term, "At ≥1500g; no GA: ≥2500g"]
+        ].map(([label, t, note]) => [label, rng(t.d1to2), rng(t.d3), rng(t.d4to5 || t.d4to7), rng(t.d6to7 || t.d4to7), rng(t.stable), note]),
         ...[
           ["K — preterm <1500g", EL.k.under1500, "Watch for non-oliguric hyperkalaemia in VLBW"],
           ["K — preterm ≥1500g", EL.k.over1500, ""],
-          ["K — term (PMA ≥37 wk)", EL.k.term, "From D8, at ≥1500g; no GA: ≥2500g"]
+          ["K — term (PMA ≥37 wk)", EL.k.term, "At ≥1500g; no GA: ≥2500g"]
         ].map(([label, t, note]) => [label, rng(t.d1to3), rng(t.d1to3), rng(t.d4to5), rng(t.d6to7), rng(t.stable), note]),
         ["Cl — preterm", "0–3", "0–3", "2–5", "2–5", "3–5", "Keep Na+K > Cl by 1–2 mmol/kg to avoid acidosis"]
       ]

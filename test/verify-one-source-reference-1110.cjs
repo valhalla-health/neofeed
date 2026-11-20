@@ -153,7 +153,7 @@ try {
     G.pn.fluid.vlbw = { d1: [71, 91], d2: [92, 112], d3: [113, 133], d4: [134, 154], d5: [161, 181], d6plus: [142, 162] };
     G.pn.fluid.preterm = { d1: [61, 81], d2: [82, 102], d3: [103, 123], d4: [124, 144], d5: [145, 165], d6plus: [143, 163] };
     G.pn.electrolytes.na.over1500 = { d1to2: [0.3, 2.3], d3: [0.4, 3.4], d4to7: [2.5, 5.5], stable: [2.6, 5.6] };
-    G.pn.electrolytes.na.term = { d1to2: [0.2, 2.2], d3: [0.3, 3.3], d4to7: [2.4, 5.4], stable: [2.1, 3.1] };
+    G.pn.electrolytes.na.term = { d1to2: [0.2, 2.2], d3: [0.3, 2.3], d4to5: [1.1, 3.2], d6to7: [2.2, 3.3], stable: [2.1, 3.1] };
     G.pn.electrolytes.k.term = { d1to3: [0.4, 3.4], d4to5: [2.4, 3.4], d6to7: [1.4, 3.4], stable: [1.6, 3.1] };
     G.pn.electrolytes.k.under1500 = { d1to3: [0.6, 3.6], d4to5: [2.7, 3.7], d6to7: [1.8, 3.8], stable: [2.9, 5.9] };
     G.pn.micronutrients.cu = { ...G.pn.micronutrients.cu, preterm: 41, term: 21 };
@@ -205,7 +205,7 @@ try {
     ['Na <1500 g row', 'Na — preterm <1500g 0.1–2.1 0.2–5.2 2.3–5.3 2.3–5.3 2.4–5.4'],
     ['K 1500–2499 g row', 'K — preterm ≥1500g 0.5–3.5 0.5–3.5 2.6–3.6 1.7–3.7 2.8–3.8'],
     ['Na 1500–2499 g row', 'Na — preterm ≥1500g 0.3–2.3 0.4–3.4 2.5–5.5 2.5–5.5 2.6–5.6'],
-    ['Na term row', 'Na — term (PMA ≥37 wk) 0.2–2.2 0.3–3.3 2.4–5.4 2.4–5.4 2.1–3.1'],
+    ['Na term row', 'Na — term (PMA ≥37 wk) 0.2–2.2 0.3–2.3 1.1–3.2 2.2–3.3 2.1–3.1'],
     ['K term row', 'K — term (PMA ≥37 wk) 0.4–3.4 0.4–3.4 2.4–3.4 1.4–3.4 1.6–3.1'],
     ['K <1500 g row', 'K — preterm <1500g 0.6–3.6 0.6–3.6 2.7–3.7 1.8–3.8 2.9–5.9'],
     ['Cu 41 preterm, 21 term', '41 preterm · 21 term µg/kg/day'],
@@ -316,7 +316,7 @@ try {
     ['Glycophos 1 mmol P + 2 mmol Na', '1 mL = 1 mmol P + 2 mmol Na'],
     ['ELBW fluid row', 'ELBW <1000g 80–100 100–120 120–140 140–160 160–180 140–160'],
     ['Na <1500 g row (D8+ 3–5 since 2026-11-20, Q5)', 'Na — preterm <1500g 0–2 0–5 2–5 2–5 3–5'],
-    ['Na term row', 'Na — term (PMA ≥37 wk) 0–2 0–3 2–5 2–5 2–3'],
+    ['Na term row', 'Na — term (PMA ≥37 wk) 0–2 0–2 1–3 2–3 2–3'],
     ['K 1500–2499 g row', 'K — preterm ≥1500g 0–3 0–3 2–3 1–3 1–3'],
     ['K term row', 'K — term (PMA ≥37 wk) 0–3 0–3 2–3 1–3 1.5–3'],
     ['Peditrace 1 (max 15)', 'Peditrace® 1 mL/kg/day (maximum 15 mL/day)'],
