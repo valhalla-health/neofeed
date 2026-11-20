@@ -165,6 +165,12 @@ eq('Thai initials stay two letters', sandbox._shortInitials('สจ', null), '�
 eq('a full name sent as initials is cut to two letters', sandbox._shortInitials('สมชาย ใจดี', null), 'สม');
 eq('foreign initials', sandbox._shortInitials('JS', null), 'JS');
 eq('an unchanged stored value is kept', sandbox._shortInitials('Fo', 'Fo'), 'Fo');
+eq('…even one the cut would change (keeping, not cutting)', sandbox._shortInitials('สมชาย', 'สมชาย'), 'สมชาย');
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+doesNotThrow('an edit that sends a full name as initials saves',
+  () => sandbox.registerPatient({ ...patient, initials: 'สมชาย ใจดี' }, false));
+{ const w = sheet.writes.find(x => x.col === 1 && x.values && x.values[0]);
+  eq('…with initials cut to two letters on the edit', w ? w.values[0][2] : null, 'สม'); }
 sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
 let reg2 = null;
 doesNotThrow('a registration with no name and a full name as initials saves',

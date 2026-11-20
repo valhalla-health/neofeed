@@ -2283,10 +2283,12 @@ function _shortPatientName(name, storedName) {
   return parts.slice(0, 2).map(function (x) { return _namePart(x, foreign); })
     .filter(function (x) { return x; }).join(" ");
 }
-// The initials column is two letters ("สจ", data.js nameInitials). Cut the
-// same way, so a full name sent as initials cannot be stored either (Vera on
-// this change: patientName() shows initials when name is blank). Unchanged on
-// an edit, kept as stored.
+// The initials column is two letters ("สจ", data.js nameInitials). The client's
+// two letters pass through unchanged; any other value keeps only its first two
+// letters (Thai letters and vowels, or Latin), which is not the client's
+// per-part rule but stores no more than two characters, so a full name sent as
+// initials cannot be stored either (Vera on this change: patientName() shows
+// initials when name is blank). Unchanged on an edit, kept as stored.
 function _shortInitials(initials, storedInitials) {
   var typed = String(initials == null ? "" : initials).trim();
   if (storedInitials != null && typed === String(storedInitials).trim()) return storedInitials;
