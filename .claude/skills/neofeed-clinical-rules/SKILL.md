@@ -886,7 +886,7 @@ DOL 8 on was 2–5 for every infant. Enteral 3.0–5.0.
 Source: Jochum Tables 1–3 (TPN team, 2026-10-25); Thai CPG PDF p. 56–57 repeats them. DOL 1–7 use the
 preterm rows for every infant. From DOL 8, Table 3 (stable growth, p. 2349): term 2–3, preterm > 1,500 g
 3–5, preterm < 1,500 g 3–5 (7): Pp, 2026-11-20, Q5, "แยกตาม Table 3". Telling term from preterm by weight,
-not gestation, follows the fluid tier; it is a reading for Pp to confirm. Enteral: Embleton Table 1.
+not gestation, follows the fluid tier; it is a reading for Pp to confirm (Q23). Enteral: Embleton Table 1.
 
 ```rule
 {"rule": "CR-TGT-NA", "kind": "target", "where": [{"file": "data.js", "line": 678, "has": "na: (dol, wtG, bwG) => {"}, {"file": "data.js", "line": 684, "has": "return _jochumTerm(wtG, bwG) ? [2, 3] : [3, 5];"}, {"file": "data.js", "line": 633, "has": "return w >= 2500;"}, {"file": "data.js", "line": 764, "has": "na: () => [3.0, 5.0],"}]}
@@ -1657,6 +1657,10 @@ An answered question keeps its evidence, so it can be reopened.
   Before: the tap guards only the two lipid lines (4.0 g/kg/d, 0.17 g/kg/h). Should it also
   never tip Energy above 160 or NPE:AA below 12, and should a dose already above 4.0 round toward the limit (the
   whole mL below) rather than to the nearest?
+- **Q23 · `CR-TGT-NA`, `CR-TGT-K`:** from DOL 8 the term row goes to an infant of 2,500 g or more (held at
+  birth weight), the fluid tier's term. Jochum's rows are by gestation, and `patient.ga` is known: a 34-week
+  infant born at 2,600 g reads term (Na 2–3, K 1.5–3, not 3–5 and 1–3), and so does an ex-preterm infant who
+  grows past 2,500 g. Keep weight, or read term from GA (`isPretermGa`)? (Vera, 2026-11-20.)
 
 ## Sources
 
