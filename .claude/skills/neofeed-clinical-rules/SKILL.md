@@ -1030,6 +1030,8 @@ does not say.
 {"case": "DOL 5: Ca 40.3 / P 31 = 1.3: in range", "side": "inside", "infant": {"g": 1000, "dol": 5}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40.3, "Glycophos": 2}, "expect": {"no_alert": "Ca:P ratio off target", "prints": "(Ca:P 1–1.3:1 mass)"}}
 {"case": "DOL 5: Ca 40.6 / P 31 = 1.31: amber, naming R 8.12", "side": "outside", "infant": {"g": 1000, "dol": 5}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40.6, "Glycophos": 2}, "expect": {"alert": "Ca:P ratio off target", "level": "warn", "shows": "aim 1–1.3:1 by mass on DOL 1–7 (molar 0.8–1, ESPGHAN 2018 R 8.12)", "hides": "molar 0.8–1.3"}}
 {"case": "DOL 5: Ca 52.7 / P 31 = 1.7, in range from DOL 8: amber here", "side": "outside", "infant": {"g": 1000, "dol": 5}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 52.7, "Glycophos": 2}, "expect": {"alert": "Ca:P ratio off target", "level": "warn"}}
+{"case": "DOL 5 with oral Ca 20 and oral P 10 mg/kg/d: the Step 6 total row prints target 1–1.3 (Vera)", "side": "inside", "infant": {"g": 1000, "dol": 5}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40, "Glycophos": 2, "ปริมาณ elem Ca": 20, "ปริมาณ elem P": 10}, "expect": {"prints": "(target 1–1.3:1)"}}
+{"case": "DOL 10 with the same oral supplement: the total row prints target 1–1.7", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40, "Glycophos": 2, "ปริมาณ elem Ca": 20, "ปริมาณ elem P": 10}, "expect": {"prints": "(target 1–1.7:1)"}}
 {"case": "Ca 31 / P 31 = 1.0: in range", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 31, "Glycophos": 2}, "expect": {"no_alert": "Ca:P ratio off target"}}
 {"case": "Ca 30 / P 31 = 0.97: amber", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 30, "Glycophos": 2}, "expect": {"alert": "Ca:P ratio off target"}}
 ```
@@ -1620,7 +1622,7 @@ An answered question keeps its evidence, so it can be reopened.
   Intralipid 10 % or 20 %; KCMH gives SMOF 20 %. Pharmacy to check the Thai-registered label (not found
   for any of the three vitamin and trace products).
 - **Q5 · `CR-TGT-NA`, `CR-TGT-K`:** answered, Pp 2026-11-20: "แยกตาม Table 3", so from DOL 8 Na and K follow
-  Jochum Table 3's three rows (term 2,500 g or more by the fluid tier's weight). Before: from DOL 8 Jochum gives Na 3–5 (preterm) and 2–3 (term) and K by weight;
+  Jochum Table 3's three rows (the term row from PMA 37 weeks at 1,500 g or more, Q23; with no GA, 2,500 g). Before: from DOL 8 Jochum gives Na 3–5 (preterm) and 2–3 (term) and K by weight;
   NeoFeed kept Na 2–5 and K 2–3 at or above 1,500 g until the term rows were decided.
 - **Q6 · `CR-TGT-CAP`:** answered, Pp 2026-11-18: "Ca:P ที่เท่ากับ 1.7", so 1.7 on paper is in range; the
   ratio is graded with float noise stripped. Before: a Ca:P that is exactly 1.7 on paper (Ca 52.7 with P 31 mg/kg) grades High from
