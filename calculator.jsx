@@ -2210,8 +2210,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // A bag with Ca and no P, beside P from a feed or oral supplement, is amber;
   // critical stays "no P from any source" (CR-CAP-NO-P).
   const caPTpnOnly = dol <= D.FIRST_DAYS_LAST_DOL;
-  const caPTpnStatus = !isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0
-    ? (mineral.totP > 0 ? "warn" : "crit") : D.caPStatus(mineral.tpnCaP, dol);
+  // Checked first, on every source: Ca from the bag, a feed or an oral
+  // supplement with no P anywhere (Vera on PR #296: oral Ca with an empty bag
+  // read "empty" here and lost the critical).
+  const caPTpnStatus = (mineral.totCa > 0 && !(mineral.totP > 0)) ? "crit"
+    : (!isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0) ? "warn"
+    : D.caPStatus(mineral.tpnCaP, dol);
   const sCaP = caPTpnOnly ? caPTpnStatus : D.caPStatus(calc.caP, dol);
   // Below D.MG_MEQ_HABIT_MG the dose was most likely typed in mEq, the unit
   // this box took until 2026-10-28: critical, so Submit asks (Pp, 2026-10-29).
@@ -2540,7 +2544,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     pushTile(sP,  "Phosphorus", calc.pKg,  0, tP,  "mg/kg/d");
   }
   const caPStatus = caPTpnOnly ? sCaP : mineral.hasOral ? sTotCaP : sCaP;
-  const caPValue  = caPTpnOnly ? mineral.tpnCaP : mineral.hasOral ? mineral.totCaP : calc.caP;
+  const caPValue  = caPTpnOnly && sCaP !== "crit" ? mineral.tpnCaP : mineral.hasOral ? mineral.totCaP : calc.caP;
   const caPScope  = caPTpnOnly ? " (TPN)" : mineral.hasOral ? " (รวม oral supp)" : "";
   // The critical is "no P from any source" (CR-CAP-NO-P) on every DOL, so its
   // title, which a saved reason names, keeps the every-source scope.

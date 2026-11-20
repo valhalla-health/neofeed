@@ -506,7 +506,8 @@ Source: Pp, 2026-10-08: "ต่างเกิน 20%". Not a clinical threshold
 ### CR-CAP-NO-P · calcium with no phosphate
 
 Calcium ordered with zero phosphate from every source (bag, feed, and oral supplement when one is
-ordered) is critical: the ratio is Infinity.
+ordered) is critical: the ratio is Infinity. On DOL 1–7, where the band is graded on the bag alone (`CR-TGT-CAP`), this
+critical is still checked on every source first, oral Ca included (Vera on PR #296).
 Source: Avery ch 83 p. 14 and Fanaroff ch 91 p. 21: calcium without enough phosphate gives hypercalcaemia
 with hypophosphataemia; ESPGHAN 2022 C4 (Embleton p. 255). No source sets the severity tier.
 
@@ -514,6 +515,8 @@ with hypophosphataemia; ESPGHAN 2022 C4 (Embleton p. 255). No source sets the se
 {"rule": "CR-CAP-NO-P", "kind": "critical", "where": [{"file": "calculator.jsx", "line": 2545, "has": "if (caPStatus === \"crit\") alerts.push"}, {"file": "data.js", "line": 1323, "has": "if (!isFinite(value)) return value > 0 ? \"crit\" : \"empty\";"}]}
 {"case": "Ca 40 mg/kg/d with no phosphate: critical", "side": "outside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40}, "expect": {"alert": "Ca:P ratio — ไม่มี P", "level": "crit", "submit": "asks_reason"}}
 {"case": "Ca 40 with Glycophos: no such alert", "side": "inside", "infant": {"g": 1000}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40, "Glycophos": 2}, "expect": {"no_alert": "Ca:P ratio — ไม่มี P"}}
+{"case": "DOL 5, no Ca or P in the bag, oral Ca 20 with no P anywhere: critical (Vera on PR #296)", "side": "outside", "infant": {"g": 1000, "dol": 5}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "ปริมาณ elem Ca": 20}, "expect": {"alert": "Ca:P ratio (รวม oral supp) — ไม่มี P", "level": "crit", "submit": "asks_reason"}}
+{"case": "DOL 3, bag Ca 40 with no P anywhere: critical, the old title", "side": "outside", "infant": {"g": 1000, "dol": 3}, "route": "Central", "order": {"Volume(mL/day)": 100, "Dextrose final": 12, "Amino acid": 3, "20% lipid": 2, "10% Ca gluconate": 40}, "expect": {"alert": "Ca:P ratio — ไม่มี P", "level": "crit", "submit": "asks_reason"}}
 ```
 
 ### CR-MG-MEQ-HABIT · a Mg dose typed in mEq

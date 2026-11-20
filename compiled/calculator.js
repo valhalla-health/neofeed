@@ -1523,7 +1523,7 @@ function Calculator({
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
   const caPTpnOnly = dol <= D.FIRST_DAYS_LAST_DOL;
-  const caPTpnStatus = !isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0 ? mineral.totP > 0 ? "warn" : "crit" : D.caPStatus(mineral.tpnCaP, dol);
+  const caPTpnStatus = mineral.totCa > 0 && !(mineral.totP > 0) ? "crit" : !isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0 ? "warn" : D.caPStatus(mineral.tpnCaP, dol);
   const sCaP = caPTpnOnly ? caPTpnStatus : D.caPStatus(calc.caP, dol);
   const mgStatusAt = (v) => D.rangeStatus(v, tMg, { hardLo: D.MG_MEQ_HABIT_MG });
   const sMg = mgStatusAt(mgMgPerKg);
@@ -1716,7 +1716,7 @@ function Calculator({
     pushTile(sP, "Phosphorus", calc.pKg, 0, tP, "mg/kg/d");
   }
   const caPStatus = caPTpnOnly ? sCaP : mineral.hasOral ? sTotCaP : sCaP;
-  const caPValue = caPTpnOnly ? mineral.tpnCaP : mineral.hasOral ? mineral.totCaP : calc.caP;
+  const caPValue = caPTpnOnly && sCaP !== "crit" ? mineral.tpnCaP : mineral.hasOral ? mineral.totCaP : calc.caP;
   const caPScope = caPTpnOnly ? " (TPN)" : mineral.hasOral ? " (รวม oral supp)" : "";
   if (caPStatus === "crit") alerts.push({ level: "crit", title: `Ca:P ratio${mineral.hasOral ? " (รวม oral supp)" : ""} — ไม่มี P`, body: `Ca ${fmt(mineral.hasOral ? mineral.totCa : calc.caKg, 0)} mg/kg/d แต่ P = 0 — เสี่ยง metabolic bone disease / สั่ง phosphate ร่วมด้วย.`, ref: "ESPGHAN 2018" });
   else if (caPStatus === "warn") alerts.push({ level: "warn", title: `Ca:P ratio${caPScope} off target`, body: `Mass ratio ${fmt(caPValue, 2)}:1 — aim ${tCaP[0]}–${tCaP[1]}:1 by mass${dol <= D.FIRST_DAYS_LAST_DOL ? ` on DOL 1–${D.FIRST_DAYS_LAST_DOL} (molar 0.8–1, ESPGHAN 2018 R 8.12)` : ""}.`, ref: "ESPGHAN 2018" });

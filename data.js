@@ -689,7 +689,7 @@ const TPN_TARGETS = {
   // Jochum's term Na rows from DOL 3 (Q25); K's term rows equal the preterm
   // ones to DOL 7. From DOL 8 (Table 3, stable growth) the
   // three rows are Jochum's own, term included (Pp, 2026-11-20, Q5: "แยกตาม
-  // Table 3"); the term row from PMA 37 weeks at 1,500 g or more (_jochumTerm,
+  // Table 3"); the term row from PMA 37 weeks above 1,500 g (_jochumTerm,
   // Q23).
   na: (dol, wtG, bwG, ga) => {
     if (!dol || dol <= 2) return [0, 2];   // Table 1 D1–2: 0–2 (3)
@@ -1572,7 +1572,7 @@ const ESPGHAN_TARGETS = {
     electrolytes: {
       // TPN_TARGETS.na/k: Jochum Table 1 to DOL 5, Table 2 DOL 6–7, Table 3 DOL 8+.
       // under1500 is preterm 1,500 g or less, over1500 above it (Q26); term is
-      // PMA 37 weeks or more at 1,500 g or more (2,500 g with no GA), with
+      // PMA 37 weeks or more above 1,500 g (2,500 g with no GA), with
       // Jochum's term Na rows from DOL 3 and its Table 3 rows from DOL 8 (Q5,
       // Q23, Q25, 2026-11-20). K's term rows equal the preterm ones to DOL 7.
       na: {
