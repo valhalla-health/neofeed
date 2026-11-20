@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-20 (3) — The backend cuts a patient's name to two letters of each part, as the client does
+
+`gas-backend.gs` (`_shortPatientName`, `_namePart`, `registerPatient`), `test/verify-backend-short-name-1120.cjs` (new),
+`REFERENCE.md` § Thai PDPA compliance posture. Not live: a backend `clasp` deploy, Pp's.
+
+Since 2026-09-25 the registration form has stored two letters of the first name and two of the surname ("สม จด",
+`data.js` `namePart`). The backend took whatever it was sent, up to 200 characters, so a hand-made POST or a client
+older than 2026-09-25 could still put a full name in Patient_Registry. Pp, asked whether the backend should cut it
+too: "ทำเลย".
+
+- `registerPatient` (registration and edits) runs the merged name through `_shortPatientName`: each of the first two
+  words cut by `_namePart`, a port of the client's `namePart` (Thai consonants, or Latin letters for a foreign name).
+  A name the call leaves exactly as stored is kept as it is, so an older two-letter name, a hand-typed cell or an
+  erased row is not rewritten by an unrelated edit.
+- The harness checks the cut against the client's own `composePatientName` for five names, and that a full name sent
+  on a registration or an edit lands as the short form.
+- `initials` is cut to two letters the same way (`_shortInitials`): `patientName()` shows initials when the name is
+  blank, so a full name sent as initials would otherwise have reached every screen (Vera on this change).
+- Not changed: names already in the Sheet, its backups and version history (that is a migration, with the DPO), and
+  the free-text `diagnosis`.
+
 ## Session 2026-11-20 (2) — Pp's answers to Q5, Q7, Q12–Q15 and Q18: Na and K by Jochum Table 3, Ca:P 1.0–1.3 on DOL 1–7, DOL-1 lipid 1.0–2.0, one feed at most 8 a day
 
 `data.js` (`TPN_TARGETS.na`, `.k`, `.lipid`, `.caP`; `TARGETS.caP(dol)`, `.lipid`; `caPStatus(ratio, dol)`;
