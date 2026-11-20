@@ -4651,8 +4651,11 @@ function GuidelinesPanel() {
               <RangeRow label="P" {...span(EL.p.growing)} unit={`mmol/kg/day = ${rng(D_A.TPN_TARGETS.p(FD + 1))} mg/kg`} highlight />
               <RangeRow label="Mg" {...span(EL.mg.growing)} unit={`mmol/kg/day = ${rng(D_A.TPN_TARGETS.mg(FD + 1))} mg elemental Mg/kg`} />
               <SectionHead>Ca:P ratio</SectionHead>
-              <RangeRow label="Molar (PN)" {...span(EL.caP_molar)} unit={`:1 — target ${n(EL.caP_molar[1])}:1 for stable growth`} highlight />
-              <RangeRow label="Mass ratio" {...span(EL.caP_mass)} unit=":1 (Ca g / P g)" />
+              {/* By mass, the tiles' own bands (TARGETS.caP, CR-TGT-CAP); molar
+                  from Mihatsch R 8.12 and its stable-growth optimum (Q7). */}
+              <RangeRow label={`Molar (PN), DOL 1–${FD}`} {...span(EL.caP_molar.firstDays)} unit={`:1 — stable growth: around ${n(EL.caP_molar.growingOptimum)}:1`} highlight />
+              <RangeRow label={`Mass, DOL 1–${FD}`} {...span(EL.caP_mass.firstDays)} unit=":1 (Ca g / P g)" highlight />
+              <RangeRow label={`Mass, DOL ${FD + 1}+`} {...span(EL.caP_mass.growing)} unit=":1 (Ca g / P g)" />
               {/* The strength the Calculator doses with, KCMH_STOCK.glycophos:
                   31 mg P a mL is 1 mmol (÷ EN_MG_PER_MMOL.p, 30.97). */}
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--ink-3)" }}>
@@ -4670,15 +4673,14 @@ function GuidelinesPanel() {
               <Badge>Jochum 2018</Badge>
             </div>
             <div className="card-b">
-              {/* TARGETS.fluid: Jochum Table 1 to DOL 5, Tables 2–3 from DOL 6
-                  (TPN team, 2026-10-25). Until then ELBW stayed at 160–180 and
-                  VLBW's DOL 5 read 140–160. */}
+              {/* TARGETS.fluid: Fanaroff Table 96.1, by birth weight only (Pp,
+                  2026-11-20). Until then Jochum 2018 Tables 1–3, with a term row. */}
               <PhaseTable
-                cols={["BW category", "DOL 1", "DOL 2", "DOL 3", "DOL 4", "DOL 5", "DOL 6+"]}
+                cols={["Birth weight", "DOL 1–2", "DOL 3–7", "DOL 8+"]}
                 rows={[
-                  ["ELBW <1000g", PN.fluid.elbw], ["VLBW 1000–1500g", PN.fluid.vlbw],
-                  ["Preterm >1500g", PN.fluid.preterm], ["Term ≥2500g", PN.fluid.term],
-                ].map(([label, t]) => [label, ...["d1", "d2", "d3", "d4", "d5", "d6plus"].map((d) => rng(t[d]))])}
+                  ["<750g", PN.fluid.under750], ["750–1000g", PN.fluid.from750to1000],
+                  ["1001–1500g", PN.fluid.from1001to1500], [">1500g", PN.fluid.over1500],
+                ].map(([label, t]) => [label, ...["d1to2", "d3to7", "d8plus"].map((d) => rng(t[d]))])}
               />
               {/* Typed: IWL 30 and 120 are held only in PN.fluid.note's text, the
                   incubator's 80–90 % humidity and the UO target nowhere. */}
@@ -4701,17 +4703,22 @@ function GuidelinesPanel() {
                   Table 2 for DOL 6–7, Table 3 from DOL 8 (TPN team, 2026-10-25).
                   The old table's "ELBW" row was Jochum's < 1500 g row and its
                   phase columns were Table 1's day columns (targets audit
-                  2026-09-28 § 3.7). Term rows wait for the term question. */}
+                  2026-09-28 § 3.7). Term (PMA 37 weeks or more, above
+                  1500 g) has Jochum's term Na rows from D3 and Table 3 from D8;
+                  K's term rows equal the preterm ones to D7 (Q5, Q23, Q25).
+                  1500 g itself is on the lighter row (Q26). */}
               <PhaseTable
                 cols={["Electrolyte","D1–2","D3","D4–5","D6–7","D8+","Notes"]}
                 rows={[
                   // Na and K from ESPGHAN_TARGETS (D1–2, D3, D4–5, D6–7, D8+).
                   // Cl and the notes' figures are typed: data.js holds no Cl band.
-                  ...[["Na — preterm <1500g", EL.na.under1500, "Up to 7 with high urinary Na loss"],
-                      ["Na — ≥1500g",         EL.na.over1500,  "Jochum stable: preterm 3–5, term 2–3"]]
-                    .map(([label, t, note]) => [label, rng(t.d1to2), rng(t.d3), rng(t.d4to7), rng(t.d4to7), rng(t.stable), note]),
-                  ...[["K — preterm <1500g", EL.k.under1500, "Watch for non-oliguric hyperkalaemia in VLBW"],
-                      ["K — ≥1500g",         EL.k.over1500,  ""]]
+                  ...[["Na — preterm ≤1500g",       EL.na.under1500, "Up to 7 with high urinary Na loss"],
+                      ["Na — preterm >1500g",       EL.na.over1500,  ""],
+                      ["Na — term (PMA ≥37 wk)",    EL.na.term,      "At >1500g; no GA: ≥2500g"]]
+                    .map(([label, t, note]) => [label, rng(t.d1to2), rng(t.d3), rng(t.d4to5 || t.d4to7), rng(t.d6to7 || t.d4to7), rng(t.stable), note]),
+                  ...[["K — preterm ≤1500g",        EL.k.under1500,  "Watch for non-oliguric hyperkalaemia in VLBW"],
+                      ["K — preterm >1500g",        EL.k.over1500,   ""],
+                      ["K — term (PMA ≥37 wk)",     EL.k.term,       "At >1500g; no GA: ≥2500g"]]
                     .map(([label, t, note]) => [label, rng(t.d1to3), rng(t.d1to3), rng(t.d4to5), rng(t.d6to7), rng(t.stable), note]),
                   ["Cl — preterm",        "0–3","0–3","2–5","2–5","3–5", "Keep Na+K > Cl by 1–2 mmol/kg to avoid acidosis"],
                 ]}

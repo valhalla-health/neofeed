@@ -351,6 +351,26 @@ function mount(props, { pressRoute = true } = {}) {
   eq('…the order reaches Center Point', saved.length, 1);
   eq('…with route "peripheral"', saved[0]?.route, 'peripheral');
 
+  // ── §9 one feed above 8 a day is refused on Center Point too ─────────────
+  // Center Point's packet holds one feed (feed 2 is 0 there), so the cap of
+  // CR-EN-FEEDS-MAX reaches it only as one feed (Pp, 2026-11-20, Q18:
+  // "สั่งไม่ได้"). Vera on that change: no harness covered Center Point.
+  console.log('\n── §9 Center Point: one feed above 8 a day cannot be saved ──');
+  saved = [];
+  mount({ centerPoint });
+  setField('Current weight', 1200); setField('Target fluid', 150); setField('Other IV', 0); setField('Drug volume', 0);
+  setField('Volume(mL/day)', 100); setField('Dextrose final', 10); setField('Amino acid', 3);
+  setField('Volume(mL/feed)', 8); setField('Frequency', 12);
+  ok('12 feeds a day: "Feeds above 8 a day"', container.textContent.includes('Feeds above 8 a day'), container.textContent.slice(-300));
+  eq('…บันทึก is disabled', saveButton()?.disabled, true);
+  await click(saveButton());
+  eq('…and a click sends nothing to Center Point', saved.length, 0);
+  setField('Frequency', 8);
+  ok('8 feeds a day: no such line', !container.textContent.includes('Feeds above 8 a day'));
+  eq('…บันทึก is enabled', saveButton()?.disabled, false);
+  await click(saveButton());
+  eq('…the order reaches Center Point', saved.length, 1);
+
   act(() => { root.unmount(); });
   console.log(`\n${fail === 0 ? 'CENTER POINT ENTRY: ALL PASS' : `CENTER POINT ENTRY: ${fail} FAILED`} (${pass} passed)`);
   process.exit(fail === 0 ? 0 : 1);

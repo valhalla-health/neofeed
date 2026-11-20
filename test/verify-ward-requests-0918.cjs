@@ -222,7 +222,8 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     near('Potassium mEq/kg/d = KCl (was 3.3)', tileVal('Potassium'), TPN.k, 1);
     near('Calcium mg/kg/d = none ordered (was 5)', tileVal('Calcium'), TPN.ca, 0);
     near('Phosphorus mg/kg/d = Glycophos 1.5 mmol × 31 (was 50)', tileVal('Phosphorus'), TPN.p, 0);
-    eq('Ca:P tile has no Ca and reads empty (was 0.11 "off target")', tileStatus('Ca:P ratio'), 'empty');
+    // DOL 1: Ca:P is graded on the bag alone since 2026-11-20 (Q27), and this bag has no Ca.
+    eq('Ca:P tile has no Ca and reads empty (was 0.11 "off target")', tileStatus('Ca:P ratio (TPN)'), 'empty');
     ok('no Ca:P alert line', !alertTitles().some(t => /^Ca:P/.test(t)), alertTitles());
     const energyCard = [...container.querySelectorAll('.calc-bottom .card')].find(c => /Energy distribution/.test(c.textContent));
     ok('Energy distribution: EN 0 kcal, marked MEN', /EN\s*0\b/.test(text(energyCard)) && /MEN/.test(text(energyCard)), text(energyCard));
@@ -254,7 +255,8 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
     near('Potassium = 3.3, as on the screenshot', tileVal('Potassium'), TPN.k + FEED.k, 1);
     near('Calcium = 5, as on the screenshot', tileVal('Calcium'), FEED.ca, 0);
     near('Phosphorus = 50, as on the screenshot', tileVal('Phosphorus'), TPN.p + FEED.p, 0);
-    near('Ca:P = 0.11, as on the screenshot', tileVal('Ca:P ratio'), FEED.ca / (TPN.p + FEED.p), 2);
+    // The screenshot's 0.11 counted the feed's Ca; on DOL 1 the tile grades the bag alone since 2026-11-20 (Q27).
+    eq('Ca:P (TPN) on DOL 1: the bag has no Ca, so empty, feed or not', tileStatus('Ca:P ratio (TPN)'), 'empty');
     ok('Step 6 shows the "EN (นม)" row', [...container.querySelectorAll('span')].some(s => s.textContent === 'EN (นม)'));
     ok('Step 2 box no longer says "not counted"', !/not counted/i.test(text(enBox())), text(enBox()));
   });
