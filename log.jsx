@@ -28,7 +28,7 @@ function pickTarget(metricKey, entry, patient) {
     if (metricKey === "kcal")  return D_L.ENTERAL_TARGETS.kcal();
     if (metricKey === "pro")   return D_L.ENTERAL_TARGETS.protein();
     if (metricKey === "gir")   return null; // GIR n/a when fully enteral
-    if (metricKey === "fluid") return D_L.TARGETS.fluid(dol, wt, patient?.bw, patient?.ga);
+    if (metricKey === "fluid") return D_L.TARGETS.fluid(dol, wt, patient?.bw);
     if (metricKey === "na")    return D_L.ENTERAL_TARGETS.na();
     if (metricKey === "k")     return D_L.ENTERAL_TARGETS.k();
     if (metricKey === "ca")    return D_L.ENTERAL_TARGETS.ca();
@@ -37,7 +37,7 @@ function pickTarget(metricKey, entry, patient) {
     if (metricKey === "kcal")  return D_L.TPN_TARGETS.kcal(dol);
     if (metricKey === "pro")   return D_L.TPN_TARGETS.protein(dol);
     if (metricKey === "gir")   return D_L.TARGETS.girTarget();
-    if (metricKey === "fluid") return D_L.TARGETS.fluid(dol, wt, patient?.bw, patient?.ga);
+    if (metricKey === "fluid") return D_L.TARGETS.fluid(dol, wt, patient?.bw);
     // Na and K also take the weight group (Jochum 2018 < 1500 g), on the
     // fluid tier's weight, as the Calculator's tiles do.
     if (metricKey === "na")    return D_L.TPN_TARGETS.na(dol, wt, patient?.bw, patient?.ga);

@@ -148,10 +148,10 @@ try {
     d.TPN_TARGETS.ca = (dol) => dol <= REAL_FD ? [33, 81] : [65, 141];
     d.TPN_TARGETS.p = (dol) => dol <= REAL_FD ? [32, 63] : [51, 109];
     d.TPN_TARGETS.mg = (dol) => dol <= REAL_FD ? [2.6, 5.1] : [5.2, 7.6];
-    G.pn.fluid.elbw = { d1: [81, 101], d2: [102, 122], d3: [123, 143], d4: [144, 164], d5: [165, 185], d6plus: [146, 166] };
-    G.pn.fluid.term.d6plus = [147, 167];
-    G.pn.fluid.vlbw = { d1: [71, 91], d2: [92, 112], d3: [113, 133], d4: [134, 154], d5: [161, 181], d6plus: [142, 162] };
-    G.pn.fluid.preterm = { d1: [61, 81], d2: [82, 102], d3: [103, 123], d4: [124, 144], d5: [145, 165], d6plus: [143, 163] };
+    G.pn.fluid.under750 = { d1to2: [101, 201], d3to7: [121, 202], d8plus: [122, 181] };
+    G.pn.fluid.from750to1000 = { d1to2: [81, 151], d3to7: [102, 152], d8plus: [123, 182] };
+    G.pn.fluid.from1001to1500 = { d1to2: [61, 101], d3to7: [82, 153], d8plus: [124, 183] };
+    G.pn.fluid.over1500 = { d1to2: [62, 82], d3to7: [103, 154], d8plus: [125, 184] };
     G.pn.electrolytes.na.over1500 = { d1to2: [0.3, 2.3], d3: [0.4, 3.4], d4to7: [2.5, 5.5], stable: [2.6, 5.6] };
     G.pn.electrolytes.na.term = { d1to2: [0.2, 2.2], d3: [0.3, 2.3], d4to5: [1.1, 3.2], d6to7: [2.2, 3.3], stable: [2.1, 3.1] };
     G.pn.electrolytes.k.term = { d1to3: [0.4, 3.4], d4to5: [2.4, 3.4], d6to7: [1.4, 3.4], stable: [1.6, 3.1] };
@@ -196,10 +196,10 @@ try {
     ['Glycophos 2 mmol P + 3 mmol Na', '1 mL = 2 mmol P + 3 mmol Na'],
   ]);
   check('Fluid table', pn, [
-    ['ELBW row', 'ELBW <1000g 81–101 102–122 123–143 144–164 165–185 146–166'],
-    ['Term DOL 6+', '60–100 100–140 147–167'],
-    ['VLBW row', 'VLBW 1000–1500g 71–91 92–112 113–133 134–154 161–181 142–162'],
-    ['Preterm row', 'Preterm >1500g 61–81 82–102 103–123 124–144 145–165 143–163'],
+    ['<750 g row', '<750g 101–201 121–202 122–181'],
+    ['750–1000 g row', '750–1000g 81–151 102–152 123–182'],
+    ['1001–1500 g row', '1001–1500g 61–101 82–153 124–183'],
+    ['>1500 g row', '>1500g 62–82 103–154 125–184'],
   ]);
   check('Electrolytes', pn, [
     ['Na <1500 g row', 'Na — preterm ≤1500g 0.1–2.1 0.2–5.2 2.3–5.3 2.3–5.3 2.4–5.4'],
@@ -314,7 +314,8 @@ try {
     ['Mass DOL 8+ 1–1.7', row('Mass, DOL 8+', '1', '1.7')],
     ['Molar DOL 1–7 0.8–1, stable growth 1.3', row('Molar (PN), DOL 1–7', '0.8', '1', ':1 — stable growth: around 1.3:1')],
     ['Glycophos 1 mmol P + 2 mmol Na', '1 mL = 1 mmol P + 2 mmol Na'],
-    ['ELBW fluid row', 'ELBW <1000g 80–100 100–120 120–140 140–160 160–180 140–160'],
+    ['<750 g fluid row (Fanaroff Table 96.1)', '<750g 100–200 120–200 120–180'],
+    ['>1500 g fluid row', '>1500g 60–80 100–150 120–180'],
     ['Na <1500 g row (D8+ 3–5 since 2026-11-20, Q5)', 'Na — preterm ≤1500g 0–2 0–5 2–5 2–5 3–5'],
     ['Na term row', 'Na — term (PMA ≥37 wk) 0–2 0–2 1–3 2–3 2–3'],
     ['K ≤1500 g row, 1,500 g on the lighter row (Q26)', 'K — preterm ≤1500g 0–3 0–3 2–3 1–3 2–5'],

@@ -299,6 +299,8 @@ function expected(sc) {
   e.caKg = sc.ca + e.enCaKg; e.pKg = e.pTpnMg / W + e.enPKg;
   const caMgTot = e.caKg * W, pMgTot = e.pTpnMg + e.enPKg * W;
   e.caP = pMgTot > 0 ? caMgTot / pMgTot : (caMgTot > 0 ? Infinity : 0);
+  // The bag alone: DOL 1–7 grades Ca:P on it (Pp, 2026-11-20, Q27).
+  e.tpnCaP = e.pTpnMg > 0 ? sc.ca * W / e.pTpnMg : (sc.ca > 0 ? Infinity : 0);
   // oral supplements, per kg/day elemental
   e.totCa = e.caKg + sc.oCa; e.totP = e.pKg + sc.oP;
   e.totCaP = e.totP > 0 ? e.totCa / e.totP : (e.totCa > 0 ? Infinity : 0);
@@ -388,9 +390,15 @@ function expectedAlerts(sc, e) {
   const oral = sc.oCa > 0 || sc.oP > 0;
   if (oral) { tile(st(e.totCa, T.ca), 'Calcium (total incl. oral)'); tile(st(e.totP, T.p), 'Phosphate (total incl. oral)'); }
   else { tile(st(e.caKg, T.ca), 'Calcium'); tile(st(e.pKg, T.p), 'Phosphorus'); }
-  { const cp = oral ? e.totCaP : e.caP;   // float noise stripped: 1.7 on paper is in range (Pp, 2026-11-18, Q6); DOL 1–7 1.0–1.3 (Q7, 2026-11-20)
-    const s = st(isFinite(cp) ? Number(cp.toPrecision(12)) : cp, sc.dol <= 7 ? [1.0, 1.3] : [1.0, 1.7]); const scope = oral ? ' (รวม oral supp)' : '';
-    if (s === 'crit') add('crit', `Ca:P ratio${scope} — ไม่มี P`); else if (s === 'warn') add('warn', `Ca:P ratio${scope} off target`); }
+  { // float noise stripped: 1.7 on paper is in range (Pp, 2026-11-18, Q6). DOL 1–7: 1.0–1.3 (Q7) on the
+    // TPN bag alone (Q27); a bag with Ca and no P beside P elsewhere is amber, no P at all critical.
+    const early = sc.dol <= 7;
+    const cp = early ? e.tpnCaP : oral ? e.totCaP : e.caP;
+    const allP = e.pTpnMg + e.enPKg * e.W + (sc.oP || 0) * e.W;
+    let s = st(isFinite(cp) ? Number(cp.toPrecision(12)) : cp, early ? [1.0, 1.3] : [1.0, 1.7]);
+    if (early && s === 'crit' && allP > 0) s = 'warn';
+    const critScope = oral ? ' (รวม oral supp)' : '', warnScope = early ? ' (TPN)' : critScope;
+    if (s === 'crit') add('crit', `Ca:P ratio${critScope} — ไม่มี P`); else if (s === 'warn') add('warn', `Ca:P ratio${warnScope} off target`); }
   if (e.useEN && st(e.pe, [2.8, 3.6]) === 'warn') add('warn', 'Protein : Energy off target');
   if (sc.men && e.enPerKg > 24) add('warn', 'MEN ticked above trophic volume');
   if (bagOrdered) {
@@ -762,7 +770,8 @@ async function run(scIn) {
   near(sc, 'tile Magnesium', tileVal('Magnesium'), sc.mg * 12.1525, 2);   // mg/kg/d since 2026-10-28
   near(sc, 'tile Calcium', tileVal('Calcium'), e.caKg, 0);
   near(sc, 'tile Phosphorus', tileVal('Phosphorus'), e.pKg, 0);
-  near(sc, 'tile Ca:P', tileVal('Ca:P ratio'), e.caP, 2);
+  if (sc.dol <= 7) near(sc, 'tile Ca:P (TPN)', tileVal('Ca:P ratio (TPN)'), e.tpnCaP, 2);
+  else near(sc, 'tile Ca:P', tileVal('Ca:P ratio'), e.caP, 2);
   if (e.useEN) near(sc, 'tile Protein:Energy', tileVal('Protein : Energy'), e.pe, 1);
   if (tiles()['Calcium (total)']) {
     near(sc, 'tile Calcium (total)', tileVal('Calcium (total)'), e.totCa, 0);

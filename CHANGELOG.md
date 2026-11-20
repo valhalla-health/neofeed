@@ -26,15 +26,25 @@ agent checked that reading (16 of 17 claims, one corrected). Her words are in th
   28-weeker at 1,600 g takes the term row on DOL 64 (PMA 37+0), or stays on the < 1,500 g row while under it. Vera
   found the first reading, by weight alone, gave that 34-weeker the term row. `TPN_TARGETS.na/k` take `patient.ga`
   (the Calculator, the Log tab).
-- **Q24, the fluid term tier.** Term needs GA at birth ≥ 37 weeks and ≥ 2,500 g; with no GA, 2,500 g (Pp, after
-  "ใช้ น้ำหนัก ร่วมกับ GA ลองเช็ค fanaroff avery", chose "GA ≥ 37 และ ≥ 2,500 g"). Avery ch 20 Table 20.1 and Fanaroff ch 96
-  Table 96.1 group by birth weight only, with no term row; Jochum names a term row without a GA. A 34-week infant of
-  2,600 g now has preterm fluid (DOL 1 60–80, was 40–60), and so does a term SGA infant under 2,500 g (as before).
-  `CR-NO-TPN-EN`'s day minimum follows. GA at birth, not PMA, so no infant changes row inside Table 1.
+- **Q24, the fluid bands: Fanaroff Table 96.1, by weight only.** Pp first chose a term tier by GA ≥ 37 weeks and
+  ≥ 2,500 g; seeing the default plan move she said "ลองเช็คอีกที มันใกล้ๆกับ term เอาตามน้ำหนัก อ้างอิงตาม fanaroff and
+  avery", then chose "ตาม Avery/Fanaroff ทั้งตาราง" and "Fanaroff Table 96.1". `TARGETS.fluid` reads `FLUID_BY_BW`: < 750 g
+  100–200 / 120–200 / 120–180; 750–1,000 g 80–150 / 100–150 / 120–180; 1,001–1,500 g 60–100 / 80–150 / 120–180; > 1,500 g
+  60–80 / 100–150 / 120–180 (DOL 1–2 / 3–7 / 8 on; Fanaroff ch 96 p. 4). No term row and no GA: a 3 kg term infant is on
+  > 1,500 g (DOL 1 60–80, was Jochum's 40–60). 1,000 g is on the 750–1,000 g row ("แถว 750–1,000 g"). Avery Table 20.1
+  (ch 20 p. 8) groups the same way with other numbers; Pp chose Fanaroff's. **Step 1's default plan is the band's lower
+  end** ("ขอบล่างของช่วง"; it was the midpoint): DOL 1 < 750 g 100, 750–1,000 g 80, 1,001 g and up 60. `CR-NO-TPN-EN`'s
+  minimum follows: DOL 1–2 60 from 1,001 g, else 80.
 - **Q25, Na on DOL 3–7 for a term infant.** Jochum's own term rows: D3 0–2, D4–5 1–3, D6–7 2–3 (Pp: "ใช้แถว term").
   K's term rows equal the preterm ones on those days.
 - **Q26, the 1,500 g edge.** 1,500 g itself is on the lighter row for fluid, Na and K, as Jochum, Avery and Fanaroff put
-  it (Pp: "ย้ายตามแหล่งอ้างอิง"); it read as > 1,500 g. On the Na/K term row Q23's "≥ 1,500 g" still counts 1,500 g (Pp: "คงแถว term").
+  it (Pp: "ย้ายตามแหล่งอ้างอิง"); it read as > 1,500 g. The Na/K term row needs more than 1,500 g: Pp said "คงแถว term" here
+  and "ต้องเกิน 1,500 g" in the parent session the same day; asked which holds, "ต้องเกิน 1,500 g".
+- **Q27, week-1 Ca:P on the TPN bag alone.** On DOL 1–7 the 1.0–1.3 band grades the bag's own Ca:P, not TPN + feed (Pp:
+  "คิดจาก TPN อย่างเดียว"; R 8.12 is a parenteral figure). The tile reads "Ca:P ratio (TPN)", the amber line "Ca:P ratio
+  (TPN) off target"; Step 6's total tile is not graded; the printed Step 6 table puts "(target 1–1.3:1, DOL 1–7 TPN only)"
+  on its TPN row. A bag with Ca and no P beside P from a feed or oral is amber; "no P from any source" stays critical with
+  its old title. From DOL 8 nothing changes.
 - **Q7, Ca:P.** DOL 1–7 is 1.0–1.3 by mass (R 8.12, molar 0.8–1.0); DOL 8 on stays 1.0–1.7. The wrong "ESPGHAN molar
   0.8–1.3" is gone from the code comments, the amber line and the Reference page, which now shows both mass bands and
   molar 0.8–1.0 with 1.3 as the stable-growth figure. Float noise is stripped at 1.3 as at 1.7 (Q6).

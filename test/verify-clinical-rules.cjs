@@ -17,7 +17,7 @@
 //              the result must equal `want`, or lie `within` that much of it
 //     otherwise an order typed into the real <Calculator>:
 //       infant {g, bw?, dol?, bed?, ga?} · route "Central" | "Peripheral" (none if
-//       left out) · fluid (target, default 150) · feed (an EN_DB key) ·
+//       left out) · fluid (target, default 150; null keeps the form's own default plan) · feed (an EN_DB key) ·
 //       order {on-screen field label: value, typed in that order} ·
 //       tick {checkbox label: true | false} · then {field label: value, typed
 //       after the ticks} · hours (lipid infused over)
@@ -193,7 +193,10 @@ function mount(c, log) {
     click(b);
   }
   setField('Current weight', inf.g);
-  for (const l of ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']) setField(l, l === 'Target fluid' ? (c.fluid ?? 150) : 0);
+  for (const l of ['Target fluid', 'Other IV', 'Drug volume', 'Input', 'Urine output', 'Drain content']) {
+    if (l === 'Target fluid' && c.fluid === null) continue;   // the Calculator's own default plan (CR-TGT-FLUID)
+    setField(l, l === 'Target fluid' ? (c.fluid ?? 150) : 0);
+  }
   if (c.feed) feed(c.feed);
   for (const [label, v] of Object.entries(c.order || {})) setField(label, v);
   // A second feed (2026-10-28): `feed2` is its EN_DB key, `order2` its fields,

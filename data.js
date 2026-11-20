@@ -629,19 +629,19 @@ function _jochumUnder1500(wtG, bwG) {
   return w > 0 && w <= 1500;
 }
 // Jochum 2018's "term neonate" row, by PMA on the day of the order (GA at birth
-// + DOL − 1, pmaShort): PMA 37 weeks or more and 1,500 g or more on the fluid
-// tier's weight (Pp, 2026-11-20, Q23: "ใช้ GA", then "ดู PMA ด้วย", and of the
-// options "PMA ≥ 37 wk และ ≥ 1,500 g"). So a term-born infant is term, an
-// ex-preterm moves to the term row at PMA 37 weeks, and one still under 1,500 g
-// stays on the < 1,500 g row. With no GA recorded, the fluid tier's term,
-// 2,500 g or more on the weight held at birth weight. With neither, not term.
+// + DOL − 1, pmaShort): PMA 37 weeks or more and more than 1,500 g on the
+// held weight (Pp, 2026-11-20, Q23: "ใช้ GA", then "ดู PMA ด้วย", and of the
+// options "PMA ≥ 37 wk และ ≥ 1,500 g", made "ต้องเกิน 1,500 g" the same day). So a
+// term-born infant is term, an ex-preterm moves to the term row at PMA 37
+// weeks, and one of 1,500 g or less stays on the ≤ 1,500 g row. With no GA
+// recorded, 2,500 g or more on the weight held at birth weight (the old fluid
+// tier's term, kept here). With neither, not term.
 function _jochumTerm(dol, wtG, bwG, ga) {
   if (gaTotalDays(Number(ga)) > 0) {
-    // "≥ 1,500 g" is Pp's option for Q23, so 1,500 g itself is term here even
-    // though it is on the lighter preterm row (the term row is checked first;
-    // Pp, 2026-11-20: "คงแถว term").
-    const w = (bwG && wtG < bwG) ? bwG : wtG;
-    return gaTotalDays(pmaShort(Number(ga), dol)) >= PRETERM_GA_WK * 7 && !(w > 0 && w < 1500);
+    // More than 1,500 g: 1,500 g itself is on the lighter preterm row (Pp,
+    // 2026-11-20: "ต้องเกิน 1,500 g", which replaced her "คงแถว term" of the
+    // same day once the two sessions' answers were set side by side).
+    return gaTotalDays(pmaShort(Number(ga), dol)) >= PRETERM_GA_WK * 7 && !_jochumUnder1500(wtG, bwG);
   }
   const w = (bwG && wtG < bwG) ? bwG : wtG;
   return w >= 2500;
@@ -798,6 +798,17 @@ const ENTERAL_TARGETS = {
   npePerG: () => [30, 40],
 };
 
+// Fanaroff 12th ed. Table 96.1 (ch 96 p. 4), total water by birth weight and
+// age, mL/kg/day: the fluid band every tile, the No-TPN minimum and the Step 1
+// default read (TARGETS.fluid; Pp, 2026-11-20). One copy: the Reference page
+// shows it through ESPGHAN_TARGETS.pn.fluid.
+const FLUID_BY_BW = {
+  under750:       { d1to2: [100, 200], d3to7: [120, 200], d8plus: [120, 180] },
+  from750to1000:  { d1to2: [80, 150],  d3to7: [100, 150], d8plus: [120, 180] },
+  from1001to1500: { d1to2: [60, 100],  d3to7: [80, 150],  d8plus: [120, 180] },
+  over1500:       { d1to2: [60, 80],   d3to7: [100, 150], d8plus: [120, 180] },
+};
+
 // ── TARGETS — general DOL + weight-aware lookup ───────────────
 // Both PN and EN phases — highest-level reference used in calculator
 const TARGETS = {
@@ -809,36 +820,24 @@ const TARGETS = {
   // (postnatal loss) the tier is held at birth weight rather than dropping into
   // a lighter, higher-fluid tier off the nadir, and it tracks current weight
   // once regained. Called without bwG it floors nothing (legacy behaviour).
-  // The term tier needs GA at birth of 37 weeks or more AND 2,500 g or more
-  // (Pp, 2026-11-20: of the options, "GA ≥ 37 และ ≥ 2,500 g"); a late-preterm
-  // infant of 2,500 g or more is on the preterm > 1500 g row, and a term SGA
-  // infant under 2,500 g stays there too, as Avery Table 20.1 and Fanaroff
-  // Table 96.1 (birth weight only) would have it. GA at birth, not PMA, so no
-  // infant changes row partway through Table 1. With no GA recorded, 2,500 g.
-  // 1,500 g itself is on the 1000–1500 g row (Pp, the same day).
-  fluid: (dol, wtG, bwG, ga) => {
-    // From DOL 6 every preterm tier is Jochum's Tables 2–3: 140–160. Until
-    // 2026-10-27 ELBW stayed at 160–180 for the rest of the stay and VLBW had
-    // 140–160 on DOL 5, where Table 1 gives 160–180 (TPN team, 2026-10-25:
-    // follow the source).
+  // Fluid mL/kg/day: Fanaroff 12th ed. ch 96 p. 4, Table 96.1, "Maintenance
+  // Fluid (Water) Requirements During the First Month of Life", by birth weight
+  // only, for "full-term and preterm infants" (ch 96 p. 3): < 750, 750–1000,
+  // 1001–1500, > 1500 g; Day 1–2, Day 3–7, Day 8–30 (NeoFeed keeps the Day
+  // 8–30 band after day 30). Pp, 2026-11-20: "เอาตามน้ำหนัก อ้างอิงตาม fanaroff and
+  // avery", then of the options "ตาม Avery/Fanaroff ทั้งตาราง" and "Fanaroff Table
+  // 96.1"; 1,000 g itself on the 750–1000 g row. Until then Jochum 2018 Tables
+  // 1–3 by day, with a term row (DOL 1 40–60). No term row and no GA here.
+  // wtG is the current dosing weight; bwG (optional) applies the birth-weight
+  // floor Pp set 2026-09-24: while the infant is still below birth weight
+  // (postnatal loss) the tier is held at birth weight rather than dropping into
+  // a lighter, higher-fluid tier off the nadir, and it tracks current weight
+  // once regained. Called without bwG it floors nothing (legacy behaviour).
+  fluid: (dol, wtG, bwG) => {
     const w = (bwG && wtG < bwG) ? bwG : wtG;
-    const d = Math.min(dol, 7);
-    if (w < 1000) {           // ELBW <1000g — highest IWL, humidified incubator essential
-      const map = {1:[80,100], 2:[100,120], 3:[120,140], 4:[140,160], 5:[160,180], 6:[140,160], 7:[140,160]};
-      return map[d] || [140, 160];
-    }
-    if (w <= 1500) {          // VLBW 1000–1500g (1,500 g included since 2026-11-20)
-      const map = {1:[70,90], 2:[90,110], 3:[110,130], 4:[130,150], 5:[160,180], 6:[140,160], 7:[140,160]};
-      return map[d] || [140, 160];
-    }
-    const termTier = w >= 2500 && (gaTotalDays(Number(ga)) > 0 ? !isPretermGa(ga) : true);
-    if (!termTier) {          // Preterm >1500g (a late preterm of 2,500 g or more too)
-      const map = {1:[60,80], 2:[80,100], 3:[100,120], 4:[120,140], 5:[140,160], 6:[140,160], 7:[140,160]};
-      return map[d] || [140, 160];
-    }
-    // Term: GA ≥ 37 weeks and ≥ 2500 g
-    const map = {1:[40,60], 2:[50,70], 3:[60,80], 4:[60,100], 5:[100,140], 6:[140,160], 7:[140,160]};
-    return map[d] || [140, 160];
+    const row = w < 750 ? FLUID_BY_BW.under750 : w <= 1000 ? FLUID_BY_BW.from750to1000
+      : w <= 1500 ? FLUID_BY_BW.from1001to1500 : FLUID_BY_BW.over1500;
+    return (!dol || dol <= 2) ? row.d1to2 : dol <= 7 ? row.d3to7 : row.d8plus;
   },
 
   // GIR mg/kg/min — Joosten K et al. 2018 (ESPGHAN)
@@ -1086,8 +1085,8 @@ function fullEnReached({ mlKg = 0, kcalKg = 0, proKg = 0 } = {}, { fullMlKg = FU
 const NO_TPN_EN_MIN_ML_KG = 80;
 // The feed a no-TPN day needs, mL/kg/day: 80, or the day's fluid requirement
 // (the lower bound of TARGETS.fluid, on the same weight tier) if that is less.
-function noTpnEnMinPerKg(dol, wtG, bwG, ga) {
-  return Math.min(NO_TPN_EN_MIN_ML_KG, TARGETS.fluid(dol, wtG, bwG, ga)[0]);
+function noTpnEnMinPerKg(dol, wtG, bwG) {
+  return Math.min(NO_TPN_EN_MIN_ML_KG, TARGETS.fluid(dol, wtG, bwG)[0]);
 }
 // A day ticked "No TPN" whose counted feed is more than this many mL/kg/day
 // below Step 1's fluid plan: an amber line, in case the TPN was forgotten (Pp,
@@ -1566,12 +1565,9 @@ const ESPGHAN_TARGETS = {
     },
     fluid: {
       unit: "mL/kg/day",
-      // TARGETS.fluid's tiers. Jochum Table 1 to DOL 5, Tables 2–3 after.
-      elbw:   { d1:[80,100], d2:[100,120], d3:[120,140], d4:[140,160], d5:[160,180], d6plus:[140,160] },
-      vlbw:   { d1:[70,90],  d2:[90,110],  d3:[110,130], d4:[130,150], d5:[160,180], d6plus:[140,160] },
-      preterm:{ d1:[60,80],  d2:[80,100],  d3:[100,120], d4:[120,140], d5:[140,160], d6plus:[140,160] },
-      term:   { d1:[40,60],  d2:[50,70],   d3:[60,80],   d4:[60,100],  d5:[100,140], d6plus:[140,160] },
-      note: "ESPGHAN guideline ranges — no absolute max. Attending may use up to 200 mL/kg/day per clinical judgment. ELBW in humidified incubator: IWL ≈30 vs open warmer ≈120 mL/kg/day",
+      // TARGETS.fluid's rows: Fanaroff Table 96.1 (Pp, 2026-11-20).
+      ...FLUID_BY_BW,
+      note: "Fanaroff Table 96.1: a starting point, adjusted to the clinical situation. ELBW in humidified incubator: IWL ≈30 vs open warmer ≈120 mL/kg/day",
     },
     electrolytes: {
       // TPN_TARGETS.na/k: Jochum Table 1 to DOL 5, Table 2 DOL 6–7, Table 3 DOL 8+.

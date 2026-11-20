@@ -4673,15 +4673,14 @@ function GuidelinesPanel() {
               <Badge>Jochum 2018</Badge>
             </div>
             <div className="card-b">
-              {/* TARGETS.fluid: Jochum Table 1 to DOL 5, Tables 2–3 from DOL 6
-                  (TPN team, 2026-10-25). Until then ELBW stayed at 160–180 and
-                  VLBW's DOL 5 read 140–160. */}
+              {/* TARGETS.fluid: Fanaroff Table 96.1, by birth weight only (Pp,
+                  2026-11-20). Until then Jochum 2018 Tables 1–3, with a term row. */}
               <PhaseTable
-                cols={["BW category", "DOL 1", "DOL 2", "DOL 3", "DOL 4", "DOL 5", "DOL 6+"]}
+                cols={["Birth weight", "DOL 1–2", "DOL 3–7", "DOL 8+"]}
                 rows={[
-                  ["ELBW <1000g", PN.fluid.elbw], ["VLBW 1000–1500g", PN.fluid.vlbw],
-                  ["Preterm >1500g", PN.fluid.preterm], ["Term GA ≥37 wk, ≥2500g", PN.fluid.term],
-                ].map(([label, t]) => [label, ...["d1", "d2", "d3", "d4", "d5", "d6plus"].map((d) => rng(t[d]))])}
+                  ["<750g", PN.fluid.under750], ["750–1000g", PN.fluid.from750to1000],
+                  ["1001–1500g", PN.fluid.from1001to1500], [">1500g", PN.fluid.over1500],
+                ].map(([label, t]) => [label, ...["d1to2", "d3to7", "d8plus"].map((d) => rng(t[d]))])}
               />
               {/* Typed: IWL 30 and 120 are held only in PN.fluid.note's text, the
                   incubator's 80–90 % humidity and the UO target nowhere. */}

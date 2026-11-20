@@ -39,9 +39,10 @@ eq('…and K 1.5–3', pickTarget('k', row(10, 3000), { bw: 3000, ga: 38 }), [1.
 eq('GA 28+0, 1,600 g, DOL 64 (PMA 37+0): Na on the term row 2–3', pickTarget('na', row(64, 1600), { bw: 1000, ga: 28 }), [2, 3]);
 eq('no GA, 3 kg, DOL 10: the 2,500 g fallback, Na 2–3', pickTarget('na', row(10, 3000), { bw: 3000 }), [2, 3]);
 
-console.log('\n── the Log tab picks the fluid band by GA and weight (Q24) ──');
-eq('GA 34+0, 2,600 g, DOL 1: preterm fluid 60–80', pickTarget('fluid', row(1, 2600), { bw: 2600, ga: 34 }), [60, 80]);
-eq('GA 38+0, 2,600 g, DOL 1: term fluid 40–60', pickTarget('fluid', row(1, 2600), { bw: 2600, ga: 38 }), [40, 60]);
+console.log('\n── the Log tab picks the fluid band by weight, Fanaroff Table 96.1 (Q24) ──');
+eq('GA 34+0, 2,600 g, DOL 1: > 1,500 g, 60–80', pickTarget('fluid', row(1, 2600), { bw: 2600, ga: 34 }), [60, 80]);
+eq('GA 38+0, 2,600 g, DOL 1: the same row, no GA', pickTarget('fluid', row(1, 2600), { bw: 2600, ga: 38 }), [60, 80]);
+eq('600 g, DOL 1: < 750 g, 100–200', pickTarget('fluid', row(1, 600), { bw: 600, ga: 24 }), [100, 200]);
 
 console.log(`\n${fail === 0 ? 'LOG NA K GA 1120: ALL PASS' : `LOG NA K GA 1120: ${fail} FAILED`} (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);
