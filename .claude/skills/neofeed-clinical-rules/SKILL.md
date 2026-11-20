@@ -905,6 +905,7 @@ Enteral: Embleton Table 1.
 {"case": "no GA, DOL 10, 2,400 g now, born 2,600 g: held at the term row", "side": "inside", "fn": "TPN_TARGETS.na", "args": [10, 2400, 2600], "want": [2, 3]}
 {"case": "GA 34+0, born 2,600 g, DOL 10 (PMA 35+2): preterm, 3–5 (Vera's case)", "side": "inside", "fn": "TPN_TARGETS.na", "args": [10, 2600, 2600, 34], "want": [3, 5]}
 {"case": "GA 38+0, 3 kg, DOL 10: term, 2–3", "side": "outside", "fn": "TPN_TARGETS.na", "args": [10, 3000, 3000, 38], "want": [2, 3]}
+{"case": "GA 38+0, SGA 2,300 g, DOL 10: term by PMA, 2–3 (the weight tier alone read it preterm)", "side": "outside", "fn": "TPN_TARGETS.na", "args": [10, 2300, 2300, 38], "want": [2, 3]}
 {"case": "GA 28+0, 1,600 g, DOL 63 (PMA 36+6): preterm, 3–5", "side": "inside", "fn": "TPN_TARGETS.na", "args": [63, 1600, 1000, 28], "want": [3, 5]}
 {"case": "GA 28+0, 1,600 g, DOL 64 (PMA 37+0): the term row, 2–3", "side": "outside", "fn": "TPN_TARGETS.na", "args": [64, 1600, 1000, 28], "want": [2, 3]}
 {"case": "GA 28+0, 1,400 g, DOL 64 (PMA 37+0) but under 1,500 g: preterm, 3–5", "side": "inside", "fn": "TPN_TARGETS.na", "args": [64, 1400, 1000, 28], "want": [3, 5]}
@@ -939,6 +940,8 @@ DOL 8, Table 3 (p. 2349): term 1.5–3, preterm > 1,500 g 1–3, preterm < 1,500
 {"case": "no GA, DOL 8, 2,499 g: preterm, 1–3", "side": "inside", "fn": "TPN_TARGETS.k", "args": [8, 2499], "want": [1, 3]}
 {"case": "no GA, DOL 8, 2,500 g: term, 1.5–3", "side": "outside", "fn": "TPN_TARGETS.k", "args": [8, 2500], "want": [1.5, 3]}
 {"case": "GA 34+0, born 2,600 g, DOL 10: preterm, 1–3", "side": "inside", "fn": "TPN_TARGETS.k", "args": [10, 2600, 2600, 34], "want": [1, 3]}
+{"case": "GA 38+0, SGA 2,300 g, DOL 10: term by PMA, 1.5–3", "side": "outside", "fn": "TPN_TARGETS.k", "args": [10, 2300, 2300, 38], "want": [1.5, 3]}
+{"case": "GA 38+0, SGA 2,300 g, DOL 10: the front sheet prints K⁺ 1.5–3", "side": "outside", "infant": {"g": 2300, "ga": 38}, "route": "Central", "order": {"Volume(mL/day)": 345, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "K⁺ 1.5–3 mEq/kg/day"}}
 {"case": "GA 28+0, 1,600 g, DOL 64 (PMA 37+0): the term row, 1.5–3", "side": "outside", "fn": "TPN_TARGETS.k", "args": [64, 1600, 1000, 28], "want": [1.5, 3]}
 {"case": "GA 28+0, 1,400 g, DOL 64 (PMA 37+0) but under 1,500 g: 2–5", "side": "inside", "fn": "TPN_TARGETS.k", "args": [64, 1400, 1000, 28], "want": [2, 5]}
 {"case": "GA 34+0, born 2,600 g, DOL 10: the front sheet prints K⁺ 1–3", "side": "inside", "infant": {"g": 2600, "ga": 34}, "route": "Central", "order": {"Volume(mL/day)": 390, "Dextrose final": 10, "Amino acid": 3}, "expect": {"prints": "K⁺ 1–3 mEq/kg/day"}}
