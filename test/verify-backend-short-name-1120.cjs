@@ -151,5 +151,25 @@ doesNotThrow('an edit that types a full name saves',
   () => sandbox.registerPatient({ ...patient, name: 'Fiona Oak' }, false));
 eq('…cut to Fi Oa', storedName(), 'Fi Oa');
 
+// Vera on this change: the keep branch, with a full legacy name that the cut would change.
+const LEGACY_FULL = ['FO-2', 'สมชาย ใจดี', 'สจ', 1300, 30, 'boys', '2026-07-01', '2026-08-01', '',
+  'Active', 'NICU 12', 'RDS', '[]', '[]', '[]', '[]', '', 0];
+sheet = makeSheet(PAT_HEADER, [LEGACY_FULL], 26);
+doesNotThrow('an edit of a row stored with a full name, name untouched, saves',
+  () => sandbox.registerPatient({ ...patient, sessionId: 'FO-2', name: 'สมชาย ใจดี', initials: 'สจ', bw: 1300, ga: 30, sex: 'boys',
+    currentBed: 'NICU 12', diagnosis: 'RDS, PDA' }, false));
+eq('…keeps the stored name as it is (a migration is the DPO\'s, not an edit\'s)', storedName(), 'สมชาย ใจดี');
+
+console.log('\n── the initials column ──');
+eq('Thai initials stay two letters', sandbox._shortInitials('สจ', null), 'สจ');
+eq('a full name sent as initials is cut to two letters', sandbox._shortInitials('สมชาย ใจดี', null), 'สม');
+eq('foreign initials', sandbox._shortInitials('JS', null), 'JS');
+eq('an unchanged stored value is kept', sandbox._shortInitials('Fo', 'Fo'), 'Fo');
+sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
+let reg2 = null;
+doesNotThrow('a registration with no name and a full name as initials saves',
+  () => { reg2 = sandbox.registerPatient({ ...patient, sessionId: 'NF-120002', name: '', initials: 'สมชาย ใจดี', currentBed: 'NICU 5' }, true, null, false, true); });
+eq('…with initials cut to two letters', sheet.appended.length ? sheet.appended[0][2] : null, 'สม');
+
 console.log(`\n${fail === 0 ? 'BACKEND SHORT NAME 1120: ALL PASS' : `BACKEND SHORT NAME 1120: ${fail} FAILED`} (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);

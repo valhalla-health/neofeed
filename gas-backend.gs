@@ -2283,6 +2283,18 @@ function _shortPatientName(name, storedName) {
   return parts.slice(0, 2).map(function (x) { return _namePart(x, foreign); })
     .filter(function (x) { return x; }).join(" ");
 }
+// The initials column is two letters ("สจ", data.js nameInitials). Cut the
+// same way, so a full name sent as initials cannot be stored either (Vera on
+// this change: patientName() shows initials when name is blank). Unchanged on
+// an edit, kept as stored.
+function _shortInitials(initials, storedInitials) {
+  var typed = String(initials == null ? "" : initials).trim();
+  if (storedInitials != null && typed === String(storedInitials).trim()) return storedInitials;
+  var foreign = !HAS_THAI_RE.test(typed);
+  var letters = foreign ? typed.normalize("NFD").replace(/[\u0300-\u036F]/g, "").replace(/[^A-Za-z]/g, "")
+    : (typed.match(THAI_SHORT_NAME_RE) || []).join("");
+  return Array.from(letters).slice(0, 2).join("");
+}
 
 // sex is stored as "boys"/"girls" (the Fenton dataset key). A new registration
 // must use one of them (2026-09-17 review, F / UP-S4). An EDIT may carry a
@@ -4628,6 +4640,7 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
     var m = stored ? _mergePatient(stored, p, isNew === true ? null : base) : p;
     // Two letters of each name part, as the client stores it (_shortPatientName).
     m.name = _shortPatientName(m.name, stored ? stored[1] : null);
+    m.initials = _shortInitials(m.initials, stored ? stored[2] : null);
     if (stored && canDeleteHop !== true) {
       m.bedHistory = _keepStoredHops(_storedPatient(stored).bedHistory, m.bedHistory);
     }

@@ -973,8 +973,9 @@ secondary uses (e.g. research/QI exports) if those are ever added.
 
 **What the registry holds as a name (2026-11-20):** two letters of the first name and two of the surname
 ("สม จด"), cut by the client (`data.js` `namePart`) since 2026-09-25 and by the backend (`_shortPatientName` in
-`registerPatient`) since 2026-11-20, so no caller can store a full name. A name an edit leaves unchanged is kept as
-stored. The full name and AN for the TPN room's stickers live in the room's local name file (§ The TPN room's page).
+`registerPatient`) since 2026-11-20, and the `initials` column cut to two letters the same way (`_shortInitials`), so
+no caller can store a full name in either column. A value an edit leaves unchanged is kept as stored. The free-text
+`diagnosis` (2,000 characters) can still hold a name. The full name and AN for the TPN room's stickers live in the room's local name file (§ The TPN room's page).
 Names in the Sheet before 2026-09-25, its backups and its version history are not touched by this.
 
 **Data subject rights implemented:**

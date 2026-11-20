@@ -23,8 +23,10 @@ too: "ทำเลย".
   erased row is not rewritten by an unrelated edit.
 - The harness checks the cut against the client's own `composePatientName` for five names, and that a full name sent
   on a registration or an edit lands as the short form.
+- `initials` is cut to two letters the same way (`_shortInitials`): `patientName()` shows initials when the name is
+  blank, so a full name sent as initials would otherwise have reached every screen (Vera on this change).
 - Not changed: names already in the Sheet, its backups and version history (that is a migration, with the DPO), and
-  the `initials` column.
+  the free-text `diagnosis`.
 
 ## Session 2026-11-20 (1) — PR #290 brought up to `main`; STATUS catches up with releases #293 and #295 and backends `@76`, `@77`
 
