@@ -336,7 +336,9 @@ const fieldInput = (label, scope) => [...(scope || document.getElementById('prob
     // margin is gone, so the caution case is below the band.
     eq('12.5 is above the hard limit: critical', D.girStatus(12.5), 'crit');
     eq('12 itself is in band', D.girStatus(12), 'ok');
-    eq('below the band is a caution', D.girStatus(3.5), 'warn');
+    // The floor is 2.5 for every infant since 2026-11-18 (Pp, Q9); it was 4.
+    eq('below the band is a caution', D.girStatus(2), 'warn');
+    eq('3.5, a caution until 2026-11-18, is in band', D.girStatus(3.5), 'ok');
     eq('in band is ok', D.girStatus(10), 'ok');
     eq('the hard limit is the calculator\'s', D.GIR_HARD_HI, 12);
     // Since 2026-11-10 it calls girStatus itself, as app.jsx does (verify-one-source-thresholds-1110).
@@ -348,8 +350,9 @@ const fieldInput = (label, scope) => [...(scope || document.getElementById('prob
       weights: [{ dol: 1, w: 900 }, { dol: 10, w: 1000 }] };
     const row = (gir) => [{ ts: TODAY, dol: 11, weight: 1000, gir, pro: 3, kcal: 120, enVolPerKg: 0 }];
 
-    const at35 = global.computeAlerts(patient, row(3.5)).find(a => a.id.startsWith('gir'));
-    eq('a logged GIR of 3.5 is a WARNING on the alert page', at35 && at35.level, 'warn');
+    const at2 = global.computeAlerts(patient, row(2)).find(a => a.id.startsWith('gir'));
+    eq('a logged GIR of 2 is a WARNING on the alert page', at2 && at2.level, 'warn');
+    eq('…and a logged 3.5 raises no GIR alert', global.computeAlerts(patient, row(3.5)).find(a => a.id.startsWith('gir')), undefined);
     const at125 = global.computeAlerts(patient, row(12.5)).find(a => a.id.startsWith('gir'));
     eq('…and 12.5 is critical, on both screens', at125 && at125.level, 'crit');
     ok('a GIR inside the band raises no GIR alert',

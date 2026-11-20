@@ -116,7 +116,9 @@ Since 2026-09-22 the order prints on **two sheets, meant to go double-sided** (P
   the route line's "Peripheral (<900 mOsm/L)" prints `OSM_PERIPHERAL_MAX`, so it follows the app's limit if that
   ever moves, not the paper's fixed text (Pp, PR #240: "ตามค่าในแอป"). **An addition (2026-11-15):** the Total
   Volume line ends with the bag's own osmolarity in small grey type, "· Bag osm N mOsm/L", rounded as the
-  Osmolarity tile (Pp, PR #265: "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้"). **An addition (2026-11-16):** the "7. Heparin" line
+  Osmolarity tile (Pp, PR #265: "osm เอาขึ้นหน้าแรกตัวเล็กๆ ได้"). **An addition (2026-11-19):** the "2. K⁺" group line ends with the bag's
+  K⁺ concentration in the same small grey type, "· K⁺ in bag N mEq/L", the K⁺ in bag tile's figure at one decimal (TPN unit
+  through Pp: K⁺ is a high-alert drug; the back sheet's line never reached paper). **An addition (2026-11-16):** the "7. Heparin" line
   prints the mL of 100 unit/mL stock the prepared bag takes (`calc.solVol.heparin`, the back sheet's figure; ward:
   the paper had no heparin volume), and the amino-acid choices drop the age range after "10% Aminoven infant /
   PED AMINE" and "10% Amiparen" (ward request). Feeds stay off the sheet: the TPN room does not
@@ -219,7 +221,7 @@ back end, admin only, until the indicators are chosen).
 |---|---|---|
 | AA < 2.5 (amber) | preterm, today's DOL 2–7, counted EN < 50 mL/kg/d, AA < 2.5 g/kg/d. By DOL, also for an infant admitted after birth, and today's DOL when the latest order is older (Pp, 2026-11-14, 2026-11-15). A No TPN order counts as AA 0 and its chip reads "หยุด PN ตอน EN < 50" (Pp, 2026-11-17) | van Goudoever 2018 R 3.2; EN < 50 is NeoFeed's own (`pn_aa_ge_2_5`) |
 | DOL 2 ยังไม่มี lipid (amber) | preterm, today's DOL 2, no lipid; a No TPN order too while counted EN < 50 mL/kg/d (Pp, 2026-11-17, asked about EN < 50) | Lapillonne 2018 R 4.2 |
-| GIR > 12 (red), GIR < 4 (amber) | `girStatus`, every GA; a GIR of 0 (no dextrose) is not flagged | `CR-GIR-MAX` |
+| GIR > 12 (red), GIR < 2.5 (amber; 4 until 2026-11-18) | `girStatus`, every GA; a GIR of 0 (no dextrose) is not flagged | `CR-GIR-MAX` |
 | EN ≥ 140 / 120 ยังมี PN (amber) | dextrose, AA or lipid still ordered once counted EN reaches 140 mL/kg/d below 28 wk, 120 from 28 wk and at term; every GA (Pp, 2026-11-15) | NICE NG154 rec 1.8.2 (born before 28+0 wk, 140–150) and rec 1.8.3 (28+0 wk or later and term, 120–140), the lower end of each; not `FULL_EN_ML_KG` |
 | No TPN (no colour) | the latest order is No TPN (`orderIsNoTpn`); the AA and lipid flags above may come with it, never the GIR or PN-after-EN flag | — |
 

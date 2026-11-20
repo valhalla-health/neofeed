@@ -425,7 +425,11 @@ const screenFigures = () => ({
   cannotOnScreen: /cannot be compounded/.test(bodyText()),
   // The Osmolarity tile's value, as the doctor reads it (2026-11-15: the front sheet prints it too).
   osm: (() => { const m = [...container.querySelectorAll('.metric')].find(d => d.querySelector('.lbl')?.textContent.trim() === 'Osmolarity'); return m ? numOrDash(m.querySelector('.val')?.firstChild?.textContent) : null; })(),
+  // The K⁺ in bag tile's value (2026-11-19: the front sheet prints it too, for the TPN unit).
+  kBag: (() => { const m = [...container.querySelectorAll('.metric')].find(d => d.querySelector('.lbl')?.textContent.trim() === 'K⁺ in bag'); return m ? numOrDash(m.querySelector('.val')?.firstChild?.textContent) : null; })(),
 });
+// The front sheet's small "K⁺ in bag N mEq/L" beside the K⁺ group (null when it is not printed).
+const printedKBag = () => { const t = __printFormTicked(container)?.querySelector('.print-kbag')?.textContent; const m = t && t.match(/K⁺ in bag (-?[\d.]+) mEq\/L/); return m ? Number(m[1]) : null; };
 // The front sheet's small "Bag osm N mOsm/L" on the Total Volume line (null when it is not printed).
 // The front sheet's heparin line: its mL (null when it prints "—" or is missing). Ward, 2026-11-16.
 const printedFrontHeparinMl = () => { const t = __printFormTicked(container)?.querySelector('.print-heparin')?.textContent.replace(/\s+/g, ' '); const m = t && t.match(/unit\/mL ?(-?[\d.]+) mL/); return m ? Number(m[1]) : null; };
@@ -607,6 +611,13 @@ function sumCheck(sc, label, Vd) {
     // A bag with no dextrose, amino acid or electrolyte estimates 0: the sheet prints no figure for it.
     ok(sc, `${label}: front sheet's Bag osm = on-screen Osmolarity tile (none when it reads 0)`,
       scr.osm !== null && (scr.osm === 0 ? printedOsm() === null : printedOsm() === scr.osm), { ...detail, printedOsm: printedOsm() });
+    // K⁺ in bag on the front (TPN unit, 2026-11-19): the tile's figure at one decimal, 0 included.
+    // The tile shows the same value as a whole number, so the two sit within half a unit (rounding twice
+    // can move the tile's side by 0.05: 44.46 prints 44.5, the tile 44).
+    const pk = printedKBag();
+    ok(sc, `${label}: front sheet's K⁺ in bag, one decimal, agrees with the on-screen K⁺ in bag tile`,
+      scr.kBag !== null && pk !== null && /^-?\d+(\.\d)?$/.test(String(pk)) && Math.abs(pk - scr.kBag) <= 0.55,
+      { ...detail, tileKBag: scr.kBag, printedKBag: pk });
     // The heparin mL reached paper only on the back sheet, which does not print (ward, 2026-11-16):
     // the front's heparin line now prints it, and it must be the back's stock line, mL for mL.
     const backHep = parts.find(p => /^Heparin /.test(p.name));
@@ -989,6 +1000,12 @@ const TIES = [
     bw: 1005, cur: 1005, tpn: 100, dex: 10, aa: 3, vitD: 500, want: { vitD: 503 } },
   { name: 'T6 1,130 g, oral Ca 50 mg/kg: 56.5 → 57 mg/day, saved as 57 (Vera)',
     bw: 1130, cur: 1130, tpn: 100, dex: 10, aa: 3, glyNa: 2, oralCa: 50, want: { oralCa: 57 } },
+  // IV lipid at 10 kcal/g (Pp, 2026-11-18, Q8; CR-U-ENERGY). At the 9 kcal/g it
+  // counted until then this order is 34 + 8 + 1.35 = 43.35 and every figure reads 43.
+  { name: 'T7 1 kg, 100 mL D10 AA 2 lipid 0.15: energy 34 + 8 + 1.5 (lipid at 10 kcal/g) = 43.5 → 44 kcal/kg/d',
+  // The sticker is the aqueous bag's (dextrose + amino acid, data.js stickerFigures):
+  // lipid is a separate syringe and never reaches it, so it reads 34 + 8 = 42.
+    tpn: 100, dex: 10, aa: 2, lip: 0.15, want: { kcal: 44, stickerKcal: 42 } },
 ];
 function alertBody(title) {
   const row = [...container.querySelectorAll('.alert-row')].find(r => r.querySelector('.title')?.textContent === title);
@@ -1038,7 +1055,8 @@ async function runTie(scIn) {
     ok(sc, `the energy card's TPN kcal reads ${w.kcal} (1 kg)`, !!tpn && numOrDash(tpn[1]) === w.kcal, tpn && tpn[0]);
     const p = printedFigures();
     ok(sc, `the sheet's energy line and summary read ${w.kcal}`, !!p && p.tpnKcalKg === w.kcal && p.summaryKcalKg === w.kcal, p);
-    ok(sc, `the sticker's kcal reads ${w.kcal} (1 kg)`, findKey(row.printJson, 'kcal') === String(w.kcal), findKey(row.printJson, 'kcal'));
+    const stickerKcal = w.stickerKcal != null ? w.stickerKcal : w.kcal;
+    ok(sc, `the sticker's kcal reads ${stickerKcal} (1 kg)`, findKey(row.printJson, 'kcal') === String(stickerKcal), findKey(row.printJson, 'kcal'));
   }
   if (w.p != null) {
     ok(sc, `Phosphorus tile reads ${w.p}`, tileVal('Phosphorus') === w.p, tileVal('Phosphorus'));

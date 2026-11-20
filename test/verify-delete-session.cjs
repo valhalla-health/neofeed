@@ -103,7 +103,9 @@ function reset() {
 }
 
 reset();
-let result = gasSandbox.deletePatient('KH-BW1090');
+// The stub's log rows carry no status (column O), which deletePatient reads as submitted since the
+// code review of 2026-11-19 (H4), so the call carries the second yes; this part is about the cascade.
+let result = gasSandbox.deletePatient('KH-BW1090', 'admin@kcmh.test', true);
 ok('reports ok',                              result.ok);
 eq('registry row removed',                    patSheet.getDataRange().getValues().length, 2); // header + FO-1
 eq('the OTHER patient stays registered',       patSheet.getDataRange().getValues()[1][0], 'FO-1');

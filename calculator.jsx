@@ -41,6 +41,8 @@ const roundWholeMl = (n) => Number(D.displayNum(n, 0));
 const RELEASE_CHECK_MS = 5000;
 const RELEASE_FRESH_MS = 60000;
 const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
+const RELEASE_PRINT_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า พิมพ์ใบสั่งไม่ได้ กดโหลดหน้าใหม่ แล้วเปิด order อีกครั้ง";
+const OPEN_ORDER_GONE_TEXT = "order นี้ถูกแก้หรือลบจากเครื่องอื่นแล้ว พิมพ์ฉบับนี้ไม่ได้ กลับไปที่รายชื่อแล้วเปิด order ใหม่";
 const RELEASE_SENT_TEXT = "order ที่เพิ่ง Submit ส่งจากแท็บรุ่นเก่า ห้อง TPN จะไม่รับ กดโหลดหน้าใหม่ แล้วเปิด order กด Submit อีกครั้ง";
 // true: the host serves another release. false: the same one. null: not known.
 async function tabIsBehindRelease() {
@@ -1156,7 +1158,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // mL/day, and 20% lipid set to the dose that volume gives, so the pump rate
   // and g/kg/h follow (Pp, 2026-11-06). D.lipidDoseAtWholeMl never makes a
   // critical lipid line the typed dose did not have (4.0 g/kg/d, the g/kg/h
-  // ceiling over the pump's actual hours); the toast says what moved.
+  // ceiling over the pump's actual hours), and a dose typed above 4.0 goes to
+  // the whole mL below (Pp, 2026-11-18); the toast says what moved.
   const roundLipidToWholeMl = () => {
     const dose = D.lipidDoseAtWholeMl(lipidPerKg, wtKg, { hours: lipidDripHours, vitalipidMl: calc.vitalipidVol });
     if (dose == null) return;
@@ -1833,7 +1836,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     const enProteinG = enCounted / 100 * en.pro;
     const enLipidG = enCounted / 100 * en.fat;
     // A MEN feed is not nutrition, so it never switches on the enteral targets.
-    const useEnteralTargets = enCounted / wtKg >= D.FULL_EN_ML_KG;
+    // The switch (CR-U-SWITCH; Pp, 2026-11-18): the counted feed at 120 mL/kg/d,
+    // or giving 75 % of the enteral energy and protein needs, whichever first.
+    const useEnteralTargets = D.fullEnReached({ mlKg: enCounted / wtKg, kcalKg: enKcal / wtKg, proKg: enProteinG / wtKg },
+      { fullMlKg: D.FULL_EN_ML_KG, fraction: D.FULL_EN_NEEDS_FRACTION });
     // What the feed itself provides per kg/day, counted or not — Step 2 shows
     // it, marked "not counted" when MEN is ticked.
     const enFeedKg = {
@@ -1851,10 +1857,11 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Energy
     const dexKcal = dexG * 3.4;
     const aaKcal = aaG * 4;
-    // 9 kcal/g fat — matches the official KCMH sheet (E53 = 3.4×dex + 4×AA + 9×fat)
-    // so NeoFeed's kcal/kg/d reconciles with the pharmacy printout. Note this is
-    // the pure-fat figure; a 20% emulsion incl. glycerol runs ~10 kcal/g.
-    const lipidKcal = lipidG * 9;
+    // IV lipid at D.LIPID_IV_KCAL_PER_G, 10 kcal/g: a 20 % emulsion is 2.0 kcal/mL
+    // with its glycerol (ESPGHAN 2018, Thai CPG; Pp, 2026-11-18, Q8). Until then
+    // 9, the KCMH sheet's figure (E53 = 3.4×dex + 4×AA + 9×fat), so the kcal here
+    // now reads 1 kcal per g of IV lipid above the pharmacy printout.
+    const lipidKcal = lipidG * D.LIPID_IV_KCAL_PER_G;
     const tpnKcal = dexKcal + aaKcal + lipidKcal;
     const totalKcal = tpnKcal + enKcal;
     const kcalKg = totalKcal / wtKg;
@@ -1867,7 +1874,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Distribution per kg
     const kcalCho = (dexKcal + enCounted / 100 * en.cho * 4) / wtKg;
     const kcalPro = (aaKcal + enProteinG * 4) / wtKg;
-    const kcalFat = (lipidKcal + enLipidG * 9) / wtKg;
+    const kcalFat = (lipidKcal + enLipidG * 9) / wtKg;   // feed fat stays 9 kcal/g: not an emulsion
     const kcalProtPct = kcalKg > 0 ? kcalPro / kcalKg * 100 : 0;
     const kcalFatPct = kcalKg > 0 ? kcalFat / kcalKg * 100 : 0;
     const kcalChoPct = kcalKg > 0 ? kcalCho / kcalKg * 100 : 0;
@@ -2119,7 +2126,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
        : (totalTPN_mL > 0 || dexPct > 0 || aaPerKg > 0) ? "partial" : "empty",
     3: (naCl + naAcet + glycophosP + kCl + caPerKg + mgPerKg) > 0 || noTpnOn ? "done" : "empty",
     4: "done", // vitamins/TE always defaulted
-    5: calc.enVolPerKg >= D.FULL_EN_ML_KG ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty",
+    5: calc.useEnteralTargets || calc.enVolPerKg >= D.FULL_EN_ML_KG ? "done" : calc.enVolPerKg > 0 ? "partial" : "empty",
   };
 
   // StepHead is inlined in each card below (not a component — avoids unmount/remount issue)
@@ -2128,7 +2135,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const useEN = calc.useEnteralTargets;
   const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
   const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);   // wtG already floors at bw; pass bw so the tier does too
-  const tGir   = D.TARGETS.gir();                         // [4, 12] display range
+  const tGir   = D.TARGETS.gir();                         // [2.5, 12] display range
   const tPro   = T.protein(dol);
   const tKcal  = T.kcal(dol);
   const tLip   = T.lipid(dol);
@@ -2193,7 +2200,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sK = D.rangeStatus(calc.kTotalDelivered, tK);
   const sCa = D.rangeStatus(calc.caKg, tCa);
   const sP = D.rangeStatus(calc.pKg, tP);
-  const sCaP = D.rangeStatus(calc.caP, tCaP);
+  // Ca:P graded with float noise stripped (D.caPStatus; Pp, 2026-11-18, Q6):
+  // 52.7 / 31 is 1.7 on paper, and graded High beside a printed "1.7:1".
+  const sCaP = D.caPStatus(calc.caP);
   // Below D.MG_MEQ_HABIT_MG the dose was most likely typed in mEq, the unit
   // this box took until 2026-10-28: critical, so Submit asks (Pp, 2026-10-29).
   // The tile's bar draws it red through statusAt, as GIR's does.
@@ -2202,7 +2211,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Step 6 total-intake statuses — same targets as Step 4, applied to IV + feed + oral
   const sTotCa  = D.rangeStatus(mineral.totCa, tCa);
   const sTotP   = D.rangeStatus(mineral.totP, tP);
-  const sTotCaP = D.rangeStatus(mineral.totCaP, tCaP);
+  const sTotCaP = D.caPStatus(mineral.totCaP);
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // K⁺ concentration of the bag, by route (D.K_BAG_MEQ_PER_L; TPN team and
@@ -2251,8 +2260,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const pumpHoursText = (pump) => pump ? `${fmt(pump.hours, 1)} h` : "—";
   const sLipidGkgh = lipidGrade.status;
   const tpnOver = D.tpnOverDelivery(totalTPN_mL);
-  // EN volume: short of 100 mL/kg/d is a caution; nothing ordered is not.
-  const enVolStatusAt = (v) => v >= D.FULL_EN_ML_KG ? "ok" : v > 0 ? "warn" : "ok";
+  // EN volume: short of D.FULL_EN_ML_KG (120) mL/kg/d is a caution; nothing ordered is not.
+  // A feed that is Full EN by its energy and protein (75 % of needs, CR-U-SWITCH)
+  // is not short: the tile and Step 2's done mark follow calc.useEnteralTargets,
+  // and the bar's amber zone then ends at the volume given, not at 120.
+  const enVolFull = calc.useEnteralTargets ? Math.min(calc.enVolPerKg, D.FULL_EN_ML_KG) : D.FULL_EN_ML_KG;
+  const enVolStatusAt = (v) => v >= enVolFull ? "ok" : v > 0 ? "warn" : "ok";
 
   // ── Hard limits on the IV (TPN) portion only — Praew, 2026-09-17 (UP-C4) ──
   // Lipid, K and NPE:AA are limits on what is infused; their figures are
@@ -2575,13 +2588,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   else if (kMeqPerLGraded > kLim.red) alerts.push({ level: "crit", title: "K⁺ concentration too high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.red} mEq/L for a ${kRouteLabel} line. Increase volume or reduce K.`, ref: "TPN team, 2026-09-28" });
   else if (kMeqPerLGraded > kLim.warn) alerts.push({ level: "warn", title: "K⁺ concentration high", body: `${fmt(calc.kMeqPerL, 0)} mEq/L in the bag — above ${kLim.warn} mEq/L for a ${kRouteLabel} line (${kRedIsMax(kLim) ? `max ${kLim.hardMax}` : `critical above ${kLim.red}`}).`, ref: "TPN team, 2026-09-28" });
   // Lipid infusion rate, per the ceiling the TPN team set (2026-09-28).
-  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — ceiling ${D.LIPID_GKGH.warn}–${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
+  if (sLipidGkgh === "crit") alerts.push({ level: "crit", title: "Lipid rate above the ceiling", body: `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — ceiling ${D.LIPID_GKGH.max} g/kg/h. Give it over more hours or lower the dose.`, ref: "TPN team, 2026-09-28" });
   else if (sLipidGkgh === "warn") alerts.push({ level: "warn", title: "Lipid rate near the ceiling", body: lipidGrade.overByRounding
     ? `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} because the pump rate rounds up; ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered. The ceiling is ${D.LIPID_GKGH.max} g/kg/h.`
-    : `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} — above ${D.LIPID_GKGH.warn}; the ceiling is ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28" });
+    : `${fmt(lipidGkgh, 2)} g/kg/h over ${pumpHoursText(lipidPump)} as the pump runs, but ${fmt(lipidGrade.gkghOrdered, 2)} over the ${lipidDripHours} h ordered — above the ceiling of ${D.LIPID_GKGH.max} g/kg/h.`, ref: "TPN team, 2026-09-28; Pp, 2026-11-18" });
   // Zinc from Peditrace and ZnSO₄ together, above the TPN team's ceiling.
   // Critical, so Save asks the prescriber to confirm with a reason (2026-09-22).
-  if (calc.znTotal_mg > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
+  // Graded with float noise stripped (D.gradeNum): 1.6 kg on ZnSO₄ 2.875 is 5 mg on paper (review, 2026-11-19).
+  if (D.gradeNum(calc.znTotal_mg) > D.MAX_ZN_MG_DAY) alerts.push({ level: "crit", title: `Zinc total above ${D.MAX_ZN_MG_DAY} mg/day`, body: `Zn ${fmt(calc.znTotal_mg, 2)} mg/day (Peditrace ${fmt(calc.znPeditrace_mg, 2)} + ZnSO₄ ${fmt(calc.znSO4_mg, 2)}) — max ${D.MAX_ZN_MG_DAY} mg/day.`, ref: "KCMH TPN team" });
   // One title for both limits since 2026-11-01 (Pp). It was "Bag cannot be
   // compounded" (and "Bag larger than the largest bottle"): a reason saved
   // before 2026-10-28 names the old one, and such a row is held all the same,
@@ -2711,7 +2725,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // exactly what must not leave the test area. Save and Submit still work.
   const testOrder = D.isTestSession(patient?.sessionId);
   const TEST_NO_PRINT_TEXT = "คนไข้ทดสอบพิมพ์ใบสั่งไม่ได้ ใช้ทดลองบันทึกเท่านั้น";
-  const printReady = printable && unackedRed.length === 0 && !testOrder;
+  // A tab behind the served release prints nothing (code review, 2026-11-19, H2): a release that
+  // moves the calculation holds orders saved before it for a re-Submit, and an old tab cannot know
+  // that, since it compares with its own CONSTANTS_VERSION. The same read that refuses Submit; it
+  // fails open on a read that could not be made, as Submit does.
+  const releaseHoldsPrint = !!releaseBehind && !centerPoint && !scratch;
+  // The order on screen is no longer the current one in the synced log (code review, 2026-11-19,
+  // H3): another device revised it (the old row is superseded, so the log drops it) or deleted it.
+  // A Calculator left open would otherwise go on printing the old figures. The app hands in the
+  // patient's log; its own saves land there in the same render as savedEntryId (handleLogToGAS).
+  const openOrderGone = !!savedEntryId && !centerPoint && !scratch && Array.isArray(entries)
+    && !entries.some(e => e && e.entryId === savedEntryId);
+  const printReady = printable && unackedRed.length === 0 && !testOrder && !releaseHoldsPrint && !openOrderGone;
   const printAckText = `ติ๊กรับทราบค่าวิกฤตทุกข้อก่อนพิมพ์ (${unackedRed.length} ข้อ): ${unackedRed.join(" · ")}`;
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
   // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01);
@@ -2737,6 +2762,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}`
     : "";
   const printBlockToast = testOrder ? TEST_NO_PRINT_TEXT
+    : openOrderGone ? OPEN_ORDER_GONE_TEXT
+    : releaseHoldsPrint ? RELEASE_PRINT_TEXT
     : !printable ? printBlockMessage("ก่อนพิมพ์") : unackedRed.length > 0 ? printAckText : "";
 
   // N1: a nurse account saves Intake/Output on a doctor's submitted order, and
@@ -2795,12 +2822,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         showToast(printBlockToast || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนพิมพ์", "error");
         return;
       }
-      setOpenSteps(ALL);
-      // Wait one frame for React to render all card-b sections
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        window.print();
-        window.onafterprint = () => setOpenSteps(new Set([1]));
-      }));
+      releaseBeforePrint().then((behind) => {
+        if (behind) { showToast(RELEASE_PRINT_TEXT, "error"); return; }
+        setOpenSteps(ALL);
+        // Wait one frame for React to render all card-b sections
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          window.print();
+          window.onafterprint = () => setOpenSteps(new Set([1]));
+        }));
+      });
     };
     document.addEventListener('__neofeed_print', handler);
     return () => document.removeEventListener('__neofeed_print', handler);
@@ -2836,7 +2866,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       if (yes) { setPrintAcks({ key: printAckKey, titles: redAlertTitles }); return; }
       go(); return;
     }
-    if (printReady) { go(); return; }
+    // Behind the release: readRelease has set releaseBehind, printReady turns false, and this
+    // effect runs again and sends the hold reason after the short wait below.
+    if (printReady) {
+      releaseBeforePrint().then((behind) => { if (!behind && autoPrintDone.current !== autoPrint) go(); });
+      return;
+    }
     const t = setTimeout(go, 1500);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2862,6 +2897,18 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const releaseBehindNow = () => {
     const r = releaseRead.current;
     return r.pending || Date.now() - r.at < RELEASE_FRESH_MS ? r.behind === true : null;
+  };
+  // Print reads the release with Submit's timing (Vera on the code review's H2, 2026-11-19):
+  // it waits for a read still in flight and reads again when the last one is over a minute
+  // old, so a Calculator left open across a release, or an order opened from the print list
+  // before the first read lands, does not print. A read that cannot be made does not hold
+  // it (null), as it does not hold Submit. Resolves true when the tab is behind.
+  const releaseBeforePrint = () => {
+    if (centerPoint || scratch) return Promise.resolve(false);
+    const r = releaseRead.current;
+    if (r.pending) return r.pending.then((behind) => behind === true);
+    if (Date.now() - r.at < RELEASE_FRESH_MS) return Promise.resolve(r.behind === true);
+    return readRelease().then((behind) => behind === true);
   };
   // The same, reading again first when it must, under the given busy flag, so a
   // second press waits for the read.
@@ -3042,6 +3089,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // on a nurse's I/O save; asking again would make it a new version (Vera).
     const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
       && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
+      // The dosing weight moved after the save (a corrected birth weight): every per-kg figure is
+      // re-dosed while the inputs stay the same, so it is a new order and its critical values are
+      // asked again (code review, 2026-11-19: the old reason went out beside a GIR nobody confirmed).
+      && !dosingWeightChanged
       && uncoveredCritical.length === 0;
     const critical = asDraft || nurseIoOnly || ioOnlyByDoctor ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
     let override = (nurseIoOnly || ioOnlyByDoctor) && !asDraft ? critOverride : null;
@@ -3674,7 +3725,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   borderRadius: 6, fontSize: 11.5, color: "var(--ok)", marginTop: 8, fontWeight: 600,
                   display: "flex", alignItems: "center", gap: 6 }}>
                   <Icon name="check" size={14} stroke={2.4} />
-                  Full EN ≥{D.FULL_EN_ML_KG} mL/kg/d — wean PN · ESPGHAN 2022 EN targets active
+                  Full EN (≥{D.FULL_EN_ML_KG} mL/kg/d, or ≥{D.FULL_EN_NEEDS_FRACTION * 100}% of enteral energy and protein) — wean PN · ESPGHAN 2022 EN targets active
                 </div>
               )}
 
@@ -3997,13 +4048,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   </div>
                   {/* The same rate as lipid per kg per hour (TPN team,
                       2026-09-22), to 2 decimals and against the team's ceiling
-                      (2026-09-28): amber above 0.13, red above 0.17. Lipid only:
+                      (2026-09-28): red above 0.17 (D.lipidRateGrade); the amber at 0.13 went on 2026-11-18. Lipid only:
                       Vitalipid in the bag is not fat. */}
                   {lipidPerKg > 0 && (
                     <div className={`lipid-gkgh s-${sLipidGkgh}`} style={{ fontSize:12, fontWeight:600, marginTop:2,
                       color: sLipidGkgh === "crit" ? "var(--crit)" : sLipidGkgh === "warn" ? "var(--warn-ink)" : "var(--ink-2)" }}>
                       = <span className="num">{fmt(lipidGkgh, 2)}</span> g/kg/h
-                      <span className="lipid-ceiling" style={{ fontWeight:400, color:"var(--ink-3)", marginLeft:6 }}>เพดาน {D.LIPID_GKGH.warn}–{D.LIPID_GKGH.max}</span>
+                      <span className="lipid-ceiling" style={{ fontWeight:400, color:"var(--ink-3)", marginLeft:6 }}>เพดาน {D.LIPID_GKGH.max}</span>
                     </div>
                   )}
                 </div>
@@ -4669,6 +4720,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 )}
               </div>
             )}
+            {/* Settled and saved, but this tab is behind the release (H2) or the order was revised or
+                deleted on another device (H3): Print is held, and says why. */}
+            {printable && (releaseHoldsPrint || openOrderGone) && (
+              <div className="print-blocked print-held-elsewhere" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                ● {openOrderGone ? OPEN_ORDER_GONE_TEXT : RELEASE_PRINT_TEXT}
+              </div>
+            )}
 
             {/* Changes vs the previous order — the cross-check for rounds and pharmacy.
                 A table since Pp, 2026-11-01 ("ทำเป็นตารางให้อ่านง่ายขึ้น"): name,
@@ -5209,7 +5267,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
     if (!row) return `${key}: not in the feed list`;
     return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
   };
-  const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
+  const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d หรือให้ energy และ protein ถึง ${D.FULL_EN_NEEDS_FRACTION * 100}% ของเป้า enteral (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = <>kg = <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)</>;
   // `n` is the EN_DB nutrient; with two feeds calc.en is their mix, so each
   // feed's line reads its own row and the lines add up to calc's total.
@@ -5284,7 +5342,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
   if (id === "kcal") return (
     <div className="working-panel" data-working="kcal" style={box}>
       <div style={title}>Energy = <WorkVal k="result" t={vsLimit(calc.kcalKg, D.KCAL_HARD_HI, 0)} /> kcal/kg/d</div>
-      <WorkRow label="สูตร">kcal/kg/d = (3.4 × dextrose g + 4 × AA g + 9 × lipid g + kcal จากนม) ÷ kg</WorkRow>
+      <WorkRow label="สูตร">kcal/kg/d = (3.4 × dextrose g + 4 × AA g + {D.LIPID_IV_KCAL_PER_G} × lipid g + kcal จากนม) ÷ kg</WorkRow>
       <WorkRow label="ค่าที่ใช้">
         dextrose <WorkVal k="dexG" v={calc.dexG} /> g → <WorkVal k="dexKcal" v={calc.dexKcal} d={1} /> kcal ·
         AA <WorkVal k="aaG" v={calc.aaG} /> g → <WorkVal k="aaKcal" v={calc.aaKcal} d={1} /> kcal ·
@@ -5612,7 +5670,15 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
           </tr>
           {/* 2. K⁺ */}
           <tr>
-            <td style={tdGroup} colSpan={3}>2. K⁺</td>
+            {/* The bag's K⁺ concentration in small type on the front, beside the K⁺ group, since K⁺ is a
+                high-alert drug (TPN unit through Pp, 2026-11-19: "K in bag ถ้าพอเติมได้ ตัวเล็กๆ ให้ pharmacy
+                มั่นใจ"). The back sheet's line did not reach paper (.print-back is hidden in print). Same
+                guard as the Bag osm line: no figure without a bag volume and a dosing weight. One decimal,
+                not the tile's whole number: pharmacy reads it against the limits printed beside it, and a
+                central bag graded 120.4 (critical) would print "120" next to "confirm > 120" (Vera). */}
+            <td style={tdGroup} colSpan={3}>2. K⁺{totalTPN_mL > 0 && wtKg > 0 && (
+              <span className="print-kbag" style={{ fontSize:9, color:"#333", fontWeight:400 }}> · K⁺ in bag {fmt(calc.kMeqPerL, 1)} mEq/L</span>
+            )}</td>
             <td style={td} rowSpan={3}>K⁺ {rng(targets?.k)} mEq/kg/day<br/>P {rng(targets?.p)} mg/kg/day<br/>K⁺ in bag: {kBagLimitParts(D.kBagLimitsFor(route), "confirm >").join(" · ")} mEq/L ({route === "central" ? "central" : route === "peripheral" ? "peripheral" : "no route"})</td>
           </tr>
           <tr>

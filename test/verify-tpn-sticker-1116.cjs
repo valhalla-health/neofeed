@@ -190,7 +190,8 @@ eq('the heading, storage line and extension the unit gave', [Core.PN_FIXED.headi
   ['Parenteral nutrition กลุ่มงานเภสัชกรรม โรงพยาบาลจุฬาลงกรณ์', 'วิธีเก็บ: เก็บในตู้เย็นได้ 7 วัน, ถ้าใส่วิตามินแล้วจะเก็บ 1 วัน', 'เบอร์ต่อหน่วย TPN: 73602']);
 eq('so a sheet prints as a real label, with no trial note on the row', [Core.fixedLinesReady(), Core.trialNote()], [true, '']);
 eq('…and blank lines would still print a trial', Core.fixedLinesReady(Core.PN_BLANK), false);
-ok('the constants version moved with the figures', D.CONSTANTS_VERSION === '2026-11-16.1', D.CONSTANTS_VERSION);
+// 2026-11-16.1 with this harness's figures; 2026-11-18.1 since IV lipid counts 10 kcal/g (Pp, Q8).
+ok('the constants version moved with the figures', D.CONSTANTS_VERSION === '2026-11-18.1', D.CONSTANTS_VERSION);
 
 if (root) act(() => root.unmount());
 console.log(`\nTPN STICKER 1116: ${fail ? 'FAILURES' : 'ALL PASS'} (${pass} passed, ${fail} failed)`);

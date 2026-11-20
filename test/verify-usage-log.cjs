@@ -234,7 +234,7 @@ T.section('§4 No patient field in a usage row', () => {
   // Erasure: no row points at an infant, so neither path has anything to reach.
   const before = JSON.stringify(g.sheet('Usage_Log').data);
   const ps = g.as(g.at, { action: 'pseudonymizePatient', sessionId: 'NF-100001' });
-  const del = g.as(g.at, { action: 'deletePatient', sessionId: 'NF-100002' });
+  const del = g.as(g.at, { action: 'deletePatient', sessionId: 'NF-100002', confirmPublished: true });   // a submitted order: the second yes (H4)
   T.ok('pseudonymize and delete ran', ps.ok === true && del.ok === true, { ps, del });
   T.eq('…and Usage_Log is exactly as it was: a count of past work, linked to nobody', JSON.stringify(g.sheet('Usage_Log').data), before);
 });

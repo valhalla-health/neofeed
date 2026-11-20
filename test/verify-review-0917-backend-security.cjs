@@ -303,7 +303,8 @@ T.section('SEC-B15 · audit gaps closed; destructive actions audit first', () =>
   const c = g.post({ action: 'logDailyNutrition', token: at, sessionId: 'AB-900', entry: E({ ts: '2026-09-10' }) });
   let auditAtFirstDelete = null;
   g.sheet('Daily_Log').hooks.beforeWrite = (sh, kind) => { if (kind === 'deleteRow' && auditAtFirstDelete === null) auditAtFirstDelete = g.audit().map(a => a.action); };
-  const del = g.post({ action: 'deletePatient', token: at, sessionId: 'AB-900' });
+  // AB-900 holds a submitted order, so since 2026-11-19 (H4) the delete carries the second yes.
+  const del = g.post({ action: 'deletePatient', token: at, sessionId: 'AB-900', confirmPublished: true });
   g.sheet('Daily_Log').hooks = {};
   T.ok('deletePatient ok', del.ok === true, del);
   T.ok('"deletePatient:start" was on Audit_Log before the first row was deleted', (auditAtFirstDelete || []).includes('deletePatient:start'), auditAtFirstDelete);
@@ -317,7 +318,7 @@ T.section('SEC-B15 · audit gaps closed; destructive actions audit first', () =>
   const e1 = g2.post({ action: 'logDailyNutrition', token: at2, sessionId: 'CD-1000', entry: E({ ts: '2026-09-10' }) });
   g2.sheet('Audit_Log').throwOn.appendRow = { err: new Error('This action would increase the number of cells in the workbook above the limit of 10000000 cells.') };
   const regBefore = g2.rows('Patient_Registry').length, logBefore = g2.rows('Daily_Log').length;
-  T.ok('deletePatient refuses when its audit row cannot be written', !!g2.post({ action: 'deletePatient', token: at2, sessionId: 'CD-1000' }).error);
+  T.ok('deletePatient refuses when its audit row cannot be written', !!g2.post({ action: 'deletePatient', token: at2, sessionId: 'CD-1000', confirmPublished: true }).error);
   T.ok('deleteDailyNutrition refuses likewise', !!g2.post({ action: 'deleteDailyNutrition', token: at2, sessionId: 'CD-1000', entryId: e1.entryId }).error);
   T.ok('pseudonymizePatient refuses likewise', !!g2.post({ action: 'pseudonymizePatient', token: at2, sessionId: 'CD-1000' }).error);
   T.eq('…and nothing was destroyed or erased', [g2.rows('Patient_Registry').length, g2.rows('Daily_Log').length, g2.rows('Patient_Registry')[0][1]],

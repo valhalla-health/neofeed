@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const Core = require('../tpn-room-core.js');
 
 const ROOT = path.join(__dirname, '..');
 let pass = 0, fail = 0, n = 0;
@@ -350,15 +351,26 @@ const INIT = `
         dates: [...sheet.querySelectorAll('[data-date]')].map((e) => e.textContent),
         fixed: [...sheet.querySelectorAll('[data-fixed]')].map((e) => e.textContent),
         zero: [...sheet.querySelectorAll('[data-fig="stockMl.amiparen10"]')].map((e) => e.textContent),
-        rows: sheet.querySelectorAll('.stock tr').length,
+        rowKeys: [...sheet.querySelectorAll('.stock [data-fig]')].map((e) => e.dataset.fig.replace('stockMl.', '')),
+        ids: [...sheet.querySelectorAll('.part')].map((p) => [...p.querySelectorAll('[data-mapped="id"]')].map((e) => e.textContent)),
+        ans: [...sheet.querySelectorAll('.part')].map((p) => [...p.querySelectorAll('[data-mapped="an"]')].map((e) => e.textContent)),
+        prepared: [...sheet.querySelectorAll('.prepared')].map((s) => [s.closest('.part').classList[1], getComputedStyle(s.querySelector('.lbl')).fontWeight, getComputedStyle(s.querySelector('.fig')).fontWeight]),
       };
     }, fig);
+    // The TPN unit, through Pp, 2026-11-19: a stock the bag does not get prints no row, AN and the
+    // NeoFeed ID print on every part, and Prepared is bold on the worksheet and the PN label.
+    const nonZero = Core.STOCK_ROWS.map(([k]) => k).filter((k) => !/^0+(\.0+)?$/.test(fig.stockMl[k]));
     ok(`every figure on the sheet (${sheetCheck.figures}) is its printJson string`, sheetCheck.figures > 30 && sheetCheck.wrong.length === 0);
     eq('…and no number sits anywhere else on the sheet', /\d/.test(sheetCheck.rest), false);
     eq('an iso bed prints 9B2(NICU)', sheetCheck.bagWard, '9B2(NICU)');
-    eq('a zero row prints its 0', sheetCheck.zero, ['0']);
-    eq('sixteen stock rows, less the three the unit dropped already', sheetCheck.rows, 16);
+    eq('the sample order has a zero stock (Amiparen), so the next check means something', fig.stockMl.amiparen10, '0');
+    eq('a zero row prints no row at all', sheetCheck.zero, []);
+    eq('the worksheet lists exactly the non-zero stocks, in the unit\'s order', sheetCheck.rowKeys, nonZero);
     eq('the name on all three parts', sheetCheck.names, 3);
+    eq('the NeoFeed ID on all three parts', sheetCheck.ids, [['AA-1'], ['AA-1'], ['AA-1']]);
+    eq('the AN on all three parts', sheetCheck.ans, [[SENTINEL_AN], [SENTINEL_AN], [SENTINEL_AN]]);
+    eq('Prepared, label and figure, bold on the worksheet and the PN label', sheetCheck.prepared,
+      [['part-worksheet', '700', '700'], ['part-label', '700', '700']]);
     const be = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${Number(d.slice(0, 4)) + 543}`;
     eq('Buddhist-era dates; date made comes from the box', sheetCheck.dates, [be(today), be(today), be(made), be(today)]);
     eq('the TPN unit’s three fixed lines print as shipped', sheetCheck.fixed, [SHIPPED.heading, SHIPPED.storage, SHIPPED.extension]);
@@ -374,16 +386,16 @@ const INIT = `
       const name = label.querySelector('[data-mapped="name"]');
       return {
         afterName: line.previousElementSibling === name,
-        centred: getComputedStyle(line).textAlign,
+        centred: getComputedStyle(line).justifyContent,
         anBelowName: an.getBoundingClientRect().top >= name.getBoundingClientRect().bottom - 1,
         withinOtherLines: an.getBoundingClientRect().right <= Math.max(...rights) + 0.5,
-        text: line.textContent.replace(/\s+/g, ' ').trim(),
+        text: [...line.children].map((c) => c.textContent.replace(/\s+/g, ' ').trim()).join(' '),
       };
     });
     eq('the PN label prints the AN on its own line right under the name', anLine && [anLine.afterName, anLine.anBelowName], [true, true]);
     eq('…centred', anLine && anLine.centred, 'center');
     ok('…reaching no further right than the label\'s other lines', anLine && anLine.withinOtherLines);
-    eq('…as "AN" and the mapped AN', anLine && anLine.text, `AN ${SENTINEL_AN}`);
+    eq('…as "AN" and the mapped AN, then the NeoFeed ID (2026-11-19)', anLine && anLine.text, `AN ${SENTINEL_AN} NeoFeed ID AA-1`);
     await p2.emulateMedia({ media: 'print' });
     const fits = await p2.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
     ok('the sheet and each part fit, measured under print', fits.length === 4 && fits.every(Boolean));
@@ -391,7 +403,7 @@ const INIT = `
     const pdf = await p2.pdf({ preferCSSPageSize: true, printBackground: true });
     await p2.emulateMedia({ media: null });
     const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
-    eq('the fullest row set fits one A4 page', pages, 1);
+    eq('the sample order fits one A4 page', pages, 1);
     if (process.env.TPN_ROOM_PDF_OUT) fs.writeFileSync(process.env.TPN_ROOM_PDF_OUT, pdf);
     await p2.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     await p2.waitForFunction(() => !document.getElementById('sticker-sheet'));
@@ -402,11 +414,25 @@ const INIT = `
     ok('and offers a reprint', await row(p2, 'AA-1').getByRole('button', { name: 'พิมพ์ซ้ำ' }).isVisible());
 
     section('§7 the order moves after printing');
+    // The fullest worksheet: every one of the sixteen stocks non-zero, each a wide figure, which no
+    // real order reaches (one amino acid product per bag; Addamel N holds the print). The page re-reads
+    // the order before it prints, so the stored row is what reaches the sheet.
+    const ssFull = pjOf('SS-1');
+    Core.STOCK_ROWS.forEach(([k]) => { ssFull.stockMl[k] = '188.8'; });
+    logRowOf('SS-1')[38] = JSON.stringify(ssFull);
     const ssPrint = row(p2, 'SS-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' });
     await ssPrint.click();
     await p2.waitForFunction(() => window.__prints === 2);
     const bag = await p2.evaluate(() => document.querySelector('.bag-ward').textContent);
-    eq('SCN prints 9B2(SCN)', bag, '9B2(SCN)');
+    eq('SCN prints 9B1(SCN) (TPN unit, 2026-11-19)', bag, '9B1(SCN)');
+    eq('the fullest worksheet lists all sixteen stocks', await p2.evaluate(() => document.querySelectorAll('#sticker-sheet .stock tr').length), 16);
+    await p2.emulateMedia({ media: 'print' });
+    const fullFits = await p2.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
+    const fullPdf = await p2.pdf({ preferCSSPageSize: true, printBackground: true });
+    await p2.emulateMedia({ media: null });
+    ok('…and every part still fits, measured under print', fullFits.length === 4 && fullFits.every(Boolean));
+    eq('…on one A4 page', (fullPdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length, 1);
+    if (process.env.TPN_ROOM_FULL_PDF_OUT) fs.writeFileSync(process.env.TPN_ROOM_FULL_PDF_OUT, fullPdf);
     await p2.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     const crypto = require('crypto');
     // A revision after the print: the server now holds a new row for this order.
@@ -800,6 +826,39 @@ const INIT = `
       await names.locator('tr[data-session="AA-1"]').waitFor();
       ok('…and the names page names today\'s bag',
         new RegExp(be(today).replace(/\//g, '\\/')).test(await names.locator('tr[data-session="AA-1"] .renamed').innerText().catch(() => '')));
+      await c.close();
+    }
+
+    section('§12e the fullest real worksheet at full size, under a name that wraps (Vera on the 2026-11-19 stickers)');
+    {
+      // SS-1 is gone by now, so AA-1 (an iso bed) carries it. Thirteen stocks: one amino acid product, and no Addamel N (it holds the print). That is the most
+      // a real order prints, and it stays at the full 12 pt; a long name wraps beside Ward, AN and ID.
+      const aa13 = pjOf('AA-1');
+      Core.STOCK_ROWS.forEach(([k]) => { aa13.stockMl[k] = ['amiparen10', 'aminoplasmal15', 'addamel'].includes(k) ? '0' : '188.8'; });
+      logRowOf('AA-1')[38] = JSON.stringify(aa13);
+      const c = await newRoom();
+      const pg = await open(c);
+      await signIn(pg, pharmacy.email, pharmacy.password);
+      await row(pg, 'AA-1').waitFor();
+      await createNameFile(pg);
+      await mapInfant(pg, 'AA-1', 'ทารกสังเคราะห์ เอ ชื่อยาวมากสำหรับทดสอบการตัดบรรทัดบนสติกเกอร์ห้อง TPN', '55555/69');
+      await row(pg, 'AA-1').getByText('55555/69').waitFor();
+      await row(pg, 'AA-1').getByRole('button', { name: 'พิมพ์สติกเกอร์' }).click();
+      await pg.waitForFunction(() => window.__prints === 1);
+      const ws = await pg.evaluate(() => {
+        const part = document.querySelector('#sticker-sheet .part-worksheet');
+        const name = part.querySelector('.big-name');
+        return { rows: part.querySelectorAll('.stock tr').length, dense: part.querySelector('.stock').classList.contains('dense'),
+          nameLines: Math.round(name.getBoundingClientRect().height / parseFloat(getComputedStyle(name).lineHeight || '0')) };
+      });
+      eq('thirteen rows at full size, not the dense step', [ws.rows, ws.dense], [13, false]);
+      ok('the name wraps onto a second line, so the case means something', ws.nameLines >= 2);
+      await pg.emulateMedia({ media: 'print' });
+      const fit13 = await pg.evaluate(() => [document.getElementById('sticker-sheet'), ...document.querySelectorAll('#sticker-sheet .part')].map((e) => e.scrollHeight <= e.clientHeight + 1));
+      const pdf13 = await pg.pdf({ preferCSSPageSize: true, printBackground: true });
+      ok('every part fits, measured under print', fit13.length === 4 && fit13.every(Boolean));
+      eq('…on one A4 page', (pdf13.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length, 1);
+      if (process.env.TPN_ROOM_13_PDF_OUT) fs.writeFileSync(process.env.TPN_ROOM_13_PDF_OUT, pdf13);
       await c.close();
     }
 

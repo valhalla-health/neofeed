@@ -34,7 +34,7 @@ clinical judgement. Everything else is engineering sequencing.
 
 - [ ] 🔐 **ops/PDPA · Sheet backup: what it leaves open** (2026-11-15, `CHANGELOG.md` (5)). Switched on
       2026-11-18: the four editor steps in `REFERENCE.md` § Sheet backup and restore drill ran on Pp's word, and
-      `sheetBackupStatus` reads `ok true` (`STATUS.md`; `CHANGELOG.md` 2026-11-18 (6)). Open:
+      `sheetBackupStatus` reads `ok true` (`STATUS.md`; `CHANGELOG.md` 2026-11-18 (7)). Open:
       - **Done 2026-11-18: the first `sheetRestoreDrill()` on the real Sheet.** 7 tabs, 7598 rows, 0 differing
         cells, `restorable: true`; the copy held the script lock 25 s (a save waits 10 s, a password sign-in 5 s,
         then "Busy"), so the trigger took the 2am to 3am starting slot. Watch the nightly run's time in Executions
