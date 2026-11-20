@@ -4638,9 +4638,6 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
       throw new Error("ไม่พบ session นี้ในระบบ — อาจถูกลบไปแล้ว (ไม่ได้บันทึกการแก้ไข)");
     }
     var m = stored ? _mergePatient(stored, p, isNew === true ? null : base) : p;
-    // Two letters of each name part, as the client stores it (_shortPatientName).
-    m.name = _shortPatientName(m.name, stored ? stored[1] : null);
-    m.initials = _shortInitials(m.initials, stored ? stored[2] : null);
     if (stored && canDeleteHop !== true) {
       m.bedHistory = _keepStoredHops(_storedPatient(stored).bedHistory, m.bedHistory);
     }
@@ -4667,6 +4664,10 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
     _checkAdmissionDate(m.admissionDate, stored ? stored[7] : null, "Admit date");
     _checkAdmissionDate(m.dob,           stored ? stored[6] : null, "Date of birth");
     _checkPatientText(m, stored);
+    // Two letters of each name part, as the client stores it (_shortPatientName),
+    // after the length guard above, so an over-long name is still refused, not cut.
+    m.name = _shortPatientName(m.name, stored ? stored[1] : null);
+    m.initials = _shortInitials(m.initials, stored ? stored[2] : null);
     // Inside the lock and after the read, so the census it checks is the one
     // this write is about to land in — and on the MERGED record, so a stale
     // device's old "Active" status cannot claim a bed for a discharged patient.
