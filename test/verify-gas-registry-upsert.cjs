@@ -260,6 +260,9 @@ eq('a discharged patient does not hold their bed',
 // (a name, a discharge date) must still save — it is not taking the bed from
 // anyone. Only putting it back on the unit (status Active) claims the bed.
 const ALUMNI = EXISTING.slice(); ALUMNI[0] = 'OLD-1'; ALUMNI[1] = 'Ol'; ALUMNI[9] = 'Discharged';
+// Discharged today, so still on the ward's list: since 2026-11-19 (code review, H5) a nurse or a
+// doctor edits only such a record, and one outside the 30-day window is an admin's.
+ALUMNI[16] = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
 const alumni = { ...patient, sessionId: 'OLD-1', name: 'Ol', initials: 'Ol', status: 'Discharged' };
 sheet = makeSheet(PAT_HEADER, [EXISTING, ALUMNI], 26);
 eq('editing a discharged record whose bed was reused saves',

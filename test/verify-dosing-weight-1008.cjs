@@ -244,6 +244,34 @@ function order(curG, tpnG) {
     eq('not even a draft is saved', log.calls, 0);
   });
 
+  // ═══════════════════════════ §8 re-dosed after a weight correction ══════
+  // Code review, 2026-11-19 (H1): a submitted order with a confirmed critical value, then the birth
+  // weight corrected, so the dosing weight moves with the inputs unchanged. Submit used to take the
+  // doctor's I/O-only path and send the old reason with the new figures, asking nothing.
+  await section('§8 a corrected birth weight re-doses the order: Submit asks the critical reason again', async () => {
+    const log = logger();
+    const GIR_HI = 'GIR critically high';
+    const upd = { entry: null, calls: 0 };
+    const onUpdate = (id, lm, e) => { upd.entry = e; upd.calls++; return Promise.resolve({ ok: true, lastModified: 'lm-u' + upd.calls }); };
+    const props = { patient: pt('DW-1000', 1000), onLog: log.onLog, onUpdate };
+    mount(props);
+    order(1000);
+    setField('Dextrose final', 25);   // 25 g in 100 mL on 1 kg: GIR 17.4, critical
+    eq('the order raises the critical GIR line', alertNamed(GIR_HI)?.level, 'crit');
+    await submit('hyperinsulinism, endocrine agrees');
+    eq('first Submit: one reason asked, saved once', [prompts, log.calls], [1, 1]);
+    ok('…and the override names the GIR line', (log.entry?.calcInput?.critOverride?.alerts || []).includes(GIR_HI), log.entry?.calcInput?.critOverride);
+    // The registry's birth weight is corrected to 1,200 g; the form keeps every input.
+    act(() => { root.render(React.createElement(window.Calculator, { ...BASE, ...props, patient: pt('DW-1000', 1200) })); });
+    eq('the order now doses at 1,200 g', inputFor('TPN calc. weight')?.value, '1200');
+    eq('GIR is still critical on the new weight', alertNamed(GIR_HI)?.level, 'crit');
+    await submit('re-checked at 1.2 kg, still intended');
+    eq('Submit asks the reason again', prompts, 1);
+    eq('…and saves the order again', upd.calls, 1);
+    eq('the saved order is dosed at 1,200 g', upd.entry?.calcInput?.tpnWtG, 1200);
+    eq('…and carries the new reason, not the old one', upd.entry?.calcInput?.critOverride?.reason, 're-checked at 1.2 kg, still intended');
+  });
+
   console.log(`\n${fail === 0 ? 'DOSING WEIGHT 2026-10-08: ALL PASS' : `DOSING WEIGHT 2026-10-08: ${fail} FAILED`} (${pass} passed)`);
   process.exit(fail === 0 ? 0 : 1);
 })();
