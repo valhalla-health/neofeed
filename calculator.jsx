@@ -2146,8 +2146,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const tK     = T.k(dol, wtG, patient?.bw, patient?.ga);  // mmol/kg/day, DOL-specific; term by GA (Q23)
   const tCa    = T.ca(dol, calc.useEnteralTargets);      // mg/kg/day, route-aware
   const tP     = T.p(dol, calc.useEnteralTargets);       // mg/kg/day, route-aware
-  // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 × (40/31) → mass 1.0–1.7.
-  // KCMH order form aims at the upper end (~1.7:1).
+  // Ca:P mass ratio (TARGETS.caP, CR-TGT-CAP): DOL 1–7 1.0–1.3, Mihatsch 2018
+  // R 8.12's molar 0.8–1.0 × 1.294; from DOL 8 the unit's 1.0–1.7. This comment
+  // said "ESPGHAN 2018 molar 0.8–1.3" until 2026-11-20 (Q7); the guideline does not.
   const tCaP = D.TARGETS.caP(dol);         // mass ratio: DOL 1–7 [1.0, 1.3], then [1.0, 1.7] (Q7)
   // Mg is typed, graded and printed in elemental mg/kg/d (TPN team, 2026-09-28
   // and 2026-10-28; Pp chose mg entry and ESPGHAN's mg figures on 2026-10-28):
