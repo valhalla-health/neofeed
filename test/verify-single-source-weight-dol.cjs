@@ -347,6 +347,14 @@ runScenarios(__filename, 'SINGLE SOURCE — WEIGHT AND DOL', {
     A.ok('6.7 …and no longer takes a typed DOL', !/<input name="dol"/.test(html));
     A.ok('6.8 the page mounts the Calculator with the computed DOL',
       /orderSetup\(/.test(readSrc('center-point/calculator-page.jsx')));
+    // GA in weeks and days (Vera on PR #296): the term rows read GA now.
+    const ga = (g) => setup({ bw: 2600, ga: g, dob: '2026-09-10', order: '2026-09-14' });
+    A.eq('6.9 GA "36+4" is 36.4, NeoFeed\'s own form', ga('36+4').patient && ga('36+4').patient.ga, 36.4);
+    A.eq('6.10 …and "36.4" is the same', ga('36.4').patient && ga('36.4').patient.ga, 36.4);
+    A.ok('6.11 a day above 6 is refused, not clamped', !!ga('36+7').error && !!ga('36.7').error);
+    A.ok('6.12 a blank or a word is refused', !!ga('').error && !!ga('abc').error);
+    A.eq('6.13 GA 36+4 at 2,600 g, DOL 1: preterm fluid 60–80', JSON.stringify(D.TARGETS.fluid(1, 2600, 2600, ga('36+4').patient && ga('36+4').patient.ga)), '[60,80]');
+    A.ok('6.14 the GA box takes text, so "36+4" can be typed', /<input name="ga" type="text"/.test(html));
   },
 
   // ══ §7 no screen can drift back to a copy ═══════════════════════════════════

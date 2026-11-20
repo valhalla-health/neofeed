@@ -24,9 +24,9 @@ vm.runInThisContext(fs.readFileSync(DIR + 'data.js', 'utf8'));
 const D = global.window.NEOFEED_DATA;
 
 T.section('TARGETS.fluid — birth-weight floor (Pp, 2026-09-24)', () => {
-  // A VLBW infant: birth 1050 g, nadir 980 g (below birth) on DOL 3.
-  T.eq('un-floored, the 980 g nadir falls into the ELBW tier', D.TARGETS.fluid(3, 980), [120, 140]);
-  T.eq('floored at birth, it stays in the VLBW tier', D.TARGETS.fluid(3, 980, 1050), [110, 130]);
+  // A VLBW infant: birth 1050 g, nadir 980 g (below birth) on DOL 3. Rows: Fanaroff Table 96.1 (2026-11-20).
+  T.eq('un-floored, the 980 g nadir falls into the 750–1000 g row', D.TARGETS.fluid(3, 980), [100, 150]);
+  T.eq('floored at birth, it stays in the 1001–1500 g row', D.TARGETS.fluid(3, 980, 1050), [80, 150]);
   T.eq('…which equals the birth-weight tier', D.TARGETS.fluid(3, 980, 1050), D.TARGETS.fluid(3, 1050));
   // Once regained / grown, it tracks current weight again.
   T.eq('after regain it tracks current weight', D.TARGETS.fluid(3, 1600, 1050), D.TARGETS.fluid(3, 1600));
@@ -60,14 +60,14 @@ const nameOf = (g, sid) => (g.rows('Patient_Registry').find(r => String(r[0]) ==
 
 T.section('registerPatient collision — warn, then confirm-overwrite', () => {
   const g = ward();
-  const r1 = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000980', { dob: '2026-09-01', name: 'ล1' }) });
+  const r1 = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000980', { dob: '2026-09-01', name: 'ลก' }) });
   T.ok('first registration ok', r1.ok === true, r1);
-  const r2 = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000980', { dob: '2026-09-05', name: 'ล2' }) });
+  const r2 = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000980', { dob: '2026-09-05', name: 'ลข' }) });
   T.ok('a colliding id returns needsConfirm (not a silent overwrite)', r2.needsConfirm === true, r2);
-  T.eq('…and the existing record is untouched', nameOf(g, 'NF-000980'), 'ล1');
-  const r3 = g.as({ action: 'registerPatient', isNew: true, confirmOverwrite: true, patient: P('NF-000980', { dob: '2026-09-05', name: 'ล2' }) });
+  T.eq('…and the existing record is untouched', nameOf(g, 'NF-000980'), 'ลก');
+  const r3 = g.as({ action: 'registerPatient', isNew: true, confirmOverwrite: true, patient: P('NF-000980', { dob: '2026-09-05', name: 'ลข' }) });
   T.ok('confirmOverwrite writes it', r3.ok === true, r3);
-  T.eq('…and the record is now the second infant', nameOf(g, 'NF-000980'), 'ล2');
+  T.eq('…and the record is now the second infant', nameOf(g, 'NF-000980'), 'ลข');
 });
 
 T.done();

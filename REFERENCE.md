@@ -697,7 +697,7 @@ characters on the live `Daily_Log`, for example `=SUMPRODUCT(--(LEN(Daily_Log!Y2
 that sends such a `calcInput` back is refused: the registry's unchanged-value pass has no twin there. Real saves are
 about 1,500 characters, so expect 0; if it is not 0, hold the push and tell Pp.
 
-### Sheet backup and restore drill (2026-11-15, not live)
+### Sheet backup and restore drill (2026-11-15, switched on 2026-11-18)
 
 Every record is in one spreadsheet, and a backend deploy runs against it with no staging. The backend keeps
 **14 backup spreadsheets** and a nightly trigger copies every tab of the live book over an empty slot, or else
@@ -824,7 +824,7 @@ first: it keeps the Sheet the script is bound to.
    the bound Sheet, add staff from the Admin page, not by hand. Moving it back is a second, planned step.
 9. Write what happened, and why, in `CHANGELOG.md`.
 
-### QI: submit times, `QI_SubmitTimes` (2026-11-18, not live)
+### QI: submit times, `QI_SubmitTimes` (2026-11-18, set up the same day)
 
 When each day's TPN orders reach the TPN room, for QI (Pp, 2026-11-18: "งาน QI อยากดูเรื่องตั้งแต่การซับมิตครั้ง
 สุดท้ายของวันว่าเป็นเวลาเท่าไหร่"). **Nothing new is stored per order:** since release #201 (2026-10-29, 18:34 ICT)
@@ -971,6 +971,13 @@ Sec 26. What's in place and what's still open:
 consistent with the exemption, but only covers *treatment* processing, not
 secondary uses (e.g. research/QI exports) if those are ever added.
 
+**What the registry holds as a name (2026-11-20):** two letters of the first name and two of the surname
+("สม จด"), cut by the client (`data.js` `namePart`) since 2026-09-25 and by the backend (`_shortPatientName` in
+`registerPatient`) since 2026-11-20, and the `initials` column cut to two letters the same way (`_shortInitials`), so
+no caller can store a full name in either column. A value an edit leaves unchanged is kept as stored. The free-text
+`diagnosis` (2,000 characters) can still hold a name. The full name and AN for the TPN room's stickers live in the room's local name file (§ The TPN room's page).
+Names in the Sheet before 2026-09-25, its backups and its version history are not touched by this.
+
 **Data subject rights implemented:**
 - *Erasure/pseudonymization* — `pseudonymizePatient()` in `gas-backend.gs`,
   admin-only, triggered via `action: "pseudonymizePatient"`. Clears name,
@@ -1006,7 +1013,7 @@ Pp and the DPO to weigh.
 parts and is meant to be thrown away. The row tells the room to shred it or put it in the confidential-waste bin;
 where the ward's own disposal rule differs, that rule is for Pp and the DPO to name.
 
-**Backups of the Sheet (since 2026-11-15, not live):** 14 backup spreadsheets in the same Google account, one
+**Backups of the Sheet (code since 2026-11-15, running since 2026-11-18):** 14 backup spreadsheets in the same Google account, one
 overwritten each night, hold everything the live Sheet holds, names included (§ Sheet backup and restore drill).
 A backup older than 14 days has its tabs deleted by the next nightly run. So **an erasure reaches the backups by
 rotation, not at once**: while the trigger runs every night and each run succeeds, an infant erased with

@@ -7,6 +7,91 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-20 (3) — The backend cuts a patient's name to two letters of each part, as the client does
+
+`gas-backend.gs` (`_shortPatientName`, `_namePart`, `registerPatient`), `test/verify-backend-short-name-1120.cjs` (new),
+`REFERENCE.md` § Thai PDPA compliance posture. Not live: a backend `clasp` deploy, Pp's.
+
+Since 2026-09-25 the registration form has stored two letters of the first name and two of the surname ("สม จด",
+`data.js` `namePart`). The backend took whatever it was sent, up to 200 characters, so a hand-made POST or a client
+older than 2026-09-25 could still put a full name in Patient_Registry. Pp, asked whether the backend should cut it
+too: "ทำเลย".
+
+- `registerPatient` (registration and edits) runs the merged name through `_shortPatientName`: each of the first two
+  words cut by `_namePart`, a port of the client's `namePart` (Thai consonants, or Latin letters for a foreign name).
+  A name the call leaves exactly as stored is kept as it is, so an older two-letter name, a hand-typed cell or an
+  erased row is not rewritten by an unrelated edit.
+- The harness checks the cut against the client's own `composePatientName` for five names, and that a full name sent
+  on a registration or an edit lands as the short form.
+- `initials` is cut to two letters the same way (`_shortInitials`): `patientName()` shows initials when the name is
+  blank, so a full name sent as initials would otherwise have reached every screen (Vera on this change).
+- Not changed: names already in the Sheet, its backups and version history (that is a migration, with the DPO), and
+  the free-text `diagnosis`.
+
+## Session 2026-11-20 (2) — Pp's answers to Q5, Q7, Q12–Q15 and Q18: Na and K by Jochum Table 3, Ca:P 1.0–1.3 on DOL 1–7, DOL-1 lipid 1.0–2.0, one feed at most 8 a day
+
+`data.js` (`TPN_TARGETS.na`, `.k`, `.lipid`, `.caP`; `TARGETS.caP(dol)`, `.lipid`; `caPStatus(ratio, dol)`;
+`_jochumTerm`; `ESPGHAN_TARGETS.pn`), `calculator.jsx` (Ca:P by DOL, the feeds cap), `app.jsx` (Reference page),
+`tools/reference-tabs.json`, the `neofeed-clinical-rules` skill, `docs/CLINICAL_CONSTANTS.md`, `compiled/` and the shells.
+`CONSTANTS_VERSION` `2026-11-18.1` → `2026-11-20.1`. Not live: merging and the release are Pp's.
+
+Pp answered seven open questions on 2026-11-20, after a session read them against ESPGHAN 2018 and ASPEN 2023 and a new
+agent checked that reading (16 of 17 claims, one corrected). Her words are in the skill's § Questions for Pp.
+
+- **Q5, Na and K from DOL 8.** Jochum Table 3's three rows: Na term 2–3, preterm 3–5; K term 1.5–3, preterm ≥ 1,500 g
+  1–3, < 1,500 g 2–5. Before, every infant had Na 2–5 and K 2–3 at or above 1,500 g. Jochum's term Na rows
+  for DOL 3–7 came in with Q25 below.
+- **Q23, which infant takes the term row.** PMA 37 weeks or more on the day of the order (GA at birth + DOL − 1,
+  `pmaShort`) and more than 1,500 g (Q26); with no GA recorded, 2,500 g or more (Pp: "ใช้ GA", then "ดู PMA ด้วย", and of the
+  options "PMA ≥ 37 wk และ ≥ 1,500 g"). A 34+0-week infant born at 2,600 g is preterm on DOL 10 (Na 3–5, K 1–3); a
+  28-weeker at 1,600 g takes the term row on DOL 64 (PMA 37+0), or stays on the < 1,500 g row while under it. Vera
+  found the first reading, by weight alone, gave that 34-weeker the term row. `TPN_TARGETS.na/k` take `patient.ga`
+  (the Calculator, the Log tab).
+- **Q24, the fluid bands: Fanaroff Table 96.1, by weight only.** Pp first chose a term tier by GA ≥ 37 weeks and
+  ≥ 2,500 g; seeing the default plan move she said "ลองเช็คอีกที มันใกล้ๆกับ term เอาตามน้ำหนัก อ้างอิงตาม fanaroff and
+  avery", then chose "ตาม Avery/Fanaroff ทั้งตาราง" and "Fanaroff Table 96.1". `TARGETS.fluid` reads `FLUID_BY_BW`: < 750 g
+  100–200 / 120–200 / 120–180; 750–1,000 g 80–150 / 100–150 / 120–180; 1,001–1,500 g 60–100 / 80–150 / 120–180; > 1,500 g
+  60–80 / 100–150 / 120–180 (DOL 1–2 / 3–7 / 8 on; Fanaroff ch 96 p. 4). No term row and no GA: a 3 kg term infant is on
+  > 1,500 g (DOL 1 60–80, was Jochum's 40–60). 1,000 g is on the 750–1,000 g row ("แถว 750–1,000 g"). Avery Table 20.1
+  (ch 20 p. 8) groups the same way with other numbers; Pp chose Fanaroff's. **Step 1's default plan is the band's lower
+  end** ("ขอบล่างของช่วง"; it was the midpoint): DOL 1 < 750 g 100, 750–1,000 g 80, 1,001 g and up 60. `CR-NO-TPN-EN`'s
+  minimum follows: DOL 1–2 60 from 1,001 g, else 80.
+- **Q25, Na on DOL 3–7 for a term infant.** Jochum's own term rows: D3 0–2, D4–5 1–3, D6–7 2–3 (Pp: "ใช้แถว term").
+  K's term rows equal the preterm ones on those days.
+- **Q26, the 1,500 g edge.** 1,500 g itself is on the lighter row for fluid, Na and K, as Jochum, Avery and Fanaroff put
+  it (Pp: "ย้ายตามแหล่งอ้างอิง"); it read as > 1,500 g. The Na/K term row needs more than 1,500 g: Pp said "คงแถว term" here
+  and "ต้องเกิน 1,500 g" in the parent session the same day; asked which holds, "ต้องเกิน 1,500 g".
+- **Q27, week-1 Ca:P on the TPN bag alone.** On DOL 1–7 the 1.0–1.3 band grades the bag's own Ca:P, not TPN + feed (Pp:
+  "คิดจาก TPN อย่างเดียว"; R 8.12 is a parenteral figure). The tile reads "Ca:P ratio (TPN)", the amber line "Ca:P ratio
+  (TPN) off target"; Step 6's total tile is not graded; the printed Step 6 table puts "(target 1–1.3:1, DOL 1–7 TPN only)"
+  on its TPN row. A bag with Ca and no P beside P from a feed or oral is amber; "no P from any source" stays critical with
+  its old title. From DOL 8 nothing changes.
+- **Q7, Ca:P.** DOL 1–7 is 1.0–1.3 by mass (R 8.12, molar 0.8–1.0); DOL 8 on stays 1.0–1.7. The wrong "ESPGHAN molar
+  0.8–1.3" is gone from the code comments, the amber line and the Reference page, which now shows both mass bands and
+  molar 0.8–1.0 with 1.3 as the stable-growth figure. Float noise is stripped at 1.3 as at 1.7 (Q6).
+- **Q15, DOL-1 lipid.** 1.0–2.0 g/kg/d, was 0.5–1.0. The Reference page's "Start (Day 1–2)" reads 1–2.
+- **Q18, the feeds cap.** One feed above 8 a day (q2h) is refused, as two feeds together already were. A feed with no
+  volume is not counted. Center Point's one feed is held to it too.
+- **Q12–Q14.** Kept as coded; the rules say so.
+
+Checks: `verify-clinical-rules` 1,126 passing (new cases at each new edge, on screen and on the printed order);
+`verify-center-point-entry` §9, one feed at 12 a day refused on Center Point (red on `main`, Vera).
+
+No second clinician has reviewed this change; Pp's answers only (change protocol step 3).
+
+## Session 2026-11-20 (1) — PR #290 brought up to `main`; STATUS catches up with releases #293 and #295 and backends `@76`, `@77`
+
+No code change. `STATUS.md`, `BACKLOG.md`, this entry. PR #290 had sat in conflict with `main` since #294 merged: both
+edited the top of `STATUS.md` and of this file. `main` merged in, and the two conflicts resolved by hand.
+
+- **STATUS top.** Two lines replace `main`'s four ⏳ lines for #294, #292, #291 and #286, which all went live since:
+  release #293 (`1755f16`) with backend `@76` on 2026-11-19, and release #295 (`c135539`) with backend `@77` on
+  2026-11-20. The figures come from the release and deploy comments on #293, #294 and #295. The QI line now says its
+  code reached the ward deployment in `@76`, and the old "now `@75`" note says `@77`.
+- **This file.** This branch's entry was written as 2026-11-18 (6) before #291's entry of the same number reached
+  `main`. It is now 2026-11-18 (7), and the three lines that cited it (two in `STATUS.md`, one in `BACKLOG.md`) say (7).
+  Its text is unchanged.
+
 ## Session 2026-11-19 (2) — The six HIGH findings of the code review: re-dosed orders ask again, Print holds, the delete count, the ward's list, limits at their own value
 
 `calculator.jsx`, `data.js` (`gradeNum`, `rangeStatus`), `gas-backend.gs` (`deletePatient`, `_outsideWardList`,
@@ -151,6 +236,26 @@ Pp answered seven of the skill's open questions on 2026-11-18. Her words are quo
   (`verify-alarm-fatigue`, `verify-admin-census`, `verify-safety-fixes-0923`, `verify-ward-tpn-page-1115`).
 - **Not done.** No second clinician signed off (step 3 of the change protocol). No before-and-after from dev local
   yet: that belongs to the release PR (NF-05).
+
+## Session 2026-11-18 (7) — The QI tab and the Sheet backup set up in the editor; STATUS and BACKLOG catch up
+
+No code change. `STATUS.md`, `BACKLOG.md`, `REFERENCE.md` (the two sections' headings and § Thai PDPA's backups line
+no longer say "not live"), this entry. A branch the next NeoFeed PR merges in, so no PR only records (Pp's choice).
+
+- **The QI tab** (Pp: "ช่วยทำ clasp push กับตั้ง trigger ให้หน่อย"). `clasp pull` into a scratch folder showed HEAD was
+  `@75`'s source (`e1d99cd`); `clasp push --force` at 06:14 ICT as `peeraporn.po@chula.ac.th` from a clean `main` at
+  `d8eac99`; a second pull equals `d8eac99`. `clasp list-deployments`: the ward is still `@75`. Run ▸
+  `qiSubmitTimesRefresh`: "57 rows, 212 submitted TPN orders, 0 erased and 0 without a registry row left out", no
+  consent prompt. Trigger `qiSubmitTimesNightly`: Head, day timer 1am to 2am (GMT+7), failure mail immediately.
+- **The Sheet backup** (Pp: "ทำตอนนี้เลย", after being told steps 1 and 2 lock saves). The project had no trigger at
+  all, and `sheetBackupStatus` read "ok false, 0 good backup(s)": #267's backup had never run. `setupSheetBackups`:
+  "14 slots, 14 created now" (06:26:46 to 06:27:05). Slot 01's settings: Thai locale, GMT+07:00 Bangkok; the live
+  Sheet was not opened, as its grid shows names. `sheetRestoreDrill`: "slot 1, 7 tabs, 7598 rows, 0 old slot(s)
+  emptied, 0 book(s) not opened, differing cells in data tabs: 0, in other tabs: 0, restorable: true" (06:29:23 to
+  06:29:48). Trigger `backupSheetNightly`: Head, day timer 2am to 3am, failure mail immediately. `sheetBackupStatus`:
+  "ok true, 1 good backup(s), newest 0 h old, 0 book(s) not opening, drill due false".
+- **Releases recorded.** #285, #287 and #286 went out in release #289 (`2b45c7e`, tag `release-2026-11-18-pr289`,
+  `verify-release` 0 failures on both hosts); STATUS owed it.
 
 ## Session 2026-11-18 (5) — "TPN ทั้งหอ": Pp keeps never-TPN infants off the page
 

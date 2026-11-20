@@ -348,7 +348,9 @@ const parkedLook = (cell) => {
     const tok = g.session('doc@kcmh.test', 'doctor');
     const post = (b) => g.post(Object.assign({ token: tok }, b));
     const admitted = addDays(wardToday(), -7);
-    const reg = post({ action: 'registerPatient', isNew: true, patient: rec('BH', {
+    // The backend stores a name as two letters of each part since 2026-11-20, so the
+    // record is registered as the client would send it, "Bh".
+    const reg = post({ action: 'registerPatient', isNew: true, patient: rec('Bh', {
       sessionId: 'NF-000900', bw: 900, ga: 28.1, sex: 'boys', dob: admitted, admissionDate: admitted,
       currentBed: 'NICU 4', weights: [{ dol: 1, w: 900 }] }) });
     eq('registered in NICU 4', reg, { ok: true });
@@ -366,20 +368,20 @@ const parkedLook = (cell) => {
     const bh = () => synced.find(p => p.sessionId === 'NF-000900');
 
     await device('NICU');
-    await openTransfer('BH');
+    await openTransfer('Bh');
     await click(btn(/^SCN · SCN 1$/, modal()));
     await click(btn(/Confirm transfer/, modal()));
     eq('1 · NICU 4 → SCN 1', [bh().currentBed, hops(bh()).map(h => h.bed)], ['SCN 1', ['NICU 4']]);
 
     await device('SCN');
-    await openTransfer('BH');
+    await openTransfer('Bh');
     ok('NICU 4 is free to go back to', option(transferSelect(), 'NICU 4') && !option(transferSelect(), 'NICU 4').disabled);
     await setSelect(transferSelect(), 'NICU 4');
     await click(btn(/Confirm transfer/, modal()));
     eq('2 · SCN 1 → NICU 4, the same day', [bh().currentBed, hops(bh()).map(h => h.bed)], ['NICU 4', ['NICU 4', 'SCN 1']]);
 
     await device('NICU');
-    await openTransfer('BH');
+    await openTransfer('Bh');
     await click(btn(/^พักไว้ก่อน$/, modal()));
     eq('3 · parked: the server kept the second NICU 4 hop', hops(bh()).map(h => h.bed), ['NICU 4', 'SCN 1', 'NICU 4']);
     eq('…so every device reads รอเตียง from NICU 4', D.lastBed(bh()), 'NICU 4');

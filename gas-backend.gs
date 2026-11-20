@@ -2251,6 +2251,53 @@ function _validatePatient(p) {
   _validateMeasureArray(p.bedHistory, "bedHistory", true);
 }
 
+// The stored name is two letters of the first name and two of the surname,
+// "สม จด" (data.js namePart and composePatientName; registry.jsx cuts what is
+// typed since 2026-09-25). The server cuts it the same way, so a hand-made
+// POST, a client older than 2026-09-25 or any other caller cannot store a
+// full name in Patient_Registry (Pp, 2026-11-20: "ทำเลย", asked whether the
+// backend should cut names to 2+2 letters). A name an edit leaves exactly as
+// stored is kept as it is: a two-letter name registered before 2026-09-25, a
+// hand-typed cell or an erased row is not rewritten by an unrelated edit.
+var NAME_PART_CHARS = 2;
+var THAI_CONSONANTS_RE = /[\u0E01-\u0E23\u0E25\u0E27-\u0E2E]/g;
+var THAI_SHORT_NAME_RE = /[\u0E01-\u0E2E\u0E30-\u0E39\u0E40-\u0E45]/g;
+var HAS_THAI_RE = /[\u0E00-\u0E7F]/;
+function _namePart(raw, foreign) {
+  var s = String(raw == null ? "" : raw).normalize("NFC");
+  if (foreign) {
+    var letters = s.normalize("NFD").replace(/[\u0300-\u036F]/g, "").replace(/[^A-Za-z]/g, "")
+      .slice(0, NAME_PART_CHARS);
+    return letters.charAt(0).toUpperCase() + letters.slice(1).toLowerCase();
+  }
+  var thai = s.match(THAI_CONSONANTS_RE) || [];
+  if (thai.length >= NAME_PART_CHARS) return thai.slice(0, NAME_PART_CHARS).join("");
+  return (s.match(THAI_SHORT_NAME_RE) || []).slice(0, NAME_PART_CHARS).join("");
+}
+function _shortPatientName(name, storedName) {
+  var typed = String(name == null ? "" : name).trim();
+  if (storedName != null && typed === String(storedName).trim()) return storedName;
+  var parts = typed.split(/\s+/).filter(function (x) { return x; });
+  if (!parts.length) return "";
+  var foreign = !HAS_THAI_RE.test(typed);
+  return parts.slice(0, 2).map(function (x) { return _namePart(x, foreign); })
+    .filter(function (x) { return x; }).join(" ");
+}
+// The initials column is two letters ("สจ", data.js nameInitials). The client's
+// two letters pass through unchanged; any other value keeps only its first two
+// letters (Thai letters and vowels, or Latin), which is not the client's
+// per-part rule but stores no more than two characters, so a full name sent as
+// initials cannot be stored either (Vera on this change: patientName() shows
+// initials when name is blank). Unchanged on an edit, kept as stored.
+function _shortInitials(initials, storedInitials) {
+  var typed = String(initials == null ? "" : initials).trim();
+  if (storedInitials != null && typed === String(storedInitials).trim()) return storedInitials;
+  var foreign = !HAS_THAI_RE.test(typed);
+  var letters = foreign ? typed.normalize("NFD").replace(/[\u0300-\u036F]/g, "").replace(/[^A-Za-z]/g, "")
+    : (typed.match(THAI_SHORT_NAME_RE) || []).join("");
+  return Array.from(letters).slice(0, 2).join("");
+}
+
 // sex is stored as "boys"/"girls" (the Fenton dataset key). A new registration
 // must use one of them (2026-09-17 review, F / UP-S4). An EDIT may carry a
 // legacy stored value through unchanged — refusing it would lock the record
@@ -4619,6 +4666,10 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
     _checkAdmissionDate(m.admissionDate, stored ? stored[7] : null, "Admit date");
     _checkAdmissionDate(m.dob,           stored ? stored[6] : null, "Date of birth");
     _checkPatientText(m, stored);
+    // Two letters of each name part, as the client stores it (_shortPatientName),
+    // after the length guard above, so an over-long name is still refused, not cut.
+    m.name = _shortPatientName(m.name, stored ? stored[1] : null);
+    m.initials = _shortInitials(m.initials, stored ? stored[2] : null);
     // Inside the lock and after the read, so the census it checks is the one
     // this write is about to land in — and on the MERGED record, so a stale
     // device's old "Active" status cannot claim a bed for a discharged patient.

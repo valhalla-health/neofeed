@@ -77,6 +77,8 @@ const ORDERS = [
   // Too little of most things, a trickle of feed (which brings its own
   // calcium), no lipid, no TPN calcium.
   ['thin', { ...BASE, dexPct: 4, aaPerKg: 1, lipidPerKg: 0, caPerKg: 0, enVol: 5, enFreq: 8 }],
+  // DOL 5: a bag with no Ca or P, oral Ca with no P anywhere (Vera on #296).
+  ['oral Ca, no P anywhere', { ...BASE, caPerKg: 0, glycophosP: 0, suppCa: 20, suppPO4: 0 }],
 ];
 
 function mount(calcInput) {
@@ -227,9 +229,18 @@ console.log('\n── § 3 no needle for 0 or "!!" ──');
   ok('mixed order · EN volume 0 is "nothing ordered": green tile, no needle', en && en.status === 'ok' && en.needle === null, en);
   const p0 = hard.find((x) => x.label === 'Phosphorus');
   ok('no phosphate ordered · Phosphorus 0 is "empty": no needle', p0 && p0.status === 'empty' && p0.needle === null, p0);
-  const caP = hard.find((x) => x.label === 'Ca:P ratio');
+  // On DOL 1–7 the Step 4 tile is the bag's own ratio, "Ca:P ratio (TPN)" (Q27, 2026-11-20).
+  const caP = hard.find((x) => x.label === 'Ca:P ratio' || x.label === 'Ca:P ratio (TPN)');
   ok('calcium with no phosphate · Ca:P reads "!!", critical, with no needle', caP && caP.value.startsWith('!!') &&
     caP.status === 'crit' && caP.needle === null, caP);
+  // DOL 1–7 (Q27): the bag tile grades the bag, which holds no Ca; the total tile carries "no P anywhere".
+  const oral = readings(mounted[3].container);
+  const bagCaP = oral.find((x) => x.label === 'Ca:P ratio (TPN)');
+  // The total tile draws no band on DOL 1–7, so readings() (meters only) leaves it out: read it from the page.
+  const totEl = [...mounted[3].container.querySelectorAll('.metric')].find((m) => m.querySelector('.lbl')?.textContent.trim() === 'Ca:P ratio (total)');
+  const totCaP = totEl && { value: totEl.querySelector('.val')?.textContent.trim(), status: statusOf(totEl), needle: totEl.querySelector('.meter') ? 'meter' : null };
+  ok('oral Ca, no P anywhere · the bag tile, no Ca in the bag, is not critical', bagCaP && bagCaP.status !== 'crit', bagCaP);
+  ok('…the total tile reads "!!", critical, with no needle', totCaP && totCaP.value.startsWith('!!') && totCaP.status === 'crit' && totCaP.needle === null, totCaP);
   const needles = thin.filter((r) => r.needle !== null).length;
   ok('…while every non-zero reading still has one', needles >= 8, needles);
 }
