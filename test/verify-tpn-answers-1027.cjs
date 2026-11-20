@@ -336,8 +336,9 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
       && /First days \(DOL 1–\{FD\}\)/.test(app) && /Growing preterm \(DOL \{FD \+ 1\}\+\)/.test(app));
     ok('the electrolyte table has the day columns the tiles use', /\["Electrolyte","D1–2","D3","D4–5","D6–7","D8\+","Notes"\]/.test(app));
     ok('vitamin D row says at most 1,000 IU/day', /at most \$\{D_A\.displayNum\(D_A\.VIT_D_MAX_IU_DAY, 0\)\} IU\/day/.test(app));
-    ok('trend bands: Na and K take the weight group',
-      /TPN_TARGETS\.na\(dol, wt, patient\?\.bw\)/.test(log) && /TPN_TARGETS\.k\(dol, wt, patient\?\.bw\)/.test(log));
+    // …and GA since 2026-11-20 (Q23: the term row by PMA); verify-log-na-k-ga-1120 runs it.
+    ok('trend bands: Na and K take the weight group and GA',
+      /TPN_TARGETS\.na\(dol, wt, patient\?\.bw, patient\?\.ga\)/.test(log) && /TPN_TARGETS\.k\(dol, wt, patient\?\.bw, patient\?\.ga\)/.test(log));
   });
 
   act(() => { root.unmount(); });
