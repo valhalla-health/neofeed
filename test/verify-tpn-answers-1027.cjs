@@ -153,14 +153,15 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     eq('Peditrace stock: Zn 250 µg/mL (pharmacy)', D.KCMH_STOCK.peditrace.znMgPerMl, 0.25);
   });
 
-  await section('§2 fluid by Jochum Tables 1–3; Ca, P and Mg first days to DOL 7', async () => {
-    eq('ELBW 900 g, DOL 5: 160–180 (Table 1)', D.TARGETS.fluid(5, 900), [160, 180]);
-    eq('ELBW 900 g, DOL 6: 140–160 (Tables 2–3)', D.TARGETS.fluid(6, 900), [140, 160]);
-    eq('ELBW 900 g, DOL 20: 140–160', D.TARGETS.fluid(20, 900), [140, 160]);
-    eq('VLBW 1200 g, DOL 5: 160–180 (Table 1)', D.TARGETS.fluid(5, 1200), [160, 180]);
-    eq('VLBW 1200 g, DOL 6: 140–160', D.TARGETS.fluid(6, 1200), [140, 160]);
+  // Fluid has been Fanaroff Table 96.1 since 2026-11-20 (Pp); it was Jochum Tables 1–3 from 2026-10-25.
+  await section('§2 fluid by Fanaroff Table 96.1; Ca, P and Mg first days to DOL 7', async () => {
+    eq('900 g, DOL 5: 750–1000 g, Day 3–7 100–150', D.TARGETS.fluid(5, 900), [100, 150]);
+    eq('900 g, DOL 8: Day 8–30 120–180', D.TARGETS.fluid(8, 900), [120, 180]);
+    eq('900 g, DOL 20: 120–180', D.TARGETS.fluid(20, 900), [120, 180]);
+    eq('1200 g, DOL 5: 1001–1500 g, 80–150', D.TARGETS.fluid(5, 1200), [80, 150]);
+    eq('1200 g, DOL 8: 120–180', D.TARGETS.fluid(8, 1200), [120, 180]);
     eq('below birth weight the tier holds at birth weight: 1100 g now, born 1600 g, DOL 5',
-      D.TARGETS.fluid(5, 1100, 1600), [140, 160]);
+      D.TARGETS.fluid(5, 1100, 1600), [100, 150]);
     for (const [dol, ca, p, mg] of [[7, [32, 80], [31, 62], [2.5, 5]], [8, [64, 140], [50, 108], [5, 7.5]]]) {
       eq(`DOL ${dol}: Ca, P, Mg`, [D.TPN_TARGETS.ca(dol), D.TPN_TARGETS.p(dol), D.TPN_TARGETS.mg(dol)], [ca, p, mg]);
     }
@@ -326,18 +327,20 @@ const pt = (sid, bw) => ({ sessionId: sid, name: sid.slice(0, 2), bw, currentBed
     const app = R('app.jsx'), log = R('log.jsx');
     // Since 2026-11-10 (5) the rows read ESPGHAN_TARGETS.pn.fluid; the rendered
     // cells are read by test/verify-one-source-reference-1110.cjs.
-    ok('fluid table: a DOL 6+ column, ELBW 140–160 there',
-      /cols=\{\["BW category", "DOL 1", "DOL 2", "DOL 3", "DOL 4", "DOL 5", "DOL 6\+"\]\}/.test(app)
-      && /\["ELBW <1000g", PN\.fluid\.elbw\]/.test(app) && /"d5", "d6plus"\]/.test(app)
-      && JSON.stringify(D.ESPGHAN_TARGETS.pn.fluid.elbw.d6plus) === '[140,160]');
+    // Since 2026-11-20 the table is Fanaroff Table 96.1 (Pp): Day 1–2, 3–7, 8+.
+    ok('fluid table: the three Fanaroff day columns, < 750 g 120–180 from DOL 8',
+      /cols=\{\["Birth weight", "DOL 1–2", "DOL 3–7", "DOL 8\+"\]\}/.test(app)
+      && /\["<750g", PN\.fluid\.under750\]/.test(app) && /"d3to7", "d8plus"\]/.test(app)
+      && JSON.stringify(D.ESPGHAN_TARGETS.pn.fluid.under750.d8plus) === '[120,180]');
     ok('Cu: preterm and term from ESPGHAN_TARGETS', /micronutrients\.cu\.term/.test(app)
       && D.ESPGHAN_TARGETS.pn.micronutrients.cu.preterm === 40 && D.ESPGHAN_TARGETS.pn.micronutrients.cu.term === 20);
     ok('Ca/P/Mg heads read FIRST_DAYS_LAST_DOL', /const FD = D_A\.FIRST_DAYS_LAST_DOL;/.test(app)
       && /First days \(DOL 1–\{FD\}\)/.test(app) && /Growing preterm \(DOL \{FD \+ 1\}\+\)/.test(app));
     ok('the electrolyte table has the day columns the tiles use', /\["Electrolyte","D1–2","D3","D4–5","D6–7","D8\+","Notes"\]/.test(app));
     ok('vitamin D row says at most 1,000 IU/day', /at most \$\{D_A\.displayNum\(D_A\.VIT_D_MAX_IU_DAY, 0\)\} IU\/day/.test(app));
-    ok('trend bands: Na and K take the weight group',
-      /TPN_TARGETS\.na\(dol, wt, patient\?\.bw\)/.test(log) && /TPN_TARGETS\.k\(dol, wt, patient\?\.bw\)/.test(log));
+    // …and GA since 2026-11-20 (Q23: the term row by PMA); verify-log-na-k-ga-1120 runs it.
+    ok('trend bands: Na and K take the weight group and GA',
+      /TPN_TARGETS\.na\(dol, wt, patient\?\.bw, patient\?\.ga\)/.test(log) && /TPN_TARGETS\.k\(dol, wt, patient\?\.bw, patient\?\.ga\)/.test(log));
   });
 
   act(() => { root.unmount(); });

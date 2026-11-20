@@ -299,6 +299,8 @@ function expected(sc) {
   e.caKg = sc.ca + e.enCaKg; e.pKg = e.pTpnMg / W + e.enPKg;
   const caMgTot = e.caKg * W, pMgTot = e.pTpnMg + e.enPKg * W;
   e.caP = pMgTot > 0 ? caMgTot / pMgTot : (caMgTot > 0 ? Infinity : 0);
+  // The bag alone: DOL 1–7 grades Ca:P on it (Pp, 2026-11-20, Q27).
+  e.tpnCaP = e.pTpnMg > 0 ? sc.ca * W / e.pTpnMg : (sc.ca > 0 ? Infinity : 0);
   // oral supplements, per kg/day elemental
   e.totCa = e.caKg + sc.oCa; e.totP = e.pKg + sc.oP;
   e.totCaP = e.totP > 0 ? e.totCa / e.totP : (e.totCa > 0 ? Infinity : 0);
@@ -341,13 +343,16 @@ const oralScenario = (sc) => !!sc.mtv || ['vitD', 'oCa', 'oP', 'fe'].some(k => s
 function expectedAlerts(sc, e) {
   const d = sc.dol, en = e.useEN;
   const tierG = (sc.bw > 0 && e.wG < sc.bw) ? sc.bw : e.wG;
-  const vlbw = tierG > 0 && tierG < 1500;
+  const vlbw = tierG > 0 && tierG <= 1500;   // 1,500 g on the lighter row since 2026-11-20 (Jochum, Avery, Fanaroff)
+  // Jochum Table 3's term row from DOL 8 (Q5): PMA 37 weeks or more above 1,500 g
+  // (Q23). Every oracle patient is GA 30+0, so PMA is 30 weeks + DOL − 1 days.
+  const term = 30 * 7 + Math.max(0, d - 1) >= 37 * 7 && !(tierG > 0 && tierG <= 1500);   // above 1,500 g (Q26)
   const T = {
     pro: en ? [3.5, 4.0] : (d <= 1 ? [1.5, 2.5] : [2.5, 3.5]),
     kcal: en ? [115, 140] : (d <= 2 ? [45, 55] : d <= 7 ? [70, 100] : [90, 120]),
-    lip: en ? [4.8, 8.1] : (d <= 1 ? [0.5, 1.0] : [1.0, 4.0]),
-    na: en ? [3, 5] : (d <= 2 ? [0, 2] : d === 3 ? (vlbw ? [0, 5] : [0, 3]) : [2, 5]),
-    k: en ? [2.3, 4.6] : (d <= 3 ? [0, 3] : d <= 5 ? [2, 3] : d <= 7 ? [1, 3] : (vlbw ? [2, 5] : [2, 3])),
+    lip: en ? [4.8, 8.1] : (d <= 1 ? [1.0, 2.0] : [1.0, 4.0]),   // DOL 1 1–2 (Q15)
+    na: en ? [3, 5] : (d <= 2 ? [0, 2] : d === 3 ? (vlbw ? [0, 5] : [0, 3]) : d <= 7 ? (term ? (d <= 5 ? [1, 3] : [2, 3]) : [2, 5]) : (term ? [2, 3] : [3, 5])),
+    k: en ? [2.3, 4.6] : (d <= 3 ? [0, 3] : d <= 5 ? [2, 3] : d <= 7 ? [1, 3] : (vlbw ? [2, 5] : term ? [1.5, 3] : [1, 3])),
     ca: en ? [120, 200] : (d <= 7 ? [32, 80] : [64, 140]),
     p: en ? [70, 115] : (d <= 7 ? [31, 62] : [50, 108]),
     mg: d <= 7 ? [2.5, 5] : [5, 7.5],   // elemental mg/kg/d since 2026-10-28 (was 0.2-0.4 / 0.4-0.6 mEq)
@@ -385,9 +390,18 @@ function expectedAlerts(sc, e) {
   const oral = sc.oCa > 0 || sc.oP > 0;
   if (oral) { tile(st(e.totCa, T.ca), 'Calcium (total incl. oral)'); tile(st(e.totP, T.p), 'Phosphate (total incl. oral)'); }
   else { tile(st(e.caKg, T.ca), 'Calcium'); tile(st(e.pKg, T.p), 'Phosphorus'); }
-  { const cp = oral ? e.totCaP : e.caP;   // float noise stripped: 1.7 on paper is in range (Pp, 2026-11-18, Q6)
-    const s = st(isFinite(cp) ? Number(cp.toPrecision(12)) : cp, [1.0, 1.7]); const scope = oral ? ' (รวม oral supp)' : '';
-    if (s === 'crit') add('crit', `Ca:P ratio${scope} — ไม่มี P`); else if (s === 'warn') add('warn', `Ca:P ratio${scope} off target`); }
+  { // float noise stripped: 1.7 on paper is in range (Pp, 2026-11-18, Q6). DOL 1–7: 1.0–1.3 (Q7) on the
+    // TPN bag alone (Q27); a bag with Ca and no P beside P elsewhere is amber, no P at all critical.
+    const early = sc.dol <= 7;
+    const cp = early ? e.tpnCaP : oral ? e.totCaP : e.caP;
+    const allP = e.pTpnMg + e.enPKg * e.W + (sc.oP || 0) * e.W;
+    let s = st(isFinite(cp) ? Number(cp.toPrecision(12)) : cp, early ? [1.0, 1.3] : [1.0, 1.7]);
+    if (early && s === 'crit' && allP > 0) s = 'warn';
+    // No P from any source is critical on every day, oral Ca with an empty bag included (Vera on #296).
+    const allCa = sc.ca * e.W + e.enCaKg * e.W + (sc.oCa || 0) * e.W;
+    if (early && allCa > 0 && allP === 0) s = 'crit';
+    const critScope = oral ? ' (รวม oral supp)' : '', warnScope = early ? ' (TPN)' : critScope;
+    if (s === 'crit') add('crit', `Ca:P ratio${critScope} — ไม่มี P`); else if (s === 'warn') add('warn', `Ca:P ratio${warnScope} off target`); }
   if (e.useEN && st(e.pe, [2.8, 3.6]) === 'warn') add('warn', 'Protein : Energy off target');
   if (sc.men && e.enPerKg > 24) add('warn', 'MEN ticked above trophic volume');
   if (bagOrdered) {
@@ -405,9 +419,9 @@ function expectedAlerts(sc, e) {
   const noTpn = noTpnScenario(sc);
   let noTpnShort = false;
   if (noTpn && e.W > 0) {
-    const lo = tierG < 1000 ? [80, 100, 120, 140, 160, 140, 140] : tierG < 1500 ? [70, 90, 110, 130, 160, 140, 140]
-      : tierG < 2500 ? [60, 80, 100, 120, 140, 140, 140] : [40, 50, 60, 60, 100, 140, 140];
-    const bar = Math.min(80, lo[Math.min(d, 7) - 1]);
+    // Fanaroff Table 96.1's lower ends, transcribed by hand (ch 96 p. 4): DOL 1–2 / 3–7 / 8 on.
+    const row = tierG < 750 ? [100, 120, 120] : tierG <= 1000 ? [80, 100, 120] : tierG <= 1500 ? [60, 80, 120] : [60, 100, 120];
+    const bar = Math.min(80, row[d <= 2 ? 0 : d <= 7 ? 1 : 2]);
     const enKg = Number((e.enCounted / e.W).toPrecision(12));
     if (enKg < bar) { add('crit', "No TPN: feeds below 80 mL/kg/d or the day's minimum"); noTpnShort = true; }
     else if (sc.fluid > 0 && Number((sc.fluid - e.enCounted / e.W).toPrecision(12)) > 20) { add('warn', 'No TPN: feeds well below the fluid plan'); noTpnShort = true; }
@@ -513,6 +527,10 @@ const SCEN = [
   { name: 'I VLBW DOL 3, heparin 10, ZnSO₄, K 4.5, GIR > 12', bw: 1200, cur: 1150, dol: 3, fluid: 120,
     ioOut: 40, tpn: 130, dead: 30, dex: 16, aa: 2, lip: 3, lipH: 24, naCl: 4, kCl: 4.5, mg: 0.3, ca: 60,
     zn: 0.4, hep: 10, weights: [{ dol: 1, w: 1200 }] },
+  // DOL 1–7 grade Ca:P on the bag, but "no P from any source" still counts oral Ca (Vera on #296).
+  { name: 'K2 DOL 5, empty bag of Ca and P, oral Ca with no P anywhere', bw: 1000, cur: 1000, dol: 5, fluid: 140,
+    ioOut: 30, tpn: 100, dead: 30, dex: 10, aa: 3, lip: 2, lipH: 24, oCa: 20, caType: 'CA_CACO3_350', oP: 0,
+    weights: [{ dol: 1, w: 1000 }] },
   { name: 'J bag above the 1,250 mL bottle cannot be ordered', bw: 7000, cur: 7500, dol: 60, fluid: 160,
     ioOut: 300, tpn: 1240, dead: 30, dex: 10, aa: 2.5, naCl: 3, kCl: 2, mg: 0.4, ca: 60, hep: 1 },
   // Whole-mL D50W at the peripheral limit (Pp, 2026-11-16): 35 + 30 mL is
@@ -758,7 +776,8 @@ async function run(scIn) {
   near(sc, 'tile Magnesium', tileVal('Magnesium'), sc.mg * 12.1525, 2);   // mg/kg/d since 2026-10-28
   near(sc, 'tile Calcium', tileVal('Calcium'), e.caKg, 0);
   near(sc, 'tile Phosphorus', tileVal('Phosphorus'), e.pKg, 0);
-  near(sc, 'tile Ca:P', tileVal('Ca:P ratio'), e.caP, 2);
+  if (sc.dol <= 7) near(sc, 'tile Ca:P (TPN)', tileVal('Ca:P ratio (TPN)'), e.tpnCaP, 2);
+  else near(sc, 'tile Ca:P', tileVal('Ca:P ratio'), e.caP, 2);
   if (e.useEN) near(sc, 'tile Protein:Energy', tileVal('Protein : Energy'), e.pe, 1);
   if (tiles()['Calcium (total)']) {
     near(sc, 'tile Calcium (total)', tileVal('Calcium (total)'), e.totCa, 0);

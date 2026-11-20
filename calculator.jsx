@@ -1301,11 +1301,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // (must not get silently recomputed); false when borrowing yesterday's
   // numbers as a starting point for a brand-new day, so ioInput still tracks
   // today's recomputed prescribed-fluid total until the user overrides it.
-  // ESPGHAN fluid-plan midpoint for this DOL/weight — the default when a
-  // source carries no fluid plan of its own.
+  // The fluid plan's default when a source carries no plan of its own: the
+  // lower end of the day's band (Fanaroff Table 96.1, TARGETS.fluid; Pp,
+  // 2026-11-20, of the options "ขอบล่างของช่วง"). Until then the midpoint of
+  // Jochum's band. The name is kept for its callers.
   const fluidMidpoint = (weightG) => {
     const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1000, patient?.bw);
-    return Math.round((r[0] + r[1]) / 2);
+    return r[0];
   };
   const applyCalcInput = (src, fallbackWeight, ioTouched = true, fallbackFluid) => {
     const n = normalizeCalcInput(src, fallbackWeight, fallbackFluid);
@@ -2134,7 +2136,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Target switching
   const useEN = calc.useEnteralTargets;
   const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
-  const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);   // wtG already floors at bw; pass bw so the tier does too
+  const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);   // wtG already floors at bw; pass bw so the tier does too (Fanaroff Table 96.1, by weight only)
   const tGir   = D.TARGETS.gir();                         // [2.5, 12] display range
   const tPro   = T.protein(dol);
   const tKcal  = T.kcal(dol);
@@ -2142,13 +2144,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Phase-aware electrolyte targets (updated ESPGHAN 2018 + 2022). The PN rows
   // also take the weight group (Jochum 2018 < 1500 g), on the fluid tier's
   // weight; the enteral rows ignore it.
-  const tNa    = T.na(dol, wtG, patient?.bw);             // mmol/kg/day, DOL-specific
-  const tK     = T.k(dol, wtG, patient?.bw);              // mmol/kg/day, DOL-specific
+  const tNa    = T.na(dol, wtG, patient?.bw, patient?.ga); // mmol/kg/day, DOL-specific; term by GA (Q23)
+  const tK     = T.k(dol, wtG, patient?.bw, patient?.ga);  // mmol/kg/day, DOL-specific; term by GA (Q23)
   const tCa    = T.ca(dol, calc.useEnteralTargets);      // mg/kg/day, route-aware
   const tP     = T.p(dol, calc.useEnteralTargets);       // mg/kg/day, route-aware
-  // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 × (40/31) → mass 1.0–1.7.
-  // KCMH order form aims at the upper end (~1.7:1).
-  const tCaP = D.TARGETS.caP();            // [1.0, 1.7] mass ratio
+  // Ca:P mass ratio (TARGETS.caP, CR-TGT-CAP): DOL 1–7 1.0–1.3, Mihatsch 2018
+  // R 8.12's molar 0.8–1.0 × 1.294; from DOL 8 the unit's 1.0–1.7. This comment
+  // said "ESPGHAN 2018 molar 0.8–1.3" until 2026-11-20 (Q7); the guideline does not.
+  const tCaP = D.TARGETS.caP(dol);         // mass ratio: DOL 1–7 [1.0, 1.3], then [1.0, 1.7] (Q7)
   // Mg is typed, graded and printed in elemental mg/kg/d (TPN team, 2026-09-28
   // and 2026-10-28; Pp chose mg entry and ESPGHAN's mg figures on 2026-10-28):
   // 2.5–5 in the first days (DOL 1–7, D.FIRST_DAYS_LAST_DOL), 5–7.5 growing.
@@ -2202,7 +2205,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const sP = D.rangeStatus(calc.pKg, tP);
   // Ca:P graded with float noise stripped (D.caPStatus; Pp, 2026-11-18, Q6):
   // 52.7 / 31 is 1.7 on paper, and graded High beside a printed "1.7:1".
-  const sCaP = D.caPStatus(calc.caP);
+  // On DOL 1–7 the band is graded on the TPN bag's own Ca:P, not TPN + feed:
+  // R 8.12 is a parenteral figure (Pp, 2026-11-20: "คิดจาก TPN อย่างเดียว").
+  // A bag with Ca and no P, beside P from a feed or oral supplement, is amber;
+  // critical stays "no P from any source" (CR-CAP-NO-P).
+  const caPTpnOnly = dol <= D.FIRST_DAYS_LAST_DOL;
+  // "No P from any source" (Ca from the bag, a feed or an oral supplement, with
+  // no P anywhere) is checked on every source first: it is the alert's
+  // critical and the Step 6 total tile's (Vera on PR #296: oral Ca with an
+  // empty bag lost the critical). The bag tile is graded on the bag alone:
+  // empty with no Ca in it, amber for bag Ca with P only elsewhere.
+  const caPNoPAnywhere = mineral.totCa > 0 && !(mineral.totP > 0);
+  const caPTpnStatus = (!isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0)
+    ? (caPNoPAnywhere ? "crit" : "warn") : D.caPStatus(mineral.tpnCaP, dol);
+  const sCaP = caPTpnOnly ? caPTpnStatus : D.caPStatus(calc.caP, dol);
   // Below D.MG_MEQ_HABIT_MG the dose was most likely typed in mEq, the unit
   // this box took until 2026-10-28: critical, so Submit asks (Pp, 2026-10-29).
   // The tile's bar draws it red through statusAt, as GIR's does.
@@ -2211,7 +2227,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Step 6 total-intake statuses — same targets as Step 4, applied to IV + feed + oral
   const sTotCa  = D.rangeStatus(mineral.totCa, tCa);
   const sTotP   = D.rangeStatus(mineral.totP, tP);
-  const sTotCaP = D.caPStatus(mineral.totCaP);
+  const sTotCaP = caPTpnOnly ? (caPNoPAnywhere ? "crit" : "empty") : D.caPStatus(mineral.totCaP, dol);   // DOL 1–7: only "no P anywhere"; the band grades the bag
   const sNPE = D.rangeStatus(calc.npeN, tNPE);
   const sPE = D.rangeStatus(calc.peRatio, tPE);
   // K⁺ concentration of the bag, by route (D.K_BAG_MEQ_PER_L; TPN team and
@@ -2330,13 +2346,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // "1250 mL เกิน 1250 mL".
   const bagOverBottle = calc.totalTPN_mL > 0 && Number(D.displayNum(calc.preparedVol, 1)) > D.TPN_BOTTLE_MAX_ML;
   const bagOverBottleText = `ถุง TPN ต้องเตรียม ${fmt(calc.preparedVol, 1)} mL เกินขวดใหญ่สุด ${D.TPN_BOTTLE_MAX_ML} mL ของห้อง TPN — ลดปริมาตรหรือ dead space`;
-  // Two feeds share one feeding schedule: together at most 8 a day (q3h; q4h
-  // is 6). Above it there is no schedule to give them on, so a two-feed order
-  // cannot be submitted (Pp, 2026-10-28). Only when both are given (twoFeeds):
-  // one feed alone is not checked (Q18 in the clinical-rules skill).
-  const feedsPerDay = enFreq + enFreq2;
-  const feedsOverMax = twoFeeds && feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
-  const feedsOverMaxText = `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; q4h = 6 มื้อ) — ลดจำนวนมื้อของนมชนิดใดชนิดหนึ่ง`;
+  // The feeds given share one feeding schedule: at most 8 a day (q3h; q4h is
+  // 6). Above it the order cannot be submitted (Pp, 2026-10-28), and since
+  // 2026-11-20 a single feed is held to it too (Q18: "ยังไม่มีนโยบายกินทุก 2
+  // ชม.", "สั่งไม่ได้"). A feed with no volume is not given and not counted.
+  const feed1Given = enFeeds[0].mlPerDay > 0;
+  const feedsPerDay = (feed1Given ? enFreq : 0) + (hasFeed2 ? enFreq2 : 0);
+  const feedsOverMax = feedsPerDay > D.EN_FEEDS_PER_DAY_MAX;
+  const oneFeedName = feed1Given ? "Feed 1" : "Feed 2";
+  const feedsOverMaxText = twoFeeds
+    ? `Feed 1 + Feed 2 รวม ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; q4h = 6 มื้อ) — ลดจำนวนมื้อของนมชนิดใดชนิดหนึ่ง`
+    : `${oneFeedName} ${fmt(feedsPerDay, 1)} มื้อ/วัน เกิน ${D.EN_FEEDS_PER_DAY_MAX} มื้อ (q3h; ยังไม่มีนโยบายกินทุก 2 ชม.) — ลดจำนวนมื้อ`;
   // ...and together they fill a regular schedule, 24 h ÷ the feeds a day being
   // whole hours: 3 + 4 = 7 has no interval to give them on (Pp, 2026-10-28:
   // "ถ้าอันนึงกด 3 feed อันนึงกด 4 feed จะทำไม่ได้"), while 6 + 2 = 8 is q3h like
@@ -2525,11 +2545,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     pushTile(sCa, "Calcium",    calc.caKg, 0, tCa, "mg/kg/d");
     pushTile(sP,  "Phosphorus", calc.pKg,  0, tP,  "mg/kg/d");
   }
-  const caPStatus = mineral.hasOral ? sTotCaP : sCaP;
-  const caPValue  = mineral.hasOral ? mineral.totCaP : calc.caP;
-  const caPScope  = mineral.hasOral ? " (รวม oral supp)" : "";
-  if (caPStatus === "crit") alerts.push({ level: "crit", title: `Ca:P ratio${caPScope} — ไม่มี P`, body: `Ca ${fmt(mineral.hasOral ? mineral.totCa : calc.caKg, 0)} mg/kg/d แต่ P = 0 — เสี่ยง metabolic bone disease / สั่ง phosphate ร่วมด้วย.`, ref: "ESPGHAN 2018" });
-  else if (caPStatus === "warn") alerts.push({ level: "warn", title: `Ca:P ratio${caPScope} off target`, body: `Mass ratio ${fmt(caPValue, 2)}:1 — aim ${tCaP[0]}–${tCaP[1]}:1 (molar 0.8–1.3:1 ESPGHAN 2018).`, ref: "ESPGHAN 2018" });
+  const caPStatus = caPTpnOnly ? (caPNoPAnywhere ? "crit" : sCaP) : mineral.hasOral ? sTotCaP : sCaP;
+  const caPValue  = caPTpnOnly && sCaP !== "crit" ? mineral.tpnCaP : mineral.hasOral ? mineral.totCaP : calc.caP;
+  const caPScope  = caPTpnOnly ? " (TPN)" : mineral.hasOral ? " (รวม oral supp)" : "";
+  // The critical is "no P from any source" (CR-CAP-NO-P) on every DOL, so its
+  // title, which a saved reason names, keeps the every-source scope.
+  if (caPStatus === "crit") alerts.push({ level: "crit", title: `Ca:P ratio${mineral.hasOral ? " (รวม oral supp)" : ""} — ไม่มี P`, body: `Ca ${fmt(mineral.hasOral ? mineral.totCa : calc.caKg, 0)} mg/kg/d แต่ P = 0 — เสี่ยง metabolic bone disease / สั่ง phosphate ร่วมด้วย.`, ref: "ESPGHAN 2018" });
+  else if (caPStatus === "warn") alerts.push({ level: "warn", title: `Ca:P ratio${caPScope} off target`, body: `Mass ratio ${fmt(caPValue, 2)}:1 — aim ${tCaP[0]}–${tCaP[1]}:1 by mass${dol <= D.FIRST_DAYS_LAST_DOL ? ` on DOL 1–${D.FIRST_DAYS_LAST_DOL} (molar 0.8–1, ESPGHAN 2018 R 8.12)` : ""}.`, ref: "ESPGHAN 2018" });
   // Only on the enteral targets, so never for a MEN feed (its P:E would be the
   // TPN's alone, judged on an enteral target). From the switch itself, at or
   // above D.FULL_EN_ML_KG: it was above 100 until Pp, 2026-11-10.
@@ -2611,7 +2633,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   if (feedsIrregular) alerts.push({ level: "crit", title: "Two feeds off a regular schedule", body: feedsNotWhole
     ? `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} feeds a day — each feed's feeds a day must be a whole number. This order cannot be submitted.`
     : `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, and 24 h ÷ ${fmt(feedsPerDay, 1)} is not whole hours (8 is q3h, 6 q4h, 4 q6h, 3 q8h, 2 q12h). This order cannot be submitted.`, ref: "Pp, 2026-10-28" });
-  if (feedsOverMax) alerts.push({ level: "crit", title: `Feeds above ${D.EN_FEEDS_PER_DAY_MAX} a day`, body: `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, at most ${D.EN_FEEDS_PER_DAY_MAX} (q3h; q4h is 6), so this order cannot be submitted.`, ref: "Pp, 2026-10-28" });
+  if (feedsOverMax) alerts.push({ level: "crit", title: `Feeds above ${D.EN_FEEDS_PER_DAY_MAX} a day`, body: twoFeeds
+    ? `Feed 1 ${fmt(enFreq, 1)} + Feed 2 ${fmt(enFreq2, 1)} = ${fmt(feedsPerDay, 1)} feeds a day — two feeds share one schedule, at most ${D.EN_FEEDS_PER_DAY_MAX} (q3h; q4h is 6), so this order cannot be submitted.`
+    : `${oneFeedName} ${fmt(feedsPerDay, 1)} feeds a day (q${fmt(24 / feedsPerDay, 1)}h) — at most ${D.EN_FEEDS_PER_DAY_MAX} (q3h); the ward has no q2h policy, so this order cannot be submitted.`, ref: twoFeeds ? "Pp, 2026-10-28" : "Pp, 2026-11-20" });
   if (stockAtZeroMl) alerts.push({ level: "crit", title: "Stock rounds to 0 mL", body: `${stocksAtZeroMl.join(", ")}: prints as 0 mL (under 0.05 mL at one decimal, or under 0.5 mL where the stock is drawn up in whole mL: the amino acid, and D50W in a bag with dead space), so this order cannot be submitted. Raise the dose or take it out of the bag.`, ref: "Pp, 2026-10-27" });
   // Heparin above the usual 0.5–1 U/mL: a caution, so a tenfold 10 U/mL is seen.
   if (calc.totalTPN_mL > 0 && heparinUmL > D.HEPARIN_USUAL_MAX_U_ML) alerts.push({ level: "warn", title: "Heparin above the usual dose",
@@ -4283,7 +4307,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               )}
               <Tile label="Calcium" value={calc.caKg} unit=" mg/kg/d" target={tCa} status={sCa} decimals={0} max={140} />
               <Tile label="Phosphorus" value={calc.pKg} unit=" mg/kg/d" target={tP} status={sP} decimals={0} max={90} />
-              <Tile label="Ca:P ratio" value={calc.caP} unit=":1 (mass)" target={tCaP} status={sCaP} decimals={2} max={2.5} />
+              <Tile label={caPTpnOnly ? "Ca:P ratio (TPN)" : "Ca:P ratio"} value={caPTpnOnly ? mineral.tpnCaP : calc.caP} unit=":1 (mass)" target={tCaP} status={sCaP} decimals={2} max={2.5} />
             </div>
           </TwoCol>
         </div></StepBody>
@@ -4580,7 +4604,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="capo4-tiles">
                 <Tile label="Calcium (total)"   value={mineral.totCa}  unit=" mg/kg/d"   target={tCa}  status={sTotCa}  decimals={0} max={220} />
                 <Tile label="Phosphate (total)" value={mineral.totP}   unit=" mg/kg/d"   target={tP}   status={sTotP}   decimals={0} max={130} />
-                <Tile label="Ca:P ratio (total)" value={mineral.totCaP} unit=":1 (mass)" target={tCaP} status={sTotCaP} decimals={2} max={2.5} exact />
+                <Tile label="Ca:P ratio (total)" value={mineral.totCaP} unit=":1 (mass)" target={caPTpnOnly ? null : tCaP} status={sTotCaP} decimals={2} max={2.5} exact />
               </div>
               {mineral.oralCa > 0 && mineral.oralP === 0 && (
                 <div style={{ fontSize: 10.5, color: "var(--warn)", marginTop: 8, display: "flex", alignItems: "flex-start", gap: 4 }}>
@@ -4857,7 +4881,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   // Copy waits for `printable`): no interval, and a "!!" line.
                   `    Total ${fmt(calc.enVolTotal, 2)} mL/day (${fmt(calc.enVolPerKg, 0)} mL/kg/d) · ${fmt(feedsPerDay, 1)} feeds/d${feedsIrregular || feedsOverMax ? "" : ` q${fmt(24 / feedsPerDay, 1)}h`}${isMEN ? " [MEN — not counted in fluid or nutrition]" : ""}`,
                 ].join("\n") : "",
-                feedsIrregular || feedsOverMax ? `  !! ${feedsIrregular ? "TWO FEEDS OFF A REGULAR SCHEDULE" : `TWO FEEDS ABOVE ${D.EN_FEEDS_PER_DAY_MAX} A DAY`} — cannot be ordered` : "",
+                feedsIrregular || feedsOverMax ? `  !! ${feedsIrregular ? "TWO FEEDS OFF A REGULAR SCHEDULE" : `${twoFeeds ? "TWO FEEDS" : "FEEDS"} ABOVE ${D.EN_FEEDS_PER_DAY_MAX} A DAY`} — cannot be ordered` : "",
                 calc.enVolPerKg > 0 ? "" : "EN: None",
                 `──────────────────────────────`,
                 (suppVitD > 0 || suppCa > 0 || suppPO4 > 0 || suppMTV || suppFerdek > 0) ? `ENTERAL SUPPLEMENTS:` : `SUPPLEMENTS: None`,
@@ -5703,7 +5727,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td style={tdRx(caPerKg > 0)}>4. Ca⁺⁺ &nbsp;{chk(caPerKg > 0)} Ca Gluconate</td>
             <td style={tdr}>{caPerKg > 0 ? <><strong>{caPerKg}</strong> mg</> : "—"}</td>
             <td style={tdr}>{caPerKg > 0 ? <><strong>{f0(caPerKg*(calc.factor||0))}</strong> mg = <strong>{f(calc.solVol?.ca,1)}</strong> mL</> : "—"}</td>
-            <td style={td}>Ca {rng(targets?.ca)} mg/kg/day (Ca:P {D.TARGETS.caP()[0]}–{D.TARGETS.caP()[1]}:1 mass)</td>
+            <td style={td}>Ca {rng(targets?.ca)} mg/kg/day (Ca:P {D.TARGETS.caP(dol)[0]}–{D.TARGETS.caP(dol)[1]}:1 mass)</td>
           </tr>
           {/* 5. Multivitamin */}
           <tr>
@@ -5903,7 +5927,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
               <td style={td}>TPN (IV)</td>
               <td style={tdr}>Ca <strong>{f0(mineral.tpnCa)}</strong></td>
               <td style={tdr}>PO₄ <strong>{f0(mineral.tpnP)}</strong></td>
-              <td style={td}>Ca:P {isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0 ? `${fmt(mineral.tpnCaP, 2)}:1` : mineral.tpnCaP > 0 ? "!! (Ca, no P)" : "—"}</td>
+              <td style={td}>Ca:P {isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0 ? `${fmt(mineral.tpnCaP, 2)}:1` : mineral.tpnCaP > 0 ? "!! (Ca, no P)" : "—"}{dol <= D.FIRST_DAYS_LAST_DOL ? ` (target ${D.TARGETS.caP(dol)[0]}–${D.TARGETS.caP(dol)[1]}:1, DOL 1–${D.FIRST_DAYS_LAST_DOL} TPN only)` : ""}</td>
             </tr>
             {(mineral.enCa > 0 || mineral.enP > 0) && <tr>
               <td style={td}>EN (นม)</td>
@@ -5921,7 +5945,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
               <td style={{...td, fontWeight:700}}>รวมทั้งหมด</td>
               <td style={tdr}>Ca <strong>{f0(mineral.totCa)}</strong></td>
               <td style={tdr}>PO₄ <strong>{f0(mineral.totP)}</strong></td>
-              <td style={{...td, fontWeight:700}}>Ca:P {isFinite(mineral.totCaP) && mineral.totCaP > 0 ? `${fmt(mineral.totCaP, 2)}:1` : mineral.totCaP > 0 ? "!! (Ca, no P)" : "—"} (target {D.TARGETS.caP()[0]}–{D.TARGETS.caP()[1]}:1)</td>
+              <td style={{...td, fontWeight:700}}>Ca:P {isFinite(mineral.totCaP) && mineral.totCaP > 0 ? `${fmt(mineral.totCaP, 2)}:1` : mineral.totCaP > 0 ? "!! (Ca, no P)" : "—"} {dol > D.FIRST_DAYS_LAST_DOL ? ` (target ${D.TARGETS.caP(dol)[0]}–${D.TARGETS.caP(dol)[1]}:1)` : ""}</td>
             </tr>
           </tbody></table>
         )}

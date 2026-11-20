@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-11-18.1";
+const CONSTANTS_VERSION = "2026-11-20.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -621,9 +621,30 @@ const FIRST_DAYS_LAST_DOL = 7;
 // Jochum 2018's "preterm neonate < 1500 g", on the weight the fluid tier uses
 // (TARGETS.fluid): the dosing weight, held at birth weight until it is
 // regained. With no weight known, the ≥ 1500 g row.
+// 1,500 g itself is on the lighter row, as Jochum's "1000–1500 g", Avery
+// Table 20.1 and Fanaroff Table 96.1 put it (Pp, 2026-11-20: "ย้ายตามแหล่ง
+// อ้างอิง"); until then 1,500 g read as > 1500 g.
 function _jochumUnder1500(wtG, bwG) {
   const w = (bwG && wtG < bwG) ? bwG : wtG;
-  return w > 0 && w < 1500;
+  return w > 0 && w <= 1500;
+}
+// Jochum 2018's "term neonate" row, by PMA on the day of the order (GA at birth
+// + DOL − 1, pmaShort): PMA 37 weeks or more and more than 1,500 g on the
+// held weight (Pp, 2026-11-20, Q23: "ใช้ GA", then "ดู PMA ด้วย", and of the
+// options "PMA ≥ 37 wk และ ≥ 1,500 g", made "ต้องเกิน 1,500 g" the same day). So a
+// term-born infant is term, an ex-preterm moves to the term row at PMA 37
+// weeks, and one of 1,500 g or less stays on the ≤ 1,500 g row. With no GA
+// recorded, 2,500 g or more on the weight held at birth weight (the old fluid
+// tier's term, kept here). With neither, not term.
+function _jochumTerm(dol, wtG, bwG, ga) {
+  if (gaTotalDays(Number(ga)) > 0) {
+    // More than 1,500 g: 1,500 g itself is on the lighter preterm row (Pp,
+    // 2026-11-20: "ต้องเกิน 1,500 g", which replaced her "คงแถว term" of the
+    // same day once the two sessions' answers were set side by side).
+    return gaTotalDays(pmaShort(Number(ga), dol)) >= PRETERM_GA_WK * 7 && !_jochumUnder1500(wtG, bwG);
+  }
+  const w = (bwG && wtG < bwG) ? bwG : wtG;
+  return w >= 2500;
 }
 
 // ── TPN_TARGETS — used below Full EN (fullEnReached, CR-U-SWITCH) ──
@@ -651,8 +672,11 @@ const TPN_TARGETS = {
 
   // Lipid g/kg/day — Lapillonne A et al. 2018
   // Start immediately (no later than DOL 2). SMOF preferred over pure soy.
+  // DOL 1 is 1.0–2.0 (Pp, 2026-11-20, Q15: "1.0–2.0 g/kg/d"); until then
+  // 0.5–1.0, which no source gave as a day-1 dose. Lapillonne R 4.2 sets no
+  // starting dose; SMOF needs 1 g/kg/d for the minimum linoleic acid (p2327).
   lipid: (dol) => {
-    if (dol <= 1) return [0.5, 1.0];  // Day 1: start 0.5–1 g/kg
+    if (dol <= 1) return [1.0, 2.0];  // Day 1: start 1–2 g/kg
     return [1.0, 4.0];                 // Advance by 0.5–1 g/kg/day, max 4.0
   },
 
@@ -661,25 +685,31 @@ const TPN_TARGETS = {
   // DOL 1–5 are Table 1's day columns, DOL 6–7 Table 2 (intermediate phase),
   // DOL 8 on Table 3 (stable growth). The weight group is the fluid tier's
   // weight (_jochumUnder1500 below). A bracketed upper value in the tables,
-  // "(7)", is for high urinary Na loss and is not the band. Term rows are not
-  // used: whether term infants get their own rows is still open (§ 2.5 item 7).
-  na: (dol, wtG, bwG) => {
+  // "(7)", is for high urinary Na loss and is not the band. A term infant has
+  // Jochum's term Na rows from DOL 3 (Q25); K's term rows equal the preterm
+  // ones to DOL 7. From DOL 8 (Table 3, stable growth) the
+  // three rows are Jochum's own, term included (Pp, 2026-11-20, Q5: "แยกตาม
+  // Table 3"); the term row from PMA 37 weeks above 1,500 g (_jochumTerm,
+  // Q23).
+  na: (dol, wtG, bwG, ga) => {
     if (!dol || dol <= 2) return [0, 2];   // Table 1 D1–2: 0–2 (3)
-    if (dol === 3) return _jochumUnder1500(wtG, bwG) ? [0, 5] : [0, 3];  // D3: < 1500 g 0–5 (7), > 1500 g 0–3
+    // The term row on DOL 3–7 too (Pp, 2026-11-20: of the options, "ใช้แถว
+    // term"): Table 1 term D3 0–2, D4–5 1–3; Table 2 term 2–3.
+    if (dol <= 7 && _jochumTerm(dol, wtG, bwG, ga)) return dol === 3 ? [0, 2] : dol <= 5 ? [1, 3] : [2, 3];
+    if (dol === 3) return _jochumUnder1500(wtG, bwG) ? [0, 5] : [0, 3];  // D3: ≤ 1500 g 0–5 (7), > 1500 g 0–3
     if (dol <= 7) return [2, 5];           // D4–5 2–5 (7) · Table 2 preterm 2–5
-    // Stable: 2–5 as before. Table 3 gives 3–5 for both preterm rows (< 1500
-    // and > 1500 g) and 2–3 for term; raising the floor to 3 by weight would
-    // push term infants off their own row, so it waits for the term question.
-    return [2, 5];
+    // Table 3: term 2–3, preterm > 1500 g 3–5, preterm < 1500 g 3–5 (7).
+    // Until 2026-11-20 every infant was 2–5 here.
+    return _jochumTerm(dol, wtG, bwG, ga) ? [2, 3] : [3, 5];
   },
-  k: (dol, wtG, bwG) => {
+  k: (dol, wtG, bwG, ga) => {
     if (!dol || dol <= 3) return [0, 3];   // Table 1 D1–3: 0–3
     if (dol <= 5) return [2, 3];           // Table 1 D4–5: 2–3
     if (dol <= 7) return [1, 3];           // Table 2 (intermediate): 1–3
-    // Table 3 splits K by weight as printed: preterm < 1500 g 2–5, preterm
-    // > 1500 g 1–3, term 1.5–3. At or above 1500 g NeoFeed keeps its old 2–3,
-    // inside both of those rows, until the term rows are decided.
-    return _jochumUnder1500(wtG, bwG) ? [2, 5] : [2, 3];
+    // Table 3: term 1.5–3, preterm > 1500 g 1–3, preterm < 1500 g 2–5.
+    // Until 2026-11-20 every infant at or above 1500 g was 2–3 here.
+    if (_jochumTerm(dol, wtG, bwG, ga)) return [1.5, 3];
+    return _jochumUnder1500(wtG, bwG) ? [2, 5] : [1, 3];
   },
 
   // Calcium mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
@@ -709,9 +739,10 @@ const TPN_TARGETS = {
     return [5, 7.5];
   },
 
-  // Ca:P mass ratio — ESPGHAN 2018 molar 0.8–1.3 → mass 1.0–1.7 (×40/31=1.29)
-  // Full acceptable range [1.0, 1.7]; order form targets upper end ~1.7:1
-  caP: () => [1.0, 1.7],   // mass ratio; full ESPGHAN range; KCMH aim 1.7:1
+  // Ca:P mass ratio: one copy, TARGETS.caP (CR-TGT-CAP; Q7, 2026-11-20). The
+  // "ESPGHAN 2018 molar 0.8–1.3" this comment cited until then is not the
+  // guideline's: early PN is molar 0.8–1.0 (Mihatsch R 8.12).
+  caP: (dol) => TARGETS.caP(dol),
 };
 
 // ── Full EN on a saved row (Pp, 2026-11-10) ──────────────────
@@ -767,6 +798,17 @@ const ENTERAL_TARGETS = {
   npePerG: () => [30, 40],
 };
 
+// Fanaroff 12th ed. Table 96.1 (ch 96 p. 4), total water by birth weight and
+// age, mL/kg/day: the fluid band every tile, the No-TPN minimum and the Step 1
+// default read (TARGETS.fluid; Pp, 2026-11-20). One copy: the Reference page
+// shows it through ESPGHAN_TARGETS.pn.fluid.
+const FLUID_BY_BW = {
+  under750:       { d1to2: [100, 200], d3to7: [120, 200], d8plus: [120, 180] },
+  from750to1000:  { d1to2: [80, 150],  d3to7: [100, 150], d8plus: [120, 180] },
+  from1001to1500: { d1to2: [60, 100],  d3to7: [80, 150],  d8plus: [120, 180] },
+  over1500:       { d1to2: [60, 80],   d3to7: [100, 150], d8plus: [120, 180] },
+};
+
 // ── TARGETS — general DOL + weight-aware lookup ───────────────
 // Both PN and EN phases — highest-level reference used in calculator
 const TARGETS = {
@@ -778,28 +820,24 @@ const TARGETS = {
   // (postnatal loss) the tier is held at birth weight rather than dropping into
   // a lighter, higher-fluid tier off the nadir, and it tracks current weight
   // once regained. Called without bwG it floors nothing (legacy behaviour).
+  // Fluid mL/kg/day: Fanaroff 12th ed. ch 96 p. 4, Table 96.1, "Maintenance
+  // Fluid (Water) Requirements During the First Month of Life", by birth weight
+  // only, for "full-term and preterm infants" (ch 96 p. 3): < 750, 750–1000,
+  // 1001–1500, > 1500 g; Day 1–2, Day 3–7, Day 8–30 (NeoFeed keeps the Day
+  // 8–30 band after day 30). Pp, 2026-11-20: "เอาตามน้ำหนัก อ้างอิงตาม fanaroff and
+  // avery", then of the options "ตาม Avery/Fanaroff ทั้งตาราง" and "Fanaroff Table
+  // 96.1"; 1,000 g itself on the 750–1000 g row. Until then Jochum 2018 Tables
+  // 1–3 by day, with a term row (DOL 1 40–60). No term row and no GA here.
+  // wtG is the current dosing weight; bwG (optional) applies the birth-weight
+  // floor Pp set 2026-09-24: while the infant is still below birth weight
+  // (postnatal loss) the tier is held at birth weight rather than dropping into
+  // a lighter, higher-fluid tier off the nadir, and it tracks current weight
+  // once regained. Called without bwG it floors nothing (legacy behaviour).
   fluid: (dol, wtG, bwG) => {
-    // From DOL 6 every preterm tier is Jochum's Tables 2–3: 140–160. Until
-    // 2026-10-27 ELBW stayed at 160–180 for the rest of the stay and VLBW had
-    // 140–160 on DOL 5, where Table 1 gives 160–180 (TPN team, 2026-10-25:
-    // follow the source).
     const w = (bwG && wtG < bwG) ? bwG : wtG;
-    const d = Math.min(dol, 7);
-    if (w < 1000) {           // ELBW <1000g — highest IWL, humidified incubator essential
-      const map = {1:[80,100], 2:[100,120], 3:[120,140], 4:[140,160], 5:[160,180], 6:[140,160], 7:[140,160]};
-      return map[d] || [140, 160];
-    }
-    if (w < 1500) {           // VLBW 1000–1500g
-      const map = {1:[70,90], 2:[90,110], 3:[110,130], 4:[130,150], 5:[160,180], 6:[140,160], 7:[140,160]};
-      return map[d] || [140, 160];
-    }
-    if (w < 2500) {           // Preterm >1500g
-      const map = {1:[60,80], 2:[80,100], 3:[100,120], 4:[120,140], 5:[140,160], 6:[140,160], 7:[140,160]};
-      return map[d] || [140, 160];
-    }
-    // Term ≥2500g
-    const map = {1:[40,60], 2:[50,70], 3:[60,80], 4:[60,100], 5:[100,140], 6:[140,160], 7:[140,160]};
-    return map[d] || [140, 160];
+    const row = w < 750 ? FLUID_BY_BW.under750 : w <= 1000 ? FLUID_BY_BW.from750to1000
+      : w <= 1500 ? FLUID_BY_BW.from1001to1500 : FLUID_BY_BW.over1500;
+    return (!dol || dol <= 2) ? row.d1to2 : dol <= 7 ? row.d3to7 : row.d8plus;
   },
 
   // GIR mg/kg/min — Joosten K et al. 2018 (ESPGHAN)
@@ -828,17 +866,17 @@ const TARGETS = {
     return [115, 140];                 // Full nutrition target (ESPGHAN 2022 EN; was 110 — the 2010 floor)
   },
 
-  // Lipid g/kg/day
+  // Lipid g/kg/day (DOL 1 as TPN_TARGETS.lipid: Pp, 2026-11-20, Q15)
   lipid: (dol) => {
-    if (dol <= 1) return [0.5, 1.0];
+    if (dol <= 1) return [1.0, 2.0];
     if (dol <= 7) return [1.0, 4.0];
     return [4.8, 8.1];   // Full enteral
   },
 
   // Sodium and potassium mEq/kg/day — the PN rows, TPN_TARGETS.na/k (Jochum
   // 2018 Tables 1–3; TPN team, 2026-10-25). One copy, so the two cannot drift.
-  na: (dol, wtG, bwG) => TPN_TARGETS.na(dol, wtG, bwG),
-  k:  (dol, wtG, bwG) => TPN_TARGETS.k(dol, wtG, bwG),
+  na: (dol, wtG, bwG, ga) => TPN_TARGETS.na(dol, wtG, bwG, ga),
+  k:  (dol, wtG, bwG, ga) => TPN_TARGETS.k(dol, wtG, bwG, ga),
 
   // Calcium mg/kg/day — Mihatsch 2018 (ESPGHAN 2018)
   // First days (DOL 1–7): 0.8–2.0 mmol/kg × 40 = 32–80 mg/kg
@@ -860,9 +898,14 @@ const TARGETS = {
   // the bounds the Mg chips sit on
   mg: (dol) => TPN_TARGETS.mg(dol),
 
-  // Ca:P mass ratio — order form: Ca:P ~1.7:1 target
-  // ESPGHAN 2018 molar 0.8–1.3:1 → mass 1.0–1.68 ≈ 1.7:1
-  caP: () => [1.0, 1.7],   // mass ratio; ESPGHAN molar 0.8–1.3 → mass 1.0–1.7; KCMH aim 1.7:1
+  // Ca:P mass ratio (mass = molar × 40.08 / 30.97 = molar × 1.294).
+  // DOL 1–7 (FIRST_DAYS_LAST_DOL): 1.0–1.3, Mihatsch 2018 R 8.12's molar
+  // 0.8–1.0 in early PN (p2363; Pp, 2026-11-20, Q7: "แคบลงช่วง DOL 1–7").
+  // From DOL 8: 1.0–1.7, the unit's own (TPN team, 2026-10-25). Mihatsch gives
+  // no range there: molar 1.3 (mass 1.7) is the stable-growth optimum, which
+  // p2363 quotes from previous recommendations. Until 2026-11-20 this comment
+  // said "ESPGHAN molar 0.8–1.3", which the guideline does not say.
+  caP: (dol) => (!dol || dol <= FIRST_DAYS_LAST_DOL) ? [1.0, 1.3] : [1.0, 1.7],
 
   // Non-protein energy per gram amino acid (classic NPC:N 150 ÷ 6.25 g AA/g N
   // = 24 kcal/g AA). No upper end: ESPGHAN's 30–40 kcal/g is a minimum, not a
@@ -1329,8 +1372,8 @@ const LIPID_IV_KCAL_PER_G = 10;
 // Ca:P is graded with float noise stripped: 52.7 / 31 is 1.7 on paper and
 // 1.7000000000000002 in JS, which graded High beside a printed "1.7:1" (Pp,
 // 2026-11-18, Q6). A real decimal stays: 1.71 is above 1.7.
-function caPStatus(ratio) {
-  return rangeStatus(isFinite(ratio) ? Number(ratio.toPrecision(12)) : ratio, TARGETS.caP());
+function caPStatus(ratio, dol) {
+  return rangeStatus(isFinite(ratio) ? Number(ratio.toPrecision(12)) : ratio, TARGETS.caP(dol));
 }
 const LIPID_IV_HARD_HI = 4.0;
 const K_IV_HARD_HI = 5.0;
@@ -1513,7 +1556,7 @@ const ESPGHAN_TARGETS = {
       peripheralMaxDex: DEX_PERIPHERAL_MAX_PCT, // % max for peripheral IV
     },
     lipid: {
-      start:   0.5,   // g/kg/day, Day 1 or no later than Day 2
+      start:   1.0,   // g/kg/day, Day 1 or no later than Day 2: TPN_TARGETS.lipid(1)'s floor (Q15)
       step:    1.0,   // advance 0.5–1 g/kg/day
       max:     4.0,
       tgCutoff:265,   // mg/dL — reduce ILE if above
@@ -1522,23 +1565,26 @@ const ESPGHAN_TARGETS = {
     },
     fluid: {
       unit: "mL/kg/day",
-      // TARGETS.fluid's tiers. Jochum Table 1 to DOL 5, Tables 2–3 after.
-      elbw:   { d1:[80,100], d2:[100,120], d3:[120,140], d4:[140,160], d5:[160,180], d6plus:[140,160] },
-      vlbw:   { d1:[70,90],  d2:[90,110],  d3:[110,130], d4:[130,150], d5:[160,180], d6plus:[140,160] },
-      preterm:{ d1:[60,80],  d2:[80,100],  d3:[100,120], d4:[120,140], d5:[140,160], d6plus:[140,160] },
-      term:   { d1:[40,60],  d2:[50,70],   d3:[60,80],   d4:[60,100],  d5:[100,140], d6plus:[140,160] },
-      note: "ESPGHAN guideline ranges — no absolute max. Attending may use up to 200 mL/kg/day per clinical judgment. ELBW in humidified incubator: IWL ≈30 vs open warmer ≈120 mL/kg/day",
+      // TARGETS.fluid's rows: Fanaroff Table 96.1 (Pp, 2026-11-20).
+      ...FLUID_BY_BW,
+      note: "Fanaroff Table 96.1: a starting point, adjusted to the clinical situation. ELBW in humidified incubator: IWL ≈30 vs open warmer ≈120 mL/kg/day",
     },
     electrolytes: {
       // TPN_TARGETS.na/k: Jochum Table 1 to DOL 5, Table 2 DOL 6–7, Table 3 DOL 8+.
+      // under1500 is preterm 1,500 g or less, over1500 above it (Q26); term is
+      // PMA 37 weeks or more above 1,500 g (2,500 g with no GA), with
+      // Jochum's term Na rows from DOL 3 and its Table 3 rows from DOL 8 (Q5,
+      // Q23, Q25, 2026-11-20). K's term rows equal the preterm ones to DOL 7.
       na: {
-        under1500: { d1to2:[0,2], d3:[0,5], d4to7:[2,5], stable:[2,5] },
-        over1500:  { d1to2:[0,2], d3:[0,3], d4to7:[2,5], stable:[2,5] },
+        under1500: { d1to2:[0,2], d3:[0,5], d4to7:[2,5], stable:[3,5] },
+        over1500:  { d1to2:[0,2], d3:[0,3], d4to7:[2,5], stable:[3,5] },
+        term:      { d1to2:[0,2], d3:[0,2], d4to5:[1,3], d6to7:[2,3], stable:[2,3] },
         unit: "mmol/kg/day",
       },
       k: {
         under1500: { d1to3:[0,3], d4to5:[2,3], d6to7:[1,3], stable:[2,5] },
-        over1500:  { d1to3:[0,3], d4to5:[2,3], d6to7:[1,3], stable:[2,3] },
+        over1500:  { d1to3:[0,3], d4to5:[2,3], d6to7:[1,3], stable:[1,3] },
+        term:      { d1to3:[0,3], d4to5:[2,3], d6to7:[1,3], stable:[1.5,3] },
         unit: "mmol/kg/day",
       },
       // First days = DOL 1–7 (FIRST_DAYS_LAST_DOL; TPN team, 2026-10-25).
@@ -1547,8 +1593,11 @@ const ESPGHAN_TARGETS = {
       // TPN_TARGETS.p (1.6–3.5 mmol = 50–108 mg/kg) never reached this display copy.
       p:  { dol1:[1.0,2.0], growing:[1.6,3.5], unit:"mmol/kg/day" },  // × 30.97 = mg/kg
       mg: { dol1:[0.1,0.2], growing:[0.2,0.3], unit:"mmol/kg/day" },
-      caP_molar:  [0.8, 1.3],   // molar Ca:P ratio — aim 1.3:1 (ESPGHAN 2018)
-      caP_mass:   TARGETS.caP(),   // the tile's band (TARGETS.caP, CR-TGT-CAP) — mass ratio — ESPGHAN 0.8–1.3 molar × 1.29 = 1.0–1.7; KCMH aim 1.7:1
+      // Molar Ca:P: early PN 0.8–1.0 (Mihatsch R 8.12); 1.3 is the stable-growth
+      // optimum (p2363, from previous recommendations), not the top of a range.
+      caP_molar:  { firstDays: [0.8, 1.0], growingOptimum: 1.3 },
+      // The tile's bands (TARGETS.caP, CR-TGT-CAP), by mass: DOL 1–7 1.0–1.3, then 1.0–1.7
+      caP_mass:   { firstDays: TARGETS.caP(1), growing: TARGETS.caP(FIRST_DAYS_LAST_DOL + 1) },
     },
     micronutrients: {
       zn: { preterm:[400,500], term:[250,250], unit:"µg/kg/day" },
