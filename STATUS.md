@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> ⏳ **2026-11-20 — The backend cuts a patient's name to two letters of each part ("สม จด"), as the registration form has since 2026-09-25: branch `claude/backend-short-name`, not merged; backend deploy needed after merge.** (`CHANGELOG.md` 2026-11-20 (3)).
+> ⏳ **2026-11-20 — The backend cuts a patient's name to two letters of each part ("สม จด"), as the registration form has since 2026-09-25: PR #297, not merged; backend deploy needed after merge.** (`CHANGELOG.md` 2026-11-20 (3)).
 >
 > ✅ **2026-11-20 — The code review's six HIGH findings are live: a re-dosed order asks the critical reason again; Print holds on a tab behind the release and on an order revised or deleted on another device; deletePatient's second yes counts every submitted order; a nurse or doctor writes only to records on the ward's list; a value exactly at a limit (GIR 12, protein 4.5, energy 160, zinc 5) is no longer critical: PR #294, frontend via release #295 (`release-2026-11-20-pr295`, `c135539`; `verify-release` 0 failures on both hosts), then backend `@77` (H4, H5) on Pp's word ("deploy backend").** `@77` was cut from `main` `8f52e92`, and `clasp pull --versionNumber 77` equals it; `check-deployments` showed exactly two before and after. `CONSTANTS_VERSION` stays `2026-11-18.1` (Pp: "คงไว้"), so no saved order is held by this release. Rollback: backend `clasp update-deployment -V 76 AKfycbz8…` first, then the frontend to `release-2026-11-19-pr293` (`1755f16`) (records on #294 and #295; `CHANGELOG.md` 2026-11-19 (2)).
 >
