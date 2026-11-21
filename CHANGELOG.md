@@ -7,6 +7,41 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-21 — Phase 2 written down: paediatric wards, a rule set by age, and what the guidelines print for older children
+
+`openspec/changes/paediatric-wards/` (new): `proposal.md`, `design.md`, `tasks.md`, four specs, four guideline tables.
+A plan only. No app code, no dose, no `CONSTANTS_VERSION`, nothing to release.
+
+Pp, 2026-11-21: "เตรียมทำ phase 2 สำหรับขยายไปวอร์ดเด็กอื่นๆได้เลย ทั้งแดชบอร์ดหน้าวอร์ด สก. และพวกการ guard
+ตัวเลขต่างๆตามไกด์ไลน์สำหรับเด็กที่อายุมากกว่านิวบอร์นขึ้นไป". Her earlier decisions (2026-11-17): every children's
+ward is a new ward on the ward page; one app and one Sheet; a separate children's rule set chosen by age; NICU and SCN
+cards never change for an older-children change.
+
+- **The plan** (`design.md`, `tasks.md`): one ward table read by the frontend, the backend and the TPN room page;
+  ward-scoped access enforced on the server; a rule set chosen by age at admission and fixed for it; a paediatric rule
+  set with its own tables and constants version, where every guard needs a source, a `CR-P-` block, a case and two
+  signatures; and a proof on every PR that NICU and SCN orders did not move. Seven task groups: 1–3 move no newborn
+  figure and can start; 4–6 wait for Pp's gates (which wards and beds, the age line, the rule owner, the DPO).
+- **A cold review before this entry** found five blockers in the first draft, all folded in: a patient with no bed on
+  the server is a real infant parked between beds, not a test patient; the rule set with a missing date of birth; an
+  age line below DOL 400 moving long-stay NICU infants; a ward row landing before its rule set; and the guideline
+  table not existing yet. The revised draft has not had a second cold review.
+- **The guideline tables** hold what the sources print for 1 month to 18 years, and propose nothing. Each row was read
+  from the source and read again by a second reader who had not seen the first: `guideline-values.md` (ESPGHAN 2018,
+  the Thai guideline 2564, labels; 214 rows, 2 corrected), `guideline-values-aspen.md` (274 rows, 8 corrected),
+  `guideline-values-aspen-2.md` (225 rows, 4 corrected, among them da Silva 2020's erratum) and
+  `guideline-values-if.md` (intestinal failure, short bowel and IFALD, newborns included; 529 rows, 15 corrected). No
+  number, unit, sign or age band was wrong in any of them; the corrections are bands, grades, pages and one erratum.
+  ASPEN's "Appropriate Dosing for Parenteral Nutrition" sheet could not be read (member login), so ASPEN's nutrient
+  tables rest on Mirtallo 2004, which ASPEN labels Archived.
+- **PN contexts** (design D7), Pp's decisions of 2026-11-21 for the newborn and the paediatric set alike: the Liver
+  Dysfunction tick stands for cholestasis (conjugated bilirubin 2 mg/dL, Modi 2022) and, with Peditrace or Addamel N
+  on the order, tells the prescriber to stop manganese, to consider taking the product off and giving zinc, and that
+  copper, selenium and iodine go with it; the indication "Short bowel syndrome" advises looking at sodium and zinc
+  when stoma output is high. Both are messages on the prescriber's screen: no limit, no colour, nothing printed. No
+  lipid number while the emulsion is SMOF; no cycling rule; the indication stays one choice. Not built: tasks group 7,
+  a newborn PR of its own.
+
 ## Session 2026-11-20 (3) — The backend cuts a patient's name to two letters of each part, as the client does
 
 `gas-backend.gs` (`_shortPatientName`, `_namePart`, `registerPatient`), `test/verify-backend-short-name-1120.cjs` (new),

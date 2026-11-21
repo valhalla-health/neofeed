@@ -1,5 +1,7 @@
 # NeoFeed — Status
 
+> 📝 **2026-11-21 — Phase 2 is written down, not built: `openspec/changes/paediatric-wards/` plans the other children's wards on the ward page, ward-scoped access, a rule set chosen by age, and PN contexts for cholestasis and short bowel; four guideline tables for 1 month to 18 years sit beside it, every row read twice: PR #299, merged into `main` on Praew's instruction.** A plan only: no app code, no dose, nothing to release. Groups 1–3 can start; groups 4–6 wait for Pp's gates in `tasks.md` § 0. `CHANGELOG.md` 2026-11-21.
+>
 > ⏳ **2026-11-20 — The backend cuts a patient's name to two letters of each part ("สม จด"), as the registration form has since 2026-09-25: PR #297, merged into `main` on Praew's instruction; ⏳ backend deploy needed.** (`CHANGELOG.md` 2026-11-20 (3)).
 >
 > ⏳ **2026-11-20 — Pp's answers to Q5, Q7, Q12–Q15 and Q18 (Na and K from DOL 8 by Jochum Table 3, the term row from PMA 37 weeks above 1,500 g, fluid by Fanaroff Table 96.1 with the default plan at the band's lower end, Ca:P 1.0–1.3 on the TPN bag on DOL 1–7, DOL-1 lipid 1.0–2.0 g/kg/d, one feed at most 8 a day): PR #296, merged into `main` on Praew's instruction; ⏳ not live until the `main → release` PR.** `CONSTANTS_VERSION` → `2026-11-20.1` once released: every order saved before it is held for a re-Submit before it reprints (`CHANGELOG.md` 2026-11-20 (2)).
