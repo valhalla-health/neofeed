@@ -1013,7 +1013,7 @@ ESPGHAN 2022, 3.0–5.0 mmol/kg.
 
 mg/kg/d. PN: DOL 1–7 31–62, DOL 8 on 50–108. Enteral 70–115.
 Source: Mihatsch 2018: first days 1.0–2.0 mmol/kg, growing premature 1.6–3.5 mmol/kg, × 31 (corrected from
-46–62 on 2026-08-27). Enteral: ESPGHAN 2022, 2.2–3.7 mmol/kg.
+46–62 on 2026-08-27). Enteral: ESPGHAN 2022, 2.2–3.7 mmol/kg. The enteral lower bound: Q28.
 
 ```rule
 {"rule": "CR-TGT-P", "kind": "target", "where": [{"file": "data.js", "line": 730, "has": "return [50, 108];                          // Growing: 1.6–3.5 mmol×31"}, {"file": "data.js", "line": 893, "has": "if (isEnteral) return [70, 115];"}]}
@@ -1749,6 +1749,11 @@ An answered question keeps its evidence, so it can be reopened.
   holds, she chose "ต้องเกิน 1,500 g": the term row needs more than 1,500 g.
 - **Q27 · `CR-TGT-CAP`:** answered, Pp 2026-11-20: "คิดจาก TPN อย่างเดียว": the DOL 1–7 band is graded on the TPN bag
   alone. Before: bag + counted feed, so TPN plus a preterm formula (about 1.7–1.8 by mass) went amber (Vera).
+- **Q28 · `CR-TGT-P`:** the enteral band is coded 70–115 mg/kg/d. Embleton 2023 Table 1 (JPGN 76, p. 250)
+  prints phosphorus 2.2–3.7 mmol/kg/d, which is 68–115 mg (× 30.97), and the code's own comment reads
+  "68–115 mg/kg/day → [70, 115]". An enteral phosphorus of 68–69.9 mg/kg/d therefore shows amber inside
+  the source's range. Keep 70, or code 68? Found by the guideline watch of 2026-11-21 on the live code;
+  two readers read the same figures (`.claude/skills/neofeed-guideline-watch/audits/2026-11-21.md`, line 92).
 
 ## Sources
 
