@@ -7,6 +7,71 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-21 (2) — A guideline watch: a skill that checks the societies for new editions and audits the live code against its sources; its first run; Q28
+
+`.claude/skills/neofeed-guideline-watch/` (new: `SKILL.md`, `sources.md`, `audits/2026-11-21.md`), `AGENTS.md` (one
+pointer), `.claude/skills/neofeed-clinical-rules/SKILL.md` (Q28, named from `CR-TGT-P`), `STATUS.md`. No dose file, no
+`.jsx`, no `CONSTANTS_VERSION`; nothing to release.
+
+Pp, 2026-11-21: guidelines get revised, so an agent should check the important societies for updates from time to time
+and always audit the guards against the guidelines; and it should check the code production is running, "เพราะมันเป็น
+ความปลอดภัยของคนไข้".
+
+- **The skill.** Step 1 proves what the ward runs: `tools/verify-release.mjs` for the frontend, `verify-clinical-rules`
+  on a checkout of `origin/release`, and the deployed backend version from `clasp list-deployments` compared with
+  `gas-backend.gs` at `release`. Then it looks for a newer edition of every source in `sources.md`, reads what changed,
+  and compares each coded number with what its source prints now. A second reader is given only the rule and the source
+  location, never the first reader's values. A difference both readers read becomes a question for Pp; no step changes
+  a coded value. A cold review of the first draft found 21 points, and the first real run found 21 more; both sets are
+  in the skill as it stands.
+- **The first run, on `release` `373eca8` and backend `@78`.** Frontend and rule file confirmed (69 rules, 1,181 cases).
+  `STATUS.md` named `@77` while the ward ran `@78`: corrected in this PR. 26 source rows searched: the Thai guideline has
+  a 2565 final (revised 26 Oct 2566) with every cited number unchanged and the PDF pages moved; ANMF's KCl monograph is
+  at v4.1 with the same figures; NICE NG154 has two minor corrections outside the recommendations NeoFeed cites. 128
+  audit lines; 70 were read again by the second reader, with no disagreement.
+- **What the run found that is new.** Enteral phosphorus is coded 70–115 mg/kg/d where Embleton 2023 Table 1 prints
+  2.2–3.7 mmol/kg/d, 68–115 mg: **Q28**. Outside the rule file, reported to Pp and not changed: `GROWTH_VEL_TARGET` 15
+  g/kg/d is labelled an ESPGHAN 2022 minimum that Embleton does not print; the `EN_DB` note "Start HMF at ≥40 mL/kg/day
+  (WHO 2023)" where WHO prints "e.g., ≥100"; and six lines of the Reference page (iron's recommendation strength,
+  carbohydrate, weight gain, NPE ≥65 against >65, lipid 9 kcal/g, one comment's author).
+- **Not read yet**, named in `sources.md` § Next run: `EN_DB` cell by cell, the Fenton tables, the server's
+  `_checkRange` bounds, the reference tabs' cells and the KCMH worksheet rows (the worksheet is not on disk). The
+  register's notes for the constants above are not written: Pp has not decided them.
+## Session 2026-11-21 — Phase 2 written down: paediatric wards, a rule set by age, and what the guidelines print for older children
+
+`openspec/changes/paediatric-wards/` (new): `proposal.md`, `design.md`, `tasks.md`, four specs, four guideline tables.
+A plan only. No app code, no dose, no `CONSTANTS_VERSION`, nothing to release.
+
+Pp, 2026-11-21: "เตรียมทำ phase 2 สำหรับขยายไปวอร์ดเด็กอื่นๆได้เลย ทั้งแดชบอร์ดหน้าวอร์ด สก. และพวกการ guard
+ตัวเลขต่างๆตามไกด์ไลน์สำหรับเด็กที่อายุมากกว่านิวบอร์นขึ้นไป". Her earlier decisions (2026-11-17): every children's
+ward is a new ward on the ward page; one app and one Sheet; a separate children's rule set chosen by age; NICU and SCN
+cards never change for an older-children change.
+
+- **The plan** (`design.md`, `tasks.md`): one ward table read by the frontend, the backend and the TPN room page;
+  ward-scoped access enforced on the server; a rule set chosen by age at admission and fixed for it; a paediatric rule
+  set with its own tables and constants version, where every guard needs a source, a `CR-P-` block, a case and two
+  signatures; and a proof on every PR that NICU and SCN orders did not move. Seven task groups: 1–3 move no newborn
+  figure and can start; 4–6 wait for Pp's gates (which wards and beds, the age line, the rule owner, the DPO).
+- **A cold review before this entry** found five blockers in the first draft, all folded in: a patient with no bed on
+  the server is a real infant parked between beds, not a test patient; the rule set with a missing date of birth; an
+  age line below DOL 400 moving long-stay NICU infants; a ward row landing before its rule set; and the guideline
+  table not existing yet. The revised draft has not had a second cold review.
+- **The guideline tables** hold what the sources print for 1 month to 18 years, and propose nothing. Each row was read
+  from the source and read again by a second reader who had not seen the first: `guideline-values.md` (ESPGHAN 2018,
+  the Thai guideline 2564, labels; 214 rows, 2 corrected), `guideline-values-aspen.md` (274 rows, 8 corrected),
+  `guideline-values-aspen-2.md` (225 rows, 4 corrected, among them da Silva 2020's erratum) and
+  `guideline-values-if.md` (intestinal failure, short bowel and IFALD, newborns included; 529 rows, 15 corrected). No
+  number, unit, sign or age band was wrong in any of them; the corrections are bands, grades, pages and one erratum.
+  ASPEN's "Appropriate Dosing for Parenteral Nutrition" sheet could not be read (member login), so ASPEN's nutrient
+  tables rest on Mirtallo 2004, which ASPEN labels Archived.
+- **PN contexts** (design D7), Pp's decisions of 2026-11-21 for the newborn and the paediatric set alike: the Liver
+  Dysfunction tick stands for cholestasis (conjugated bilirubin 2 mg/dL, Modi 2022) and, with Peditrace or Addamel N
+  on the order, tells the prescriber to stop manganese, to consider taking the product off and giving zinc, and that
+  copper, selenium and iodine go with it; the indication "Short bowel syndrome" advises looking at sodium and zinc
+  when stoma output is high. Both are messages on the prescriber's screen: no limit, no colour, nothing printed. No
+  lipid number while the emulsion is SMOF; no cycling rule; the indication stays one choice. Not built: tasks group 7,
+  a newborn PR of its own.
+
 ## Session 2026-11-20 (3) — The backend cuts a patient's name to two letters of each part, as the client does
 
 `gas-backend.gs` (`_shortPatientName`, `_namePart`, `registerPatient`), `test/verify-backend-short-name-1120.cjs` (new),
