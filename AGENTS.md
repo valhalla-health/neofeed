@@ -12,6 +12,9 @@ Read before you act:
   or `data.js`, or a figure on the printed order): load the `neofeed-clinical-rules` skill first. It is
   Pp's list of every rule as coded, with its ID, source and cases; change a rule's block in the same
   commit as its code, and `test/verify-clinical-rules.cjs` runs the cases (NF-04).
+- **Checking whether a cited guideline or label has been revised**, or auditing the coded rules against
+  their sources, also before a rule set is added or changed: the `neofeed-guideline-watch` skill. It
+  audits the code the ward is running, reports differences as questions for Pp and changes no dose file.
 - **Changing a calculation**: keep `test/verify-calc-sum.cjs` passing. A PR that adds or changes a
   figure adds it to that harness's on-screen check in the same PR (NF-17).
 - **One piece of work, one PR** (Pp's PR rule: 2026-09-18 for deploys, 2026-10-28 for any record). A PR

@@ -7,6 +7,37 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-21 (2) — A guideline watch: a skill that checks the societies for new editions and audits the live code against its sources; its first run; Q28
+
+`.claude/skills/neofeed-guideline-watch/` (new: `SKILL.md`, `sources.md`, `audits/2026-11-21.md`), `AGENTS.md` (one
+pointer), `.claude/skills/neofeed-clinical-rules/SKILL.md` (Q28, named from `CR-TGT-P`), `STATUS.md`. No dose file, no
+`.jsx`, no `CONSTANTS_VERSION`; nothing to release.
+
+Pp, 2026-11-21: guidelines get revised, so an agent should check the important societies for updates from time to time
+and always audit the guards against the guidelines; and it should check the code production is running, "เพราะมันเป็น
+ความปลอดภัยของคนไข้".
+
+- **The skill.** Step 1 proves what the ward runs: `tools/verify-release.mjs` for the frontend, `verify-clinical-rules`
+  on a checkout of `origin/release`, and the deployed backend version from `clasp list-deployments` compared with
+  `gas-backend.gs` at `release`. Then it looks for a newer edition of every source in `sources.md`, reads what changed,
+  and compares each coded number with what its source prints now. A second reader is given only the rule and the source
+  location, never the first reader's values. A difference both readers read becomes a question for Pp; no step changes
+  a coded value. A cold review of the first draft found 21 points, and the first real run found 21 more; both sets are
+  in the skill as it stands.
+- **The first run, on `release` `373eca8` and backend `@78`.** Frontend and rule file confirmed (69 rules, 1,181 cases).
+  `STATUS.md` named `@77` while the ward ran `@78`: corrected in this PR. 26 source rows searched: the Thai guideline has
+  a 2565 final (revised 26 Oct 2566) with every cited number unchanged and the PDF pages moved; ANMF's KCl monograph is
+  at v4.1 with the same figures; NICE NG154 has two minor corrections outside the recommendations NeoFeed cites. 128
+  audit lines; 70 were read again by the second reader, with no disagreement.
+- **What the run found that is new.** Enteral phosphorus is coded 70–115 mg/kg/d where Embleton 2023 Table 1 prints
+  2.2–3.7 mmol/kg/d, 68–115 mg: **Q28**. Outside the rule file, reported to Pp and not changed: `GROWTH_VEL_TARGET` 15
+  g/kg/d is labelled an ESPGHAN 2022 minimum that Embleton does not print; the `EN_DB` note "Start HMF at ≥40 mL/kg/day
+  (WHO 2023)" where WHO prints "e.g., ≥100"; and six lines of the Reference page (iron's recommendation strength,
+  carbohydrate, weight gain, NPE ≥65 against >65, lipid 9 kcal/g, one comment's author).
+- **Not read yet**, named in `sources.md` § Next run: `EN_DB` cell by cell, the Fenton tables, the server's
+  `_checkRange` bounds, the reference tabs' cells and the KCMH worksheet rows (the worksheet is not on disk). The
+  register's notes for the constants above are not written: Pp has not decided them.
+
 ## Session 2026-11-20 (3) — The backend cuts a patient's name to two letters of each part, as the client does
 
 `gas-backend.gs` (`_shortPatientName`, `_namePart`, `registerPatient`), `test/verify-backend-short-name-1120.cjs` (new),
