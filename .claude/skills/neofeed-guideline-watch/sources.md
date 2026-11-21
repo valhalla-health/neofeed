@@ -99,5 +99,5 @@ Newest first: date, who ran it, scope, the audit file, the PR.
 
 - 2026-11-21 · first run, on production (`release` 373eca8, backend @78): frontend and rule file
   confirmed, `STATUS behind` (it named @77). 26 source rows searched; 128 audit lines, 70 of them read
-  again by a second reader with no disagreement; Q28 added. `audits/2026-11-21.md`. PR: not opened yet.
+  again by a second reader with no disagreement; Q28 added. `audits/2026-11-21.md`. PR #300.
 - 2026-11-21 · registry written.
