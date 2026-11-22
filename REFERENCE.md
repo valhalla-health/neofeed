@@ -265,11 +265,16 @@ to try the steps, on dev local or in a harness, and take it out again.
      `tools/checks.json`, blocking, at every level.
    - `node test/verify-ward-table.cjs`: NICU and SCN answer as before for every bed and spelling, and its own fixture
      ward (`FIX`, three beds) reaches every screen, the backend and the TPN room. A ward of yours is left out of its
-     NICU/SCN sections, so adding one edits no harness.
+     NICU/SCN sections, so this harness needs no edit for it.
    - `node test/verify-newborn-unmoved-wards.cjs`: NICU's, SCN's and ทดสอบระบบ's screens read as on `main` before the
      table (`test/newborn-unmoved-wards.json`). With another ward in the table it cuts both readings to those three
      and leaves out the two sums over every ward (the unit's census total, the editor's usage table).
-   - `node tools/run_checks.js --level ci --phase sources` before the PR, as always.
+   - `node tools/run_checks.js --level ci --phase sources` before the PR, as always. Six older harnesses pin the
+     unit as NICU and SCN alone, so a ward of yours fails them by design. With `DEMO` in the table (2026-11-22):
+     `verify-admin-census.cjs` (its cards and the unit's 50 beds), `verify-admin-usage-1028.cjs` (two usage charts),
+     `verify-bed-dol-io.cjs` (every bed in NICU or SCN), `verify-qi-submit-times-1118.cjs` (three QI rows a day),
+     `verify-tpn-room-core-1105.cjs` (two room groups) and `verify-usage-log.cjs` (three usage wards). A real
+     ward's PR (task 5.1) updates their expected lists with the row; a try that is taken out again needs none.
 5. **On dev local.** Restart `node tools/dev-local.mjs` after the copies change (it runs `gas-backend.gs`): the new
    tile, its tab on "TPN ทั้งหอ", its beds in the picker and its button in the transfer dialog are there, and an
    order from one of its beds reaches `/tpn-room.html` under its own group with its sticker label.

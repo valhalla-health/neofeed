@@ -41,7 +41,8 @@ one table so that adding a ward becomes a data change.
 - **Adding a ward** (`REFERENCE.md`): the row, `--write`, the build, the checks. Followed as written with a `DEMO`
   ward of four beds and taken out again: the tile, tab, picker beds, transfer button and census card appeared, an
   order moved into `DEMO 1` reached the TPN room under its own group, and both new harnesses passed with it in the
-  table (they compare NICU, SCN and ทดสอบระบบ only when another ward is present).
+  table (they compare NICU, SCN and ทดสอบระบบ only when another ward is present). Six older harnesses that pin the
+  unit as NICU and SCN alone failed with `DEMO`, as they should; `REFERENCE.md` names them for the real ward's PR.
 
 ## Session 2026-11-21 (2) — A guideline watch: a skill that checks the societies for new editions and audits the live code against its sources; its first run; Q28
 
