@@ -22,6 +22,28 @@ const { spawnSync } = require('child_process');
 const DIR = path.join(__dirname, '..') + '/';
 const GAS_URL = 'https://example.test/macros/s/AKfycTEST/exec';
 
+// ── never a Sunday by accident ──────────────────────────────────────────────
+// Since 4224835 (data.js weeklyGrowthDue, Pp 2026-11-16), opening a patient on
+// a Sunday in Bangkok lands on the growth page, not the Dashboard. The
+// harnesses on this boot drive the Dashboard from "today", so on 2026-11-22,
+// the first Sunday after that commit, five of them failed at an unchanged
+// commit ("click target not found" on New log). On a real Sunday this whole
+// process (fixtures, TODAY and the app) therefore runs on the Monday, at the
+// same time of day. Forward, not back: a run started late on Sunday cannot
+// cross midnight into another Sunday. A harness that wants Sunday moves there
+// on purpose with clock.advance (verify-growth-weekly-print-1116.cjs).
+{
+  const RealDate = Date;
+  const bkkDay = new RealDate(RealDate.now() + 7 * 3600e3).getUTCDay();
+  if (bkkDay === 0) {
+    const shift = 24 * 3600e3;
+    global.Date = class MondayDate extends RealDate {
+      constructor(...args) { if (args.length === 0) super(RealDate.now() + shift); else super(...args); }
+      static now() { return RealDate.now() + shift; }
+    };
+  }
+}
+
 // ── assertions ──────────────────────────────────────────────────────────────
 function makeAsserts() {
   const r = { pass: 0, fail: 0 };

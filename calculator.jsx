@@ -3928,9 +3928,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   and nurses use (Pp, 2026-11-06).                            */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, alignItems:"start" }}>
                 <div>
+                  {/* "NICU/SCN": the labels of the wards that start at the newborn dead
+                      space (data.js newbornWardLabels), so a ward for older children is
+                      not named here (openspec/changes/paediatric-wards, task 3.2). */}
                   <NumField label="ปริมาตรคาสาย (dead space)" unit="mL/day"
                     value={deadVol_mL} onChange={setDeadVol_mL} step={1}
-                    hint={`${deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"}${D.defaultDeadVolFor(patient) > 0 ? ` · NICU/SCN starts at ${D.defaultDeadVolFor(patient)}` : ""}`} />
+                    hint={`${deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"}${D.defaultDeadVolFor(patient) > 0 ? ` · ${D.newbornWardLabels().join("/")} starts at ${D.defaultDeadVolFor(patient)}` : ""}`} />
                   {/* The TPN room's line volumes (TPN team, 2026-09-28); 0 or any
                       other value is typed in the box above. */}
                   <PresetChips values={[30, 50, 100]} current={deadVol_mL} onSelect={setDeadVol_mL} />

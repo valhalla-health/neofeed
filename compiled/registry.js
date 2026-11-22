@@ -15,11 +15,11 @@ function RegStatMark({ tone }) {
   if (!name) return null;
   return /* @__PURE__ */ React.createElement("span", { className: "reg-stat-mark", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement(Icon, { name, size: 16, stroke: 2.2 }));
 }
-const WARD_RANK = { nicu: 0, iso: 1, scn: 2 };
+const WARD_RANK = Object.fromEntries(D_R.WARD_BED_RUNS.map((r, i) => [r.prefix.toLowerCase(), i]));
 const bedSort = (a, b) => {
   const bedA = a.currentBed || "zzz";
   const bedB = b.currentBed || "zzz";
-  const rank = (bed) => WARD_RANK[(bed.match(/^[a-z]+/i) || [""])[0].toLowerCase()] ?? 3;
+  const rank = (bed) => WARD_RANK[(bed.match(/^[a-z]+/i) || [""])[0].toLowerCase()] ?? D_R.WARD_BED_RUNS.length;
   return rank(bedA) - rank(bedB) || bedA.localeCompare(bedB, void 0, { numeric: true, sensitivity: "base" });
 };
 function BedChip({ p, style, stacked }) {
@@ -87,6 +87,12 @@ function multiplesLabel(p) {
   const term = MULTIPLES_COUNT_TERM[p.multiplesCount] || MULTIPLES_LETTER_FALLBACK[p.twinSuffix] || "Multiple";
   return `${term} ${p.twinSuffix}`;
 }
+const TEST_WARD_NAME = "ทดสอบระบบ";
+function wardTitle(ward) {
+  if (ward === "other") return TEST_WARD_NAME;
+  const w = D_R.wardByKey(ward);
+  return w ? w.label : ward;
+}
 function TestTag({ p }) {
   if (!p || !D_R.isTestSession(p.sessionId)) return null;
   return /* @__PURE__ */ React.createElement(
@@ -139,11 +145,11 @@ function WardGateCell({ ward, label, sub, list, log, today, onPick, onPrintList 
   ));
 }
 function WardGate({ patients, log, today, onPick, onPrintList }) {
-  const groups = { NICU: [], SCN: [], other: [] };
+  const groups = Object.fromEntries([...D_R.WARDS.map((w) => [w.key, []]), ["other", []]]);
   const active = patients.filter(isActivePatient);
   active.forEach((p) => groups[D_R.patientWard(p)].push(p));
   const tile = (ward) => ({ ward, list: groups[ward], log, today, onPick: () => onPick(ward), onPrintList });
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, /* @__PURE__ */ React.createElement(WardGateCell, { label: "NICU", sub: "NICU 1–12 · iso 1–3", ...tile("NICU") }), /* @__PURE__ */ React.createElement(WardGateCell, { label: "SCN", sub: "SCN 1–30", ...tile("SCN") }), /* @__PURE__ */ React.createElement(WardGateCell, { label: "ทดสอบระบบ", sub: "ไม่มีเตียง · ไม่บันทึกเข้าระบบ", ...tile("other"), onPrintList: null })));
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, D_R.WARDS.map((w) => /* @__PURE__ */ React.createElement(WardGateCell, { key: w.key, label: w.label, sub: w.sub, ...tile(w.key) })), /* @__PURE__ */ React.createElement(WardGateCell, { label: TEST_WARD_NAME, sub: "ไม่มีเตียง · ไม่บันทึกเข้าระบบ", ...tile("other"), onPrintList: null })));
 }
 function NoTpnTag({ p, entries }) {
   if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
@@ -151,7 +157,7 @@ function NoTpnTag({ p, entries }) {
   const dueText = due ? ` · ลงนมใหม่ ${due.slice(8, 10)}/${due.slice(5, 7)}` : "";
   return /* @__PURE__ */ React.createElement("span", { className: "log-badge is-no-tpn", title: `ใบสั่งล่าสุดไม่มี TPN${dueText}` }, "No TPN");
 }
-const WARD_TPN_WARDS = [["NICU", "NICU"], ["SCN", "SCN"], ["other", "ทดสอบระบบ"]];
+const WARD_TPN_WARDS = [...D_R.WARDS.map((w) => [w.key, w.label]), ["other", TEST_WARD_NAME]];
 const WARD_TPN_RANK = { crit: 0, warn: 1 };
 const wtpnNum = (v, dp) => v == null ? "—" : D_R.displayNum(v, dp);
 const wtpnDayMonth = (d) => d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : "—";
@@ -229,7 +235,7 @@ function wtpnWho(p) {
 }
 function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
   const today = D_R.useTodayLocal();
-  const [ward, setWard] = React.useState(WARD_TPN_WARDS.some(([w]) => w === openWard) ? openWard : "NICU");
+  const [ward, setWard] = React.useState(WARD_TPN_WARDS.some(([w]) => w === openWard) ? openWard : WARD_TPN_WARDS[0][0]);
   const wardName = (WARD_TPN_WARDS.find(([w]) => w === ward) || [])[1] || ward;
   const rank = (r) => WARD_TPN_RANK[r.level] ?? (r.onTpn ? 2 : 3);
   const rows = D_R.wardTpnRows(patients, log, ward, today).sort((a, b) => rank(a) - rank(b) || bedSort(a.p, b.p));
@@ -313,7 +319,7 @@ function printSheetBasis(p, entries) {
   }
 }
 function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
-  const wardName = batch.ward === "other" ? "ทดสอบระบบ" : batch.ward;
+  const wardName = wardTitle(batch.ward);
   const sheetsRef = React.useRef(null);
   const today = D_R.useTodayLocal();
   const stillOrder = ({ item, basis }, day) => {
@@ -375,7 +381,7 @@ function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
   )), /* @__PURE__ */ React.createElement("div", { className: "card print-batch-summary", style: { padding: "12px 14px", maxWidth: 760 } }, dayOverNow ? /* @__PURE__ */ React.createElement("div", { className: "print-batch-skipped", role: "alert" }, "วันเปลี่ยนแล้ว — ชุดพิมพ์นี้เป็นใบสั่งของ ", window.NEOFEED_FMT_DATE?.(batch.day) || batch.day, " จึงไม่พิมพ์ กลับไปรายการแล้วกด Print ทั้งหมดใหม่") : /* @__PURE__ */ React.createElement(React.Fragment, null, refused === "changed" && /* @__PURE__ */ React.createElement("div", { className: "print-batch-skipped", role: "alert" }, "รายการเปลี่ยนขณะกดพิมพ์ — ตรวจสอบรายการด้านล่างแล้วกดพิมพ์อีกครั้ง"), held.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "print-batch-skipped", role: "alert" }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, marginBottom: 4 } }, "ไม่ได้อยู่ในชุดพิมพ์นี้ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, held.length), " ใบ — เปิดจากรายการเพื่อตรวจสอบและพิมพ์ทีละใบ"), /* @__PURE__ */ React.createElement("ul", null, held.map(({ item, reason }) => /* @__PURE__ */ React.createElement("li", { key: item.entryId }, /* @__PURE__ */ React.createElement("strong", null, item.label || "ใบสั่ง"), " — ", reason)))), n > 0 ? /* @__PURE__ */ React.createElement("ul", { className: "print-batch-list" }, fresh.map(({ item }) => /* @__PURE__ */ React.createElement("li", { key: item.entryId }, "✓ ", item.label || "ใบสั่ง"))) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-3)" } }, "ไม่มีใบที่พิมพ์ได้ในชุดนี้"), n > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-3)", marginTop: 8 } }, "แพทย์ตรวจและลงนามในแต่ละใบก่อนส่งห้องยา"))), /* @__PURE__ */ React.createElement("div", { className: "print-batch", ref: sheetsRef }));
 }
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
-  const wardName = ward === "other" ? "ทดสอบระบบ" : ward;
+  const wardName = wardTitle(ward);
   const active = patients.filter((p) => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active.map((p) => ({ p, orders: todaysOrders(log[p.sessionId], today) })).filter((r) => r.orders.length > 0);
   const waiting = active.filter((p) => D_R.needsEntryOn(log[p.sessionId], today)).length;
@@ -475,7 +481,7 @@ function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll
   }), rows.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "40px 16px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, active.length === 0 ? `ยังไม่มีผู้ป่วยใน ${wardName}` : `ยังไม่มีใบสั่งที่ Submit วันนี้ใน ${wardName}`), (waiting > 0 || notDue > 0) && /* @__PURE__ */ React.createElement("div", { className: "print-waiting" }, /* @__PURE__ */ React.createElement("span", null, waiting > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, "ยังไม่ Submit ", /* @__PURE__ */ React.createElement("span", { className: "num" }, waiting), " ราย — ไม่อยู่ในรายการพิมพ์"), waiting > 0 && notDue > 0 && " · ", notDue > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, "No TPN ยังไม่ถึงวันลงนม ", /* @__PURE__ */ React.createElement("span", { className: "num" }, notDue), " ราย")), waiting > 0 && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", onClick: onShowNeeds }, "ดูรายชื่อ Needs entry →"))));
 }
 function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
-  return /* @__PURE__ */ React.createElement("div", { className: "search-miss" }, /* @__PURE__ */ React.createElement("div", null, "ไม่พบ “", query, "” ใน ", wardName), elsewhere.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 } }, elsewhere.map((x) => /* @__PURE__ */ React.createElement("button", { key: x.ward, type: "button", className: "btn sm", onClick: () => onWardChange?.(x.ward) }, "พบใน ", x.ward === "other" ? "ทดสอบระบบ" : x.ward, " ", x.n, " ราย · ไปดู →"))));
+  return /* @__PURE__ */ React.createElement("div", { className: "search-miss" }, /* @__PURE__ */ React.createElement("div", null, "ไม่พบ “", query, "” ใน ", wardName), elsewhere.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 } }, elsewhere.map((x) => /* @__PURE__ */ React.createElement("button", { key: x.ward, type: "button", className: "btn sm", onClick: () => onWardChange?.(x.ward) }, "พบใน ", wardTitle(x.ward), " ", x.n, " ราย · ไปดู →"))));
 }
 function PatientRegistry({
   patients,
@@ -549,7 +555,7 @@ function PatientRegistry({
     }
   );
   const q = filter.trim();
-  const wardName = ward === "other" ? "ทดสอบระบบ" : ward;
+  const wardName = wardTitle(ward);
   const wardPatients = patients.filter((p) => D_R.patientWard(p) === ward);
   const byBed = [...wardPatients].sort(bedSort);
   const search = q ? D_R.searchPatients(byBed, q) : null;
@@ -581,7 +587,7 @@ function PatientRegistry({
   const loggedToday = loggedSet.size;
   const needsLog = needsSet.size;
   const draftCount = draftSet.size;
-  const elsewhere = q && activeSorted.length === 0 ? ["NICU", "SCN", "other"].filter((w) => w !== ward).map((w) => ({
+  const elsewhere = q && activeSorted.length === 0 ? [...D_R.WARDS.map((x) => x.key), "other"].filter((w) => w !== ward).map((w) => ({
     ward: w,
     n: D_R.searchPatients(patients.filter((p) => D_R.patientWard(p) === w && isActivePatient(p)), q).hits.length
   })).filter((x) => x.n > 0) : [];
@@ -1044,7 +1050,7 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
   const [twin, setTwin] = React.useState("");
   const [multiplesCount, setMultiplesCount] = React.useState("");
   const [sex, setSex] = React.useState("");
-  const [bed, setBed] = React.useState(() => ward === "other" ? "" : D_R.nextFreeBed(patients, "NICU"));
+  const [bed, setBed] = React.useState(() => ward === "other" ? "" : D_R.nextFreeBed(patients, D_R.WARD_BED_RUNS[0].prefix));
   const occupancy = React.useMemo(() => D_R.bedOccupancy(patients), [patients]);
   const bedTaken = occupancy.get(D_R.normalizeBed(bed)) || null;
   const [dx, setDx] = React.useState("");
@@ -1384,10 +1390,10 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
   const bedTaken = occupancy.get(D_R.normalizeBed(bed)) || null;
   const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
   const mergeBase = useMergeBase(mergeBaseFor, patient.sessionId);
-  const WARDS = ["NICU", "iso", "SCN"];
+  const RUNS = D_R.WARD_BED_RUNS.map((r) => r.prefix);
   const nextFree = React.useMemo(() => {
     const out = {};
-    WARDS.forEach((w) => {
+    RUNS.forEach((w) => {
       out[w] = D_R.nextFreeBed(patients, w);
     });
     return out;
@@ -1416,7 +1422,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
     const bedHistory = [...patient.bedHistory || [], hop()];
     submit({ ...patient, currentBed: "", bedHistory }, mergeBase);
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose, "data-back-confirm": "Transfer bed" }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 400 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Transfer bed · ", D_R.patientName(patient)), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink-2)" } }, /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), currentBed || "—"), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)" } }, "→"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, style: { flex: 1 }, occupancy, occupiedSelectable: true })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 } }, "ย้ายไปเตียงว่างถัดไป"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, WARDS.map((w) => /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose, "data-back-confirm": "Transfer bed" }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 400 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Transfer bed · ", D_R.patientName(patient)), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18, display: "flex", flexDirection: "column", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink-2)" } }, /* @__PURE__ */ React.createElement("span", { className: "chip" }, /* @__PURE__ */ React.createElement("span", { className: "d" }), currentBed || "—"), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-3)" } }, "→"), /* @__PURE__ */ React.createElement(BedSelect, { value: bed, onChange: setBed, style: { flex: 1 }, occupancy, occupiedSelectable: true })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 } }, "ย้ายไปเตียงว่างถัดไป"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, RUNS.map((w) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: w,

@@ -1,0 +1,2496 @@
+{
+ "about": "The newborn wards' screens and answers before the ward table, read by test/verify-newborn-unmoved-wards.cjs. Made-up infants, a fixed clock.",
+ "recordedFrom": "c5b9050",
+ "screens": {
+  "today": "2026-11-22",
+  "gate": [
+   {
+    "tile": "NICUNICU 1–12 · iso 1–35 active2 needs entry",
+    "print": "Print order NICU — submit แล้ว 3 ราย"
+   },
+   {
+    "tile": "SCNSCN 1–303 active1 needs entry",
+    "print": "Print order SCN — submit แล้ว 2 ราย"
+   },
+   {
+    "tile": "ทดสอบระบบไม่มีเตียง · ไม่บันทึกเข้าระบบ3 active0 needs entry",
+    "print": null
+   }
+  ],
+  "wardList": {
+   "NICU": {
+    "head": "NICU",
+    "beds": [
+     "NICU 1",
+     "NICU 3",
+     "NICU 10",
+     "NICU-5",
+     "iso 2-1",
+     "NICU 1",
+     "NICU 3",
+     "NICU 10",
+     "NICU-5",
+     "iso 2-1"
+    ],
+    "miss": "ไม่พบ “ทด ส6” ใน NICUพบใน SCN 1 ราย · ไปดู →"
+   },
+   "SCN": {
+    "head": "SCN",
+    "beds": [
+     "SCN 1",
+     "SCN 12",
+     "รอเตียง · จาก SCN 4",
+     "SCN 1",
+     "SCN 12",
+     "รอเตียง จาก SCN 4"
+    ],
+    "miss": "ไม่พบ “ทด ส1” ใน SCNพบใน NICU 1 ราย · ไปดู →พบใน ทดสอบระบบ 2 ราย · ไปดู →"
+   },
+   "other": {
+    "head": "ทดสอบระบบ",
+    "beds": [
+     "OR 1",
+     "",
+     "",
+     "OR 1",
+     "",
+     ""
+    ],
+    "miss": null
+   }
+  },
+  "picker": [
+   [
+    "",
+    "— ยังไม่ระบุเตียง —",
+    false
+   ],
+   [
+    "NICU 1",
+    "NICU 1 · ไม่ว่าง (ทด ส1)",
+    true
+   ],
+   [
+    "NICU 2",
+    "NICU 2",
+    false
+   ],
+   [
+    "NICU 3",
+    "NICU 3 · ไม่ว่าง (ทด ส2)",
+    true
+   ],
+   [
+    "NICU 4",
+    "NICU 4",
+    false
+   ],
+   [
+    "NICU 5",
+    "NICU 5 · ไม่ว่าง (ทด ส5)",
+    true
+   ],
+   [
+    "NICU 6",
+    "NICU 6",
+    false
+   ],
+   [
+    "NICU 7",
+    "NICU 7",
+    false
+   ],
+   [
+    "NICU 8",
+    "NICU 8",
+    false
+   ],
+   [
+    "NICU 9",
+    "NICU 9",
+    false
+   ],
+   [
+    "NICU 10",
+    "NICU 10 · ไม่ว่าง (ทด ส4)",
+    true
+   ],
+   [
+    "NICU 11",
+    "NICU 11",
+    false
+   ],
+   [
+    "NICU 12",
+    "NICU 12",
+    false
+   ],
+   [
+    "iso 1-1",
+    "iso 1-1",
+    false
+   ],
+   [
+    "iso 1-2",
+    "iso 1-2",
+    false
+   ],
+   [
+    "iso 2-1",
+    "iso 2-1 · ไม่ว่าง (ทด ส3)",
+    true
+   ],
+   [
+    "iso 2-2",
+    "iso 2-2",
+    false
+   ],
+   [
+    "iso 3-1",
+    "iso 3-1",
+    false
+   ],
+   [
+    "iso 3-2",
+    "iso 3-2",
+    false
+   ],
+   [
+    "iso 3-3",
+    "iso 3-3",
+    false
+   ],
+   [
+    "iso 3-4",
+    "iso 3-4",
+    false
+   ],
+   [
+    "SCN 1",
+    "SCN 1 · ไม่ว่าง (ทด ส6)",
+    true
+   ],
+   [
+    "SCN 2",
+    "SCN 2",
+    false
+   ],
+   [
+    "SCN 3",
+    "SCN 3",
+    false
+   ],
+   [
+    "SCN 4",
+    "SCN 4",
+    false
+   ],
+   [
+    "SCN 5",
+    "SCN 5",
+    false
+   ],
+   [
+    "SCN 6",
+    "SCN 6",
+    false
+   ],
+   [
+    "SCN 7",
+    "SCN 7",
+    false
+   ],
+   [
+    "SCN 8",
+    "SCN 8",
+    false
+   ],
+   [
+    "SCN 9",
+    "SCN 9",
+    false
+   ],
+   [
+    "SCN 10",
+    "SCN 10",
+    false
+   ],
+   [
+    "SCN 11",
+    "SCN 11",
+    false
+   ],
+   [
+    "SCN 12",
+    "SCN 12 · ไม่ว่าง (ทด ส7)",
+    true
+   ],
+   [
+    "SCN 13",
+    "SCN 13",
+    false
+   ],
+   [
+    "SCN 14",
+    "SCN 14",
+    false
+   ],
+   [
+    "SCN 15",
+    "SCN 15",
+    false
+   ],
+   [
+    "SCN 16",
+    "SCN 16",
+    false
+   ],
+   [
+    "SCN 17",
+    "SCN 17",
+    false
+   ],
+   [
+    "SCN 18",
+    "SCN 18",
+    false
+   ],
+   [
+    "SCN 19",
+    "SCN 19",
+    false
+   ],
+   [
+    "SCN 20",
+    "SCN 20",
+    false
+   ],
+   [
+    "SCN 21",
+    "SCN 21",
+    false
+   ],
+   [
+    "SCN 22",
+    "SCN 22",
+    false
+   ],
+   [
+    "SCN 23",
+    "SCN 23",
+    false
+   ],
+   [
+    "SCN 24",
+    "SCN 24",
+    false
+   ],
+   [
+    "SCN 25",
+    "SCN 25",
+    false
+   ],
+   [
+    "SCN 26",
+    "SCN 26",
+    false
+   ],
+   [
+    "SCN 27",
+    "SCN 27",
+    false
+   ],
+   [
+    "SCN 28",
+    "SCN 28",
+    false
+   ],
+   [
+    "SCN 29",
+    "SCN 29",
+    false
+   ],
+   [
+    "SCN 30",
+    "SCN 30",
+    false
+   ]
+  ],
+  "newSessionBed": {
+   "NICU": "NICU 2",
+   "SCN": "NICU 2",
+   "other": ""
+  },
+  "transfer": {
+   "NICU 1": [
+    "",
+    "NICU · NICU 2",
+    "iso · iso 1-1",
+    "SCN · SCN 2",
+    "พักไว้ก่อน",
+    "Cancel",
+    "Confirm transfer [disabled]"
+   ],
+   "SCN 1": [
+    "",
+    "NICU · NICU 2",
+    "iso · iso 1-1",
+    "SCN · SCN 2",
+    "พักไว้ก่อน",
+    "Cancel",
+    "Confirm transfer [disabled]"
+   ],
+   "parked": [
+    "",
+    "NICU · NICU 2",
+    "iso · iso 1-1",
+    "SCN · SCN 2",
+    "Cancel",
+    "Confirm transfer [disabled]"
+   ]
+  },
+  "wardTpn": {
+   "NICU": {
+    "tabs": [
+     "NICU",
+     "SCN",
+     "ทดสอบระบบ"
+    ],
+    "page": "TPN ทั้งหอ · NICUทารก Active ที่คำสั่งล่าสุดมี TPN หรือหยุด TPN มาไม่เกิน 14 วัน · ค่าจากคำสั่ง Submit ล่าสุดของแต่ละคน3ทารกในหน้านี้ได้ TPN 3 · หยุดแล้ว 00ต้องดูวันนี้มีธงอย่างน้อย 1 ข้อเตียงทารกDOLวัน PNAAg/kg/dLipidg/kg/dGIRmg/kg/minENmL/kg/dธงSubmit ล่าสุดNICU 1ทด ส1GA 29+0 · BW 1,100 g13132620ไม่มีธงวันนี้NICU 10ทด ส4GA 29+0 · BW 1,100 g13132620ไม่มีธงวันนี้NICU-5ทด ส5GA 29+0 · BW 1,100 g13132620ไม่มีธงวันนี้NICU 1 ทด ส1วันนี้GA 29+0 · BW 1,100 g · DOL 13 · วัน PN 1AAg/kg/d3Lipidg/kg/d2GIRmg/kg/min6ENmL/kg/d20ไม่มีธงNICU 10 ทด ส4วันนี้GA 29+0 · BW 1,100 g · DOL 13 · วัน PN 1AAg/kg/d3Lipidg/kg/d2GIRmg/kg/min6ENmL/kg/d20ไม่มีธงNICU-5 ทด ส5วันนี้GA 29+0 · BW 1,100 g · DOL 13 · วัน PN 1AAg/kg/d3Lipidg/kg/d2GIRmg/kg/min6ENmL/kg/d20ไม่มีธงธง บอกเรื่องที่คำสั่งวันนี้ยังแก้ได้ · AA < 2.5: preterm (GA < 37 wk) DOL 2–7 ที่ EN < 50 mL/kg/d นับตาม DOL ของวันนี้ แม้ทารก admit ทีหลัง และนับคำสั่ง No TPN เป็น AA 0 (ESPGHAN 2018 PN, R 3.2) · DOL 2 ยังไม่มี lipid: preterm รวมคำสั่ง No TPN (ESPGHAN 2018 PN, R 4.2) · GIR เกิน 12 แดง ต่ำกว่า 2.5 เหลือง ตามแถบ GIR ของแอป · EN ≥ เกณฑ์หยุด PN แต่ยังมี PN: 140 mL/kg/d ใน GA < 28 wk และ 120 ตั้งแต่ 28 wk (NICE NG154 rec 1.8.2–1.8.3) · No TPN: คำสั่งล่าสุดไม่มี TPN อยู่ในหน้านี้ 14 วันนับจากคำสั่งล่าสุดที่มี TPNAA, lipid, GIR และ EN เป็นค่าที่สั่ง ไม่ใช่ค่าที่ทารกได้รับจริง · GIR นับเฉพาะ dextrose ทาง IV"
+   },
+   "SCN": {
+    "tabs": [
+     "NICU",
+     "SCN",
+     "ทดสอบระบบ"
+    ],
+    "page": "TPN ทั้งหอ · SCNทารก Active ที่คำสั่งล่าสุดมี TPN หรือหยุด TPN มาไม่เกิน 14 วัน · ค่าจากคำสั่ง Submit ล่าสุดของแต่ละคน2ทารกในหน้านี้ได้ TPN 2 · หยุดแล้ว 01ต้องดูวันนี้มีธงอย่างน้อย 1 ข้อเตียงทารกDOLวัน PNAAg/kg/dLipidg/kg/dGIRmg/kg/minENmL/kg/dธงSubmit ล่าสุดSCN 1ทด ส6GA 29+0 · BW 1,100 g1313213.520GIR 13.5 > 12วันนี้รอเตียง จาก SCN 4ทด ส8GA 29+0 · BW 1,100 g13132620ไม่มีธงวันนี้SCN 1 ทด ส6วันนี้GA 29+0 · BW 1,100 g · DOL 13 · วัน PN 1AAg/kg/d3Lipidg/kg/d2GIRmg/kg/min13.5ENmL/kg/d20GIR 13.5 > 12รอเตียง · จาก SCN 4 ทด ส8วันนี้GA 29+0 · BW 1,100 g · DOL 13 · วัน PN 1AAg/kg/d3Lipidg/kg/d2GIRmg/kg/min6ENmL/kg/d20ไม่มีธงธง บอกเรื่องที่คำสั่งวันนี้ยังแก้ได้ · AA < 2.5: preterm (GA < 37 wk) DOL 2–7 ที่ EN < 50 mL/kg/d นับตาม DOL ของวันนี้ แม้ทารก admit ทีหลัง และนับคำสั่ง No TPN เป็น AA 0 (ESPGHAN 2018 PN, R 3.2) · DOL 2 ยังไม่มี lipid: preterm รวมคำสั่ง No TPN (ESPGHAN 2018 PN, R 4.2) · GIR เกิน 12 แดง ต่ำกว่า 2.5 เหลือง ตามแถบ GIR ของแอป · EN ≥ เกณฑ์หยุด PN แต่ยังมี PN: 140 mL/kg/d ใน GA < 28 wk และ 120 ตั้งแต่ 28 wk (NICE NG154 rec 1.8.2–1.8.3) · No TPN: คำสั่งล่าสุดไม่มี TPN อยู่ในหน้านี้ 14 วันนับจากคำสั่งล่าสุดที่มี TPNAA, lipid, GIR และ EN เป็นค่าที่สั่ง ไม่ใช่ค่าที่ทารกได้รับจริง · GIR นับเฉพาะ dextrose ทาง IV"
+   },
+   "other": {
+    "tabs": [
+     "NICU",
+     "SCN",
+     "ทดสอบระบบ"
+    ],
+    "page": "TPN ทั้งหอ · ทดสอบระบบทารก Active ที่คำสั่งล่าสุดมี TPN หรือหยุด TPN มาไม่เกิน 14 วัน · ค่าจากคำสั่ง Submit ล่าสุดของแต่ละคน3ทารกในหน้านี้ได้ TPN 3 · หยุดแล้ว 00ต้องดูวันนี้มีธงอย่างน้อย 1 ข้อเตียงทารกDOLวัน PNAAg/kg/dLipidg/kg/dGIRmg/kg/minENmL/kg/dธงSubmit ล่าสุดOR 1ทด ส10GA 29+0 · BW 1,100 g13132620ไม่มีธงวันนี้ทด ส9GA 29+0 · BW 1,100 g13132620ไม่มีธงวันนี้ทด ส12TESTGA 29+0 · BW 1,100 g13132620ไม่มีธงวันนี้OR 1 ทด ส10วันนี้GA 29+0 · BW 1,100 g · DOL 13 · วัน PN 1AAg/kg/d3Lipidg/kg/d2GIRmg/kg/min6ENmL/kg/d20ไม่มีธง ทด ส9วันนี้GA 29+0 · BW 1,100 g · DOL 13 · วัน PN 1AAg/kg/d3Lipidg/kg/d2GIRmg/kg/min6ENmL/kg/d20ไม่มีธง ทด ส12TESTวันนี้GA 29+0 · BW 1,100 g · DOL 13 · วัน PN 1AAg/kg/d3Lipidg/kg/d2GIRmg/kg/min6ENmL/kg/d20ไม่มีธงธง บอกเรื่องที่คำสั่งวันนี้ยังแก้ได้ · AA < 2.5: preterm (GA < 37 wk) DOL 2–7 ที่ EN < 50 mL/kg/d นับตาม DOL ของวันนี้ แม้ทารก admit ทีหลัง และนับคำสั่ง No TPN เป็น AA 0 (ESPGHAN 2018 PN, R 3.2) · DOL 2 ยังไม่มี lipid: preterm รวมคำสั่ง No TPN (ESPGHAN 2018 PN, R 4.2) · GIR เกิน 12 แดง ต่ำกว่า 2.5 เหลือง ตามแถบ GIR ของแอป · EN ≥ เกณฑ์หยุด PN แต่ยังมี PN: 140 mL/kg/d ใน GA < 28 wk และ 120 ตั้งแต่ 28 wk (NICE NG154 rec 1.8.2–1.8.3) · No TPN: คำสั่งล่าสุดไม่มี TPN อยู่ในหน้านี้ 14 วันนับจากคำสั่งล่าสุดที่มี TPNAA, lipid, GIR และ EN เป็นค่าที่สั่ง ไม่ใช่ค่าที่ทารกได้รับจริง · GIR นับเฉพาะ dextrose ทาง IV"
+   }
+  },
+  "census": {
+   "wards": [
+    {
+     "ward": "NICU",
+     "label": "NICU",
+     "capacity": 20,
+     "occupied": 5,
+     "active": 5,
+     "logged": 3,
+     "needs": 2,
+     "draft": 1,
+     "parked": 0,
+     "crit": 2,
+     "warn": 0
+    },
+    {
+     "ward": "SCN",
+     "label": "SCN",
+     "capacity": 30,
+     "occupied": 2,
+     "active": 3,
+     "logged": 2,
+     "needs": 1,
+     "draft": 0,
+     "parked": 1,
+     "crit": 2,
+     "warn": 0
+    },
+    {
+     "ward": "other",
+     "label": "อื่นๆ",
+     "capacity": null,
+     "occupied": 0,
+     "active": 3,
+     "logged": 3,
+     "needs": 0,
+     "draft": 0,
+     "parked": 0,
+     "crit": 0,
+     "warn": 0
+    }
+   ],
+   "total": {
+    "ward": "total",
+    "label": "ทั้ง unit",
+    "capacity": 50,
+    "occupied": 7,
+    "active": 11,
+    "logged": 8,
+    "needs": 3,
+    "draft": 1,
+    "parked": 1,
+    "crit": 4,
+    "warn": 0
+   },
+   "doubleBooked": [],
+   "unbedded": 2,
+   "offList": 1
+  },
+  "censusCards": [
+   "NICUเตียง 5/20 · ว่าง 155Active3Logged today2Needs entry · draft 10รอเตียง2Critical0Caution",
+   "SCNเตียง 2/30 · ว่าง 283Active2Logged today1Needs entry1รอเตียง2Critical0Caution",
+   "อื่นๆไม่มีเตียงในรายการ3Active3Logged today0Needs entry0รอเตียง0Critical0Caution"
+  ],
+  "usage": [
+   {
+    "ward": "NICU",
+    "head": "NICUสัปดาห์นี้ 4 · รวม 7",
+    "bars": "NICU คำสั่งต่อสัปดาห์: 9 พ.ย. 3, 16 พ.ย. 4"
+   },
+   {
+    "ward": "SCN",
+    "head": "SCNสัปดาห์นี้ 6 · รวม 11",
+    "bars": "SCN คำสั่งต่อสัปดาห์: 9 พ.ย. 5, 16 พ.ย. 6"
+   }
+  ]
+ },
+ "room": {
+  "groups": [
+   {
+    "key": "NICU",
+    "label": "NICU",
+    "submitted": [
+     "NICU 0",
+     "NICU 2",
+     "NICU 3",
+     "NICU 5",
+     "NICU 6",
+     "NICU 8",
+     "NICU 9",
+     "NICU 10",
+     "NICU 11",
+     "NICU 13",
+     "iso 1-2",
+     "iso 2-2",
+     "iso 3",
+     "iso 3-2",
+     "iso 3-3",
+     "iso 9-9"
+    ],
+    "drafts": [
+     "NICU 1",
+     "NICU 4",
+     "NICU 7",
+     "NICU 12",
+     "iso 1-1",
+     "iso 2-1",
+     "iso 3-1",
+     "iso 3-4"
+    ]
+   },
+   {
+    "key": "SCN",
+    "label": "SCN",
+    "submitted": [
+     "SCN 2",
+     "SCN 3",
+     "SCN 5",
+     "SCN 6",
+     "SCN 8",
+     "SCN 9",
+     "SCN 11",
+     "SCN 12",
+     "SCN 14",
+     "SCN 15",
+     "SCN 17",
+     "SCN 18",
+     "SCN 20",
+     "SCN 21",
+     "SCN 23",
+     "SCN 24",
+     "SCN 26",
+     "SCN 27",
+     "SCN 29",
+     "SCN 30"
+    ],
+    "drafts": [
+     "SCN 1",
+     "SCN 4",
+     "SCN 7",
+     "SCN 10",
+     "SCN 13",
+     "SCN 16",
+     "SCN 19",
+     "SCN 22",
+     "SCN 25",
+     "SCN 28",
+     "SCN 31"
+    ]
+   },
+   {
+    "key": "none",
+    "label": "ไม่มีเตียง",
+    "submitted": [
+     "NICU 1-1",
+     "nicu 4",
+     " SCN  2 ",
+     "SCN-2",
+     "ISO 2-2",
+     "iso 1 - 2",
+     "SCN",
+     "nicu1",
+     "NICU 1-2-3",
+     "OR 1",
+     "Ward 9B",
+     "",
+     "  "
+    ],
+    "drafts": [
+     "NICU-3",
+     "scn 30",
+     "iso-1-2",
+     "NICU overflow",
+     "PICU 1"
+    ]
+   }
+  ],
+  "order": [
+   "NICU 0",
+   "NICU 1",
+   "NICU 1-1",
+   "NICU 2",
+   "NICU 3",
+   "NICU 4",
+   "NICU 5",
+   "NICU 6",
+   "NICU 7",
+   "NICU 8",
+   "NICU 9",
+   "NICU 10",
+   "NICU 11",
+   "NICU 12",
+   "NICU 13",
+   "iso 1-1",
+   "iso 1-2",
+   "iso 2-1",
+   "iso 2-2",
+   "iso 3",
+   "iso 3-1",
+   "iso 3-2",
+   "iso 3-3",
+   "iso 3-4",
+   "iso 9-9",
+   "SCN 1",
+   "SCN 2",
+   "SCN 3",
+   "SCN 4",
+   "SCN 5",
+   "SCN 6",
+   "SCN 7",
+   "SCN 8",
+   "SCN 9",
+   "SCN 10",
+   "SCN 11",
+   "SCN 12",
+   "SCN 13",
+   "SCN 14",
+   "SCN 15",
+   "SCN 16",
+   "SCN 17",
+   "SCN 18",
+   "SCN 19",
+   "SCN 20",
+   "SCN 21",
+   "SCN 22",
+   "SCN 23",
+   "SCN 24",
+   "SCN 25",
+   "SCN 26",
+   "SCN 27",
+   "SCN 28",
+   "SCN 29",
+   "SCN 30",
+   "SCN 31",
+   "NICU-3",
+   "nicu 4",
+   " SCN  2 ",
+   "SCN-2",
+   "scn 30",
+   "ISO 2-2",
+   "iso-1-2",
+   "iso 1 - 2",
+   "NICU overflow",
+   "SCN",
+   "nicu1",
+   "NICU 1-2-3",
+   "OR 1",
+   "Ward 9B",
+   "PICU 1",
+   "",
+   "  "
+  ],
+  "sticker": [
+   [
+    "NICU 1",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 2",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 3",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 4",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 5",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 6",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 7",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 8",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 9",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 10",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 11",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 12",
+    "9B2(NICU)"
+   ],
+   [
+    "iso 1-1",
+    "9B2(NICU)"
+   ],
+   [
+    "iso 1-2",
+    "9B2(NICU)"
+   ],
+   [
+    "iso 2-1",
+    "9B2(NICU)"
+   ],
+   [
+    "iso 2-2",
+    "9B2(NICU)"
+   ],
+   [
+    "iso 3-1",
+    "9B2(NICU)"
+   ],
+   [
+    "iso 3-2",
+    "9B2(NICU)"
+   ],
+   [
+    "iso 3-3",
+    "9B2(NICU)"
+   ],
+   [
+    "iso 3-4",
+    "9B2(NICU)"
+   ],
+   [
+    "SCN 1",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 2",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 3",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 4",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 5",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 6",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 7",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 8",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 9",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 10",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 11",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 12",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 13",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 14",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 15",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 16",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 17",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 18",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 19",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 20",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 21",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 22",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 23",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 24",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 25",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 26",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 27",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 28",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 29",
+    "9B1(SCN)"
+   ],
+   [
+    "SCN 30",
+    "9B1(SCN)"
+   ],
+   [
+    "NICU 1-1",
+    ""
+   ],
+   [
+    "NICU-3",
+    ""
+   ],
+   [
+    "nicu 4",
+    ""
+   ],
+   [
+    " SCN  2 ",
+    ""
+   ],
+   [
+    "SCN-2",
+    ""
+   ],
+   [
+    "scn 30",
+    ""
+   ],
+   [
+    "SCN 31",
+    "9B1(SCN)"
+   ],
+   [
+    "NICU 13",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU 0",
+    "9B2(NICU)"
+   ],
+   [
+    "iso 3",
+    "9B2(NICU)"
+   ],
+   [
+    "ISO 2-2",
+    ""
+   ],
+   [
+    "iso-1-2",
+    ""
+   ],
+   [
+    "iso 1 - 2",
+    ""
+   ],
+   [
+    "iso 9-9",
+    "9B2(NICU)"
+   ],
+   [
+    "NICU overflow",
+    ""
+   ],
+   [
+    "SCN",
+    ""
+   ],
+   [
+    "nicu1",
+    ""
+   ],
+   [
+    "NICU 1-2-3",
+    ""
+   ],
+   [
+    "OR 1",
+    ""
+   ],
+   [
+    "Ward 9B",
+    ""
+   ],
+   [
+    "PICU 1",
+    ""
+   ],
+   [
+    "",
+    ""
+   ],
+   [
+    "  ",
+    ""
+   ]
+  ],
+  "group": [
+   [
+    "NICU 1",
+    "NICU"
+   ],
+   [
+    "NICU 2",
+    "NICU"
+   ],
+   [
+    "NICU 3",
+    "NICU"
+   ],
+   [
+    "NICU 4",
+    "NICU"
+   ],
+   [
+    "NICU 5",
+    "NICU"
+   ],
+   [
+    "NICU 6",
+    "NICU"
+   ],
+   [
+    "NICU 7",
+    "NICU"
+   ],
+   [
+    "NICU 8",
+    "NICU"
+   ],
+   [
+    "NICU 9",
+    "NICU"
+   ],
+   [
+    "NICU 10",
+    "NICU"
+   ],
+   [
+    "NICU 11",
+    "NICU"
+   ],
+   [
+    "NICU 12",
+    "NICU"
+   ],
+   [
+    "iso 1-1",
+    "NICU"
+   ],
+   [
+    "iso 1-2",
+    "NICU"
+   ],
+   [
+    "iso 2-1",
+    "NICU"
+   ],
+   [
+    "iso 2-2",
+    "NICU"
+   ],
+   [
+    "iso 3-1",
+    "NICU"
+   ],
+   [
+    "iso 3-2",
+    "NICU"
+   ],
+   [
+    "iso 3-3",
+    "NICU"
+   ],
+   [
+    "iso 3-4",
+    "NICU"
+   ],
+   [
+    "SCN 1",
+    "SCN"
+   ],
+   [
+    "SCN 2",
+    "SCN"
+   ],
+   [
+    "SCN 3",
+    "SCN"
+   ],
+   [
+    "SCN 4",
+    "SCN"
+   ],
+   [
+    "SCN 5",
+    "SCN"
+   ],
+   [
+    "SCN 6",
+    "SCN"
+   ],
+   [
+    "SCN 7",
+    "SCN"
+   ],
+   [
+    "SCN 8",
+    "SCN"
+   ],
+   [
+    "SCN 9",
+    "SCN"
+   ],
+   [
+    "SCN 10",
+    "SCN"
+   ],
+   [
+    "SCN 11",
+    "SCN"
+   ],
+   [
+    "SCN 12",
+    "SCN"
+   ],
+   [
+    "SCN 13",
+    "SCN"
+   ],
+   [
+    "SCN 14",
+    "SCN"
+   ],
+   [
+    "SCN 15",
+    "SCN"
+   ],
+   [
+    "SCN 16",
+    "SCN"
+   ],
+   [
+    "SCN 17",
+    "SCN"
+   ],
+   [
+    "SCN 18",
+    "SCN"
+   ],
+   [
+    "SCN 19",
+    "SCN"
+   ],
+   [
+    "SCN 20",
+    "SCN"
+   ],
+   [
+    "SCN 21",
+    "SCN"
+   ],
+   [
+    "SCN 22",
+    "SCN"
+   ],
+   [
+    "SCN 23",
+    "SCN"
+   ],
+   [
+    "SCN 24",
+    "SCN"
+   ],
+   [
+    "SCN 25",
+    "SCN"
+   ],
+   [
+    "SCN 26",
+    "SCN"
+   ],
+   [
+    "SCN 27",
+    "SCN"
+   ],
+   [
+    "SCN 28",
+    "SCN"
+   ],
+   [
+    "SCN 29",
+    "SCN"
+   ],
+   [
+    "SCN 30",
+    "SCN"
+   ],
+   [
+    "NICU 1-1",
+    "none"
+   ],
+   [
+    "NICU-3",
+    "none"
+   ],
+   [
+    "nicu 4",
+    "none"
+   ],
+   [
+    " SCN  2 ",
+    "none"
+   ],
+   [
+    "SCN-2",
+    "none"
+   ],
+   [
+    "scn 30",
+    "none"
+   ],
+   [
+    "SCN 31",
+    "SCN"
+   ],
+   [
+    "NICU 13",
+    "NICU"
+   ],
+   [
+    "NICU 0",
+    "NICU"
+   ],
+   [
+    "iso 3",
+    "NICU"
+   ],
+   [
+    "ISO 2-2",
+    "none"
+   ],
+   [
+    "iso-1-2",
+    "none"
+   ],
+   [
+    "iso 1 - 2",
+    "none"
+   ],
+   [
+    "iso 9-9",
+    "NICU"
+   ],
+   [
+    "NICU overflow",
+    "none"
+   ],
+   [
+    "SCN",
+    "none"
+   ],
+   [
+    "nicu1",
+    "none"
+   ],
+   [
+    "NICU 1-2-3",
+    "none"
+   ],
+   [
+    "OR 1",
+    "none"
+   ],
+   [
+    "Ward 9B",
+    "none"
+   ],
+   [
+    "PICU 1",
+    "none"
+   ],
+   [
+    "",
+    "none"
+   ],
+   [
+    "  ",
+    "none"
+   ]
+  ],
+  "stickers": [
+   {
+    "name": "ทด สอบ",
+    "an": "12345/69",
+    "ward": "9B2(NICU)",
+    "sessionId": "NF-92000",
+    "orderDate": "22/11/2569",
+    "preparedDate": "22/11/2569",
+    "dol": "5",
+    "dosingWeightKg": "0.9",
+    "factor": "1.23",
+    "deliveredMl": "110",
+    "deadMl": "40",
+    "preparedMl": "150",
+    "wfiMl": "61",
+    "stock": [
+     {
+      "key": "d50w",
+      "label": "50% Dextrose",
+      "value": "38"
+     },
+     {
+      "key": "aminoven10",
+      "label": "10% Aminoven Infant",
+      "value": "37"
+     },
+     {
+      "key": "nacl20",
+      "label": "20% NaCl",
+      "value": "0.7"
+     },
+     {
+      "key": "glycophos",
+      "label": "Glycophos",
+      "value": "0.6"
+     },
+     {
+      "key": "naAcetate",
+      "label": "Na acetate",
+      "value": "0.2"
+     },
+     {
+      "key": "kcl",
+      "label": "KCl",
+      "value": "0.6"
+     },
+     {
+      "key": "mgso4_10",
+      "label": "10% MgSO4",
+      "value": "0.5"
+     },
+     {
+      "key": "caGluconate",
+      "label": "10% Ca gluconate",
+      "value": "8.2"
+     },
+     {
+      "key": "soluvit",
+      "label": "Soluvit N",
+      "value": "1.2"
+     },
+     {
+      "key": "peditrace",
+      "label": "Peditrace",
+      "value": "1.2"
+     },
+     {
+      "key": "heparin",
+      "label": "Heparin",
+      "value": "0.8"
+     }
+    ],
+    "dextrosePct": "12.5",
+    "dextroseG": "13.8",
+    "aminoAcidPct": "2.45",
+    "amino": [
+     {
+      "key": "aminoven10",
+      "label": "Aminoven Infant",
+      "value": "2.7"
+     },
+     {
+      "key": "amiparen10",
+      "label": "Amiparen",
+      "value": "0"
+     },
+     {
+      "key": "aminoplasmal15",
+      "label": "Aminoplasmal",
+      "value": "0"
+     }
+    ],
+    "delivered": [
+     {
+      "key": "naMeq",
+      "label": "Na",
+      "unit": "mEq",
+      "value": "2.3"
+     },
+     {
+      "key": "kMeq",
+      "label": "K",
+      "unit": "mEq",
+      "value": "0.9"
+     },
+     {
+      "key": "clMeq",
+      "label": "Cl",
+      "unit": "mEq",
+      "value": "2.7"
+     },
+     {
+      "key": "acetateMeq",
+      "label": "Acetate",
+      "unit": "mEq",
+      "value": "0.5"
+     },
+     {
+      "key": "caMg",
+      "label": "Ca",
+      "unit": "mg",
+      "value": "54"
+     },
+     {
+      "key": "mgMg",
+      "label": "Mg",
+      "unit": "mg",
+      "value": "3.3"
+     },
+     {
+      "key": "phosphateMg",
+      "label": "Phosphate",
+      "unit": "mg",
+      "value": "40.5"
+     },
+     {
+      "key": "znMg",
+      "label": "Zn",
+      "unit": "mg",
+      "value": "0.3"
+     },
+     {
+      "key": "soluvitMl",
+      "label": "Soluvit N",
+      "unit": "mL",
+      "value": "0.9"
+     },
+     {
+      "key": "peditraceMl",
+      "label": "Peditrace",
+      "unit": "mL",
+      "value": "0.9"
+     },
+     {
+      "key": "addamelMl",
+      "label": "Addamel N",
+      "unit": "mL",
+      "value": "0"
+     },
+     {
+      "key": "heparinUnits",
+      "label": "Heparin",
+      "unit": "unit",
+      "value": "55"
+     }
+    ],
+    "osmolarity": "856",
+    "kcal": "58",
+    "trial": false,
+    "heading": "Parenteral nutrition กลุ่มงานเภสัชกรรม โรงพยาบาลจุฬาลงกรณ์",
+    "storage": "วิธีเก็บ: เก็บในตู้เย็นได้ 7 วัน, ถ้าใส่วิตามินแล้วจะเก็บ 1 วัน",
+    "extension": "เบอร์ต่อหน่วย TPN: 73602"
+   },
+   {
+    "name": "ทด สอบ",
+    "an": "12345/69",
+    "ward": "9B2(NICU)",
+    "sessionId": "NF-92001",
+    "orderDate": "22/11/2569",
+    "preparedDate": "22/11/2569",
+    "dol": "5",
+    "dosingWeightKg": "0.9",
+    "factor": "1.23",
+    "deliveredMl": "110",
+    "deadMl": "40",
+    "preparedMl": "150",
+    "wfiMl": "61",
+    "stock": [
+     {
+      "key": "d50w",
+      "label": "50% Dextrose",
+      "value": "38"
+     },
+     {
+      "key": "aminoven10",
+      "label": "10% Aminoven Infant",
+      "value": "37"
+     },
+     {
+      "key": "nacl20",
+      "label": "20% NaCl",
+      "value": "0.7"
+     },
+     {
+      "key": "glycophos",
+      "label": "Glycophos",
+      "value": "0.6"
+     },
+     {
+      "key": "naAcetate",
+      "label": "Na acetate",
+      "value": "0.2"
+     },
+     {
+      "key": "kcl",
+      "label": "KCl",
+      "value": "0.6"
+     },
+     {
+      "key": "mgso4_10",
+      "label": "10% MgSO4",
+      "value": "0.5"
+     },
+     {
+      "key": "caGluconate",
+      "label": "10% Ca gluconate",
+      "value": "8.2"
+     },
+     {
+      "key": "soluvit",
+      "label": "Soluvit N",
+      "value": "1.2"
+     },
+     {
+      "key": "peditrace",
+      "label": "Peditrace",
+      "value": "1.2"
+     },
+     {
+      "key": "heparin",
+      "label": "Heparin",
+      "value": "0.8"
+     }
+    ],
+    "dextrosePct": "12.5",
+    "dextroseG": "13.8",
+    "aminoAcidPct": "2.45",
+    "amino": [
+     {
+      "key": "aminoven10",
+      "label": "Aminoven Infant",
+      "value": "2.7"
+     },
+     {
+      "key": "amiparen10",
+      "label": "Amiparen",
+      "value": "0"
+     },
+     {
+      "key": "aminoplasmal15",
+      "label": "Aminoplasmal",
+      "value": "0"
+     }
+    ],
+    "delivered": [
+     {
+      "key": "naMeq",
+      "label": "Na",
+      "unit": "mEq",
+      "value": "2.3"
+     },
+     {
+      "key": "kMeq",
+      "label": "K",
+      "unit": "mEq",
+      "value": "0.9"
+     },
+     {
+      "key": "clMeq",
+      "label": "Cl",
+      "unit": "mEq",
+      "value": "2.7"
+     },
+     {
+      "key": "acetateMeq",
+      "label": "Acetate",
+      "unit": "mEq",
+      "value": "0.5"
+     },
+     {
+      "key": "caMg",
+      "label": "Ca",
+      "unit": "mg",
+      "value": "54"
+     },
+     {
+      "key": "mgMg",
+      "label": "Mg",
+      "unit": "mg",
+      "value": "3.3"
+     },
+     {
+      "key": "phosphateMg",
+      "label": "Phosphate",
+      "unit": "mg",
+      "value": "40.5"
+     },
+     {
+      "key": "znMg",
+      "label": "Zn",
+      "unit": "mg",
+      "value": "0.3"
+     },
+     {
+      "key": "soluvitMl",
+      "label": "Soluvit N",
+      "unit": "mL",
+      "value": "0.9"
+     },
+     {
+      "key": "peditraceMl",
+      "label": "Peditrace",
+      "unit": "mL",
+      "value": "0.9"
+     },
+     {
+      "key": "addamelMl",
+      "label": "Addamel N",
+      "unit": "mL",
+      "value": "0"
+     },
+     {
+      "key": "heparinUnits",
+      "label": "Heparin",
+      "unit": "unit",
+      "value": "55"
+     }
+    ],
+    "osmolarity": "856",
+    "kcal": "58",
+    "trial": false,
+    "heading": "Parenteral nutrition กลุ่มงานเภสัชกรรม โรงพยาบาลจุฬาลงกรณ์",
+    "storage": "วิธีเก็บ: เก็บในตู้เย็นได้ 7 วัน, ถ้าใส่วิตามินแล้วจะเก็บ 1 วัน",
+    "extension": "เบอร์ต่อหน่วย TPN: 73602"
+   },
+   {
+    "name": "ทด สอบ",
+    "an": "12345/69",
+    "ward": "9B1(SCN)",
+    "sessionId": "NF-92002",
+    "orderDate": "22/11/2569",
+    "preparedDate": "22/11/2569",
+    "dol": "5",
+    "dosingWeightKg": "0.9",
+    "factor": "1.23",
+    "deliveredMl": "110",
+    "deadMl": "40",
+    "preparedMl": "150",
+    "wfiMl": "61",
+    "stock": [
+     {
+      "key": "d50w",
+      "label": "50% Dextrose",
+      "value": "38"
+     },
+     {
+      "key": "aminoven10",
+      "label": "10% Aminoven Infant",
+      "value": "37"
+     },
+     {
+      "key": "nacl20",
+      "label": "20% NaCl",
+      "value": "0.7"
+     },
+     {
+      "key": "glycophos",
+      "label": "Glycophos",
+      "value": "0.6"
+     },
+     {
+      "key": "naAcetate",
+      "label": "Na acetate",
+      "value": "0.2"
+     },
+     {
+      "key": "kcl",
+      "label": "KCl",
+      "value": "0.6"
+     },
+     {
+      "key": "mgso4_10",
+      "label": "10% MgSO4",
+      "value": "0.5"
+     },
+     {
+      "key": "caGluconate",
+      "label": "10% Ca gluconate",
+      "value": "8.2"
+     },
+     {
+      "key": "soluvit",
+      "label": "Soluvit N",
+      "value": "1.2"
+     },
+     {
+      "key": "peditrace",
+      "label": "Peditrace",
+      "value": "1.2"
+     },
+     {
+      "key": "heparin",
+      "label": "Heparin",
+      "value": "0.8"
+     }
+    ],
+    "dextrosePct": "12.5",
+    "dextroseG": "13.8",
+    "aminoAcidPct": "2.45",
+    "amino": [
+     {
+      "key": "aminoven10",
+      "label": "Aminoven Infant",
+      "value": "2.7"
+     },
+     {
+      "key": "amiparen10",
+      "label": "Amiparen",
+      "value": "0"
+     },
+     {
+      "key": "aminoplasmal15",
+      "label": "Aminoplasmal",
+      "value": "0"
+     }
+    ],
+    "delivered": [
+     {
+      "key": "naMeq",
+      "label": "Na",
+      "unit": "mEq",
+      "value": "2.3"
+     },
+     {
+      "key": "kMeq",
+      "label": "K",
+      "unit": "mEq",
+      "value": "0.9"
+     },
+     {
+      "key": "clMeq",
+      "label": "Cl",
+      "unit": "mEq",
+      "value": "2.7"
+     },
+     {
+      "key": "acetateMeq",
+      "label": "Acetate",
+      "unit": "mEq",
+      "value": "0.5"
+     },
+     {
+      "key": "caMg",
+      "label": "Ca",
+      "unit": "mg",
+      "value": "54"
+     },
+     {
+      "key": "mgMg",
+      "label": "Mg",
+      "unit": "mg",
+      "value": "3.3"
+     },
+     {
+      "key": "phosphateMg",
+      "label": "Phosphate",
+      "unit": "mg",
+      "value": "40.5"
+     },
+     {
+      "key": "znMg",
+      "label": "Zn",
+      "unit": "mg",
+      "value": "0.3"
+     },
+     {
+      "key": "soluvitMl",
+      "label": "Soluvit N",
+      "unit": "mL",
+      "value": "0.9"
+     },
+     {
+      "key": "peditraceMl",
+      "label": "Peditrace",
+      "unit": "mL",
+      "value": "0.9"
+     },
+     {
+      "key": "addamelMl",
+      "label": "Addamel N",
+      "unit": "mL",
+      "value": "0"
+     },
+     {
+      "key": "heparinUnits",
+      "label": "Heparin",
+      "unit": "unit",
+      "value": "55"
+     }
+    ],
+    "osmolarity": "856",
+    "kcal": "58",
+    "trial": false,
+    "heading": "Parenteral nutrition กลุ่มงานเภสัชกรรม โรงพยาบาลจุฬาลงกรณ์",
+    "storage": "วิธีเก็บ: เก็บในตู้เย็นได้ 7 วัน, ถ้าใส่วิตามินแล้วจะเก็บ 1 วัน",
+    "extension": "เบอร์ต่อหน่วย TPN: 73602"
+   }
+  ]
+ },
+ "backend": {
+  "beds": [
+   [
+    "NICU 1",
+    "NICU 1",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 2",
+    "NICU 2",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 3",
+    "NICU 3",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 4",
+    "NICU 4",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 5",
+    "NICU 5",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 6",
+    "NICU 6",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 7",
+    "NICU 7",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 8",
+    "NICU 8",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 9",
+    "NICU 9",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 10",
+    "NICU 10",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 11",
+    "NICU 11",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 12",
+    "NICU 12",
+    "NICU",
+    true
+   ],
+   [
+    "iso 1-1",
+    "iso 1-1",
+    "NICU",
+    true
+   ],
+   [
+    "iso 1-2",
+    "iso 1-2",
+    "NICU",
+    true
+   ],
+   [
+    "iso 2-1",
+    "iso 2-1",
+    "NICU",
+    true
+   ],
+   [
+    "iso 2-2",
+    "iso 2-2",
+    "NICU",
+    true
+   ],
+   [
+    "iso 3-1",
+    "iso 3-1",
+    "NICU",
+    true
+   ],
+   [
+    "iso 3-2",
+    "iso 3-2",
+    "NICU",
+    true
+   ],
+   [
+    "iso 3-3",
+    "iso 3-3",
+    "NICU",
+    true
+   ],
+   [
+    "iso 3-4",
+    "iso 3-4",
+    "NICU",
+    true
+   ],
+   [
+    "SCN 1",
+    "SCN 1",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 2",
+    "SCN 2",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 3",
+    "SCN 3",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 4",
+    "SCN 4",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 5",
+    "SCN 5",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 6",
+    "SCN 6",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 7",
+    "SCN 7",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 8",
+    "SCN 8",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 9",
+    "SCN 9",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 10",
+    "SCN 10",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 11",
+    "SCN 11",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 12",
+    "SCN 12",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 13",
+    "SCN 13",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 14",
+    "SCN 14",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 15",
+    "SCN 15",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 16",
+    "SCN 16",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 17",
+    "SCN 17",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 18",
+    "SCN 18",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 19",
+    "SCN 19",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 20",
+    "SCN 20",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 21",
+    "SCN 21",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 22",
+    "SCN 22",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 23",
+    "SCN 23",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 24",
+    "SCN 24",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 25",
+    "SCN 25",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 26",
+    "SCN 26",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 27",
+    "SCN 27",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 28",
+    "SCN 28",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 29",
+    "SCN 29",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 30",
+    "SCN 30",
+    "SCN",
+    true
+   ],
+   [
+    "NICU 1-1",
+    "NICU 1",
+    "NICU",
+    true
+   ],
+   [
+    "NICU-3",
+    "NICU 3",
+    "NICU",
+    true
+   ],
+   [
+    "nicu 4",
+    "NICU 4",
+    "NICU",
+    true
+   ],
+   [
+    " SCN  2 ",
+    "SCN 2",
+    "SCN",
+    true
+   ],
+   [
+    "SCN-2",
+    "SCN 2",
+    "SCN",
+    true
+   ],
+   [
+    "scn 30",
+    "SCN 30",
+    "SCN",
+    true
+   ],
+   [
+    "SCN 31",
+    "SCN 31",
+    "SCN",
+    true
+   ],
+   [
+    "NICU 13",
+    "NICU 13",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 0",
+    "NICU 0",
+    "NICU",
+    true
+   ],
+   [
+    "iso 3",
+    "iso 3",
+    "NICU",
+    true
+   ],
+   [
+    "ISO 2-2",
+    "iso 2-2",
+    "NICU",
+    true
+   ],
+   [
+    "iso-1-2",
+    "iso 1-2",
+    "NICU",
+    true
+   ],
+   [
+    "iso 1 - 2",
+    "iso 1-2",
+    "NICU",
+    true
+   ],
+   [
+    "iso 9-9",
+    "iso 9-9",
+    "NICU",
+    true
+   ],
+   [
+    "NICU overflow",
+    "NICU overflow",
+    "NICU",
+    false
+   ],
+   [
+    "SCN",
+    "SCN",
+    "SCN",
+    false
+   ],
+   [
+    "nicu1",
+    "NICU 1",
+    "NICU",
+    true
+   ],
+   [
+    "NICU 1-2-3",
+    "NICU 1-2-3",
+    "NICU",
+    false
+   ],
+   [
+    "OR 1",
+    "OR 1",
+    "other",
+    false
+   ],
+   [
+    "Ward 9B",
+    "Ward 9B",
+    "other",
+    false
+   ],
+   [
+    "PICU 1",
+    "PICU 1",
+    "other",
+    false
+   ],
+   [
+    "",
+    "",
+    "other",
+    false
+   ],
+   [
+    "  ",
+    "",
+    "other",
+    false
+   ],
+   [
+    null,
+    "",
+    "other",
+    false
+   ],
+   [
+    null,
+    "",
+    "other",
+    false
+   ]
+  ],
+  "parked": [
+   [
+    "NICU 1",
+    "NICU"
+   ],
+   [
+    "NICU 2",
+    "NICU"
+   ],
+   [
+    "NICU 3",
+    "NICU"
+   ],
+   [
+    "NICU 4",
+    "NICU"
+   ],
+   [
+    "NICU 5",
+    "NICU"
+   ],
+   [
+    "NICU 6",
+    "NICU"
+   ],
+   [
+    "NICU 7",
+    "NICU"
+   ],
+   [
+    "NICU 8",
+    "NICU"
+   ],
+   [
+    "NICU 9",
+    "NICU"
+   ],
+   [
+    "NICU 10",
+    "NICU"
+   ],
+   [
+    "NICU 11",
+    "NICU"
+   ],
+   [
+    "NICU 12",
+    "NICU"
+   ],
+   [
+    "iso 1-1",
+    "NICU"
+   ],
+   [
+    "iso 1-2",
+    "NICU"
+   ],
+   [
+    "iso 2-1",
+    "NICU"
+   ],
+   [
+    "iso 2-2",
+    "NICU"
+   ],
+   [
+    "iso 3-1",
+    "NICU"
+   ],
+   [
+    "iso 3-2",
+    "NICU"
+   ],
+   [
+    "iso 3-3",
+    "NICU"
+   ],
+   [
+    "iso 3-4",
+    "NICU"
+   ],
+   [
+    "SCN 1",
+    "SCN"
+   ],
+   [
+    "SCN 2",
+    "SCN"
+   ],
+   [
+    "SCN 3",
+    "SCN"
+   ],
+   [
+    "SCN 4",
+    "SCN"
+   ],
+   [
+    "SCN 5",
+    "SCN"
+   ],
+   [
+    "SCN 6",
+    "SCN"
+   ],
+   [
+    "SCN 7",
+    "SCN"
+   ],
+   [
+    "SCN 8",
+    "SCN"
+   ],
+   [
+    "SCN 9",
+    "SCN"
+   ],
+   [
+    "SCN 10",
+    "SCN"
+   ],
+   [
+    "SCN 11",
+    "SCN"
+   ],
+   [
+    "SCN 12",
+    "SCN"
+   ],
+   [
+    "SCN 13",
+    "SCN"
+   ],
+   [
+    "SCN 14",
+    "SCN"
+   ],
+   [
+    "SCN 15",
+    "SCN"
+   ],
+   [
+    "SCN 16",
+    "SCN"
+   ],
+   [
+    "SCN 17",
+    "SCN"
+   ],
+   [
+    "SCN 18",
+    "SCN"
+   ],
+   [
+    "SCN 19",
+    "SCN"
+   ],
+   [
+    "SCN 20",
+    "SCN"
+   ],
+   [
+    "SCN 21",
+    "SCN"
+   ],
+   [
+    "SCN 22",
+    "SCN"
+   ],
+   [
+    "SCN 23",
+    "SCN"
+   ],
+   [
+    "SCN 24",
+    "SCN"
+   ],
+   [
+    "SCN 25",
+    "SCN"
+   ],
+   [
+    "SCN 26",
+    "SCN"
+   ],
+   [
+    "SCN 27",
+    "SCN"
+   ],
+   [
+    "SCN 28",
+    "SCN"
+   ],
+   [
+    "SCN 29",
+    "SCN"
+   ],
+   [
+    "SCN 30",
+    "SCN"
+   ],
+   [
+    "NICU 1-1",
+    "NICU"
+   ],
+   [
+    "NICU-3",
+    "NICU"
+   ],
+   [
+    "nicu 4",
+    "NICU"
+   ],
+   [
+    " SCN  2 ",
+    "SCN"
+   ],
+   [
+    "SCN-2",
+    "SCN"
+   ],
+   [
+    "scn 30",
+    "SCN"
+   ],
+   [
+    "SCN 31",
+    "SCN"
+   ],
+   [
+    "NICU 13",
+    "NICU"
+   ],
+   [
+    "NICU 0",
+    "NICU"
+   ],
+   [
+    "iso 3",
+    "NICU"
+   ],
+   [
+    "ISO 2-2",
+    "NICU"
+   ],
+   [
+    "iso-1-2",
+    "NICU"
+   ],
+   [
+    "iso 1 - 2",
+    "NICU"
+   ],
+   [
+    "iso 9-9",
+    "NICU"
+   ],
+   [
+    "NICU overflow",
+    "NICU"
+   ],
+   [
+    "SCN",
+    "SCN"
+   ],
+   [
+    "nicu1",
+    "NICU"
+   ],
+   [
+    "NICU 1-2-3",
+    "NICU"
+   ],
+   [
+    "OR 1",
+    "other"
+   ],
+   [
+    "Ward 9B",
+    "other"
+   ],
+   [
+    "PICU 1",
+    "other"
+   ],
+   [
+    "  ",
+    "other"
+   ]
+  ],
+  "usageWards": [
+   "NICU",
+   "SCN",
+   "other"
+  ],
+  "usageTable": "NF-02 completed calculations per week (weeks start Monday, Bangkok time)\nweek      Monday       NICU   SCN other total    TPN    EN   NPO type?\n2026-W47  2026-11-16      1     2     3     6      6     0     0     0",
+  "qiWards": [
+   "NICU",
+   "SCN"
+  ],
+  "qiRows": [
+   "ALL",
+   "NICU",
+   "SCN"
+  ]
+ }
+}
