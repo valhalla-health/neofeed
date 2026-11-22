@@ -12,7 +12,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 `data.js`, `registry.jsx`, `app.jsx`, `calculator.jsx` (the dead-space hint's ward names only), `gas-backend.gs`,
 `tpn-room-core.js`, `compiled/` and the shells' `?v=` tokens, `tools/ward-table.cjs` (new), `tools/checks.json` (one
 check), `test/ward-screens.cjs`, `test/verify-ward-table.cjs`, `test/verify-newborn-unmoved-wards.cjs` and its reading
-`test/newborn-unmoved-wards.json` (new), `REFERENCE.md` § Adding a ward, `openspec/changes/paediatric-wards/tasks.md`
+`test/newborn-unmoved-wards.json` (new), `test/verify-bed-park.cjs` (§3 loads the ward table with `_normBed`),
+`REFERENCE.md` § Adding a ward, `openspec/changes/paediatric-wards/tasks.md`
 (1.1–1.5 ticked), `STATUS.md`. No dose, limit, unit, rounding, target or printed line moves; `CONSTANTS_VERSION` stays
 `2026-11-20.1`.
 
@@ -43,6 +44,13 @@ one table so that adding a ward becomes a data change.
   order moved into `DEMO 1` reached the TPN room under its own group, and both new harnesses passed with it in the
   table (they compare NICU, SCN and ทดสอบระบบ only when another ward is present). Six older harnesses that pin the
   unit as NICU and SCN alone failed with `DEMO`, as they should; `REFERENCE.md` names them for the real ward's PR.
+- **The gates on this PC.** `--phase pre`: open. `--phase sources`: every check passes except seven that fail the same
+  way on `main` `c5b9050`, run here the same afternoon: `verify-review-0917-calc.cjs` and
+  `verify-calcmoved-unstamped-1017.cjs` (two Print order lines that passed in the morning and failed in the afternoon on
+  both trees), `verify-back-button-1012.cjs`, `verify-nursing-frontend.cjs`, `verify-review-0917-sync.cjs`,
+  `verify-single-source-weight-dol.cjs` and `verify-ward-print-1012.cjs` (identical failing lines on `main`). The
+  compiled pass gives the same set; its browser sections skip here (the global Playwright 1.62 wants a Chromium
+  headless shell this PC does not have), so CI's compiled pass is the one that runs them.
 
 ## Session 2026-11-21 (2) — A guideline watch: a skill that checks the societies for new editions and audits the live code against its sources; its first run; Q28
 
