@@ -921,6 +921,41 @@ function backfillDefaultPasswords() {
   return { count: fixed.length, emails: fixed };
 }
 
+// ── Wards and beds (the ward table, 2026-11-22) ────────────────
+// data.js WARDS is the one list of wards and beds (openspec/changes/
+// paediatric-wards, design D1). Apps Script cannot load data.js, so the block
+// below is a copy that tools/ward-table.cjs writes, and a blocking check in
+// tools/checks.json fails when it differs. Everything here that names a ward
+// or a bed prefix reads it: _normBed, the TPN room's bed (PHARMACY_WARD_BED),
+// the usage ward (_usageWardGroup, USAGE_WARDS) and the QI wards
+// (QI_SUBMIT_WARDS). Until 2026-11-22 each wrote NICU and SCN out by hand.
+// ── Ward table: generated from data.js WARDS by tools/ward-table.cjs (digest f6fc6b17463b). ──
+// Do not edit: change WARDS in data.js, then run `node tools/ward-table.cjs --write` (REFERENCE.md § Adding a ward).
+var WARD_TABLE = {
+  "wards": [
+    {"key":"NICU","label":"NICU","stickerLabel":"9B2(NICU)"},
+    {"key":"SCN","label":"SCN","stickerLabel":"9B1(SCN)"}
+  ],
+  "runs": [
+    {"prefix":"NICU","ward":"NICU","rooms":false},
+    {"prefix":"iso","ward":"NICU","rooms":true},
+    {"prefix":"SCN","ward":"SCN","rooms":false}
+  ]
+};
+// ── end of the generated ward table ──
+var WARD_KEYS = WARD_TABLE.wards.map(function (w) { return w.key; });
+var WARD_BED_RUNS = WARD_TABLE.runs;
+// The run a prefix names, any case, or null.
+function _wardBedRun(prefix) {
+  var p = String(prefix || "").toLowerCase();
+  for (var i = 0; i < WARD_BED_RUNS.length; i++) if (WARD_BED_RUNS[i].prefix.toLowerCase() === p) return WARD_BED_RUNS[i];
+  return null;
+}
+var WARD_BED_PREFIXES = WARD_BED_RUNS.map(function (r) { return r.prefix; }).join("|");
+// A bed label in any of its spellings ("NICU 1-1", "nicu-3", "iso 2 - 1"), as normalizeBed reads it.
+var WARD_BED_LABEL_RE = new RegExp("^(" + WARD_BED_PREFIXES + ")\\s*-?\\s*(\\d+)(?:\\s*-\\s*(\\d+))?$", "i");
+var WARD_BED_WORD_RE = new RegExp("^(" + WARD_BED_PREFIXES + ")\\b", "i");
+
 // ── Sheet accessors ───────────────────────────────────────────
 // The header rows are also what the column-drift guard (_assertSchema) checks
 // the live tabs against — one list, so the two cannot disagree.
@@ -3370,7 +3405,12 @@ function _pharmacyDateRefusal(dateKey) {
 // blank or free-text bed either way).
 var PHARMACY_ISO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 var PHARMACY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var PHARMACY_WARD_BED = /^(NICU \d+|SCN \d+|iso \d+(-\d+)?)$/;
+// A ward bed, canonical: "<prefix> <n>" for each run of the ward table, and
+// "<prefix> <room>-<bed>" too for a two-part run (the iso rooms). Today
+// /^(NICU \d+|iso \d+(-\d+)?|SCN \d+)$/.
+var PHARMACY_WARD_BED = new RegExp("^(" + WARD_BED_RUNS.map(function (r) {
+  return r.prefix + " \\d+" + (r.rooms ? "(-\\d+)?" : "");
+}).join("|") + ")$");
 function _pharmacyTime(v) {
   var s = String(v == null ? "" : v);
   return PHARMACY_ISO_TS.test(s) ? s : "";
@@ -4373,15 +4413,16 @@ function _possibleDuplicate(data, p, seesArchive) {
 //
 // Mirrors normalizeBed() in data.js. Kept as its own small function rather
 // than shared, because Apps Script cannot import the client bundle: if the
-// canonical bed spelling ever changes, BOTH have to move.
+// canonical bed spelling ever changes, BOTH have to move. Which prefixes
+// exist, and which are two-part, is the ward table's (WARD_TABLE above).
 function _normBed(bed) {
   var s = String(bed == null ? "" : bed).trim().replace(/\s+/g, " ");
   if (!s) return "";
-  var m = s.match(/^(nicu|scn|iso)\s*-?\s*(\d+)(?:\s*-\s*(\d+))?$/i);
+  var m = s.match(WARD_BED_LABEL_RE);
   if (!m) return s;
-  var ward = m[1].toLowerCase();
-  if (ward === "iso") return m[3] ? "iso " + m[2] + "-" + m[3] : "iso " + m[2];
-  return ward.toUpperCase() + " " + m[2];
+  var run = _wardBedRun(m[1]);
+  if (run.rooms) return m[3] ? run.prefix + " " + m[2] + "-" + m[3] : run.prefix + " " + m[2];
+  return run.prefix + " " + m[2];
 }
 
 // Only a patient still on the unit holds a bed — a discharged/transferred/
@@ -5678,8 +5719,8 @@ function getUsageMetrics() {
 //   week  its ISO week cut in ward time ("2026-W44"), as text, so a Sheets
 //         pivot or QUERY groups by it with no date formula. Readers here
 //         recompute the week from ts and do not trust this column;
-//   ward  NICU | SCN | other: the ward list the infant is on at the save
-//         (patientWard in data.js), never the bed;
+//   ward  a ward key of the ward table (NICU | SCN) or other: the ward list
+//         the infant is on at the save (patientWard in data.js), never the bed;
 //   type  TPN | EN | NPO | other: the order's route family.
 // 🔴 No patient field, ever: no sessionId, entryId, bed, name, weight or date
 // of birth, and not the saver's email. No row points at an infant, so erasure
@@ -5694,7 +5735,7 @@ function getUsageMetrics() {
 // execution log.
 var USAGE_HEADERS = ["ts", "week", "ward", "type"];
 var USAGE_WIDTH = USAGE_HEADERS.length; // 4, A–D
-var USAGE_WARDS = ["NICU", "SCN", "other"];
+var USAGE_WARDS = WARD_KEYS.concat(["other"]);   // ["NICU", "SCN", "other"] today
 var USAGE_TYPES = ["TPN", "EN", "NPO", "other"];
 
 // Created on the first completed calculation, never by a read, and trimmed to
@@ -5713,12 +5754,13 @@ function getSheetUsage() {
   return sh;
 }
 
-// Mirrors wardGroup() in data.js: the iso rooms are NICU's, and no bed or a
-// free-text bed is "other". _normBed mirrors normalizeBed().
+// Mirrors wardGroup() in data.js: the ward of the bed's run, so the iso rooms
+// are NICU's, and no bed or a free-text bed is "other". _normBed mirrors
+// normalizeBed().
 function _usageWardGroup(bed) {
-  var m = _normBed(bed).match(/^(NICU|SCN|iso)\b/i);
+  var m = _normBed(bed).match(WARD_BED_WORD_RE);
   if (!m) return "other";
-  return m[1].toLowerCase() === "scn" ? "SCN" : "NICU";
+  return _wardBedRun(m[1]).ward;
 }
 // Mirrors patientWard() in data.js: the bed's ward or, while an infant is
 // parked mid-move, the ward of the last bed in bedHistory. A change to either
@@ -5858,15 +5900,18 @@ function getUsageWeekly() {
 function _usageWeeklyTable(out) {
   if (!out.weeks.length) return "NF-02: no completed calculation recorded yet (Usage_Log has no rows).";
   var col = function (v, width) { v = String(v); while (v.length < width) v = " " + v; return v; };
+  // One column per usage ward, the first set 7 wide off the date, the rest 6.
+  var wardCols = function (cell) {
+    return USAGE_WARDS.map(function (wd, i) { return col(cell(wd), i === 0 ? 7 : 6); }).join("");
+  };
   var lines = ["NF-02 completed calculations per week (weeks start Monday, Bangkok time)",
-    "week      Monday       NICU   SCN other total    TPN    EN   NPO type?"];
+    "week      Monday" + "    " + wardCols(function (wd) { return wd; }) + " total    TPN    EN   NPO type?"];
   out.weeks.forEach(function (wk) {
     var byType = USAGE_TYPES.map(function (ty) {
       return USAGE_WARDS.reduce(function (s, wd) { return s + wk.byWard[wd][ty]; }, 0);
     });
-    lines.push(wk.week + "  " + wk.weekStart + col(wk.byWard.NICU.total, 7) + col(wk.byWard.SCN.total, 6) +
-      col(wk.byWard.other.total, 6) + col(wk.total, 6) + col(byType[0], 7) + col(byType[1], 6) +
-      col(byType[2], 6) + col(byType[3], 6));
+    lines.push(wk.week + "  " + wk.weekStart + wardCols(function (wd) { return wk.byWard[wd].total; }) +
+      col(wk.total, 6) + col(byType[0], 7) + col(byType[1], 6) + col(byType[2], 6) + col(byType[3], 6));
   });
   return lines.join("\n");
 }
@@ -5897,11 +5942,11 @@ var QI_SUBMIT_CUTOFF = "14:00";      // Pp, 2026-11-18: the TPN room's cut-off
 // The first whole day on which every Submit locked its order and a change was a
 // new row: release #201 went live at 18:34 ICT on 2026-10-29.
 var QI_SUBMIT_FROM = "2026-10-30";
-// The whole-unit row ("ALL") counts these wards: the TPN room makes both. An
-// order filed under "other" (no bed, or a free-text bed) gets its own row on a
-// day it has one, outside ALL, so nothing is hidden and nothing test-like is
-// added in.
-var QI_SUBMIT_WARDS = ["NICU", "SCN"];
+// The whole-unit row ("ALL") counts these wards, every ward of the ward table:
+// the TPN room makes them all. An order filed under "other" (no bed, or a
+// free-text bed) gets its own row on a day it has one, outside ALL, so nothing
+// is hidden and nothing test-like is added in.
+var QI_SUBMIT_WARDS = WARD_KEYS.slice();   // ["NICU", "SCN"] today
 var QI_SUBMIT_HEADERS = ["date", "weekday", "ward", "tpn_orders", "first_submit", "last_submit", "last_submit_min",
   "median_submit", "after_cutoff", "cutoff", "revised", "next_day", "drafts", "no_time", "updated_at"];
 var QI_SUBMIT_WIDTH = QI_SUBMIT_HEADERS.length;   // 15, A–O
@@ -5931,7 +5976,7 @@ function _qiMidnightMs(dateKey) {
 // LEFT). The bed held at `ms` is the bed of the first hop made after it; with
 // none, the current bed, or while parked the last bed left (patientWard). A hop
 // with no `at` is taken as made at the end of its `date`. Wards as
-// _usageWardGroup: NICU (iso rooms included), SCN or other.
+// _usageWardGroup: a ward of the ward table (NICU with its iso rooms, SCN) or other.
 function _qiWardAt(patRow, ms) {
   var hops = _parseJson(patRow && patRow[15], []);
   hops = Array.isArray(hops) ? hops : [];

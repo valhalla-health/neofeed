@@ -33,6 +33,8 @@
   "checks": [
     { "id": "build-fresh", "dimension": "build-integrity", "blocking": true, "levels": ["ci"], "phases": ["pre"], "builtin": "build-fresh" },
     { "id": "html-shells-identical", "dimension": "build-integrity", "blocking": true, "levels": ["stop", "commit", "ci"], "phases": ["pre"], "builtin": "shells-identical" },
+    { "id": "ward-table-copies", "dimension": "build-integrity", "blocking": true, "levels": ["stop", "commit", "ci"], "phases": ["pre"], "cmd": ["node", "tools/ward-table.cjs"],
+      "note": "The ward table's copies in gas-backend.gs and tpn-room-core.js match data.js WARDS (openspec/changes/paediatric-wards, design D1; REFERENCE.md § Adding a ward)." },
     { "id": "ci-bans-self-test", "dimension": "privacy-and-rules", "blocking": true, "levels": ["stop", "commit", "ci"], "phases": ["pre"], "cmd": ["node", "tools/ci_bans.js", "--self-test"] },
     { "id": "ci-bans", "dimension": "privacy-and-rules", "blocking": true, "levels": ["stop", "commit", "ci"], "phases": ["pre"], "cmd": ["node", "tools/ci_bans.js"] },
 
