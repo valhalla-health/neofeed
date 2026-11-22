@@ -7,6 +7,68 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-22 — One ward table: `WARDS` in `data.js`, generated copies in the backend and the TPN room page, no ward added (paediatric-wards group 1)
+
+`data.js`, `registry.jsx`, `app.jsx`, `calculator.jsx` (the dead-space hint's ward names only), `gas-backend.gs`,
+`tpn-room-core.js`, `compiled/` and the shells' `?v=` tokens, `tools/ward-table.cjs` (new), `tools/checks.json` (one
+check), `test/ward-screens.cjs`, `test/verify-ward-table.cjs`, `test/verify-newborn-unmoved-wards.cjs` and its reading
+`test/newborn-unmoved-wards.json` (new), `test/verify-bed-park.cjs` (§3 loads the ward table with `_normBed`),
+`REFERENCE.md` § Adding a ward, `openspec/changes/paediatric-wards/tasks.md`
+(1.1–1.5 ticked), `test/review-0917-boot.cjs` (a Sunday runs as the Monday), `tryPrint` in `test/verify-calcmoved-unstamped-1017.cjs`,
+`test/verify-review-0917-calc.cjs` and `test/verify-wfi-stop-1028.cjs`, `STATUS.md`. No dose, limit, unit, rounding, target or printed line moves; `CONSTANTS_VERSION` stays
+`2026-11-20.1`.
+
+Pp, 2026-11-22: the ward and bed lists were written by hand in about twelve places across five files; they move into
+one table so that adding a ward becomes a data change.
+
+- **The table.** `WARDS` holds each ward's key, label, tile sub-label, sticker label and runs of beds (`{ prefix,
+  count }`, or `{ prefix, rooms }` for the iso rooms). `BED_OPTIONS`, `normalizeBed`, `bedWard` and `wardGroup` derive
+  from it, and so do the ward page's tiles, "TPN ทั้งหอ"'s tabs, the ward-name ternaries (`wardTitle`), the search's
+  other wards, New session's default bed, the transfer dialog's next-free buttons, the bed sort, the census and usage
+  cards and the dead-space hint. Design D1 also names `deadVolMl` and `tile`: `deadVolMl` waits for task 3.2, where
+  `defaultDeadVolFor` starts reading it, so the 30 mL is not written twice meanwhile; no `tile` field, because nothing
+  on a tile today is not already `label` or `sub`.
+- **The copies.** `gas-backend.gs` and `tpn-room-core.js` cannot load `data.js`, so each holds a block that
+  `node tools/ward-table.cjs --write` writes (keys, labels, sticker labels, runs). The backend's `_normBed` pattern,
+  `PHARMACY_WARD_BED`, `_usageWardGroup`, `USAGE_WARDS`, `QI_SUBMIT_WARDS` (and so `_qiWardAt`) and the editor's usage
+  table read it; so do the TPN room's `WARD_BED`, sticker label, ward groups and bed sort. `ward-table-copies` in
+  `tools/checks.json` (blocking, every level, pre phase) fails naming the copy that differs, or a malformed table.
+  Seen failing with one copy edited by hand, then passing once it was restored.
+- **The no-move proof.** `tools/calc-compare.cjs` against `origin/main` (`c5b9050`): no difference in 16,241 figures
+  over 100 made-up orders. `verify-newborn-unmoved-wards.cjs` compares the ward page, each ward's list, the bed picker,
+  New session's bed, the transfer dialog, "TPN ทั้งหอ", the census and usage cards, the TPN room's groups, bed order
+  and stickers, and the backend's bed, usage and QI answers with the reading taken from `c5b9050`: all equal. On dev
+  local, `main` and this branch side by side: the same ward page, NICU and SCN lists, transfer dialogs, New session
+  bed, "TPN ทั้งหอ" on all three tabs, TPN room list, and the same NICU (`9B2(NICU)`) and SCN (`9B1(SCN)`) stickers.
+- **Adding a ward** (`REFERENCE.md`): the row, `--write`, the build, the checks. Followed as written with a `DEMO`
+  ward of four beds and taken out again: the tile, tab, picker beds, transfer button and census card appeared, an
+  order moved into `DEMO 1` reached the TPN room under its own group, and both new harnesses passed with it in the
+  table (they compare NICU, SCN and ทดสอบระบบ only when another ward is present). Six older harnesses that pin the
+  unit as NICU and SCN alone failed with `DEMO`, as they should; `REFERENCE.md` names them for the real ward's PR.
+- **The gates on this PC.** `--phase pre`: open. `--phase sources`: every check passes except seven that fail the same
+  way on `main` `c5b9050`, run here the same afternoon: `verify-review-0917-calc.cjs` and
+  `verify-calcmoved-unstamped-1017.cjs` (two Print order lines that passed in the morning and failed in the afternoon on
+  both trees), `verify-back-button-1012.cjs`, `verify-nursing-frontend.cjs`, `verify-review-0917-sync.cjs`,
+  `verify-single-source-weight-dol.cjs` and `verify-ward-print-1012.cjs` (identical failing lines on `main`). The
+  compiled pass gives the same set; its browser sections skip here (the global Playwright 1.62 wants a Chromium
+  headless shell this PC does not have), so CI's compiled pass is the one that runs them.
+- **Why five harnesses went red on a Sunday.** The five that failed on `main` too all boot through
+  `test/review-0917-boot.cjs`, and 2026-11-22 is the first Sunday since 4224835 (Pp, 2026-11-16), which opens a
+  patient on the growth page every Sunday in Bangkok until that day's length and head circumference are in. The
+  harnesses open a patient and press New log on the Dashboard, which a Sunday does not show. With the clock shifted
+  and nothing else changed, `verify-single-source-weight-dol.cjs` passed on Saturday 21 Nov and Monday 23 Nov (65/65)
+  and failed on Sunday 29 Nov with the same 7 lines as today. The app is right; the boot now runs the whole process
+  on the Monday, same time of day, when the real day is a Sunday, before `TODAY` and the fixtures are built. Forward,
+  not back, so a run started late on Sunday cannot cross into another Sunday. `verify-growth-weekly-print-1116.cjs`
+  still reaches Sunday on purpose through `clock.advance`.
+- **Why two Print order lines failed at some hours.** `verify-calcmoved-unstamped-1017.cjs` (lines 3 and 8) and
+  `verify-review-0917-calc.cjs` (104 and 106) failed on this PC and on `main` at 20:15 and passed in CI. Their
+  `tryPrint` waited a fixed 10 ms, but Print waits for the release read, opens all six steps and waits two frames
+  before `window.print`: 42 ms here, with or without `fetch` (the fetch was a suspect and was ruled out). The print
+  then landed in the next `tryPrint`, so "prints" read 0 and the following "does not print" read 1. `tryPrint` in
+  those two and in `verify-wfi-stop-1028.cjs`, which had the same 10 ms, now waits for the print or a refusal toast,
+  up to 2 s. A "does not print" check with no toast now watches for 2 s instead of 10 ms.
+
 ## Session 2026-11-21 (2) — A guideline watch: a skill that checks the societies for new editions and audits the live code against its sources; its first run; Q28
 
 `.claude/skills/neofeed-guideline-watch/` (new: `SKILL.md`, `sources.md`, `audits/2026-11-21.md`), `AGENTS.md` (one

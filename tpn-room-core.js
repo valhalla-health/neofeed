@@ -33,7 +33,36 @@
   // Who to call. A blank line is left off the page, never guessed (tasks.md 2.9).
   const CONTACTS = { neofeed: "", passphrase: "", wrongOrder: "หมอผู้สั่ง" };
 
-  const WARD_BED = /^(NICU \d+|SCN \d+|iso \d+(-\d+)?)$/;
+  // The wards and beds: a copy of data.js WARDS (this page never loads data.js), written by
+  // tools/ward-table.cjs; a blocking check fails when it differs (paediatric-wards, design D1).
+  // The sticker's ward, the room's ward groups and the bed sort all read it.
+  // ── Ward table: generated from data.js WARDS by tools/ward-table.cjs (digest f6fc6b17463b). ──
+  // Do not edit: change WARDS in data.js, then run `node tools/ward-table.cjs --write` (REFERENCE.md § Adding a ward).
+  const WARD_TABLE = {
+    "wards": [
+      {"key":"NICU","label":"NICU","stickerLabel":"9B2(NICU)"},
+      {"key":"SCN","label":"SCN","stickerLabel":"9B1(SCN)"}
+    ],
+    "runs": [
+      {"prefix":"NICU","ward":"NICU","rooms":false},
+      {"prefix":"iso","ward":"NICU","rooms":true},
+      {"prefix":"SCN","ward":"SCN","rooms":false}
+    ]
+  };
+  // ── end of the generated ward table ──
+  const WARD_BED_RUNS = WARD_TABLE.runs;
+  const runOf = (prefix) => WARD_BED_RUNS.find((r) => r.prefix === prefix) || null;
+  const wardOf = (key) => WARD_TABLE.wards.find((w) => w.key === key) || null;
+  const BED_PREFIXES = WARD_BED_RUNS.map((r) => r.prefix).join("|");
+  // A ward bed as the backend sends it, canonical: "<prefix> <n>", and "<prefix> <room>-<bed>"
+  // for a two-part run (the iso rooms). The backend blanks any other bed (PHARMACY_WARD_BED).
+  const WARD_BED = new RegExp(`^(${WARD_BED_RUNS.map((r) => `${r.prefix} \\d+${r.rooms ? "(-\\d+)?" : ""}`).join("|")})$`);
+  const BED_RANK = new RegExp(`^(${BED_PREFIXES}) (\\d+)(?:-(\\d+))?$`);
+  // The ward a ward bed is in, or null for any other bed.
+  const bedWardOf = (bed) => {
+    const b = String(bed || "");
+    return WARD_BED.test(b) ? wardOf(runOf(b.split(" ")[0]).ward) : null;
+  };
   const AN_PATTERN = /^\d{5}\/\d{2}$/;
   const DAY_MS = 86400000;
   const WARD_OFFSET_MS = 7 * 3600000;
@@ -121,11 +150,12 @@
     return `${pad2(t.getUTCHours())}:${pad2(t.getUTCMinutes())}`;
   }
 
-  // ── The ward on a sticker. NICU and iso share 9B2 (Pp, 2026-10-30); SCN is 9B1, not 9B2
-  //    (TPN unit through Pp, 2026-11-19: "sticker cover bag ไป SCN เขียนว่า 9B2 ที่ถูกต้องคือ 9B1"). ──
+  // ── The ward on a sticker: the ward table's stickerLabel. NICU and iso share 9B2 (Pp,
+  //    2026-10-30); SCN is 9B1, not 9B2 (TPN unit through Pp, 2026-11-19: "sticker cover bag
+  //    ไป SCN เขียนว่า 9B2 ที่ถูกต้องคือ 9B1"). ──
   function wardLabel(bed) {
-    if (!WARD_BED.test(String(bed || ""))) return "";
-    return /^SCN /.test(bed) ? "9B1(SCN)" : "9B2(NICU)";
+    const w = bedWardOf(bed);
+    return w ? w.stickerLabel : "";
   }
 
   // A stock the bag does not get: printJson's string reads as zero ("0", "0.0"). The worksheet
@@ -137,14 +167,14 @@
 
   // ── The list is split by ward so the room sees each ward at a glance (Pp, 2026-11-14:
   //    "แยกวอร์ดให้ห้อง TPN เช่นกัน เพื่อให้ดูภาพรวมได้"). The groups are the registry's
-  //    ward gate: the iso rooms are NICU's (wardGroup in data.js), the same rule as
-  //    wardLabel above. The backend blanks a bed outside WARD_BED, so an order in neither
-  //    ward has no bed; that group shows only when it holds an order. ──
-  const WARD_GROUPS = [["NICU", "NICU"], ["SCN", "SCN"], ["none", "ไม่มีเตียง"]];
+  //    ward gate, one per ward of the table, in its order: the iso rooms are NICU's
+  //    (wardGroup in data.js), the same rule as wardLabel above. The backend blanks a bed
+  //    outside WARD_BED, so an order in no ward has no bed; that group shows only when it
+  //    holds an order. ──
+  const WARD_GROUPS = [...WARD_TABLE.wards.map((w) => [w.key, w.label]), ["none", "ไม่มีเตียง"]];
   function wardGroup(bed) {
-    const b = String(bed || "");
-    if (!WARD_BED.test(b)) return "none";
-    return /^SCN /.test(b) ? "SCN" : "NICU";
+    const w = bedWardOf(bed);
+    return w ? w.key : "none";
   }
   // Orders keep the order they come in, which currentOrders sets by bed (NICU, iso, SCN).
   function ordersByWard(orders) {
@@ -179,10 +209,11 @@
     }
     return [...best.values()].sort(byBed);
   }
+  // The run of beds in table order (NICU 0, iso 1, SCN 2), then the numbers; any other bed last.
   function bedRank(bed) {
-    const m = /^(NICU|iso|SCN) (\d+)(?:-(\d+))?$/.exec(String(bed || ""));
-    if (!m) return [3, 0, 0];
-    return [{ NICU: 0, iso: 1, SCN: 2 }[m[1]], Number(m[2]), Number(m[3] || 0)];
+    const m = BED_RANK.exec(String(bed || ""));
+    if (!m) return [WARD_BED_RUNS.length, 0, 0];
+    return [WARD_BED_RUNS.indexOf(runOf(m[1])), Number(m[2]), Number(m[3] || 0)];
   }
   function byBed(a, b) {
     const x = bedRank(a.bed), y = bedRank(b.bed);

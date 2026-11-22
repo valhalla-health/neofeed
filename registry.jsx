@@ -25,15 +25,16 @@ function RegStatMark({ tone }) {
   return <span className="reg-stat-mark" aria-hidden="true"><Icon name={name} size={16} stroke={2.2} /></span>;
 }
 
-// Ward display order: NICU beds first, then iso, then SCN, then anything
-// else/unbedded last — a plain string sort would alphabetize to iso < NICU
-// < SCN instead. Numeric ordering within a ward (NICU 2 before NICU 10,
-// iso 1-2 before iso 2-1) still comes from the numeric localeCompare below.
-const WARD_RANK = { nicu: 0, iso: 1, scn: 2 };
+// Ward display order: the ward table's runs of beds in table order (NICU,
+// then iso, then SCN), then anything else/unbedded last — a plain string sort
+// would alphabetize to iso < NICU < SCN instead. Numeric ordering within a
+// run (NICU 2 before NICU 10, iso 1-2 before iso 2-1) still comes from the
+// numeric localeCompare below.
+const WARD_RANK = Object.fromEntries(D_R.WARD_BED_RUNS.map((r, i) => [r.prefix.toLowerCase(), i]));
 const bedSort = (a, b) => {
   const bedA = a.currentBed || "zzz";
   const bedB = b.currentBed || "zzz";
-  const rank = (bed) => WARD_RANK[(bed.match(/^[a-z]+/i) || [""])[0].toLowerCase()] ?? 3;
+  const rank = (bed) => WARD_RANK[(bed.match(/^[a-z]+/i) || [""])[0].toLowerCase()] ?? D_R.WARD_BED_RUNS.length;
   return rank(bedA) - rank(bedB) ||
     bedA.localeCompare(bedB, undefined, { numeric: true, sensitivity: "base" });
 };
@@ -153,6 +154,15 @@ function multiplesLabel(p) {
   return `${term} ${p.twinSuffix}`;
 }
 
+// What a ward is called on screen: its label in the ward table (data.js
+// WARDS), and "other" (no bed, or a bed in no ward) is the test area.
+const TEST_WARD_NAME = "ทดสอบระบบ";
+function wardTitle(ward) {
+  if (ward === "other") return TEST_WARD_NAME;
+  const w = D_R.wardByKey(ward);
+  return w ? w.label : ward;
+}
+
 // ── Ward gate ────────────────────────────────────────────────
 // The first screen of the shift: pick NICU or SCN, then work that ward's
 // list. The unit runs two wards with two different censuses and two rounding
@@ -223,7 +233,8 @@ function WardGateCell({ ward, label, sub, list, log, today, onPick, onPrintList 
 }
 
 function WardGate({ patients, log, today, onPick, onPrintList }) {
-  const groups = { NICU: [], SCN: [], other: [] };
+  // One list per ward in the table, then "other" (the test area).
+  const groups = Object.fromEntries([...D_R.WARDS.map(w => [w.key, []]), ["other", []]]);
   const active = patients.filter(isActivePatient);
   active.forEach(p => groups[D_R.patientWard(p)].push(p));
   const tile = (ward) => ({ ward, list: groups[ward], log, today, onPick: () => onPick(ward), onPrintList });
@@ -243,12 +254,12 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
         </div>
       </div>
       <div className="ward-gate" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 }}>
-        <WardGateCell label="NICU" sub="NICU 1–12 · iso 1–3" {...tile("NICU")} />
-        <WardGateCell label="SCN"  sub="SCN 1–30"            {...tile("SCN")} />
+        {/* One tile per ward in the table (data.js WARDS), in its order. */}
+        {D_R.WARDS.map(w => <WardGateCell key={w.key} label={w.label} sub={w.sub} {...tile(w.key)} />)}
         {/* The test area (Pp, 2026-11-14): always shown, so anyone can try
             the app on a made-up infant; register with no bed to land here.
             No Print order: a test order is never a pharmacy order. */}
-        <WardGateCell label="ทดสอบระบบ" sub="ไม่มีเตียง · ไม่บันทึกเข้าระบบ" {...tile("other")} onPrintList={null} />
+        <WardGateCell label={TEST_WARD_NAME} sub="ไม่มีเตียง · ไม่บันทึกเข้าระบบ" {...tile("other")} onPrintList={null} />
       </div>
     </>
   );
@@ -272,7 +283,8 @@ function NoTpnTag({ p, entries }) {
 // the infant's Dashboard, as a ward-list row does. No QI figure (Pp,
 // 2026-11-14: QI stays in the back end, admin only, until the indicators are
 // chosen), so no rate over days and no run chart.
-const WARD_TPN_WARDS = [["NICU", "NICU"], ["SCN", "SCN"], ["other", "ทดสอบระบบ"]];
+// One tab per ward in the table, then the test area.
+const WARD_TPN_WARDS = [...D_R.WARDS.map(w => [w.key, w.label]), ["other", TEST_WARD_NAME]];
 const WARD_TPN_RANK = { crit: 0, warn: 1 };
 const wtpnNum = (v, dp) => (v == null ? "—" : D_R.displayNum(v, dp));
 const wtpnDayMonth = (d) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : "—");
@@ -340,7 +352,7 @@ function wtpnWho(p) {
 
 function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
   const today = D_R.useTodayLocal();
-  const [ward, setWard] = React.useState(WARD_TPN_WARDS.some(([w]) => w === openWard) ? openWard : "NICU");
+  const [ward, setWard] = React.useState(WARD_TPN_WARDS.some(([w]) => w === openWard) ? openWard : WARD_TPN_WARDS[0][0]);
   const wardName = (WARD_TPN_WARDS.find(([w]) => w === ward) || [])[1] || ward;
   const rank = (r) => WARD_TPN_RANK[r.level] ?? (r.onTpn ? 2 : 3);
   const rows = D_R.wardTpnRows(patients, log, ward, today)
@@ -538,7 +550,7 @@ function printSheetBasis(p, entries) {
 // infant's record or log changed in any way since (printSheetBasis). Past the
 // day the job was made, nothing in it prints: back to the list to start again.
 function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
-  const wardName = batch.ward === "other" ? "ทดสอบระบบ" : batch.ward;
+  const wardName = wardTitle(batch.ward);
   const sheetsRef = React.useRef(null);
   const today = D_R.useTodayLocal();
   const stillOrder = ({ item, basis }, day) => {
@@ -649,7 +661,7 @@ function WardPrintBatch({ batch, patients = [], log = {}, onBack }) {
 }
 
 function WardPrintList({ patients, log, today, ward, onBack, onPrint, onPrintAll, onOpenPatient, onShowNeeds }) {
-  const wardName = ward === "other" ? "ทดสอบระบบ" : ward;
+  const wardName = wardTitle(ward);
   const active = patients.filter(p => isActivePatient(p) && D_R.patientWard(p) === ward).sort(bedSort);
   const rows = active
     .map(p => ({ p, orders: todaysOrders(log[p.sessionId], today) }))
@@ -810,7 +822,7 @@ function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 12 }}>
           {elsewhere.map(x => (
             <button key={x.ward} type="button" className="btn sm" onClick={() => onWardChange?.(x.ward)}>
-              พบใน {x.ward === "other" ? "ทดสอบระบบ" : x.ward} {x.n} ราย · ไปดู →
+              พบใน {wardTitle(x.ward)} {x.n} ราย · ไปดู →
             </button>
           ))}
         </div>
@@ -879,7 +891,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
     onPrintList={onPrintOrder ? onPrintWard : undefined} />;
 
   const q = filter.trim();
-  const wardName = ward === "other" ? "ทดสอบระบบ" : ward;
+  const wardName = wardTitle(ward);
   // The ward this screen is about. Every count, badge and stat below is
   // scoped to it — except the bed-occupancy maps the modals build, which take
   // the full census (a bed is occupied by whoever is in it, ward gate or
@@ -967,7 +979,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
   // Asked only when this ward has no active match: which other ward does.
   // Active infants only — this is "they moved", not the archive.
   const elsewhere = q && activeSorted.length === 0
-    ? ["NICU", "SCN", "other"].filter(w => w !== ward).map(w => ({
+    ? [...D_R.WARDS.map(x => x.key), "other"].filter(w => w !== ward).map(w => ({
         ward: w,
         n: D_R.searchPatients(patients.filter(p => D_R.patientWard(p) === w && isActivePatient(p)), q).hits.length,
       })).filter(x => x.n > 0)
@@ -1755,7 +1767,8 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
   // that is someone else's.
   // Opened from the test tile, no bed: that is what makes a test patient
   // (2026-11-14), so the form must not pre-pick a real one there.
-  const [bed, setBed]           = React.useState(() => (ward === "other" ? "" : D_R.nextFreeBed(patients, "NICU")));
+  // "NICU" is the table's first run of beds (data.js WARD_BED_RUNS), from any tile.
+  const [bed, setBed]           = React.useState(() => (ward === "other" ? "" : D_R.nextFreeBed(patients, D_R.WARD_BED_RUNS[0].prefix)));
   // Who is in which bed right now. No exclusion: a session being registered
   // holds no bed yet, so every occupied bed belongs to somebody else.
   const occupancy = React.useMemo(() => D_R.bedOccupancy(patients), [patients]);
@@ -2463,10 +2476,11 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
   // The infant's own bed is not free for this: it is where they are. Until
   // 2026-09-27 it was searched with them excluded, so an infant in NICU 1 was
   // offered "NICU · NICU 1", already highlighted, a move that goes nowhere.
-  const WARDS = ["NICU", "iso", "SCN"];
+  // One button per run of beds in the ward table (NICU, iso, SCN).
+  const RUNS = D_R.WARD_BED_RUNS.map(r => r.prefix);
   const nextFree = React.useMemo(() => {
     const out = {};
-    WARDS.forEach(w => { out[w] = D_R.nextFreeBed(patients, w); });
+    RUNS.forEach(w => { out[w] = D_R.nextFreeBed(patients, w); });
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patients]);
@@ -2525,7 +2539,7 @@ function TransferBedModal({ patient, patients, onClose, onSubmit, mergeBaseFor }
           <div>
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 }}>ย้ายไปเตียงว่างถัดไป</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {WARDS.map(w => (
+              {RUNS.map(w => (
                 <button key={w} className={`btn${bed === nextFree[w] && nextFree[w] ? " primary" : ""}`}
                   style={{ fontSize: 12 }}
                   disabled={!nextFree[w]}

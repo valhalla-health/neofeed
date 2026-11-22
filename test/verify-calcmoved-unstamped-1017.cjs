@@ -83,6 +83,14 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 async function tryPrint() {
   printed = 0; const t0 = toasts.length;
   act(() => { document.dispatchEvent(new window.CustomEvent('__neofeed_print')); });
+  // Print waits for the release read (calculator.jsx releaseBeforePrint),
+  // opens all six steps and waits two frames before window.print: 42 ms on
+  // Pp's PC on 2026-11-22, with or without fetch. A fixed 10 ms let that
+  // print land in the NEXT tryPrint, so "prints" read 0 and the following
+  // "does not print" read 1. Wait for the print or a refusal toast, up to 2 s.
+  for (let ms = 0; ms < 2000 && printed === 0 && toasts.length === t0; ms += 10) {
+    await act(async () => { await sleep(10); });
+  }
   await act(async () => { await sleep(10); });
   return { printed, toasts: toasts.slice(t0).map(t => t.msg) };
 }

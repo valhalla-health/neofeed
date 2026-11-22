@@ -2567,8 +2567,7 @@ function LoginScreen({ onLogin, notice = null }) {
   ))), error && /* @__PURE__ */ React.createElement("div", { className: "login-error", style: { maxWidth: 320, width: "100%" } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true", style: { display: "inline-flex", verticalAlign: "-2px", marginRight: 6 } }, /* @__PURE__ */ React.createElement(Icon, { name: "warn", size: 15, stroke: 2.2 })), error, /บัญชีเภสัช/.test(error) && /* @__PURE__ */ React.createElement(React.Fragment, null, " ", /* @__PURE__ */ React.createElement("a", { href: "tpn-room.html" }, "เปิดหน้าห้อง TPN"))), /* @__PURE__ */ React.createElement("div", { className: "login-contact" }, /* @__PURE__ */ React.createElement("div", { className: "login-endorse" }, /* @__PURE__ */ React.createElement("span", null, "by Valhalla Health · © 2026"))), /* @__PURE__ */ React.createElement("style", null, `@keyframes spin { to { transform: rotate(360deg); } }`));
 }
 const CENSUS_WARDS = [
-  { ward: "NICU", label: "NICU" },
-  { ward: "SCN", label: "SCN" },
+  ...D_A.WARDS.map((w) => ({ ward: w.key, label: w.label })),
   { ward: "other", label: "อื่นๆ" }
 ];
 const CENSUS_WINDOW_DAYS = 7;
@@ -2576,7 +2575,7 @@ function buildCensus(patients, log, today) {
   const all = patients || [];
   const onUnit = all.filter(D_A.isOnUnit);
   const blank = () => ({ active: 0, logged: 0, needs: 0, draft: 0, parked: 0, crit: 0, warn: 0, beds: /* @__PURE__ */ new Set() });
-  const by = { NICU: blank(), SCN: blank(), other: blank() };
+  const by = Object.fromEntries(CENSUS_WARDS.map(({ ward }) => [ward, blank()]));
   const holders = /* @__PURE__ */ new Map();
   let unbedded = 0, offList = 0;
   for (const p of onUnit) {
