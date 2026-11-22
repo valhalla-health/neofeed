@@ -3107,9 +3107,67 @@ function moveGrowthRows(rows, shift, admitDolBefore, admitDolAfter) {
 }
 
 // ============================================================
+// The ward table (Pp, 2026-11-22; openspec/changes/paediatric-wards, design D1).
+// One row per ward, in the order every screen lists them: the ward page's
+// tiles, "TPN ทั้งหอ"'s tabs, the census and usage cards, the bed picker, the
+// transfer dialog's next-free buttons, the TPN room's groups and its bed sort.
+// Until 2026-11-22 each of those wrote NICU and SCN out by hand, in about
+// twelve places across five files.
+//
+//   key           what a patient's ward is called in code and in Usage_Log /
+//                 QI_SubmitTimes ("other" is taken: no bed, or a bed in no row)
+//   label, sub    the tile's two lines ("TPN ทั้งหอ" and the census use label)
+//   stickerLabel  the ward on the TPN room's bag sticker
+//   beds          runs of beds, each a prefix and either `count` (flat beds
+//                 "<prefix> 1" … "<prefix> <count>") or `rooms` (beds per room:
+//                 [2, 2, 4] is "<prefix> 1-1", "1-2", "2-1", "2-2", "3-1" … "3-4")
+//
+// It holds no clinical flag. gas-backend.gs and tpn-room-core.js cannot load
+// this file, so each keeps a copy that tools/ward-table.cjs writes, and a
+// blocking check fails when a copy differs. Adding a ward: REFERENCE.md §
+// Adding a ward.
+//
+// NICU's beds are NICU 1–12 and the isolation rooms. The iso rooms are NICU
+// rooms: they are staffed and rounded as part of NICU, so an isolated infant
+// is on NICU's list. SCN runs 1–30 (widened from 1–10 on 2026-09-15 at the
+// ward's request). Widening is safe in a way narrowing is not: every bed a
+// patient already occupies stays in the list. If a ward is ever narrowed,
+// patients above the new ceiling keep their label (BedSelect carries an
+// off-list bed as an extra option) but can no longer be re-picked, so check
+// the census first.
+// ============================================================
+const WARDS = freezeWards([
+  { key: "NICU", label: "NICU", sub: "NICU 1–12 · iso 1–3", stickerLabel: "9B2(NICU)",
+    beds: [{ prefix: "NICU", count: 12 }, { prefix: "iso", rooms: [2, 2, 4] }] },
+  { key: "SCN", label: "SCN", sub: "SCN 1–30", stickerLabel: "9B1(SCN)",
+    beds: [{ prefix: "SCN", count: 30 }] },
+]);
+function freezeWards(rows) {
+  return Object.freeze(rows.map(w => Object.freeze({
+    ...w, beds: Object.freeze(w.beds.map(r => Object.freeze({ ...r, ...(r.rooms ? { rooms: Object.freeze([...r.rooms]) } : {}) }))),
+  })));
+}
+// Every run of beds, in table order: { prefix, ward, rooms }. `rooms` is true
+// for a two-part "<room>-<bed>" label. The transfer dialog offers one button
+// per run, and the ward list and the TPN room sort beds by run.
+const WARD_BED_RUNS = Object.freeze(WARDS.flatMap(w => w.beds.map(r => Object.freeze({ prefix: r.prefix, ward: w.key, rooms: !!r.rooms }))));
+function bedRunOf(prefix) {
+  const p = String(prefix || "").toLowerCase();
+  return WARD_BED_RUNS.find(r => r.prefix.toLowerCase() === p) || null;
+}
+function wardByKey(key) {
+  return WARDS.find(w => w.key === key) || null;
+}
+// A ward's run prefixes, any case, as a regular expression alternative.
+const BED_PREFIXES = WARD_BED_RUNS.map(r => r.prefix).join("|");
+const BED_LABEL_RE = new RegExp(`^(${BED_PREFIXES})\\s*-?\\s*(\\d+)(?:\\s*-\\s*(\\d+))?$`, "i");
+const BED_WORD_RE = new RegExp(`^(${BED_PREFIXES})\\b`, "i");
+
+// ============================================================
 // Bed labels — canonical form is exactly what BED_OPTIONS below offers:
 // "NICU <n>" (1–12) and "SCN <n>" (1–30) are flat bed numbers, while the
-// isolation rooms genuinely are two-part ("iso <room>-<bed>").
+// isolation rooms genuinely are two-part ("iso <room>-<bed>"). Which prefixes
+// exist, and which are two-part, is the ward table's.
 //
 // Stored records carry non-canonical spellings that all name the same bed
 // and must not be shown verbatim:
@@ -3126,61 +3184,47 @@ function moveGrowthRows(rows, shift, admitDolBefore, admitDolAfter) {
 function normalizeBed(bed) {
   const s = String(bed ?? "").trim().replace(/\s+/g, " ");
   if (!s) return "";
-  const m = s.match(/^(nicu|scn|iso)\s*-?\s*(\d+)(?:\s*-\s*(\d+))?$/i);
+  const m = s.match(BED_LABEL_RE);
   if (!m) return s;                       // unrecognized free-text bed — leave alone
-  const ward = m[1].toLowerCase();
-  if (ward === "iso") return m[3] ? `iso ${m[2]}-${m[3]}` : `iso ${m[2]}`;
-  // NICU/SCN beds are a single number; a trailing "-<n>" is the old default's
+  const run = bedRunOf(m[1]);
+  if (run.rooms) return m[3] ? `${run.prefix} ${m[2]}-${m[3]}` : `${run.prefix} ${m[2]}`;
+  // A flat bed is a single number; a trailing "-<n>" is the old default's
   // artifact rather than a real sub-bed, so it is dropped.
-  return `${ward.toUpperCase()} ${m[2]}`;
+  return `${run.prefix} ${m[2]}`;
 }
 
-// The canonical bed list. It lives here rather than in registry.jsx because
-// three things now need it and only one of them is a dropdown: the picker,
-// the one-patient-per-bed occupancy guard, and the "next free bed" the
-// transfer modal pre-selects. registry.jsx re-exports it as its own
-// BED_OPTIONS so there is still exactly one <select> rendering it.
-//
-// SCN runs 1–30 (widened from 1–10 on 2026-09-15 at the ward's request).
-// Widening is safe in a way narrowing is not: every bed a patient already
-// occupies stays in the list. If SCN is ever narrowed again, patients parked
-// above the new ceiling keep their label — BedSelect carries an off-list bed
-// as an extra option — but they can no longer be re-picked, so check the
-// census first.
-const BED_OPTIONS = [
-  ...Array.from({ length: 12 }, (_, i) => `NICU ${i + 1}`),
-  "iso 1-1", "iso 1-2",
-  "iso 2-1", "iso 2-2",
-  "iso 3-1", "iso 3-2", "iso 3-3", "iso 3-4",
-  ...Array.from({ length: 30 }, (_, i) => `SCN ${i + 1}`),
-];
+// The canonical bed list, from the ward table. It lives here rather than in
+// registry.jsx because three things need it and only one of them is a
+// dropdown: the picker, the one-patient-per-bed occupancy guard, and the
+// "next free bed" the transfer modal pre-selects. registry.jsx reads it as
+// D_R.BED_OPTIONS so there is still exactly one <select> rendering it.
+function bedRunLabels(run) {
+  if (run.rooms) return run.rooms.flatMap((n, room) => Array.from({ length: n }, (_, b) => `${run.prefix} ${room + 1}-${b + 1}`));
+  return Array.from({ length: run.count }, (_, i) => `${run.prefix} ${i + 1}`);
+}
+const BED_OPTIONS = Object.freeze(WARDS.flatMap(w => w.beds.flatMap(bedRunLabels)));
 
-// Which ward a bed label belongs to: "NICU" | "SCN" | "iso" | "" (no bed) |
+// Which run a bed label belongs to: "NICU" | "SCN" | "iso" | "" (no bed) |
 // "other" (free-text bed from the sheet). The ward gate on the registry and
 // the next-free-bed search both group by this, so they can't disagree about
 // where a bed lives.
 function bedWard(bed) {
   const s = normalizeBed(bed);
   if (!s) return "";
-  const m = s.match(/^(NICU|SCN|iso)\b/i);
+  const m = s.match(BED_WORD_RE);
   if (!m) return "other";
-  const w = m[1].toLowerCase();
-  return w === "iso" ? "iso" : w.toUpperCase();
+  return bedRunOf(m[1]).prefix;
 }
 
-// Which of the two wards the registry's entry screen puts a patient under.
-// The isolation rooms are NICU rooms — they are staffed and rounded as part
-// of NICU, and the ward gate offers the two wards the unit actually runs, so
-// grouping iso under NICU is what keeps an isolated infant reachable from the
-// screen the team looks for them on. Everything with no bed, or a free-text
-// bed typed straight into the sheet, falls into "other" — which the gate
-// shows as its own tile whenever it is non-empty, so no patient can be made
-// unreachable by a bed label nobody recognizes.
+// Which ward the registry's entry screen puts a patient under: the table row
+// that holds the bed's run, so the iso rooms are NICU's. Everything with no
+// bed, or a free-text bed typed straight into the sheet, falls into "other",
+// the ทดสอบระบบ tile, so no patient can be made unreachable by a bed label
+// nobody recognizes.
 function wardGroup(bed) {
   const w = bedWard(bed);
-  if (w === "NICU" || w === "iso") return "NICU";
-  if (w === "SCN") return "SCN";
-  return "other";
+  const run = w && w !== "other" ? bedRunOf(w) : null;
+  return run ? run.ward : "other";
 }
 
 // NeoFeed's wards are newborn units — NICU (with its iso rooms) and SCN — so,
@@ -3916,6 +3960,8 @@ window.NEOFEED_DATA = {
   // reference at 42 weeks PMA. REGAIN_EXPECTED_BY_DOL (14) splits the
   // not-yet-above case into the expected window and a caution past it.
   growthVelocity, PMA_REFERENCE_MAX, GROWTH_VEL_TARGET, GROWTH_VEL_CRITICAL, REGAIN_EXPECTED_BY_DOL,
+  // The ward table (2026-11-22): every ward, its beds in runs, and a ward by key
+  WARDS, WARD_BED_RUNS, wardByKey,
   // Canonical bed label ("NICU 1-1"/"NICU-1" → "NICU 1"; iso keeps room-bed),
   // the one bed list, and the one-patient-per-bed occupancy helpers
   normalizeBed, BED_OPTIONS, bedWard, wardGroup, bedOccupancy, bedOccupant, bedBlocker, bedTakenMsg, nextFreeBed,

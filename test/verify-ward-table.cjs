@@ -187,7 +187,8 @@ const scenarios = {
     if (!T) return;
     const files = () => ({ 'data.js': read('data.js'), 'gas-backend.gs': read('gas-backend.gs'), 'tpn-room-core.js': read('tpn-room-core.js') });
     A.eq('4.2 both copies match data.js', T.checkSources(files()), []);
-    A.eq('4.3 --write changes nothing', T.write(files()), files());
+    const rewritten = T.write(files());
+    A.eq('4.3 --write changes nothing', Object.keys(files()).filter(f => rewritten[f] !== files()[f]), []);
     const which = (problems) => problems.map(p => p.file);
     const gas = files(); gas['gas-backend.gs'] = gas['gas-backend.gs'].replace('"9B1(SCN)"', '"9B1(scn)"');
     A.eq('4.4 the backend copy edited by hand: fails, naming gas-backend.gs', which(T.checkSources(gas)), ['gas-backend.gs']);
@@ -252,9 +253,10 @@ const scenarios = {
     A.eq('5.14 the bed picker offers FIX 1–3, FIX 2 taken', v.picker.filter(([b]) => /^FIX/.test(b)).map(([b, , dis]) => [b, dis]),
       [['FIX 1', false], ['FIX 2', true], ['FIX 3', false]]);
     A.eq('5.15 the ward page: a FIX tile with Print order, between SCN and ทดสอบระบบ',
-      v.gate.map(g => [g.tile.replace(/\d+ active.*$/, ''), !!g.print]),
-      [['NICUNICU 1–12 · iso 1–3', true], ['SCNSCN 1–30', true], ['FIXFIX 1–3', true], ['ทดสอบระบบไม่มีเตียง · ไม่บันทึกเข้าระบบ', false]]);
-    A.ok('5.16 …counting its infant', /^FIX.*1 active/.test(v.gate[2] && v.gate[2].tile));
+      v.gate.map((g, i) => [['NICUNICU 1–12 · iso 1–3', 'SCNSCN 1–30', 'FIXFIX 1–3', 'ทดสอบระบบไม่มีเตียง · ไม่บันทึกเข้าระบบ'][i], g.tile.startsWith(
+        ['NICUNICU 1–12 · iso 1–3', 'SCNSCN 1–30', 'FIXFIX 1–3', 'ทดสอบระบบไม่มีเตียง · ไม่บันทึกเข้าระบบ'][i]), !!g.print]),
+      [['NICUNICU 1–12 · iso 1–3', true, true], ['SCNSCN 1–30', true, true], ['FIXFIX 1–3', true, true], ['ทดสอบระบบไม่มีเตียง · ไม่บันทึกเข้าระบบ', true, false]]);
+    A.eq('5.16 …counting its infant', v.gate[2] && v.gate[2].tile, 'FIXFIX 1–31 active0 needs entry');
     A.eq('5.17 FIX\'s ward list is headed FIX and lists FIX 2', v.wardList.FIX && [v.wardList.FIX.head, v.wardList.FIX.beds[0]], ['FIX', 'FIX 2']);
     A.ok('5.18 the transfer dialog jumps to FIX\'s next free bed', v.transfer['NICU 1'].includes('FIX · FIX 1'));
     A.ok('5.19 "TPN ทั้งหอ" has a FIX tab, and its page lists FIX 2',

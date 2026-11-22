@@ -2781,7 +2781,7 @@ function Calculator({
       value: deadVol_mL,
       onChange: setDeadVol_mL,
       step: 1,
-      hint: `${deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"}${D.defaultDeadVolFor(patient) > 0 ? ` · NICU/SCN starts at ${D.defaultDeadVolFor(patient)}` : ""}`
+      hint: `${deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"}${D.defaultDeadVolFor(patient) > 0 ? ` · ${D.WARDS.map((w) => w.label).join("/")} starts at ${D.defaultDeadVolFor(patient)}` : ""}`
     }
   ), /* @__PURE__ */ React.createElement(PresetChips, { values: [30, 50, 100], current: deadVol_mL, onSelect: setDeadVol_mL })), /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 10px", background: "var(--bg-2)", borderRadius: 6, fontSize: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" } }, "Prepared (เตรียมจริง)"), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontWeight: 700, fontSize: 15, color: "var(--ink)" } }, fmt(calc.preparedVol, 1), " mL/day"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-3)", fontSize: 10, marginTop: 1 } }, "delivered ", fmt(totalTPN_mL, 1), " mL", deadVol_mL > 0 && totalTPN_mL > 0 ? ` + ${fmt(deadVol_mL, 1)}, ปัดขึ้นหลักสิบ` : ""))), /* @__PURE__ */ React.createElement("div", { className: "dex-gir-row", style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 10, alignItems: "start" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(
     NumField,

@@ -4026,9 +4026,9 @@ function LoginScreen({ onLogin, notice = null }) {
 //                     and deliberately NOT net of acknowledgements: those are
 //                     per device, and one device's acks say nothing about the
 //                     unit an admin is looking at
+// One card per ward in the ward table (data.js WARDS), in its order, then อื่นๆ.
 const CENSUS_WARDS = [
-  { ward: "NICU",  label: "NICU" },
-  { ward: "SCN",   label: "SCN" },
+  ...D_A.WARDS.map(w => ({ ward: w.key, label: w.label })),
   { ward: "other", label: "อื่นๆ" },
 ];
 const CENSUS_WINDOW_DAYS = 7;
@@ -4036,7 +4036,7 @@ function buildCensus(patients, log, today) {
   const all = patients || [];
   const onUnit = all.filter(D_A.isOnUnit);
   const blank = () => ({ active: 0, logged: 0, needs: 0, draft: 0, parked: 0, crit: 0, warn: 0, beds: new Set() });
-  const by = { NICU: blank(), SCN: blank(), other: blank() };
+  const by = Object.fromEntries(CENSUS_WARDS.map(({ ward }) => [ward, blank()]));
   const holders = new Map();   // canonical bed → infants on the unit recorded in it
   let unbedded = 0, offList = 0;
   for (const p of onUnit) {
