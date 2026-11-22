@@ -2746,8 +2746,8 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
                   (data.js weeklyGrowthDue). It can be put off; opening the
                   patient again asks again, until both are entered. */}
               {D_A.weeklyGrowthDue(active, role) && (() => {
-                const have = D_A.growthOnDol(active, dol);
-                const missing = [!have.length && "Length", !have.hc && "HC"].filter(Boolean).join(" และ ");
+                // A value of the last 6 days counts (data.js GROWTH_FRESH_DAYS, Pp 2026-11-22).
+                const missing = (D_A.weeklyGrowthMissing(active)?.missing || []).join(" และ ");
                 return (
                   <div className="growth-due" role="status" style={{ padding: "12px 14px", background: "var(--warn-bg)",
                     border: "1px solid var(--warn-line)", borderRadius: 10, marginBottom: 12, display: "flex",
@@ -2755,7 +2755,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
                     <span style={{ flex: "1 1 220px" }}>
                       <strong>วันอาทิตย์: วัด Length และ HC ประจำสัปดาห์</strong>
                       <span style={{ display: "block", fontSize: 12.5 }}>
-                        วันนี้ยังไม่มี {missing} ของ DOL {dol} กรอกในช่อง Length กับ HC ของหน้านี้ แล้วกด Save measurement
+                        ยังไม่มี {missing} ของสัปดาห์นี้ (วัดล่าสุดเกิน {D_A.GROWTH_FRESH_DAYS} วัน) กรอกในช่อง Length กับ HC ของหน้านี้ แล้วกด Save measurement
                       </span>
                     </span>
                     <button type="button" className="btn" style={{ minHeight: 44 }} onClick={() => goTo("log")}>ไว้ทีหลัง</button>
@@ -3108,6 +3108,10 @@ function CalculatorView({ active, dol, editEntry, logDate, log, activeId, token,
         userEmail={userEmail}
         onLog={handleLogToGAS} onUpdate={handleUpdateToGAS} onPublish={handlePublishToGAS}
         onSaved={() => goTo("log")}
+        // Sunday's length and HC hold the order (calculator.jsx growthStop): its
+        // line offers the growth page, where both are entered. Typed work stays
+        // in this user's draft (writeDraft), as on any other way out.
+        onOpenGrowth={() => goTo("fenton")}
         nursing={nursing} ordersReadOnly={ordersReadOnly}
         // N1 (stakeholder walk, 2026-11-07): a nurse saves only I/O on a doctor's order.
         nurseAccount={role === "nurse"}
