@@ -3237,6 +3237,13 @@ const OLDER_CHILD_WARDS = Object.freeze([]);
 function isNewbornUnit(patient) {
   return !OLDER_CHILD_WARDS.includes(bedWard(patient?.currentBed));
 }
+// The labels of the wards whose beds are all newborn beds, in table order: the
+// wards that start at the newborn dead space. The calculator's dead-space hint
+// names these, so a ward for older children, once in OLDER_CHILD_WARDS, drops
+// out of it (Vera, 2026-11-22).
+function newbornWardLabels() {
+  return WARDS.filter(w => w.beds.every(r => !OLDER_CHILD_WARDS.includes(r.prefix))).map(w => w.label);
+}
 
 // Which amino-acid stocks (KCMH_STOCK keys) a patient may be ordered from,
 // default first. Aminoplasmal 15% is contraindicated under 2 years by its
@@ -3934,7 +3941,7 @@ window.NEOFEED_DATA = {
   KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, GLYCO_NA_HABIT_MEQ, GLYCO_P_HABIT_MG, MEN_MAX_ML_KG, FULL_EN_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
-  OLDER_CHILD_WARDS, isNewbornUnit, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, preparedVolFor, vitaminMlPerDay,
+  OLDER_CHILD_WARDS, isNewbornUnit, newbornWardLabels, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, preparedVolFor, vitaminMlPerDay,
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.

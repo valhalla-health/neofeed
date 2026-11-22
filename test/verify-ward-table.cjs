@@ -161,6 +161,21 @@ const scenarios = {
     }
     sameFor(A, '1.12 every bed stays a newborn unit: Aminoven only, dead space 30 mL', CORPUS,
       b => [D.isNewbornUnit(p(b)), D.aaProductsFor(p(b)), D.defaultDeadVolFor(p(b))], () => [true, ['aminoven10'], 30]);
+    A.eq('1.13 the dead-space hint names NICU/SCN', typeof D.newbornWardLabels === 'function'
+      ? D.newbornWardLabels().filter(l => !EXTRA_LABELS.includes(l)) : 'no newbornWardLabels', ['NICU', 'SCN']);
+  },
+
+  async 'dead-space-hint'(A) {
+    console.log('\n── § 1b the dead-space hint names only the newborn wards (Vera, 2026-11-22) ──');
+    const src = planted()['data.js'];
+    const OLDER = 'const OLDER_CHILD_WARDS = Object.freeze([]);';
+    A.ok('1b.1 data.js has the empty OLDER_CHILD_WARDS line this test rewrites', src.includes(OLDER));
+    const labels = (s) => { const D = loadData(s); return typeof D.newbornWardLabels === 'function' ? D.newbornWardLabels() : 'no newbornWardLabels'; };
+    const asNewborn = labels(src);
+    A.ok('1b.2 the planted ward FIX, a newborn ward, is named', Array.isArray(asNewborn) && asNewborn.includes('FIX'));
+    const asOlder = labels(src.replace(OLDER, 'const OLDER_CHILD_WARDS = Object.freeze(["FIX"]);'));
+    A.ok('1b.3 FIX in OLDER_CHILD_WARDS: not named, NICU and SCN still are',
+      Array.isArray(asOlder) && !asOlder.includes('FIX') && asOlder.includes('NICU') && asOlder.includes('SCN'));
   },
 
   async 'today-backend'(A) {
