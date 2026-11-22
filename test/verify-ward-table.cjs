@@ -97,11 +97,24 @@ const OLD = (() => {
   }
   return { normalizeBed, BED_OPTIONS, bedWard, wardGroup, wardLabel, roomGroup, usageWardGroup, PHARMACY_WARD_BED: WARD_BED };
 })();
-const CORPUS = [...OLD.BED_OPTIONS, ...W.BED_VARIANTS];
+// A ward the table holds besides NICU and SCN (none today; one added by REFERENCE.md § Adding a
+// ward, or a paediatric ward from task 5.1). § 1–3 judge NICU, SCN and the beds of no ward, so
+// such a ward's own beds, rows and columns are left out of them, and adding it edits no harness.
+const EXTRA = (() => {
+  try { return (loadData(read('data.js')).WARDS || []).filter(w => !['NICU', 'SCN'].includes(w.key)); } catch (e) { return []; }
+})();
+const EXTRA_KEYS = EXTRA.map(w => w.key);
+const EXTRA_LABELS = EXTRA.map(w => w.label);
+const EXTRA_PREFIXES = EXTRA.flatMap(w => w.beds.map(r => r.prefix));
+const extraBed = (b) => typeof b === 'string' && EXTRA_PREFIXES.some(p => new RegExp(`^\\s*${p}(?![a-z])`, 'i').test(b));
+const notExtra = (k) => !EXTRA_KEYS.includes(k);
+const CORPUS = [...OLD.BED_OPTIONS, ...W.BED_VARIANTS].filter(b => !extraBed(b));
 const STR = CORPUS.filter(b => typeof b === 'string');
 const USAGE_HEADER = 'week      Monday       NICU   SCN other total    TPN    EN   NPO type?';
+if (EXTRA.length) console.log(`The table also holds ${EXTRA_KEYS.join(', ')}: its beds, rows and columns are left out of § 1–3.`);
 
-// The fixture ward: three beds, a sticker label no real ward has. Beds read "FIX 1"–"FIX 3".
+// The fixture ward: three beds, a sticker label no real ward has. Beds read "FIX 1"–"FIX 3", so
+// no real ward may use the key or the prefix FIX.
 const FIXTURE_ROW = '{ key: "FIX", label: "FIX", sub: "FIX 1–3", stickerLabel: "FIX(test)", beds: [{ prefix: "FIX", count: 3 }] },';
 function planted() {
   const T = tool();
@@ -119,12 +132,12 @@ const scenarios = {
     console.log('\n── § 1 today, data.js ──');
     const D = loadData(read('data.js'));
     A.ok('1.1 data.js has WARDS', Array.isArray(D.WARDS));
-    const rows = (D.WARDS || []).map(w => [w.key, w.label, w.sub, w.stickerLabel]);
-    A.eq('1.2 two wards, NICU then SCN, as the ward page and the sticker name them', rows,
+    const rows = (D.WARDS || []).filter(w => notExtra(w.key)).map(w => [w.key, w.label, w.sub, w.stickerLabel]);
+    A.eq('1.2 NICU then SCN, as the ward page and the sticker name them', rows,
       [['NICU', 'NICU', 'NICU 1–12 · iso 1–3', '9B2(NICU)'], ['SCN', 'SCN', 'SCN 1–30', '9B1(SCN)']]);
     A.ok('1.3 the table and its rows are frozen', Array.isArray(D.WARDS) && Object.isFrozen(D.WARDS) && D.WARDS.every(w => Object.isFrozen(w) && Object.isFrozen(w.beds)));
-    A.eq('1.4 BED_OPTIONS: NICU 1–12, the 8 iso beds, SCN 1–30, in that order', D.BED_OPTIONS, OLD.BED_OPTIONS);
-    A.eq('1.5 the runs of beds, in table order', (D.WARD_BED_RUNS || []).map(r => [r.prefix, r.ward, r.rooms]),
+    A.eq('1.4 BED_OPTIONS: NICU 1–12, the 8 iso beds, SCN 1–30, in that order', (D.BED_OPTIONS || []).filter(b => !extraBed(b)), OLD.BED_OPTIONS);
+    A.eq('1.5 the runs of beds, in table order', (D.WARD_BED_RUNS || []).filter(r => notExtra(r.ward)).map(r => [r.prefix, r.ward, r.rooms]),
       [['NICU', 'NICU', false], ['iso', 'NICU', true], ['SCN', 'SCN', false]]);
     sameFor(A, '1.6 normalizeBed', CORPUS, D.normalizeBed, OLD.normalizeBed);
     sameFor(A, '1.7 bedWard', CORPUS, D.bedWard, OLD.bedWard);
@@ -157,9 +170,10 @@ const scenarios = {
     const bad = B.beds.filter((r, i) => JSON.stringify(r) !== JSON.stringify(want[i]));
     A.eq(`2.1 _normBed, the usage ward and the bed the TPN room is sent (${CORPUS.length} labels)`, bad.slice(0, 5), []);
     A.eq('2.2 a parked infant is counted on the ward of the bed they left', B.parked.filter(([b, w]) => w !== (OLD.normalizeBed(b) ? OLD.usageWardGroup(b) : 'other')), []);
-    A.eq('2.3 USAGE_WARDS', B.usageWards, ['NICU', 'SCN', 'other']);
-    A.eq('2.4 QI_SUBMIT_WARDS', B.qiWards, ['NICU', 'SCN']);
-    A.eq('2.5 a QI day: ALL, NICU, SCN', B.qiRows, ['ALL', 'NICU', 'SCN']);
+    A.eq('2.3 USAGE_WARDS', B.usageWards.filter(notExtra), ['NICU', 'SCN', 'other']);
+    A.eq('2.4 QI_SUBMIT_WARDS', B.qiWards.filter(notExtra), ['NICU', 'SCN']);
+    A.eq('2.5 a QI day: ALL, NICU, SCN', B.qiRows.filter(notExtra), ['ALL', 'NICU', 'SCN']);
+    if (EXTRA.length) { console.log('  (2.6–2.7: the editor\'s usage table has a column per ward, so it is judged only with NICU and SCN alone)'); return; }
     A.eq('2.6 the editor\'s usage table: the same heading', B.usageTable.split('\n')[1], USAGE_HEADER);
     A.eq('2.7 …and the same columns (one week: NICU 1, SCN 2, other 3)', B.usageTable.split('\n')[2],
       '2026-W47  2026-11-16      1     2     3     6      6     0     0     0');
@@ -171,10 +185,10 @@ const scenarios = {
     sameFor(A, '3.1 the sticker\'s ward: 9B2(NICU) for NICU and iso, 9B1(SCN) for SCN, blank otherwise', STR,
       b => R.sticker.find(([x]) => x === b)[1], OLD.wardLabel);
     sameFor(A, '3.2 the room\'s ward group', STR, b => R.group.find(([x]) => x === b)[1], OLD.roomGroup);
-    A.eq('3.3 the groups, in order: NICU, SCN, then ไม่มีเตียง', R.groups.map(g => [g.key, g.label]),
+    A.eq('3.3 the groups, in order: NICU, SCN, then ไม่มีเตียง', R.groups.filter(g => notExtra(g.key)).map(g => [g.key, g.label]),
       [['NICU', 'NICU'], ['SCN', 'SCN'], ['none', 'ไม่มีเตียง']]);
     const rank = (b) => { const m = /^(NICU|iso|SCN) (\d+)(?:-(\d+))?$/.exec(String(b || '')); return m ? [{ NICU: 0, iso: 1, SCN: 2 }[m[1]], +m[2], +(m[3] || 0)] : [3, 0, 0]; };
-    const want = STR.map((bed, i) => ({ bed, id: `NF-9100${String(i).padStart(2, '0')}` }))
+    const want = STR.map((bed, i) => ({ bed, id: `NF-91${String(i).padStart(4, '0')}` }))
       .sort((a, b) => { const x = rank(a.bed), y = rank(b.bed); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return a.id.localeCompare(b.id); })
       .map(o => o.bed);
     A.eq('3.4 orders sorted by bed: NICU, iso, SCN, by number, then the rest', R.order, want);
@@ -203,10 +217,10 @@ const scenarios = {
     const bad = (row) => which(T.checkSources({ ...files(), 'data.js': T.plantWard(read('data.js'), row) }));
     A.eq('4.9 a second NICU is refused', bad('{ key: "NICU", label: "N2", sub: "x", stickerLabel: "x", beds: [{ prefix: "NN", count: 1 }] },'), ['data.js']);
     A.eq('4.10 a ward keyed "other" is refused', bad('{ key: "other", label: "O", sub: "x", stickerLabel: "x", beds: [{ prefix: "OO", count: 1 }] },'), ['data.js']);
-    A.eq('4.11 a prefix another ward has (any case) is refused', bad('{ key: "PICU", label: "PICU", sub: "x", stickerLabel: "x", beds: [{ prefix: "scn", count: 2 }] },'), ['data.js']);
-    A.eq('4.12 a prefix that is not letters is refused', bad('{ key: "PICU", label: "PICU", sub: "x", stickerLabel: "x", beds: [{ prefix: "P-1", count: 2 }] },'), ['data.js']);
-    A.eq('4.13 a ward with no bed is refused', bad('{ key: "PICU", label: "PICU", sub: "x", stickerLabel: "x", beds: [] },'), ['data.js']);
-    A.eq('4.14 a ward with no sticker label is refused', bad('{ key: "PICU", label: "PICU", sub: "x", stickerLabel: "", beds: [{ prefix: "PICU", count: 2 }] },'), ['data.js']);
+    A.eq('4.11 a prefix another ward has (any case) is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "x", beds: [{ prefix: "scn", count: 2 }] },'), ['data.js']);
+    A.eq('4.12 a prefix that is not letters is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "x", beds: [{ prefix: "P-1", count: 2 }] },'), ['data.js']);
+    A.eq('4.13 a ward with no bed is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "x", beds: [] },'), ['data.js']);
+    A.eq('4.14 a ward with no sticker label is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "", beds: [{ prefix: "PICUX", count: 2 }] },'), ['data.js']);
     const checks = JSON.parse(read('tools/checks.json')).checks;
     const c = checks.find(x => Array.isArray(x.cmd) && x.cmd.join(' ') === 'node tools/ward-table.cjs');
     A.ok('4.15 tools/checks.json runs it, blocking, at every level, in the pre phase',
@@ -217,7 +231,8 @@ const scenarios = {
     console.log('\n── § 5a a fixture ward, data.js ──');
     const D = loadData(planted()['data.js']);
     const fix = ['FIX 1', 'FIX 2', 'FIX 3'];
-    A.eq('5.1 its beds join BED_OPTIONS after SCN', D.BED_OPTIONS, [...OLD.BED_OPTIONS, ...fix]);
+    A.eq('5.1 its beds join BED_OPTIONS at the end', D.BED_OPTIONS.slice(-3), fix);
+    A.eq('5.1b …and NICU\'s and SCN\'s stay as they were', D.BED_OPTIONS.filter(b => !extraBed(b) && !fix.includes(b)), OLD.BED_OPTIONS);
     A.eq('5.2 bedWard and wardGroup name it', fix.map(b => [D.bedWard(b), D.wardGroup(b)]), fix.map(() => ['FIX', 'FIX']));
     A.eq('5.3 normalizeBed reads its old spellings', ['fix-2', 'FIX 2-1', ' fix  3 '].map(D.normalizeBed), ['FIX 2', 'FIX 2', 'FIX 3']);
     A.eq('5.4 the next free bed is its first', D.nextFreeBed([], 'FIX'), 'FIX 1');
@@ -231,16 +246,16 @@ const scenarios = {
     A.eq('5.6 the backend keeps its beds and files them under it', B.beds.slice(0, 3),
       [['FIX 2', 'FIX 2', 'FIX', true], ['fix-3', 'FIX 3', 'FIX', true], ['FIX 9', 'FIX 9', 'FIX', true]]);
     A.eq('5.7 NICU and SCN as before', B.beds.slice(3), [['NICU 1', 'NICU 1', 'NICU', true], ['SCN 1', 'SCN 1', 'SCN', true]]);
-    A.eq('5.8 a usage ward, before other', B.usageWards, ['NICU', 'SCN', 'FIX', 'other']);
-    A.eq('5.9 a QI ward: in ALL and on its own row', [B.qiWards, B.qiRows], [['NICU', 'SCN', 'FIX'], ['ALL', 'NICU', 'SCN', 'FIX']]);
-    A.ok('5.10 a column in the editor\'s usage table', /NICU +SCN +FIX +other total/.test(B.usageTable.split('\n')[1]));
+    A.eq('5.8 a usage ward, before other', B.usageWards.filter(notExtra), ['NICU', 'SCN', 'FIX', 'other']);
+    A.eq('5.9 a QI ward: in ALL and on its own row', [B.qiWards.filter(notExtra), B.qiRows.filter(notExtra)], [['NICU', 'SCN', 'FIX'], ['ALL', 'NICU', 'SCN', 'FIX']]);
+    A.ok('5.10 a column in the editor\'s usage table', /NICU +SCN +(.* )?FIX +other total/.test(B.usageTable.split('\n')[1]));
   },
 
   async 'fixture-room'(A) {
     console.log('\n── § 5c a fixture ward, tpn-room-core.js ──');
     const R = W.roomView(planted()['tpn-room-core.js'], ['FIX 3', 'SCN 2', 'FIX 1', 'NICU 1', 'OR 1']);
     A.eq('5.11 its sticker label', R.sticker, [['FIX 3', 'FIX(test)'], ['SCN 2', '9B1(SCN)'], ['FIX 1', 'FIX(test)'], ['NICU 1', '9B2(NICU)'], ['OR 1', '']]);
-    A.eq('5.12 its own group on the room\'s list, after SCN', R.groups.map(g => [g.key, g.label, g.submitted.length + g.drafts.length]),
+    A.eq('5.12 its own group on the room\'s list, after SCN', R.groups.filter(g => notExtra(g.key)).map(g => [g.key, g.label, g.submitted.length + g.drafts.length]),
       [['NICU', 'NICU', 1], ['SCN', 'SCN', 1], ['FIX', 'FIX', 2], ['none', 'ไม่มีเตียง', 1]]);
     A.eq('5.13 its orders sorted after SCN\'s', R.order, ['NICU 1', 'SCN 2', 'FIX 1', 'FIX 3', 'OR 1']);
   },
@@ -252,19 +267,21 @@ const scenarios = {
     const v = await W.screenViews(m, { extraBeds: ['FIX 2'] });
     A.eq('5.14 the bed picker offers FIX 1–3, FIX 2 taken', v.picker.filter(([b]) => /^FIX/.test(b)).map(([b, , dis]) => [b, dis]),
       [['FIX 1', false], ['FIX 2', true], ['FIX 3', false]]);
-    A.eq('5.15 the ward page: a FIX tile with Print order, between SCN and ทดสอบระบบ',
-      v.gate.map((g, i) => [['NICUNICU 1–12 · iso 1–3', 'SCNSCN 1–30', 'FIXFIX 1–3', 'ทดสอบระบบไม่มีเตียง · ไม่บันทึกเข้าระบบ'][i], g.tile.startsWith(
-        ['NICUNICU 1–12 · iso 1–3', 'SCNSCN 1–30', 'FIXFIX 1–3', 'ทดสอบระบบไม่มีเตียง · ไม่บันทึกเข้าระบบ'][i]), !!g.print]),
-      [['NICUNICU 1–12 · iso 1–3', true, true], ['SCNSCN 1–30', true, true], ['FIXFIX 1–3', true, true], ['ทดสอบระบบไม่มีเตียง · ไม่บันทึกเข้าระบบ', true, false]]);
-    A.eq('5.16 …counting its infant', v.gate[2] && v.gate[2].tile, 'FIXFIX 1–31 active0 needs entry');
+    const TILES = ['NICUNICU 1–12 · iso 1–3', 'SCNSCN 1–30', 'FIXFIX 1–3', 'ทดสอบระบบไม่มีเตียง · ไม่บันทึกเข้าระบบ'];
+    const gate = v.gate.filter(g => !EXTRA_LABELS.some(l => g.tile.startsWith(l)));
+    A.eq('5.15 the ward page: a FIX tile with Print order, after SCN, before ทดสอบระบบ',
+      gate.map((g, i) => [TILES[i], g.tile.startsWith(TILES[i]), !!g.print]),
+      TILES.map((t, i) => [t, true, i < 3]));
+    A.eq('5.16 …counting its infant', (gate[2] || {}).tile, 'FIXFIX 1–31 active0 needs entry');
     A.eq('5.17 FIX\'s ward list is headed FIX and lists FIX 2', v.wardList.FIX && [v.wardList.FIX.head, v.wardList.FIX.beds[0]], ['FIX', 'FIX 2']);
     A.ok('5.18 the transfer dialog jumps to FIX\'s next free bed', v.transfer['NICU 1'].includes('FIX · FIX 1'));
     A.ok('5.19 "TPN ทั้งหอ" has a FIX tab, and its page lists FIX 2',
-      /^TPN ทั้งหอ · FIX/.test(v.wardTpn.FIX || '') && /NICUSCNFIXทดสอบระบบ/.test(v.wardTpn.FIX) && /FIX 2/.test(v.wardTpn.FIX));
+      !!v.wardTpn.FIX && /^TPN ทั้งหอ · FIX/.test(v.wardTpn.FIX.page) && /FIX 2/.test(v.wardTpn.FIX.page) &&
+      v.wardTpn.FIX.tabs.filter(t => !EXTRA_LABELS.includes(t)).join('|') === 'NICU|SCN|FIX|ทดสอบระบบ');
     const fixCensus = v.census.wards.find(w => w.ward === 'FIX');
     A.eq('5.20 a census card: FIX, 3 beds, 1 held, 1 infant', fixCensus && [fixCensus.label, fixCensus.capacity, fixCensus.occupied, fixCensus.active], ['FIX', 3, 1, 1]);
-    A.eq('5.21 …and the unit counts 53 beds', v.census.total.capacity, 53);
-    A.eq('5.22 the usage chart has a FIX card, after SCN', v.usage.map(u => u.ward), ['NICU', 'SCN', 'FIX']);
+    A.eq('5.21 …and the unit counts 3 more beds', v.census.total.capacity, loadData(read('data.js')).BED_OPTIONS.length + 3);
+    A.eq('5.22 the usage chart has a FIX card, after SCN', v.usage.map(u => u.ward).filter(notExtra), ['NICU', 'SCN', 'FIX']);
     A.eq('5.23 New session still starts on the next free NICU bed', v.newSessionBed.FIX, 'NICU 2');
   },
 };

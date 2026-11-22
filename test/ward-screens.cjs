@@ -64,12 +64,15 @@ function wardLog(today, P) {
   });
   return log;
 }
+// A small number from a string, so a ward's or a bed's made-up figures do not move when
+// another ward joins the table.
+const seedOf = (s) => [...String(s)].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 997, 7);
 // The admin usage chart's reply: two weeks, every ward on the list given.
 function usageReply(wards) {
   const cell = (n) => ({ total: n, TPN: n, EN: 0, NPO: 0, other: 0 });
   return ['2026-11-09', '2026-11-16'].map((weekStart, i) => ({
     week: '2026-W' + (46 + i), weekStart, total: 0,
-    byWard: Object.fromEntries(wards.map((w, j) => [w, cell(w === 'other' ? 0 : 2 + i + j)])),
+    byWard: Object.fromEntries(wards.map(w => [w, cell(w === 'other' ? 0 : 2 + i + seedOf(w) % 5)])),
   }));
 }
 
@@ -197,7 +200,12 @@ async function screenViews(m, { extraBeds = [] } = {}) {
   v.wardTpn = {};
   for (const k of keys) {
     await render(h(G.WardTpnPage, { patients: P, log: LOG, ward: k, onSelect: noop }));
-    v.wardTpn[k] = norm(probe().querySelector('.wtpn'));
+    // The tabs apart from the page, so a reading can leave one ward's tab out.
+    const page = probe().querySelector('.wtpn').cloneNode(true);
+    const seg = page.querySelector('.seg');
+    const tabs = seg ? [...seg.querySelectorAll('button')].map(norm) : [];
+    if (seg) seg.remove();
+    v.wardTpn[k] = { tabs, page: norm(page) };
   }
 
   const c = G.buildCensus(P, LOG, today);
@@ -227,8 +235,8 @@ function loadCore(src) {
 }
 function roomView(coreSrc, beds) {
   const Core = loadCore(coreSrc);
-  const orders = beds.map((bed, i) => ({ sessionId: `NF-9100${String(i).padStart(2, '0')}`, revision: 1, bed,
-    status: i % 3 === 2 ? 'draft' : 'submitted' }));
+  const orders = beds.map((bed, i) => ({ sessionId: `NF-91${String(i).padStart(4, '0')}`, revision: 1, bed,
+    status: seedOf(bed) % 3 === 2 ? 'draft' : 'submitted' }));
   const groups = Core.ordersByWard(Core.currentOrders(orders)).map(g => ({
     key: g.key, label: g.label, submitted: g.submitted.map(o => o.bed), drafts: g.drafts.map(o => o.bed),
   }));
@@ -262,5 +270,5 @@ function backendView(gasSrc, beds) {
   };
 }
 
-module.exports = { ROOT, FIXED_NOW, BED_VARIANTS, addDays, norm, patients, wardLog, usageReply, mount, screenViews,
+module.exports = { ROOT, FIXED_NOW, BED_VARIANTS, addDays, norm, seedOf, patients, wardLog, usageReply, mount, screenViews,
   loadCore, roomView, backendView, wardKeys };
