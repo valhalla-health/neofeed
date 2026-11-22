@@ -13,8 +13,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 `weeklyGrowthDue` reads the new window), `calculator.jsx` (the gate, stop `CR-GROWTH-WEEKLY`, the save-panel line),
 `app.jsx` (the growth-page link, and the growth page's banner reads the window), `compiled/` and the shells' `?v=`
 tokens, `.claude/skills/neofeed-clinical-rules/SKILL.md` (`CR-GROWTH-WEEKLY`), `test/verify-growth-gate-1122.cjs`
-(new), `STATUS.md`. No dose, limit, unit, rounding, target or printed line moves; `CONSTANTS_VERSION` stays
-`2026-11-20.1`. `gas-backend.gs` is unchanged: no backend deploy.
+(new), `tools/reference-tabs.json` (the unit of `GROWTH_FRESH_DAYS`), `STATUS.md`. No dose, limit, unit, rounding,
+target or printed line moves; `CONSTANTS_VERSION` stays `2026-11-20.1`. `gas-backend.gs` is unchanged: no backend deploy.
 
 Pp, 2026-11-22: "แก้ไขให้หมอยังต้องไปกรอก HC and length weekly ด้วย ยังไงก็ได้ ถ้าไม่กรอก submit และพิมพ์ ไม่ได้".
 Since 4224835 a Sunday opens the patient on the growth page, but "ไว้ทีหลัง" puts it off, so values still went
@@ -37,10 +37,12 @@ unrecorded.
   `submitStops`, so `gas-backend.gs` refuses a submitted row that carries it, and a tab behind the release is already
   refused by the release check. A tab that bypasses both is not caught; the backend cannot see the 6-day window
   without its own copy of the rule.
-- **Tests.** `verify-growth-gate-1122.cjs` (7 scenarios, 61 checks) runs on a Sunday reached with `clock.advance`:
+- **Tests.** `verify-growth-gate-1122.cjs` (7 scenarios, 62 checks) runs on a Sunday reached with `clock.advance`:
   the window, Print held and why, the Saturday admission, last Sunday's values, Submit with no reason, with a reason,
   with the values entered through the line's button, a Monday, and Saturday's order. `verify-clinical-rules.cjs`
-  runs the new rule's 15 cases.
+  runs the new rule's 15 cases. Dev local on the real Sunday of 2026-11-22: AA's order held from the print list and
+  from Print order, Cancel refused, the line's button to the growth page, both values saved, then it printed; CC
+  submitted with a reason, then printed, the reason on the page and not on the sheet.
 
 ## Session 2026-11-22 — One ward table: `WARDS` in `data.js`, generated copies in the backend and the TPN room page, no ward added (paediatric-wards group 1)
 
