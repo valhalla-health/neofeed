@@ -4983,7 +4983,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             {/* Sunday's length and HC (growthStop): held, or the reason given. */}
             {growthNeed && (growthHeldForPrint && !growthSkipShown ? (
               <div className="growth-gate" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
-                วันอาทิตย์ยังไม่มี {growthMissingText} — {nurseAccount && !ordersReadOnly ? "พิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart"
+                วันอาทิตย์ยังไม่มี {growthMissingText} — {nurseAccount ? "พิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart"
                   : "Submit และพิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart หรือระบุเหตุผลที่วัดไม่ได้ตอนกด Submit"}
                 {onOpenGrowth && (
                   <div style={{ marginTop: 4 }}>

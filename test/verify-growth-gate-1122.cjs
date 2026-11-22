@@ -24,6 +24,10 @@
 //   older     Saturday's order reprinted on the Sunday is not held
 //   printall  Print ทั้งหมด leaves the held orders out and lists why
 //   nurse     a nurse's I/O Submit is not asked and sends no stop; her Print is held
+//   nurse-ro  with the nursing switch on (a nurse's orders read-only), her line has
+//             no Submit wording and her Print is held (Vera's second review)
+//   new       a brand-new Sunday order submitted with a reason: logDailyNutrition
+//             carries it and no stop (Vera's second review)
 //   revision  a reason on a locked order: one prompt, the stored critical-value
 //             reason kept, revision 2, and the line says to phone the TPN room
 //             (Pp, after Vera: "ฉบับใหม่ + บอกให้โทร")
@@ -78,7 +82,7 @@ function ward(day) {
 
 const NURSE = { name: 'Nurse N', role: 'nurse', email: 'n@test.th', token: 'tok-nurse-abcdefg', authMethod: 'password' };
 
-async function setup({ offset = toSunday9(), prompt = () => null, logFor = null, session } = {}) {
+async function setup({ offset = toSunday9(), prompt = () => null, logFor = null, session, nursingOn = false } = {}) {
   const day = bkkDate(Date.now() + offset);
   const { patients, log } = ward(day);
   if (logFor) Object.assign(log, logFor(day));
@@ -89,6 +93,8 @@ async function setup({ offset = toSunday9(), prompt = () => null, logFor = null,
   t.window.print = () => { t.printed++; };
   t.asked = [];
   t.window.prompt = (msg) => { t.asked.push(String(msg)); return prompt(String(msg)); };
+  // The backend's nursing switch: the sync payload carries a `nursing` map (app.jsx nursingLive).
+  if (nursingOn) t.server.hooks.getActivePatients = () => ({ after: (data) => { data.nursing = {}; } });
   t.clock.advance(offset);
   await t.start();
   const doc = t.window.document;
@@ -323,5 +329,46 @@ runScenarios(__filename, 'GROWTH GATE ON THE TPN ORDER (2026-11-22)', {
     A.eq('the save keeps the confirmed critical reason', ci.critOverride?.reason, 'hypokalaemia');
     A.eq('…carries the growth reason', ci.growthSkip?.reason, 'on HFOV');
     A.eq('…and is revision 2', ci.orderRev, 2);
+  },
+
+  async 'nurse-ro'(A) {
+    console.log('\n── a nurse on a Sunday, the nursing switch on ──');
+    const t = await setup({ session: NURSE, nursingOn: true });
+    await t.openFromList('AA');
+    A.eq('(her account has no Submit)', t.btn(/^\s*Submit\s*$/) || null, null);
+    A.eq('her print of AA does not go', t.printed, 0);
+    A.ok('her line says where to enter the values, with no Submit wording',
+      /พิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart/.test(t.gateLine()?.textContent || '') && !/Submit/.test(t.gateLine()?.textContent || ''),
+      t.gateLine()?.textContent);
+  },
+
+  async 'new'(A) {
+    console.log('\n── a Sunday: a new order, submitted with a reason ──');
+    // AA has no order yet today.
+    const t = await setup({ prompt: () => 'on HFOV', logFor: () => ({ 'AA-1': [] }) });
+    const doc = t.window.document;
+    await t.pickWard('NICU');
+    await t.openPatientRow(/AA/);
+    await t.click(t.btn(/ไว้ทีหลัง/));
+    await t.click(t.btn(/New log/));
+    await t.click(t.btn(/ดำเนินการต่อ/));      // the date modal: today
+    await t.settle();
+    const field = (label) => {
+      const f = [...doc.querySelectorAll('.field')].find(d => (d.querySelector('label')?.textContent || '').startsWith(label));
+      return f?.querySelector('input') || [...doc.querySelectorAll('.salt-row-grid')]
+        .find(d => d.firstElementChild?.firstElementChild?.textContent.startsWith(label))?.querySelector('input') || null;
+    };
+    await t.click([...doc.querySelectorAll('.step2-ctrl .seg button')].find(b => b.textContent.trim() === 'Central'));
+    const fill = [['Current weight', 900], ['Target fluid', 150], ['Other IV', 0], ['Drug volume', 0], ['Input', 0],
+      ['Urine output', 0], ['Drain content', 0], ['Volume(mL/day)', 110], ['Dextrose final', 10], ['Amino acid', 3], ['20% lipid', 2]];
+    for (const [label, v] of fill) await t.typeInto(field(label), v);
+    A.ok('(the line is on the new order too)', !!t.gateLine());
+    await t.submit();
+    A.eq('one prompt, the growth one', [t.asked.length, /วันอาทิตย์: ยังไม่มี/.test(t.asked[0] || '')], [1, true]);
+    const logs = t.callsOf('logDailyNutrition');
+    A.eq('one new row went', logs.length, 1);
+    const ci = logs[0]?.entry?.calcInput || {};
+    A.eq('…carrying the reason for today\'s DOL', [ci.growthSkip?.reason, ci.growthSkip?.dol], ['on HFOV', 10]);
+    A.ok('…without the stop', Array.isArray(ci.stops) && !ci.stops.includes('CR-GROWTH-WEEKLY'), ci.stops);
   },
 });

@@ -7,6 +7,21 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-22 (4) — Vera's second run on the Sunday growth gate: a read-only nurse's wording, a new order's reason
+
+`calculator.jsx`, `compiled/calculator.js` and the shells' `?v=` tokens, `test/verify-growth-gate-1122.cjs`.
+
+Vera's second run on the whole diff returned NO BLOCK with one 🟡: with the nursing switch on, a nurse's account is
+`ordersReadOnly` and has no Submit button, yet her line told her to give a reason at Submit. The line now picks the
+nurse wording on `nurseAccount` alone. Her two proposed tests are in: `nurse-ro` (the switch on through the sync
+payload's `nursing` map: no Submit, no print, no Submit wording) and `new` (a brand-new Sunday order submitted with a
+reason: one prompt, one `logDailyNutrition` row carrying `growthSkip` and no `CR-GROWTH-WEEKLY`).
+`verify-growth-gate-1122.cjs`: 12 scenarios, 91 checks, all passing.
+
+She also noted, as not a finding, that the TPN room's page prints the backend's rows and does not run this gate: an
+order dated Sunday but submitted on Saturday still reaches the room on Sunday. That follows Pp's choice of the app
+plus a stop ID with no backend check; the gate holds the ward's copy.
+
 ## Session 2026-11-22 (3) — Vera on the Sunday growth gate: the reason-only revision, older children's wards, the reason's day; harnesses on a real Sunday
 
 `calculator.jsx`, `data.js`, `compiled/` and the shells' `?v=` tokens, `.claude/skills/neofeed-clinical-rules/SKILL.md`,
