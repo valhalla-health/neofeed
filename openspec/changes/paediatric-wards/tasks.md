@@ -28,25 +28,25 @@ diff touches a dose file, auth or patient data, and the newborn no-move result (
 
 ## 1. Ward table (no ward added)
 
-- [ ] 1.1 Write `test/verify-ward-table.cjs` first: the table yields today's `BED_OPTIONS` in order
+- [x] 1.1 Write `test/verify-ward-table.cjs` first: the table yields today's `BED_OPTIONS` in order
       and today's `bedWard`, `wardGroup`, `normalizeBed`, next-free-bed and sticker-label answers for
       every bed; a fixture ward of three beds appears in the picker, gate, transfer dialog, "TPN
       ทั้งหอ", census and usage report. Red against `main`.
-- [ ] 1.2 Add `WARDS` to `data.js` and derive from it every frontend place design § Context lists
+- [x] 1.2 Add `WARDS` to `data.js` and derive from it every frontend place design § Context lists
       (`data.js`, `registry.jsx` incl. the transfer dialog, default bed and ward-name ternaries,
       `app.jsx` census, the dead-space hint in `calculator.jsx`); rebuild `compiled/`. Verify 1.1
       passes and `node tools/run_checks.js --level ci --phase sources` is green.
-- [ ] 1.3 Generate the backend's and `tpn-room-core.js`'s copies from `data.js`; replace
+- [x] 1.3 Generate the backend's and `tpn-room-core.js`'s copies from `data.js`; replace
       `PHARMACY_WARD_BED`, `_normBed`'s pattern, `USAGE_WARDS`, `_usageWardGroup`, `QI_SUBMIT_WARDS`,
       `_qiWardAt`, `WARD_BED`, `WARD_GROUPS`, the sticker label and the bed sort; add the digest check
       to `tools/checks.json` as blocking. Verify by editing one copy and seeing the check fail, and
       that `grep -nE "NICU|SCN" ` over the seven files leaves only the table, comments and UI text
       listed in the PR.
-- [ ] 1.4 Newborn no-move: `tools/calc-compare.cjs` against `main` shows zero differences, and a new
+- [x] 1.4 Newborn no-move: `tools/calc-compare.cjs` against `main` shows zero differences, and a new
       `test/verify-newborn-unmoved-wards.cjs` compares the ward page, bed picker, transfer dialog,
       "TPN ทั้งหอ", census, usage report, sticker and TPN room page for NICU, SCN and ทดสอบระบบ.
       Seen on dev local.
-- [ ] 1.5 `REFERENCE.md` gets "Adding a ward" (the table row, the generated copies, the checks).
+- [x] 1.5 `REFERENCE.md` gets "Adding a ward" (the table row, the generated copies, the checks).
       Verify the steps by adding and removing the fixture ward as written.
 
 ## 2. Ward-scoped access

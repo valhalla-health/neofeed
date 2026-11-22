@@ -229,6 +229,53 @@ Preterm is GA below `PRETERM_GA_WK` (37) weeks (Pp, 2026-11-15, as QI decision 6
 as preterm and takes the 120 line, so a missing GA never hides a flag. Counted EN leaves out a MEN feed (`CR-U-MEN`).
 Every number on the page reads `data.js`.
 
+## Adding a ward (2026-11-22)
+
+The wards and their beds are one table, `WARDS` in `data.js` (`openspec/changes/paediatric-wards`, design D1). The
+ward page's tiles, "TPN ทั้งหอ"'s tabs, the bed picker, New session's default bed, the transfer dialog's next-free
+buttons, the census and usage cards, the backend's bed check and its usage and QI wards, and the TPN room's ward
+groups, bed sort and sticker label all read it. Until 2026-11-22 each wrote NICU and SCN out by hand. A ward added to
+the table is a data change: one row, two generated copies, and no other edit.
+
+**Not for a real ward yet.** Every ward in the table is a newborn unit until a rule set is chosen by age (tasks.md
+group 3): it is offered Aminoven only and starts at the newborn 30 mL dead space. Access is not limited by ward yet
+either (group 2). A paediatric ward's row lands with its rule set (group 5), on Pp's word. Until then, add a ward only
+to try the steps, on dev local or in a harness, and take it out again.
+
+1. **The row.** Add one line to `WARDS`, in the place the ward should be listed (table order is screen order;
+   ทดสอบระบบ always comes last):
+   ```js
+   { key: "DEMO", label: "DEMO", sub: "DEMO 1–4", stickerLabel: "DEMO(ทดลอง)", beds: [{ prefix: "DEMO", count: 4 }] },
+   ```
+   - `key`: letters and digits, not `other`, `none`, `ALL` or `total`. It is written into `Usage_Log` and
+     `QI_SubmitTimes`, so a ward keeps its key. `FIX` is the harnesses' own fixture ward; do not use it.
+   - `label` names the tile, the tab and the census card; `sub` is the tile's second line, the bed range.
+   - `stickerLabel` is the ward as the TPN room's bag sticker prints it. A real ward's comes from the TPN room (gate 0.6).
+   - `beds` is a list of runs, each `{ prefix, count }` (`DEMO 1` … `DEMO 4`) or `{ prefix, rooms }`, beds per
+     room (`{ prefix: "iso", rooms: [2, 2, 4] }` is `iso 1-1` … `iso 3-4`). A prefix is letters only and no other
+     run's, in any case. Before a real ward: a bed already in the sheet that the new prefix matches (a free-text
+     `DEMO 9`) moves from ทดสอบระบบ to the new ward; the census's off-list count shows it.
+2. **The copies.** `node tools/ward-table.cjs --write` rewrites the marked block in `gas-backend.gs` and
+   `tpn-room-core.js`. Never edit either block by hand.
+3. **The build.** `node tools/build.mjs`: `data.js` and `tpn-room-core.js` sit under `?v=` tokens in both shells and
+   `tpn-room.html`. Commit the row, both copies and the build together.
+4. **The checks.**
+   - `node tools/ward-table.cjs`: both copies match `data.js`, and the table is well formed (a second key, a reserved
+     key, a prefix another run has, a ward with no bed or no sticker label is refused). It is `ward-table-copies` in
+     `tools/checks.json`, blocking, at every level.
+   - `node test/verify-ward-table.cjs`: NICU and SCN answer as before for every bed and spelling, and its own fixture
+     ward (`FIX`, three beds) reaches every screen, the backend and the TPN room. A ward of yours is left out of its
+     NICU/SCN sections, so adding one edits no harness.
+   - `node test/verify-newborn-unmoved-wards.cjs`: NICU's, SCN's and ทดสอบระบบ's screens read as on `main` before the
+     table (`test/newborn-unmoved-wards.json`). With another ward in the table it cuts both readings to those three
+     and leaves out the two sums over every ward (the unit's census total, the editor's usage table).
+   - `node tools/run_checks.js --level ci --phase sources` before the PR, as always.
+5. **On dev local.** Restart `node tools/dev-local.mjs` after the copies change (it runs `gas-backend.gs`): the new
+   tile, its tab on "TPN ทั้งหอ", its beds in the picker and its button in the transfer dialog are there, and an
+   order from one of its beds reaches `/tpn-room.html` under its own group with its sticker label.
+6. **Taking it out** is the same steps backwards: delete the row, `--write`, build, checks. A patient still in one of
+   its beds moves to ทดสอบระบบ, so move them first.
+
 ## Pre-PR review (Vera)
 
 Before you open or update a PR whose diff touches a dose file (`data.js`, `calculator.jsx`,

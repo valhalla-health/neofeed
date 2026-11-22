@@ -7,6 +7,42 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-22 — One ward table: `WARDS` in `data.js`, generated copies in the backend and the TPN room page, no ward added (paediatric-wards group 1)
+
+`data.js`, `registry.jsx`, `app.jsx`, `calculator.jsx` (the dead-space hint's ward names only), `gas-backend.gs`,
+`tpn-room-core.js`, `compiled/` and the shells' `?v=` tokens, `tools/ward-table.cjs` (new), `tools/checks.json` (one
+check), `test/ward-screens.cjs`, `test/verify-ward-table.cjs`, `test/verify-newborn-unmoved-wards.cjs` and its reading
+`test/newborn-unmoved-wards.json` (new), `REFERENCE.md` § Adding a ward, `openspec/changes/paediatric-wards/tasks.md`
+(1.1–1.5 ticked), `STATUS.md`. No dose, limit, unit, rounding, target or printed line moves; `CONSTANTS_VERSION` stays
+`2026-11-20.1`.
+
+Pp, 2026-11-22: the ward and bed lists were written by hand in about twelve places across five files; they move into
+one table so that adding a ward becomes a data change.
+
+- **The table.** `WARDS` holds each ward's key, label, tile sub-label, sticker label and runs of beds (`{ prefix,
+  count }`, or `{ prefix, rooms }` for the iso rooms). `BED_OPTIONS`, `normalizeBed`, `bedWard` and `wardGroup` derive
+  from it, and so do the ward page's tiles, "TPN ทั้งหอ"'s tabs, the ward-name ternaries (`wardTitle`), the search's
+  other wards, New session's default bed, the transfer dialog's next-free buttons, the bed sort, the census and usage
+  cards and the dead-space hint. Design D1 also names `deadVolMl` and `tile`: `deadVolMl` waits for task 3.2, where
+  `defaultDeadVolFor` starts reading it, so the 30 mL is not written twice meanwhile; no `tile` field, because nothing
+  on a tile today is not already `label` or `sub`.
+- **The copies.** `gas-backend.gs` and `tpn-room-core.js` cannot load `data.js`, so each holds a block that
+  `node tools/ward-table.cjs --write` writes (keys, labels, sticker labels, runs). The backend's `_normBed` pattern,
+  `PHARMACY_WARD_BED`, `_usageWardGroup`, `USAGE_WARDS`, `QI_SUBMIT_WARDS` (and so `_qiWardAt`) and the editor's usage
+  table read it; so do the TPN room's `WARD_BED`, sticker label, ward groups and bed sort. `ward-table-copies` in
+  `tools/checks.json` (blocking, every level, pre phase) fails naming the copy that differs, or a malformed table.
+  Seen failing with one copy edited by hand, then passing once it was restored.
+- **The no-move proof.** `tools/calc-compare.cjs` against `origin/main` (`c5b9050`): no difference in 16,241 figures
+  over 100 made-up orders. `verify-newborn-unmoved-wards.cjs` compares the ward page, each ward's list, the bed picker,
+  New session's bed, the transfer dialog, "TPN ทั้งหอ", the census and usage cards, the TPN room's groups, bed order
+  and stickers, and the backend's bed, usage and QI answers with the reading taken from `c5b9050`: all equal. On dev
+  local, `main` and this branch side by side: the same ward page, NICU and SCN lists, transfer dialogs, New session
+  bed, "TPN ทั้งหอ" on all three tabs, TPN room list, and the same NICU (`9B2(NICU)`) and SCN (`9B1(SCN)`) stickers.
+- **Adding a ward** (`REFERENCE.md`): the row, `--write`, the build, the checks. Followed as written with a `DEMO`
+  ward of four beds and taken out again: the tile, tab, picker beds, transfer button and census card appeared, an
+  order moved into `DEMO 1` reached the TPN room under its own group, and both new harnesses passed with it in the
+  table (they compare NICU, SCN and ทดสอบระบบ only when another ward is present).
+
 ## Session 2026-11-21 (2) — A guideline watch: a skill that checks the societies for new editions and audits the live code against its sources; its first run; Q28
 
 `.claude/skills/neofeed-guideline-watch/` (new: `SKILL.md`, `sources.md`, `audits/2026-11-21.md`), `AGENTS.md` (one
