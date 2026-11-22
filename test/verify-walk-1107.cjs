@@ -16,6 +16,8 @@
 // Mounts the real <Calculator> in jsdom; §2 also loads the real gas-backend.gs in gas-vm-sandbox.cjs.
 // Synthetic infants only.
 process.env.TZ = process.env.TZ || 'Asia/Bangkok';
+// On a real Sunday, run as the Monday: Sunday holds the TPN order for its length and HC (never-sunday.cjs).
+require('./never-sunday.cjs');
 const fs = require('fs');
 const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');
