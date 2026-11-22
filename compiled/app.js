@@ -1780,8 +1780,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       goTo
     }
   ), view === "fenton" && active && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Fenton 2025 growth chart"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Plot weight, length, and HC by post-menstrual age · Fenton TR et al. 2025 (PMID 40534585)"))), D_A.weeklyGrowthDue(active, role) && (() => {
-    const have = D_A.growthOnDol(active, dol);
-    const missing = [!have.length && "Length", !have.hc && "HC"].filter(Boolean).join(" และ ");
+    const missing = (D_A.weeklyGrowthMissing(active)?.missing || []).join(" และ ");
     return /* @__PURE__ */ React.createElement("div", { className: "growth-due", role: "status", style: {
       padding: "12px 14px",
       background: "var(--warn-bg)",
@@ -1795,7 +1794,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       color: "var(--warn-ink)",
       fontSize: 13.5,
       lineHeight: 1.5
-    } }, /* @__PURE__ */ React.createElement("span", { style: { flex: "1 1 220px" } }, /* @__PURE__ */ React.createElement("strong", null, "วันอาทิตย์: วัด Length และ HC ประจำสัปดาห์"), /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontSize: 12.5 } }, "วันนี้ยังไม่มี ", missing, " ของ DOL ", dol, " กรอกในช่อง Length กับ HC ของหน้านี้ แล้วกด Save measurement")), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", style: { minHeight: 44 }, onClick: () => goTo("log") }, "ไว้ทีหลัง"));
+    } }, /* @__PURE__ */ React.createElement("span", { style: { flex: "1 1 220px" } }, /* @__PURE__ */ React.createElement("strong", null, "วันอาทิตย์: วัด Length และ HC ประจำสัปดาห์"), /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontSize: 12.5 } }, "ยังไม่มี ", missing, " ของสัปดาห์นี้ (วัดล่าสุดเกิน ", D_A.GROWTH_FRESH_DAYS, " วัน) กรอกในช่อง Length กับ HC ของหน้านี้ แล้วกด Save measurement")), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", style: { minHeight: 44 }, onClick: () => goTo("log") }, "ไว้ทีหลัง"));
   })(), /* @__PURE__ */ React.createElement(FentonChart, { patient: active, entries: log[activeId] || [], currentDol: dol, onUpdate: (weights) => handleWeightUpdate(active.sessionId, weights), onPrint: () => window.print() }), /* @__PURE__ */ React.createElement(GrowthPrintSheet, { patient: active, entries: log[activeId] || [], currentDol: dol })), view === "log" && active && /* @__PURE__ */ React.createElement(
     DailyLog,
     {
@@ -2013,6 +2012,7 @@ function CalculatorView({
       onUpdate: handleUpdateToGAS,
       onPublish: handlePublishToGAS,
       onSaved: () => goTo("log"),
+      onOpenGrowth: () => goTo("fenton"),
       nursing,
       ordersReadOnly,
       nurseAccount: role === "nurse",

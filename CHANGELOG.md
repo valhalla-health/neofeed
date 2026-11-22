@@ -7,6 +7,41 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-22 (2) — Sunday's length and HC hold the TPN order: Submit and Print, with a reason to skip
+
+`data.js` (`growthSince`, `GROWTH_FRESH_DAYS`, `weeklyGrowthMissing`, `sundayGrowthHolds`, `growthSkipCovers`;
+`weeklyGrowthDue` reads the new window), `calculator.jsx` (the gate, stop `CR-GROWTH-WEEKLY`, the save-panel line),
+`app.jsx` (the growth-page link, and the growth page's banner reads the window), `compiled/` and the shells' `?v=`
+tokens, `.claude/skills/neofeed-clinical-rules/SKILL.md` (`CR-GROWTH-WEEKLY`), `test/verify-growth-gate-1122.cjs`
+(new), `STATUS.md`. No dose, limit, unit, rounding, target or printed line moves; `CONSTANTS_VERSION` stays
+`2026-11-20.1`. `gas-backend.gs` is unchanged: no backend deploy.
+
+Pp, 2026-11-22: "แก้ไขให้หมอยังต้องไปกรอก HC and length weekly ด้วย ยังไงก็ได้ ถ้าไม่กรอก submit และพิมพ์ ไม่ได้".
+Since 4224835 a Sunday opens the patient on the growth page, but "ไว้ทีหลัง" puts it off, so values still went
+unrecorded.
+
+- **When.** On a Sunday in Bangkok, the order dated that Sunday is held while the infant has no length, or no HC,
+  measured in the last 6 days (DOL today − 6 to today). Each value is judged on its own latest reading. Pp, the same
+  day: "ให้วัดทุกวันอาทิตย์ ที่ HC and length ล่าสุดมากกว่า 6 วัน คืออาทิตย์ต่อไป", so an infant admitted and measured on
+  Saturday is not asked again on Sunday. The growth page's Sunday prompt reads the same window (it read today's DOL
+  only until now). Saturday's order reprinted on a Sunday is not held (Pp's choice).
+- **What is held.** Submit asks for a reason the infant cannot be measured (`window.prompt`); Cancel or a blank
+  reason saves nothing. The reason goes into `calcInput.growthSkip` `{reason, dol, at}` and unlocks Submit and Print
+  for that DOL; it is not printed (Pp's choice). Print, the ward's Print order list and Print ทั้งหมด hold the order
+  with one line naming what is missing. A locked, unchanged order offers Submit while the gate holds, since Submit is
+  how the reason is given, and the save is a revision. A draft is kept, and carries the stop.
+- **Who.** A nurse's save is I/O only and is not held: her account cannot change the order's reason
+  (`IO_FREE_CALC_KEYS`). Her Print is held. Center Point, the quick calc, test patients, discharged infants and a
+  record with no bed are not.
+- **Backend.** Pp chose the app plus a stop ID over a backend check of its own: `CR-GROWTH-WEEKLY` goes in
+  `submitStops`, so `gas-backend.gs` refuses a submitted row that carries it, and a tab behind the release is already
+  refused by the release check. A tab that bypasses both is not caught; the backend cannot see the 6-day window
+  without its own copy of the rule.
+- **Tests.** `verify-growth-gate-1122.cjs` (7 scenarios, 61 checks) runs on a Sunday reached with `clock.advance`:
+  the window, Print held and why, the Saturday admission, last Sunday's values, Submit with no reason, with a reason,
+  with the values entered through the line's button, a Monday, and Saturday's order. `verify-clinical-rules.cjs`
+  runs the new rule's 15 cases.
+
 ## Session 2026-11-22 — One ward table: `WARDS` in `data.js`, generated copies in the backend and the TPN room page, no ward added (paediatric-wards group 1)
 
 `data.js`, `registry.jsx`, `app.jsx`, `calculator.jsx` (the dead-space hint's ward names only), `gas-backend.gs`,

@@ -842,7 +842,7 @@ function SaltRow({ label, note, perKg, onChange, wtKg, unit = "mEq/kg/d", mlPerK
 // that mode still saves, just somewhere else.
 function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, previousEntry, logDate, userLabel, userEmail, onLog, onUpdate, onPublish, onSaved, onOrderDate, onDelete, centerPoint, scratch,
   autoPrint = null, requestPrint = null,
-  nursing = [], ordersReadOnly = false, nurseAccount = false }) {
+  nursing = [], ordersReadOnly = false, nurseAccount = false, onOpenGrowth = null }) {
   // ── The date this order is FOR (review 2026-09-17, UP-C11) ────────────────
   // A new, non-back-dated order used to read "today" on every render, so a
   // form left open across midnight silently became the next day's order: its
@@ -1282,6 +1282,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const [savedMeta, setSavedMeta] = useState(null); // { by, at, revision }
   // Critical-alert override recorded with the saved order (F1 hard stop).
   const [critOverride, setCritOverride] = useState(editEntry?.calcInput?.critOverride || null);
+  // Sunday's length and HC (growthStop): the reason saved with this order that the
+  // infant could not be measured, and one typed in this visit whose save did not go.
+  const [savedGrowthSkip, setSavedGrowthSkip] = useState(editEntry?.calcInput?.growthSkip || null);
+  const [growthSkipTyped, setGrowthSkipTyped] = useState(null);
   const [draftOffer, setDraftOffer] = useState(null); // this user's unsaved draft for this order
   // Dosing weight the saved row was calculated with — see savedDosingWeightOf.
   // null = nothing saved from this form, or a legacy row with no evidence.
@@ -1489,6 +1493,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setPublished(!!editEntry?.published);   // it now decides Submit's lock (Vera, 2026-10-28)
     setConflict(null);
     setCritOverride(editEntry?.calcInput?.critOverride || null);
+    setSavedGrowthSkip(editEntry?.calcInput?.growthSkip || null);
+    setGrowthSkipTyped(null);
     // The order's own save (orderAt, orderRev), not a nurse's I/O save after it.
     setSavedMeta(editEntry ? {
       by: savedByOf(editEntry),
@@ -2444,6 +2450,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const tpnWtDiff = tpnWtManual && autoWtG > 0 ? Math.abs(wtG - autoWtG) / autoWtG : 0;
   // Float noise stripped as for K⁺: 900 → 1080 g is 20 %, not above it.
   const tpnWtFar = !tpnWtOutOfRange && Number(tpnWtDiff.toPrecision(12)) > D.TPN_WT_MANUAL_MAX_DIFF;
+  // -- Sunday: the weekly length and HC before the order goes (Pp, 2026-11-22) --
+  // data.js sundayGrowthHolds: the order dated today, a Sunday in Bangkok, is held
+  // while today's DOL lacks a length or an HC and no reason the infant cannot be
+  // measured is saved with it (calcInput.growthSkip, not printed). Submit asks for
+  // the reason; Print waits for the values or a saved reason. A nurse's save is
+  // I/O only and is not held (her account cannot change the order's reason,
+  // gas-backend.gs IO_FREE_CALC_KEYS); her Print is. Center Point and the quick
+  // calc have no patient record to measure.
+  const growthGateOn = !centerPoint && !scratch;
+  const growthNeed = growthGateOn && orderDateKey === D.todayLocal() ? D.weeklyGrowthMissing(patient) : null;
+  const growthHeldForPrint = growthGateOn && D.sundayGrowthHolds(patient, orderDateKey, savedGrowthSkip);
+  const growthSkipShown = [growthSkipTyped, savedGrowthSkip].find(sk => D.growthSkipCovers(sk, growthNeed?.dol)) || null;
+  const growthStop = growthHeldForPrint && !growthSkipShown && !(nurseAccount && !ordersReadOnly);
+  const growthMissingText = growthNeed ? `${growthNeed.missing.join(" และ ")} ของสัปดาห์นี้ (วัดล่าสุดเกิน ${D.GROWTH_FRESH_DAYS} วัน)` : "";
   // The stops that hold, by the neofeed-clinical-rules skill's IDs, sent with
   // every save as calcInput.stops. gas-backend.gs has no copy of the bag
   // arithmetic, so it reads this list: it refuses a submitted row that carries
@@ -2456,7 +2476,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     [bagOverBottle, "CR-BOTTLE-MAX"], [stockAtZeroMl, "CR-STOCK-ZERO"],
     [bagOverfull, "CR-BAG-OVERFULL"],
     [feedsOverMax, "CR-EN-FEEDS-MAX"], [feedsIrregular, "CR-EN-FEEDS-SCHEDULE"],
-    [feedUnknown, "CR-EN-FEED-UNKNOWN"],
+    [feedUnknown, "CR-EN-FEED-UNKNOWN"], [growthStop, "CR-GROWTH-WEEKLY"],
   ].filter(([holds]) => holds).map(([, id]) => id);
 
   const alerts = [];
@@ -2760,7 +2780,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // patient's log; its own saves land there in the same render as savedEntryId (handleLogToGAS).
   const openOrderGone = !!savedEntryId && !centerPoint && !scratch && Array.isArray(entries)
     && !entries.some(e => e && e.entryId === savedEntryId);
-  const printReady = printable && unackedRed.length === 0 && !testOrder && !releaseHoldsPrint && !openOrderGone;
+  const printReady = printable && unackedRed.length === 0 && !testOrder && !releaseHoldsPrint && !openOrderGone && !growthHeldForPrint;
+  const growthPrintText = `วันอาทิตย์ยังไม่มี ${growthMissingText} — กรอกที่หน้า Growth chart หรือ Submit ใหม่พร้อมเหตุผลที่วัดไม่ได้ ก่อนพิมพ์`;
   const printAckText = `ติ๊กรับทราบค่าวิกฤตทุกข้อก่อนพิมพ์ (${unackedRed.length} ข้อ): ${unackedRed.join(" · ")}`;
   // With "No TPN" ticked there is no Volume box to fill: the way out is the tick.
   // With it off, the tick is the one-step way to stop TPN (review of 2026-11-01);
@@ -2788,7 +2809,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const printBlockToast = testOrder ? TEST_NO_PRINT_TEXT
     : openOrderGone ? OPEN_ORDER_GONE_TEXT
     : releaseHoldsPrint ? RELEASE_PRINT_TEXT
-    : !printable ? printBlockMessage("ก่อนพิมพ์") : unackedRed.length > 0 ? printAckText : "";
+    : !printable ? printBlockMessage("ก่อนพิมพ์") : growthHeldForPrint ? growthPrintText
+    : unackedRed.length > 0 ? printAckText : "";
 
   // N1: a nurse account saves Intake/Output on a doctor's submitted order, and
   // nothing else (NURSE_SUBMIT_TEXT). Its Submit is refused on a new order or a
@@ -2987,6 +3009,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       if (behind !== true && behind !== false) behind = await behind;
       if (behind) { refuseBehindRelease(); return; }
     }
+    // -- Sunday's length and HC (Pp, 2026-11-22), see growthStop --
+    // Asked before anything is saved, a draft excepted. The reason is kept for
+    // this visit, so a Submit a stop below refuses does not ask for it again.
+    let growthSkipNew = null;
+    if (!asDraft && growthStop) {
+      const reason = window.prompt(
+        `วันอาทิตย์: ยังไม่มี ${growthMissingText}\n\n` +
+        `ไปวัดแล้วกรอกที่หน้า Growth chart ก่อน (กด Cancel) หรือถ้าวันนี้วัดไม่ได้ ให้ระบุเหตุผล เช่น ไม่ stable, on HFOV, กำลังทำหัตถการ ` +
+        `(เก็บไว้กับคำสั่งนี้ ไม่พิมพ์ลงใบสั่ง · ห้ามใส่ชื่อหรือ HN):`, "");
+      if (reason == null || !String(reason).trim()) {
+        showToast(`ยังไม่ได้ Submit — วันอาทิตย์ต้องมี ${growthMissingText} หรือเหตุผลที่วัดไม่ได้`, "error");
+        return;
+      }
+      growthSkipNew = { reason: String(reason).trim().slice(0, 200), dol: growthNeed.dol, at: new Date().toISOString() };
+      setGrowthSkipTyped(growthSkipNew);
+    }
+    // What goes with this save: the reason just typed or typed earlier in this
+    // visit, else the one stored with the order (kept even when it is for another day).
+    const growthSkipSent = growthSkipNew || growthSkipShown || savedGrowthSkip || null;
+    const growthSkipUnsaved = growthSkipSent !== savedGrowthSkip;
     // Submit locks the order (TPN team, 2026-10-28: "Submit แล้วไม่ให้แก้แล้ว").
     // An order submitted before the lock existed and reopened unchanged is only
     // locked: a revision of identical numbers would tell pharmacy nothing.
@@ -2998,7 +3040,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // (figuresMissing) takes the full save too: locking it would leave it without them.
     // A nurse locks nothing (gas-backend.gs publishDailyLog refuses her, N1).
     const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
-    if (lockFirst && !dirty && orderSettled && !figuresMissing) {
+    if (lockFirst && !dirty && orderSettled && !figuresMissing && !growthSkipUnsaved) {
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -3117,7 +3159,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // re-dosed while the inputs stay the same, so it is a new order and its critical values are
       // asked again (code review, 2026-11-19: the old reason went out beside a GIR nobody confirmed).
       && !dosingWeightChanged
-      && uncoveredCritical.length === 0;
+      && uncoveredCritical.length === 0
+      // A reason for Sunday's length and HC is part of the order (not IO_FREE_CALC_KEYS).
+      && !growthSkipUnsaved;
     const critical = asDraft || nurseIoOnly || ioOnlyByDoctor ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
     let override = (nurseIoOnly || ioOnlyByDoctor) && !asDraft ? critOverride : null;
     if (critical.length > 0) {
@@ -3220,7 +3264,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // the one trace of them the ward sync carries back (it does not read
       // Daily_Log AM). Absent for an order with no bag. Not an input either.
       calcInput: { ...captureState(), tpnWtG: dosingWtAtSave, constantsVersion: D.CONSTANTS_VERSION,
-        stops: submitStops,
+        stops: growthSkipNew ? submitStops.filter(id => id !== "CR-GROWTH-WEEKLY") : submitStops,
         // printedFigures: every figure the front sheet prints, as printed, so a
         // later release that moves one can say which (heldFigureChanges). Not an
         // input either.
@@ -3238,6 +3282,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         ...(replacesTpn ? { replacesTpn: true } : {}),
         ...(userLabel ? { savedByLabel: userLabel } : {}),
         ...(override ? { critOverride: override } : {}),
+        // growthSkip: why Sunday's length or HC is not in (growthStop). Not an input.
+        ...(growthSkipSent ? { growthSkip: growthSkipSent } : {}),
         // Which required boxes were blank — they reopen blank (seededZeros).
         ...(asDraft ? { blankFields: missingFields.map(f => f.key) } : {}) },
       // The sticker figures — kept out of calcInput on purpose: the doctor's
@@ -3299,6 +3345,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // Her I/O save wrote the stored order back: whatever held it still does.
     if (!ioOnlyOnOthers) {
       setCritOverride(override);
+      setSavedGrowthSkip(growthSkipSent);
       setSavedDosingWt({ g: dosingWtAtSave, exact: true });
       setSavedCalcVersion(D.CONSTANTS_VERSION);
       setSavedFiguresV(figures ? figures.v : null);
@@ -4928,6 +4975,22 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 {noTpnUntickedText}
               </div>
             )}
+            {/* Sunday's length and HC (growthStop): held, or the reason given. */}
+            {growthNeed && (growthHeldForPrint && !growthSkipShown ? (
+              <div className="growth-gate" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                วันอาทิตย์ยังไม่มี {growthMissingText} — {nurseAccount && !ordersReadOnly ? "พิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart"
+                  : "Submit และพิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart หรือระบุเหตุผลที่วัดไม่ได้ตอนกด Submit"}
+                {onOpenGrowth && (
+                  <div style={{ marginTop: 4 }}>
+                    <button type="button" className="btn" style={{ minHeight: 36 }} onClick={onOpenGrowth}>ไปกรอก Length / HC</button>
+                  </div>
+                )}
+              </div>
+            ) : growthSkipShown ? (
+              <div className="growth-gate-skip" role="note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+                วันนี้ไม่ได้วัด {growthMissingText}: {growthSkipShown.reason}{growthSkipShown !== savedGrowthSkip ? " (ยังไม่ได้บันทึก)" : ""}
+              </div>
+            ) : null)}
             {zeroVolumeBag && (
               <div className="zero-volume-bag" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 {zeroVolumeText} — บันทึก/พิมพ์ไม่ได้
@@ -5020,9 +5083,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             {/* A locked order with nothing changed has nothing to submit, unless
                 something is holding it for a new save (orderSettled). A No TPN
                 order that never prints is still settled. An order with no sticker figures
-                yet (figuresMissing) is offered Submit too. */}
+                yet (figuresMissing) is offered Submit too, and so is a Sunday order held
+                for its length and HC (growthStop): Submit is how its reason is given. */}
             {!scratch && !ordersReadOnly && (
-              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled && !figuresMissing) || (nurseIoOnly && !dirty)}
+              <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled && !figuresMissing && !growthStop) || (nurseIoOnly && !dirty)}
                 onClick={() => handleSave(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>

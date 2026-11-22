@@ -3329,8 +3329,14 @@ function isSundayBangkok(now) {
 // Which of the two a patient already has on `dol`: a row of patient.lengths /
 // patient.hcs, or a weights row carrying l / hc (MeasurementLogger writes those).
 function growthOnDol(p, dol) {
+  return growthSince(p, Number(dol), Number(dol));
+}
+// The same, for any DOL from `fromDol` to `toDol`, both included.
+function growthSince(p, fromDol, toDol) {
   const on = (rows, pick) => (Array.isArray(rows) ? rows : []).some((r) => {
-    if (!r || Number(r.dol) !== Number(dol)) return false;
+    if (!r) return false;
+    const d = Number(r.dol);
+    if (!(d >= fromDol && d <= toDol)) return false;
     const v = pick(r);
     return v != null && v !== "" && Number(v) > 0;
   });
@@ -3339,14 +3345,48 @@ function growthOnDol(p, dol) {
     hc: on(p && p.hcs, (r) => r.v) || on(p && p.weights, (r) => r.hc),
   };
 }
-function weeklyGrowthDue(p, role, now) {
-  if (!p || (role !== "doctor" && role !== "nurse")) return false;
+// A length or HC measured in the 6 days before a Sunday is still this week's:
+// that Sunday asks for neither, and the next Sunday does (Pp, 2026-11-22: "ให้วัด
+// ทุกวันอาทิตย์ ที่ HC and length ล่าสุดมากกว่า 6 วัน คืออาทิตย์ต่อไป"). So a value on
+// DOL today − 6 to today counts, and last Sunday's (7 days old) does not. Each of
+// the two is judged on its own latest value.
+const GROWTH_FRESH_DAYS = 6;
+// What is still missing on a Sunday, whoever is asking: { dol, missing } with
+// missing ["Length"], ["HC"] or both, or null when nothing is due (not Sunday,
+// both measured in the last GROWTH_FRESH_DAYS days, or an infant nobody measures here). weeklyGrowthDue adds the roles;
+// the TPN order's gate (calculator.jsx growthMissing) reads this directly.
+function weeklyGrowthMissing(p, now) {
+  if (!p) return null;
   // A discharged infant is not measured, a test patient is saved nowhere, and
   // a record with no bed in the system is read-only: a save would be refused.
-  if (!isOnUnit(p) || isTestSession(p.sessionId) || isReadOnlyOther(p)) return false;
-  if (!isSundayBangkok(now)) return false;
-  const have = growthOnDol(p, liveDol(p));
-  return !(have.length && have.hc);
+  if (!isOnUnit(p) || isTestSession(p.sessionId) || isReadOnlyOther(p)) return null;
+  if (!isSundayBangkok(now)) return null;
+  const dol = liveDol(p);
+  const have = growthSince(p, dol - GROWTH_FRESH_DAYS, dol);
+  const missing = [!have.length && "Length", !have.hc && "HC"].filter(Boolean);
+  return missing.length ? { dol, missing } : null;
+}
+function weeklyGrowthDue(p, role, now) {
+  if (!p || (role !== "doctor" && role !== "nurse")) return false;
+  return weeklyGrowthMissing(p, now) !== null;
+}
+// The weekly length and HC as a gate on the TPN order (Pp, 2026-11-22: "แก้ไขให้หมอ
+// ยังต้องไปกรอก HC and length weekly ด้วย ยังไงก็ได้ ถ้าไม่กรอก submit และพิมพ์ ไม่ได้").
+// Her answers the same day: Sunday only, as the growth-page prompt; a reason why
+// the infant cannot be measured unlocks it, kept with the order
+// (calcInput.growthSkip) and not printed; only the order dated that Sunday is
+// held, so an older order reprinted on a Sunday still prints. True when the
+// order dated `orderDate` is held: today is Sunday, orderDate is today, one of
+// the two is missing on today's DOL, and `skip` is not a reason given for that DOL.
+function sundayGrowthHolds(p, orderDate, skip, now) {
+  const m = weeklyGrowthMissing(p, now);
+  const today = now == null ? todayLocal() : _BKK_DATE_FMT.format(new Date(now instanceof Date ? now.getTime() : Number(now)));
+  if (!m || String(orderDate || "") !== today) return false;
+  return !growthSkipCovers(skip, m.dol);
+}
+function growthSkipCovers(skip, dol) {
+  return !!skip && typeof skip === "object" && Number(skip.dol) === Number(dol)
+    && String(skip.reason == null ? "" : skip.reason).trim() !== "";
 }
 
 // What a patient's status reads as, on every screen. A blank status is Active,
@@ -3954,7 +3994,7 @@ window.NEOFEED_DATA = {
   // instead of trusting the stored (snapshot, goes stale) `dol` column;
   // admissionDol is the admission day's DOL, from the anchor.
   liveDol, dolAtDate, entryDol, admissionDol, daysBetweenDateStr,
-  isSundayBangkok, growthOnDol, weeklyGrowthDue,
+  isSundayBangkok, growthOnDol, growthSince, GROWTH_FRESH_DAYS, weeklyGrowthDue, weeklyGrowthMissing, sundayGrowthHolds, growthSkipCovers,
   dobCredible, hasDolAnchor, dobFromAdmission, dobFromAdmitDol,
   // Growth-chart rows follow a corrected anchor (EditPatientModal)
   anchorShiftDays, moveGrowthRows,
