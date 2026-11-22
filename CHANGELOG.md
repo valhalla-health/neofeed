@@ -14,7 +14,8 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 check), `test/ward-screens.cjs`, `test/verify-ward-table.cjs`, `test/verify-newborn-unmoved-wards.cjs` and its reading
 `test/newborn-unmoved-wards.json` (new), `test/verify-bed-park.cjs` (§3 loads the ward table with `_normBed`),
 `REFERENCE.md` § Adding a ward, `openspec/changes/paediatric-wards/tasks.md`
-(1.1–1.5 ticked), `test/review-0917-boot.cjs` (a Sunday runs as the Monday), `STATUS.md`. No dose, limit, unit, rounding, target or printed line moves; `CONSTANTS_VERSION` stays
+(1.1–1.5 ticked), `test/review-0917-boot.cjs` (a Sunday runs as the Monday), `tryPrint` in `test/verify-calcmoved-unstamped-1017.cjs`,
+`test/verify-review-0917-calc.cjs` and `test/verify-wfi-stop-1028.cjs`, `STATUS.md`. No dose, limit, unit, rounding, target or printed line moves; `CONSTANTS_VERSION` stays
 `2026-11-20.1`.
 
 Pp, 2026-11-22: the ward and bed lists were written by hand in about twelve places across five files; they move into
@@ -60,6 +61,13 @@ one table so that adding a ward becomes a data change.
   on the Monday, same time of day, when the real day is a Sunday, before `TODAY` and the fixtures are built. Forward,
   not back, so a run started late on Sunday cannot cross into another Sunday. `verify-growth-weekly-print-1116.cjs`
   still reaches Sunday on purpose through `clock.advance`.
+- **Why two Print order lines failed at some hours.** `verify-calcmoved-unstamped-1017.cjs` (lines 3 and 8) and
+  `verify-review-0917-calc.cjs` (104 and 106) failed on this PC and on `main` at 20:15 and passed in CI. Their
+  `tryPrint` waited a fixed 10 ms, but Print waits for the release read, opens all six steps and waits two frames
+  before `window.print`: 42 ms here, with or without `fetch` (the fetch was a suspect and was ruled out). The print
+  then landed in the next `tryPrint`, so "prints" read 0 and the following "does not print" read 1. `tryPrint` in
+  those two and in `verify-wfi-stop-1028.cjs`, which had the same 10 ms, now waits for the print or a refusal toast,
+  up to 2 s. A "does not print" check with no toast now watches for 2 s instead of 10 ms.
 
 ## Session 2026-11-21 (2) — A guideline watch: a skill that checks the societies for new editions and audits the live code against its sources; its first run; Q28
 
