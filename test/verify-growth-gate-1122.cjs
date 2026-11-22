@@ -22,6 +22,11 @@
 //             Print goes and Submit asks nothing
 //   weekday   the same infant on a Monday: Print goes, Submit asks nothing
 //   older     Saturday's order reprinted on the Sunday is not held
+//   printall  Print ทั้งหมด leaves the held orders out and lists why
+//   nurse     a nurse's I/O Submit is not asked and sends no stop; her Print is held
+//   revision  a reason on a locked order: one prompt, the stored critical-value
+//             reason kept, revision 2, and the line says to phone the TPN room
+//             (Pp, after Vera: "ฉบับใหม่ + บอกให้โทร")
 //
 // Drives the real <App/> through review-0917-boot on a Sunday reached with
 // clock.advance, as verify-growth-weekly-print-1116.cjs does. Made-up infants only.
@@ -71,11 +76,13 @@ function ward(day) {
   };
 }
 
-async function setup({ offset = toSunday9(), prompt = () => null, logFor = null } = {}) {
+const NURSE = { name: 'Nurse N', role: 'nurse', email: 'n@test.th', token: 'tok-nurse-abcdefg', authMethod: 'password' };
+
+async function setup({ offset = toSunday9(), prompt = () => null, logFor = null, session } = {}) {
   const day = bkkDate(Date.now() + offset);
   const { patients, log } = ward(day);
   if (logFor) Object.assign(log, logFor(day));
-  const t = boot({ patients, log });
+  const t = boot(session ? { patients, log, session } : { patients, log });
   t.quiet();
   t.day = day;
   t.printed = 0;
@@ -141,6 +148,21 @@ runScenarios(__filename, 'GROWTH GATE ON THE TPN ORDER (2026-11-22)', {
     A.eq('not held: a reason for DOL 12', D.sundayGrowthHolds(p({}), '2026-11-15', { reason: 'on HFOV', dol: 12 }, SUN), false);
     A.eq('held: a reason for DOL 5', D.sundayGrowthHolds(p({}), '2026-11-15', { reason: 'on HFOV', dol: 5 }, SUN), true);
     A.eq('held: a blank reason', D.sundayGrowthHolds(p({}), '2026-11-15', { reason: ' ', dol: 12 }, SUN), true);
+    A.eq('not held: a reason for another DOL given that Sunday (a DOB corrected since)',
+      D.sundayGrowthHolds(p({}), '2026-11-15', { reason: 'on HFOV', dol: 9, at: '2026-11-15T02:00:00.000Z' }, SUN), false);
+    A.eq('held: a reason for another DOL given the Sunday before',
+      D.sundayGrowthHolds(p({}), '2026-11-15', { reason: 'on HFOV', dol: 5, at: '2026-11-08T02:00:00.000Z' }, SUN), true);
+    A.eq('held: a reason whose time cannot be read', D.sundayGrowthHolds(p({}), '2026-11-15', { reason: 'on HFOV', dol: 5, at: 'x' }, SUN), true);
+    // An older child's ward is not asked (isNewbornUnit). OLDER_CHILD_WARDS is empty
+    // today, so a ward is put on it in a copy of data.js for this case only.
+    const src = fs.readFileSync(DIR + 'data.js', 'utf8');
+    const anchor = 'const OLDER_CHILD_WARDS = Object.freeze([]);';
+    A.ok('(OLDER_CHILD_WARDS is empty in data.js)', src.includes(anchor));
+    const sb2 = { window: {}, console, Intl, Date };
+    vm.runInNewContext(src.replace(anchor, 'const OLDER_CHILD_WARDS = Object.freeze(["SCN"]);'), sb2);
+    const D2 = sb2.window.NEOFEED_DATA;
+    A.eq('an older child\'s ward: nothing due, nothing held', [D2.weeklyGrowthMissing(p({ currentBed: 'SCN 1' }), SUN), D2.sundayGrowthHolds(p({ currentBed: 'SCN 1' }), '2026-11-15', null, SUN)], [null, false]);
+    A.eq('…a newborn ward in the same copy still is', D2.sundayGrowthHolds(p({}), '2026-11-15', null, SUN), true);
   },
 
   async 'print'(A) {
@@ -249,5 +271,57 @@ runScenarios(__filename, 'GROWTH GATE ON THE TPN ORDER (2026-11-22)', {
     A.ok('(it is open)', /แก้ไขบันทึกโภชนาการ/.test(t.text()));
     A.eq('no line on Saturday\'s order', t.gateLine(), null);
     A.eq('Print order prints it', await t.pressPrint(), 1);
+  },
+
+  async 'printall'(A) {
+    console.log('\n── a Sunday: Print ทั้งหมด ──');
+    const t = await setup();
+    const doc = t.window.document;
+    await t.click(t.printButton());
+    await t.click(doc.querySelector('.page-head.print-head > .print-all'));
+    for (let i = 0; i < 200 && !doc.querySelector('.print-batch'); i++) await t.flush(30);
+    await t.settle();
+    const sheets = [...doc.querySelectorAll('.print-batch > .print-batch-sheet')].map(x => x.getAttribute('data-session-id'));
+    A.eq('the job holds BB and CC only', sheets, ['BB-1', 'CC-1']);
+    A.eq('…which waits for a tap, as any job with an order held back does', t.printed, 0);
+    await t.click(t.btn(/พิมพ์ 2 ใบ/));
+    await t.settle();
+    A.eq('พิมพ์ 2 ใบ prints it once', t.printed, 1);
+    const held = [...doc.querySelectorAll('.print-batch-skipped li')].map(li => li.textContent);
+    A.ok('AA and DD are listed as held, with the reason',
+      held.length === 2 && held.every(x => /วันอาทิตย์ยังไม่มี Length และ HC/.test(x)) && /AA/.test(held[0]) && /DD/.test(held[1]), held);
+  },
+
+  async 'nurse'(A) {
+    console.log('\n── a nurse on a Sunday ──');
+    const t = await setup({ session: NURSE });
+    await t.openFromList('AA');
+    A.eq('her print of AA does not go', t.printed, 0);
+    A.ok('…the line tells her where to enter the values, with no Submit wording',
+      /พิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart/.test(t.gateLine()?.textContent || '') && !/Submit และพิมพ์/.test(t.gateLine()?.textContent || ''));
+    await t.typeInto(t.fieldInput('Input'), 140);
+    await t.submit();
+    A.eq('her I/O Submit asks nothing', t.asked.length, 0);
+    A.eq('…and saves once', t.updates().length, 1);
+    const ci = t.updates()[0]?.entry?.calcInput || {};
+    A.ok('…with no growth stop for the backend to refuse', Array.isArray(ci.stops) && !ci.stops.includes('CR-GROWTH-WEEKLY'), ci.stops);
+  },
+
+  async 'revision'(A) {
+    console.log('\n── a Sunday: a reason on a locked order with a confirmed critical value ──');
+    const K = { kCl: 6, critOverride: { reason: 'hypokalaemia', alerts: ['Potassium critically out of range'], at: '2026-11-14T03:00:00.000Z' } };
+    const t = await setup({ prompt: () => 'on HFOV',
+      logFor: (day) => ({ 'AA-1': [{ ...order('e-aa', day, 10), published: true, calcInput: { ...CI, ...K } }] }) });
+    await t.openFromList('AA');
+    A.eq('(held: nothing printed)', t.printed, 0);
+    A.ok('the line says a reason makes a new version with the same figures, and to phone the TPN room',
+      /ใส่เหตุผลแล้วจะเป็นฉบับใหม่ ตัวเลขเท่าเดิม โทรแจ้งห้อง TPN ด้วย/.test(t.window.document.querySelector('.revise-phone-note')?.textContent || ''));
+    await t.submit();
+    A.eq('one prompt only: the growth reason, not the critical value again', t.asked.length, 1);
+    A.ok('…and it was the growth one', /วันอาทิตย์: ยังไม่มี/.test(t.asked[0] || ''));
+    const ci = t.updates()[0]?.entry?.calcInput || {};
+    A.eq('the save keeps the confirmed critical reason', ci.critOverride?.reason, 'hypokalaemia');
+    A.eq('…carries the growth reason', ci.growthSkip?.reason, 'on HFOV');
+    A.eq('…and is revision 2', ci.orderRev, 2);
   },
 });

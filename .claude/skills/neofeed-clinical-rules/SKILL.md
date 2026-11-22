@@ -271,13 +271,15 @@ growth-page weights row carrying `l` / `hc`). Each of the two is judged on its o
 measured on a weekday carries the infant to the next Sunday; last Sunday's, 7 days old, does not. The
 growth page's Sunday prompt (`weeklyGrowthDue`, 2026-11-16) reads the same window. A doctor who cannot
 measure the infant gives a reason instead: Submit asks for it (`window.prompt`); it is saved with the order
-as `calcInput.growthSkip` `{reason, dol, at}`, is not printed, and unlocks Submit and Print for that DOL. A
-reason given for another DOL does not count. A draft can be kept, and carries the stop. An order of
+as `calcInput.growthSkip` `{reason, dol, at}`, is not printed, and unlocks Submit and Print for that DOL, or for the day it was given on (a DOB corrected later that Sunday moves the
+DOL; Vera, 2026-11-22). A reason given on another DOL and another day does not count. A draft can be kept, and carries the stop. An order of
 another date (Saturday's, reprinted on Sunday) is not held; nor is a discharged infant, a test patient, a
-record with no bed, Center Point or the quick calc. A nurse's save is I/O only and is not held (her
+record with no bed, an older child's ward (`OLDER_CHILD_WARDS`, `isNewbornUnit`; Fenton is a preterm chart),
+Center Point or the quick calc. A nurse's save is I/O only and is not held (her
 account cannot change the order's reason, `IO_FREE_CALC_KEYS`); her Print is. Submit stays enabled on a
 locked, unchanged order while the stop holds, since Submit is how the reason is given; the save is then a
-revision. The ward print list and Print ทั้งหมด hold the order with the same line.
+revision with the same figures, the stored critical-value reason stands (nothing is asked again), and the
+save panel says to phone the TPN room (Pp, after Vera: "ฉบับใหม่ + บอกให้โทร"). The ward print list and Print ทั้งหมด hold the order with the same line.
 Source: Pp, 2026-11-22: "แก้ไขให้หมอยังต้องไปกรอก HC and length weekly ด้วย ยังไงก็ได้ ถ้าไม่กรอก
 submit และพิมพ์ ไม่ได้"; asked the same day, Sunday only (the growth-page prompt's rule, 2026-11-16), a
 reason-based skip so an order is never stuck past the 14:00 cut-off, the app and this stop ID with no
@@ -286,7 +288,7 @@ Sunday. The 6 days: Pp, the same day, "ให้วัดทุกวันอ�
 Not a clinical threshold.
 
 ```rule
-{"rule": "CR-GROWTH-WEEKLY", "kind": "stop", "coded": {"GROWTH_FRESH_DAYS": 6}, "where": [{"file": "data.js", "line": 3353, "has": "const GROWTH_FRESH_DAYS = 6;"}, {"file": "data.js", "line": 3365, "has": "const have = growthSince(p, dol - GROWTH_FRESH_DAYS, dol);"}, {"file": "data.js", "line": 3381, "has": "function sundayGrowthHolds(p, orderDate, skip, now) {"}, {"file": "calculator.jsx", "line": 2465, "has": "const growthStop = growthHeldForPrint && !growthSkipShown && !(nurseAccount && !ordersReadOnly);"}, {"file": "calculator.jsx", "line": 2783, "has": "const printReady = printable && unackedRed.length === 0 && !testOrder && !releaseHoldsPrint && !openOrderGone && !growthHeldForPrint;"}]}
+{"rule": "CR-GROWTH-WEEKLY", "kind": "stop", "coded": {"GROWTH_FRESH_DAYS": 6}, "where": [{"file": "data.js", "line": 3353, "has": "const GROWTH_FRESH_DAYS = 6;"}, {"file": "data.js", "line": 3368, "has": "const have = growthSince(p, dol - GROWTH_FRESH_DAYS, dol);"}, {"file": "data.js", "line": 3384, "has": "function sundayGrowthHolds(p, orderDate, skip, now) {"}, {"file": "calculator.jsx", "line": 2465, "has": "const growthStop = growthHeldForPrint && !growthSkipShown && !(nurseAccount && !ordersReadOnly);"}, {"file": "calculator.jsx", "line": 2786, "has": "const printReady = printable && unackedRed.length === 0 && !testOrder && !releaseHoldsPrint && !openOrderGone && !growthHeldForPrint;"}]}
 {"case": "Sunday, the order dated today, nothing recorded: held", "side": "outside", "fn": "sundayGrowthHolds", "args": [{"sessionId": "NF-1", "status": "Active", "currentBed": "NICU 1", "weights": [{"dol": 12, "w": 1200}], "lengths": [], "hcs": []}, "2026-11-15", null, 1794711600000], "want": true}
 {"case": "both on today's DOL 12: not held", "side": "inside", "fn": "sundayGrowthHolds", "args": [{"sessionId": "NF-1", "status": "Active", "currentBed": "NICU 1", "weights": [{"dol": 12, "w": 1200}], "lengths": [{"dol": 12, "v": 40}], "hcs": [{"dol": 12, "v": 28}]}, "2026-11-15", null, 1794711600000], "want": false}
 {"case": "both on DOL 6, 6 days ago: not held, next Sunday asks", "side": "inside", "fn": "sundayGrowthHolds", "args": [{"sessionId": "NF-1", "status": "Active", "currentBed": "NICU 1", "weights": [{"dol": 12, "w": 1200}], "lengths": [{"dol": 6, "v": 40}], "hcs": [{"dol": 6, "v": 28}]}, "2026-11-15", null, 1794711600000], "want": false}
@@ -370,7 +372,7 @@ Osmolarity tile shows and this rule grades it, so the sheet, the tile, the alert
 bag whose estimate is 0 (no dextrose, amino acid or electrolyte), prints no figure (Pp, 2026-11-15).
 
 ```rule
-{"rule": "CR-OSM-PERIPH", "kind": "critical", "coded": {"OSM_PERIPHERAL_MAX": 900, "DEX_PERIPHERAL_MAX_PCT": 12.5}, "where": [{"file": "calculator.jsx", "line": 4014, "has": "route!==\"central\" && dexPct > D.DEX_PERIPHERAL_MAX_PCT && ("}, {"file": "data.js", "line": 1385, "has": "const OSM_PERIPHERAL_MAX = 900;"}, {"file": "calculator.jsx", "line": 2270, "has": "? (Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? \"crit\" : \"ok\")"}, {"file": "calculator.jsx", "line": 2604, "has": "if (bagOrdered && sOsm === \"crit\") alerts.push"}]}
+{"rule": "CR-OSM-PERIPH", "kind": "critical", "coded": {"OSM_PERIPHERAL_MAX": 900, "DEX_PERIPHERAL_MAX_PCT": 12.5}, "where": [{"file": "calculator.jsx", "line": 4019, "has": "route!==\"central\" && dexPct > D.DEX_PERIPHERAL_MAX_PCT && ("}, {"file": "data.js", "line": 1385, "has": "const OSM_PERIPHERAL_MAX = 900;"}, {"file": "calculator.jsx", "line": 2270, "has": "? (Number(D.displayNum(v, 0)) >= D.OSM_PERIPHERAL_MAX ? \"crit\" : \"ok\")"}, {"file": "calculator.jsx", "line": 2604, "has": "if (bagOrdered && sOsm === \"crit\") alerts.push"}]}
 {"case": "peripheral, prints 899: no alert", "side": "inside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.49}, "expect": {"no_alert": "Osmolarity > peripheral limit", "shows": "Osm 899 mOsm/L"}}
 {"case": "peripheral, 899.6 prints 900: critical", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 100, "Dextrose final": 15, "Amino acid": 1.496}, "expect": {"alert": "Osmolarity > peripheral limit", "level": "crit", "submit": "asks_reason"}}
 {"case": "peripheral, 899.5 on paper (899.4999999999999 in JS, 80 mL of D9.04 with AA 3.58): critical, and its line and chip read 900", "side": "outside", "infant": {"g": 1000}, "route": "Peripheral", "order": {"Volume(mL/day)": 80, "Dextrose final": 9.04, "Amino acid": 3.58}, "expect": {"alert": "Osmolarity > peripheral limit", "level": "crit", "shows": ["900 mOsm/L — a peripheral line takes under 900 mOsm/L", "Osm 900 mOsm/L"], "hides": "899 mOsm/L"}}
@@ -1473,7 +1475,7 @@ real milk varies. It reads these values when it renders, so they change here and
 printed, and not in the quick calc's copied text.
 
 ```rule
-{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 195, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 187, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 210, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 5291, "has": "function MilkAssumption({ keys }) {"}]}
+{"rule": "CR-U-BREASTMILK", "kind": "unit", "coded": {"EN_DB.BM_20.kcal": 67, "EN_DB.BM_20.pro": 1.2, "EN_HMF_PROTEIN_G_PER_DOSE": 1.1, "EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal": 13}, "where": [{"file": "data.js", "line": 195, "has": "const EN_HMF_PROTEIN_G_PER_DOSE = 1.1;"}, {"file": "data.js", "line": 187, "has": "const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };"}, {"file": "data.js", "line": 210, "has": "return { kcal: 67, pro: w.pro / 10, fat: w.fat / 10, cho: w.cho / 10,"}, {"file": "calculator.jsx", "line": 5298, "has": "function MilkAssumption({ keys }) {"}]}
 {"case": "breast milk: 67 kcal/100 mL", "fn": "EN_DB.BM_20.kcal", "want": 67}
 {"case": "FBM with PF 24 (milk room chart: 1 in 10 is concentrated Enfalac Premature): 80 kcal", "fn": "EN_DB.BM_PFP_24.kcal", "want": 80}
 {"case": "FBM with PF 24: protein 0.9 × 1.2 + 19.7 kcal × 3 g/100 kcal = 1.671 g/100 mL", "fn": "EN_DB.BM_PFP_24.pro", "want": 1.671, "within": 1e-9}

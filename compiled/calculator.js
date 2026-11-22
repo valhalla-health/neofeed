@@ -1631,7 +1631,7 @@ function Calculator({
   const growthGateOn = !centerPoint && !scratch;
   const growthNeed = growthGateOn && orderDateKey === D.todayLocal() ? D.weeklyGrowthMissing(patient) : null;
   const growthHeldForPrint = growthGateOn && D.sundayGrowthHolds(patient, orderDateKey, savedGrowthSkip);
-  const growthSkipShown = [growthSkipTyped, savedGrowthSkip].find((sk) => D.growthSkipCovers(sk, growthNeed?.dol)) || null;
+  const growthSkipShown = [growthSkipTyped, savedGrowthSkip].find((sk) => D.growthSkipCovers(sk, growthNeed?.dol, orderDateKey)) || null;
   const growthStop = growthHeldForPrint && !growthSkipShown && !(nurseAccount && !ordersReadOnly);
   const growthMissingText = growthNeed ? `${growthNeed.missing.join(" และ ")} ของสัปดาห์นี้ (วัดล่าสุดเกิน ${D.GROWTH_FRESH_DAYS} วัน)` : "";
   const submitStops = [
@@ -1801,7 +1801,7 @@ function Calculator({
   const replacesTpn = savedReplacesTpn || savedStatus === "submitted" && !!savedEntryId && savedHadTpn;
   const tpnCancelledToday = noTpnOn && replacesTpn;
   const daysToOrder = D.daysBetweenDateStr(D.todayLocal(), orderDateKey);
-  const revisingForRoom = (dirty || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0) && !scratch && !centerPoint && !ordersReadOnly && savedStatus === "submitted" && (savedHadTpn || bagOrdered) && (daysToOrder === 0 || daysToOrder === 1);
+  const revisingForRoom = (dirty || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || growthStop) && !scratch && !centerPoint && !ordersReadOnly && savedStatus === "submitted" && (savedHadTpn || bagOrdered) && (daysToOrder === 0 || daysToOrder === 1);
   const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday || tpnCancelledToday);
   const orderSettled = !!savedEntryId && !dirty && !pendingSave && !routeMissing && !noTpnUnticked && !zeroVolumeBag && !kOverMax && !bagOverBottle && !bagOverfull && !stockAtZeroMl && !feedsOverMax && !feedsIrregular && !feedUnknown && !tpnWtOutOfRange && !dosingWeightChanged && !calcMoved && uncoveredCritical.length === 0 && !isDraftSaved;
   const printable = orderSettled && (!noTpnOn || noTpnSheet);
@@ -2072,9 +2072,10 @@ function Calculator({
       showToast(feedUnknownText, "error");
       return;
     }
-    const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION && !dosingWeightChanged && uncoveredCritical.length === 0 && !growthSkipUnsaved;
-    const critical = asDraft || nurseIoOnly || ioOnlyByDoctor ? [] : sortClinicalAlerts(alerts).filter((a) => a.level === "crit" && !a.noReason);
-    let override = (nurseIoOnly || ioOnlyByDoctor) && !asDraft ? critOverride : null;
+    const sameOrderByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION && !dosingWeightChanged && uncoveredCritical.length === 0;
+    const ioOnlyByDoctor = sameOrderByDoctor && !growthSkipUnsaved;
+    const critical = asDraft || nurseIoOnly || sameOrderByDoctor ? [] : sortClinicalAlerts(alerts).filter((a) => a.level === "crit" && !a.noReason);
+    let override = (nurseIoOnly || sameOrderByDoctor) && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       const reason = window.prompt(
         `มีค่าวิกฤต ${critical.length} รายการ:
@@ -3281,7 +3282,7 @@ function Calculator({
     /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14 }),
     " ",
     saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"
-  ), figuresMissing && !scratch && !ordersReadOnly && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), (nurseSubmitRefused || nurseHeldOrder) && /* @__PURE__ */ React.createElement("div", { className: "nurse-doctor-submits", role: "note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, NURSE_SUBMIT_TEXT), revisingForRoom && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "revise-phone-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย"), !centerPoint && !scratch && printable && redAlertTitles.length > 0 && /* @__PURE__ */ React.createElement(
+  ), figuresMissing && !scratch && !ordersReadOnly && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "sticker-figures-missing", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "ยังไม่มีตัวเลขสติกเกอร์ — กด Submit อีกครั้ง"), (nurseSubmitRefused || nurseHeldOrder) && /* @__PURE__ */ React.createElement("div", { className: "nurse-doctor-submits", role: "note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, NURSE_SUBMIT_TEXT), revisingForRoom && !nurseIoOnly && /* @__PURE__ */ React.createElement("div", { className: "revise-phone-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, growthStop && !dirty && !calcMoved && !dosingWeightChanged && uncoveredCritical.length === 0 ? "Submit แล้ว — ใส่เหตุผลแล้วจะเป็นฉบับใหม่ ตัวเลขเท่าเดิม โทรแจ้งห้อง TPN ด้วย" : "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย"), !centerPoint && !scratch && printable && redAlertTitles.length > 0 && /* @__PURE__ */ React.createElement(
     "div",
     {
       className: "print-ack",

@@ -7,6 +7,35 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-22 (3) — Vera on the Sunday growth gate: the reason-only revision, older children's wards, the reason's day; harnesses on a real Sunday
+
+`calculator.jsx`, `data.js`, `compiled/` and the shells' `?v=` tokens, `.claude/skills/neofeed-clinical-rules/SKILL.md`,
+`test/verify-growth-gate-1122.cjs`, `test/never-sunday.cjs` (new), `test/verify-calc-clicks.cjs` and
+`test/verify-walk-1107.cjs` (each requires it first). No figure moves.
+
+Vera returned NO BLOCK on (2) with one 🟠 and two 🟡.
+
+- **🟠 A reason on a submitted order is a new revision with the same figures.** The backend counts `growthSkip` as
+  part of the order (it is not in `IO_FREE_CALC_KEYS`), so an order written on Saturday for Sunday becomes "ฉบับที่ 2"
+  when the reason is given, and the TPN room could make a second bag. Asked, Pp chose "ฉบับใหม่ + บอกให้โทร": the
+  save panel now says "Submit แล้ว — ใส่เหตุผลแล้วจะเป็นฉบับใหม่ ตัวเลขเท่าเดิม โทรแจ้งห้อง TPN ด้วย" (`revisingForRoom`
+  takes `growthStop`), and the stored critical-value reason stands on that revision, so nothing is asked again
+  (`sameOrderByDoctor`). No backend change.
+- **🟡 Older children's wards.** `weeklyGrowthMissing` returns null off a newborn unit (`isNewbornUnit`), so a ward put
+  in `OLDER_CHILD_WARDS` later is neither prompted on Sundays nor held. The list is empty today: no infant changes.
+- **🟡 The reason's DOL.** A reason now counts for its DOL or for the Bangkok day it was given on, so a DOB corrected
+  later that Sunday does not hold the order again.
+- **Tests Vera proposed.** Print ทั้งหมด holds AA and DD with the reason and prints BB and CC on the tap; a nurse's I/O
+  Submit asks nothing and sends no stop (it fails with the nurse term removed from `growthStop`); a reason on a locked
+  order with a confirmed critical value asks once, keeps that reason, and is revision 2. Plus the data cases for the
+  two 🟡 fixes. `verify-growth-gate-1122.cjs` is now 10 scenarios, 83 checks, all passing.
+- **A real Sunday in the other harnesses.** The full sources run on 2026-11-22, a Sunday, failed
+  `verify-calc-clicks.cjs` ("cancelled critical reason → nothing saved") and `verify-walk-1107.cjs` (no first save):
+  each mounts the Calculator on the real clock,
+  so a new order met the growth prompt before the critical one. `test/never-sunday.cjs` runs such a process on the
+  Monday, as `review-0917-boot.cjs` does for the app, and both require it first; both pass on that
+  Sunday now. A harness that mounts the Calculator on the real clock should require it too.
+
 ## Session 2026-11-22 (2) — Sunday's length and HC hold the TPN order: Submit and Print, with a reason to skip
 
 `data.js` (`growthSince`, `GROWTH_FRESH_DAYS`, `weeklyGrowthMissing`, `sundayGrowthHolds`, `growthSkipCovers`;

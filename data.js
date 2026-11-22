@@ -3360,6 +3360,9 @@ function weeklyGrowthMissing(p, now) {
   // A discharged infant is not measured, a test patient is saved nowhere, and
   // a record with no bed in the system is read-only: a save would be refused.
   if (!isOnUnit(p) || isTestSession(p.sessionId) || isReadOnlyOther(p)) return null;
+  // Fenton is a preterm chart: an older child's ward (OLDER_CHILD_WARDS) is not
+  // asked on Sundays, nor is its TPN order held (Vera, 2026-11-22).
+  if (!isNewbornUnit(p)) return null;
   if (!isSundayBangkok(now)) return null;
   const dol = liveDol(p);
   const have = growthSince(p, dol - GROWTH_FRESH_DAYS, dol);
@@ -3382,11 +3385,16 @@ function sundayGrowthHolds(p, orderDate, skip, now) {
   const m = weeklyGrowthMissing(p, now);
   const today = now == null ? todayLocal() : _BKK_DATE_FMT.format(new Date(now instanceof Date ? now.getTime() : Number(now)));
   if (!m || String(orderDate || "") !== today) return false;
-  return !growthSkipCovers(skip, m.dol);
+  return !growthSkipCovers(skip, m.dol, today);
 }
-function growthSkipCovers(skip, dol) {
-  return !!skip && typeof skip === "object" && Number(skip.dol) === Number(dol)
-    && String(skip.reason == null ? "" : skip.reason).trim() !== "";
+// A reason counts for the DOL it was given on, or for the day it was given on
+// (`day`, YYYY-MM-DD in Bangkok), so a DOB corrected later that Sunday, which
+// moves the DOL, does not undo it (Vera, 2026-11-22). A blank reason never counts.
+function growthSkipCovers(skip, dol, day) {
+  if (!skip || typeof skip !== "object" || String(skip.reason == null ? "" : skip.reason).trim() === "") return false;
+  if (Number(skip.dol) === Number(dol)) return true;
+  const at = Date.parse(skip.at);
+  return !!day && isFinite(at) && _BKK_DATE_FMT.format(new Date(at)) === day;
 }
 
 // What a patient's status reads as, on every screen. A blank status is Active,

@@ -15,6 +15,8 @@
 //
 // Dev-only deps as in test/README.md (react@18 react-dom@18 @babel/core
 // @babel/preset-react jsdom).
+// On a real Sunday, run as the Monday: Sunday holds the TPN order for its length and HC (never-sunday.cjs).
+require('./never-sunday.cjs');
 const fs = require('fs');
 const { printFormTicked: __printFormTicked } = require('./print-acks-helper.cjs');
 const vm = require('vm');

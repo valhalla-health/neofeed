@@ -2461,7 +2461,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   const growthGateOn = !centerPoint && !scratch;
   const growthNeed = growthGateOn && orderDateKey === D.todayLocal() ? D.weeklyGrowthMissing(patient) : null;
   const growthHeldForPrint = growthGateOn && D.sundayGrowthHolds(patient, orderDateKey, savedGrowthSkip);
-  const growthSkipShown = [growthSkipTyped, savedGrowthSkip].find(sk => D.growthSkipCovers(sk, growthNeed?.dol)) || null;
+  const growthSkipShown = [growthSkipTyped, savedGrowthSkip].find(sk => D.growthSkipCovers(sk, growthNeed?.dol, orderDateKey)) || null;
   const growthStop = growthHeldForPrint && !growthSkipShown && !(nurseAccount && !ordersReadOnly);
   const growthMissingText = growthNeed ? `${growthNeed.missing.join(" และ ")} ของสัปดาห์นี้ (วัดล่าสุดเกิน ${D.GROWTH_FRESH_DAYS} วัน)` : "";
   // The stops that hold, by the neofeed-clinical-rules skill's IDs, sent with
@@ -2737,7 +2737,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // told it stopped. An earlier day's bag has been given, and a draft has not
   // reached the room.
   const daysToOrder = D.daysBetweenDateStr(D.todayLocal(), orderDateKey);
-  const revisingForRoom = (dirty || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0)
+  // A reason for Sunday's length and HC on a submitted order is a revision too, with the
+  // same figures: the doctor phones the TPN room, as for any revision (Pp, 2026-11-22,
+  // after Vera: "ฉบับใหม่ + บอกให้โทร").
+  const revisingForRoom = (dirty || calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || growthStop)
     && !scratch && !centerPoint && !ordersReadOnly && savedStatus === "submitted" && (savedHadTpn || bagOrdered)
     && (daysToOrder === 0 || daysToOrder === 1);
   const noTpnSheet = noTpnOn && (D.orderHasOralOrders(liveInputs) || tpnStoppedToday || tpnCancelledToday);
@@ -3153,17 +3156,19 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // stored row): the same order, on the same constants. Its critical values
     // were confirmed when it was ordered, so the stored confirmation stands, as
     // on a nurse's I/O save; asking again would make it a new version (Vera).
-    const ioOnlyByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
+    const sameOrderByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
       && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
       // The dosing weight moved after the save (a corrected birth weight): every per-kg figure is
       // re-dosed while the inputs stay the same, so it is a new order and its critical values are
       // asked again (code review, 2026-11-19: the old reason went out beside a GIR nobody confirmed).
       && !dosingWeightChanged
-      && uncoveredCritical.length === 0
-      // A reason for Sunday's length and HC is part of the order (not IO_FREE_CALC_KEYS).
-      && !growthSkipUnsaved;
-    const critical = asDraft || nurseIoOnly || ioOnlyByDoctor ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
-    let override = (nurseIoOnly || ioOnlyByDoctor) && !asDraft ? critOverride : null;
+      && uncoveredCritical.length === 0;
+    // A reason for Sunday's length and HC is part of the order (not IO_FREE_CALC_KEYS), so
+    // giving one makes a revision; its figures are the ones confirmed, so the stored
+    // confirmation stands and nothing is asked again (Vera, 2026-11-22).
+    const ioOnlyByDoctor = sameOrderByDoctor && !growthSkipUnsaved;
+    const critical = asDraft || nurseIoOnly || sameOrderByDoctor ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+    let override = (nurseIoOnly || sameOrderByDoctor) && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
       // into an order packet that deliberately carries no identity), so both
@@ -5060,7 +5065,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {revisingForRoom && !nurseIoOnly && (
               <div className="revise-phone-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
-                Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย
+                {growthStop && !dirty && !calcMoved && !dosingWeightChanged && uncoveredCritical.length === 0
+                  ? "Submit แล้ว — ใส่เหตุผลแล้วจะเป็นฉบับใหม่ ตัวเลขเท่าเดิม โทรแจ้งห้อง TPN ด้วย"
+                  : "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง และโทรแจ้งห้อง TPN ด้วย"}
               </div>
             )}
             {/* A tick per red alert before Print (printAcks). Shown once the order
