@@ -14,7 +14,7 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 check), `test/ward-screens.cjs`, `test/verify-ward-table.cjs`, `test/verify-newborn-unmoved-wards.cjs` and its reading
 `test/newborn-unmoved-wards.json` (new), `test/verify-bed-park.cjs` (§3 loads the ward table with `_normBed`),
 `REFERENCE.md` § Adding a ward, `openspec/changes/paediatric-wards/tasks.md`
-(1.1–1.5 ticked), `STATUS.md`. No dose, limit, unit, rounding, target or printed line moves; `CONSTANTS_VERSION` stays
+(1.1–1.5 ticked), `test/review-0917-boot.cjs` (a Sunday runs as the Monday), `STATUS.md`. No dose, limit, unit, rounding, target or printed line moves; `CONSTANTS_VERSION` stays
 `2026-11-20.1`.
 
 Pp, 2026-11-22: the ward and bed lists were written by hand in about twelve places across five files; they move into
@@ -51,6 +51,15 @@ one table so that adding a ward becomes a data change.
   `verify-single-source-weight-dol.cjs` and `verify-ward-print-1012.cjs` (identical failing lines on `main`). The
   compiled pass gives the same set; its browser sections skip here (the global Playwright 1.62 wants a Chromium
   headless shell this PC does not have), so CI's compiled pass is the one that runs them.
+- **Why five harnesses went red on a Sunday.** The five that failed on `main` too all boot through
+  `test/review-0917-boot.cjs`, and 2026-11-22 is the first Sunday since 4224835 (Pp, 2026-11-16), which opens a
+  patient on the growth page every Sunday in Bangkok until that day's length and head circumference are in. The
+  harnesses open a patient and press New log on the Dashboard, which a Sunday does not show. With the clock shifted
+  and nothing else changed, `verify-single-source-weight-dol.cjs` passed on Saturday 21 Nov and Monday 23 Nov (65/65)
+  and failed on Sunday 29 Nov with the same 7 lines as today. The app is right; the boot now runs the whole process
+  on the Monday, same time of day, when the real day is a Sunday, before `TODAY` and the fixtures are built. Forward,
+  not back, so a run started late on Sunday cannot cross into another Sunday. `verify-growth-weekly-print-1116.cjs`
+  still reaches Sunday on purpose through `clock.advance`.
 
 ## Session 2026-11-21 (2) — A guideline watch: a skill that checks the societies for new editions and audits the live code against its sources; its first run; Q28
 
