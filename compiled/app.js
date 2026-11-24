@@ -3034,8 +3034,10 @@ function FormulasPanel() {
   const DB = D_A.EN_DB;
   const groups = [
     { label: "Breast Milk", keys: ["BM_20", "BM_HMF_24", "BM_PFP_22", "BM_PFP_24", "BM_PFP_27"] },
-    { label: "HiQ LF (Dumex)", keys: ["HIQLF_20", "HIQLF_24", "HIQLF_27"] },
-    { label: "Enfalac LF (MJN)", keys: ["ENFALAC_20", "ENFALAC_24", "ENFALAC_27"] },
+    { label: "HiQ LF (Dumex)", keys: ["HIQLF_20", "HIQLF_22", "HIQLF_24", "HIQLF_26", "HIQLF_27", "HIQLF_30", "HIQLF_35", "HIQLF_40"] },
+    { label: "Enfalac LF (MJN)", keys: ["ENFALAC_20", "ENFALAC_22", "ENFALAC_24", "ENFALAC_26", "ENFALAC_27", "ENFALAC_30", "ENFALAC_35", "ENFALAC_40"] },
+    // Extensively hydrolysed (Pp, 2026-11-24): Chula Tables 13 and 14.
+    { label: "Hydrolysed formula", keys: ["NUTRAMIGEN_20", "HIQPEPTI_GASTRO_20", "HIQPEPTI_GASTRO_22", "HIQPEPTI_GASTRO_24", "HIQPEPTI_GASTRO_27"] },
     // Grouped as the calculator's feed list. Pre Nan is a preterm formula
     // (nutrition unit, 2026-10-25); it had a post-discharge group of its own
     // from 2026-09-28 until then.
