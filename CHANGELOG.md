@@ -33,9 +33,17 @@ lactose-free strengths step, she chose the ones the ward uses (20, 22, 24, 26, 2
   strength has no osmolality. The Formula reference page lists the new rows (48 rows, was 33).
 - **The book, not the label.** BACKLOG item B · 6 waited for photos of the labels KCMH stocks; Pp chose the book. The
   book is the 3rd edition (2565); a label that differs should replace these rows.
-- `CONSTANTS_VERSION` 2026-11-20.1 → 2026-11-24.1. No existing row moves: a saved order prints what it printed.
-  Center Point's own copy of the label map (`web/tpn-document.mjs` in NICU-Center-Point) needs the same lines before
-  the release, as on 2026-11-11.
+- `CONSTANTS_VERSION` 2026-11-20.1 → 2026-11-24.1 (`EN_DB` changed, the bump rule). No figure moves, but every saved
+  order is held for a re-save before it reprints (`calcMoved` compares the version, not the figures; Vera on this PR),
+  so on release day each active infant's order needs a save before its next print.
+- **Center Point.** `center-point/tpn-document.mjs` gains the 20 new feed labels. CP validates with its own copy and
+  refuses a key it does not hold, so until CP's `web/tpn-document.mjs` is synced and its `test/neofeed-commit`
+  re-pinned, an order on one of the new feeds does not reach the TPN room (it fails closed). The CP sync is a step
+  before the release (Vera, finding 1). `verify-center-point-entry` §6b checks that every `EN_DB` key has a CP label
+  equal to its own label (Vera's added test), so the next feed added without one fails CI.
+- Source: Chula Pediatric Nutrition Handbook 3rd ed. (2565). A new agent read every value of Tables 7, 13 and 14
+  against the page at 200 dpi and found no error. No second clinician has reviewed these rows; Pp's decision alone
+  (change protocol step 3).
 
 ## Session 2026-11-22 (4) — Vera's second run on the Sunday growth gate: a read-only nurse's wording, a new order's reason
 
