@@ -7,6 +7,36 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-24 — Nutramigen LGG and Hi-Q Pepti Gastro in Step 2; lactose-free formula from 20 to 40 kcal/oz
+
+`data.js` (`EN_KCAL_PER_100ML`, `EN_SRC_CHULA_PER_100_KCAL`, `EN_DB`, `EN_PRODUCTS`, `CONSTANTS_VERSION`), `app.jsx`
+(FormulasPanel), `center-point/tpn-document.mjs`, `compiled/` and the shells' `?v=`, the neofeed-clinical-rules skill
+(CR-U-EN-KCAL), `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `STATUS.md`; tests `verify-en-db-sources`,
+`verify-tpn-meeting-0928`, `verify-calc-sum`.
+
+Pp, 2026-11-24: "ในcard enteral feeding อยากให้เพิ่ม Nutramigen เข้าไปเป็นตัวเลือกด้วย", then, shown that the Chula
+handbook prints it, "ใช้หนังสือเลย"; then "เพิ่ม Hi-Q Pepti Gastro ด้วย แล้วค่อยมีคำนวณ เป็น 20/22/24/27 kcal/oz สำหรับ hiQ
+ส่วน nutramigen ให้เลือกได้แค่ 20 kcal/oz ให้เพิ่ม lactose free formular ให้ปรับ 20-40 kcal/oz". Asked how the
+lactose-free strengths step, she chose the ones the ward uses (20, 22, 24, 26, 27, 30, 35, 40) and confirmed 40 as the top.
+
+- **Nutramigen LGG, 20 kcal/oz only** (`NUTRAMIGEN_20`): Chula Table 13, p. 26 (extensive hydrolysed casein formula), per
+  100 kcal protein 2.8, fat 5.0, CHO 11.0, Na 47 mg, K 122 mg, Ca 113 mg, P 78 mg, osmolality 320. Per 100 mL at 67 kcal:
+  protein 1.88 g, Ca 75.7 mg, P 52.3 mg. The page prints Ca:P 1.5:1, where its own 113 / 78 is 1.45; the harness
+  allows that one column 0.06 instead of 0.05 and says why.
+- **Hi-Q Pepti Gastro at 20, 22, 24 and 27** (`HIQPEPTI_GASTRO_*`): Chula Table 14, p. 27 (extensive hydrolysed whey,
+  MCT 50 %), per 100 kcal protein 2.7, fat 5.3, CHO 10.4, Na 28, K 98, Ca 75.7, P 42.3, osmolality 220. Above 20 the
+  column is concentrated by proportion, as the nutrition unit said on 2026-10-25, with no osmolality.
+- Both sit in a new Step 2 group, "Hydrolysed formula", and are marked lactose-free (their only carbohydrate is corn
+  syrup or glucose syrup).
+- **Lactose-free formula at 20, 22, 24, 26, 27, 30, 35 and 40** for HiQ LF and Enfalac LF (Chula Table 7, p. 18, as
+  before); `EN_KCAL_PER_100ML` gains 35 → 117 and 40 → 133 (1 oz = 30 mL). The book prints both at 20, so every other
+  strength has no osmolality. The Formula reference page lists the new rows (48 rows, was 33).
+- **The book, not the label.** BACKLOG item B · 6 waited for photos of the labels KCMH stocks; Pp chose the book. The
+  book is the 3rd edition (2565); a label that differs should replace these rows.
+- `CONSTANTS_VERSION` 2026-11-20.1 → 2026-11-24.1. No existing row moves: a saved order prints what it printed.
+  Center Point's own copy of the label map (`web/tpn-document.mjs` in NICU-Center-Point) needs the same lines before
+  the release, as on 2026-11-11.
+
 ## Session 2026-11-22 (4) — Vera's second run on the Sunday growth gate: a read-only nurse's wording, a new order's reason
 
 `calculator.jsx`, `compiled/calculator.js` and the shells' `?v=` tokens, `test/verify-growth-gate-1122.cjs`.

@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-11-20.1";
+const CONSTANTS_VERSION = "2026-11-24.1";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -164,7 +164,7 @@ function syncFreshness(s) {
 // test/verify-en-db-sources.cjs, which holds its own copy of these tables. `osm` is shown on the Formula reference page only, and no
 // calculation reads it; null means the source gives none at that strength.
 const EN_MG_PER_MMOL = { na: 22.99, k: 39.10, ca: 40.08, p: 30.97 };
-const EN_KCAL_PER_100ML = { 20: 67, 22: 73, 24: 80, 26: 87, 27: 90, 30: 100 };
+const EN_KCAL_PER_100ML = { 20: 67, 22: 73, 24: 80, 26: 87, 27: 90, 30: 100, 35: 117, 40: 133 };
 
 // Chula Pediatric Nutrition Handbook, 3rd ed. (2565), docs/Nutrition PedCu Ed3.pdf.
 // The formula tables are per 100 kcal, Na and K in mg. `kcalOz` is the strength
@@ -178,6 +178,10 @@ const EN_SRC_CHULA_PER_100_KCAL = {
   // Table 7, p. 18 — lactose-free formula
   enfalacLf:        { pro: 2.1, fat: 5.4, cho: 10.6, naMg: 46, kMg: 115, ca: 115, p: 77, osm: 200, kcalOz: 20 },
   hiQLf:            { pro: 2.4, fat: 5.2, cho: 10.8, naMg: 34, kMg: 80,  ca: 64,  p: 34, osm: 170, kcalOz: 20 },
+  // Table 13, p. 26 — extensive hydrolysed casein formula
+  nutramigenLgg:    { pro: 2.8, fat: 5.0, cho: 11.0, naMg: 47, kMg: 122, ca: 113, p: 78, osm: 320, kcalOz: 20 },
+  // Table 14, p. 27 — extensive hydrolysed whey formula
+  hiQPeptiGastro:   { pro: 2.7, fat: 5.3, cho: 10.4, naMg: 28, kMg: 98,  ca: 75.7, p: 42.3, osm: 220, kcalOz: 20 },
   // Table 16, p. 29 — Infatrini powder (4 scoops, 20 g, + water 90 mL = 100 mL)
   infatriniPowder:  { pro: 2.6, fat: 5.4, cho: 10.3, naMg: 37, kMg: 100, ca: 99,  p: 54, osm: 345, kcalOz: 30 },
 };
@@ -427,6 +431,33 @@ const EN_DB = {
     note: "Ca and P below the ESPGHAN goal at 150 mL/kg → supplement oral Ca and P. Na may need a supplement",
   },
 
+  // Pp, 2026-11-24: lactose-free formula at 20, 22, 24, 26, 27, 30, 35 and 40 kcal/oz.
+  LF_22: {
+    label: "LF — HiQ LF (22 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 22), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 22 kcal/oz",
+  },
+  LF_26: {
+    label: "LF — HiQ LF (26 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 26), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 26 kcal/oz",
+  },
+  LF_30: {
+    label: "LF — HiQ LF (30 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 30), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 30 kcal/oz",
+  },
+  LF_35: {
+    label: "LF — HiQ LF (35 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 35), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 35 kcal/oz",
+  },
+  LF_40: {
+    label: "LF — HiQ LF (40 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 40), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 40 kcal/oz",
+  },
+
   // ── HiQ LF — the same rows, for the Formula reference page ─
   HIQLF_20: {
     label: "HiQ LF — 20 kcal/oz (67 kcal/100mL)",
@@ -443,6 +474,31 @@ const EN_DB = {
     ..._enFromChula(_EN_CHULA.hiQLf, 27), lf: true,
     source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 27 kcal/oz",
     note: "Ca and P below the ESPGHAN goal at 150 mL/kg → supplement oral Ca and P",
+  },
+  HIQLF_22: {
+    label: "HiQ LF — 22 kcal/oz (73 kcal/100mL)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 22), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 22 kcal/oz",
+  },
+  HIQLF_26: {
+    label: "HiQ LF — 26 kcal/oz (87 kcal/100mL)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 26), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 26 kcal/oz",
+  },
+  HIQLF_30: {
+    label: "HiQ LF — 30 kcal/oz (100 kcal/100mL)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 30), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 30 kcal/oz",
+  },
+  HIQLF_35: {
+    label: "HiQ LF — 35 kcal/oz (117 kcal/100mL)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 35), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 35 kcal/oz",
+  },
+  HIQLF_40: {
+    label: "HiQ LF — 40 kcal/oz (133 kcal/100mL)",
+    ..._enFromChula(_EN_CHULA.hiQLf, 40), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 40 kcal/oz",
   },
 
   // ── Enfalac LF (Mead Johnson) — the Formula reference page, and since
@@ -463,6 +519,65 @@ const EN_DB = {
     ..._enFromChula(_EN_CHULA.enfalacLf, 27), lf: true,
     source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 27 kcal/oz",
     note: "Ca goal met at 150 mL/kg",
+  },
+
+  // Pp, 2026-11-24: lactose-free formula at 20, 22, 24, 26, 27, 30, 35 and 40 kcal/oz.
+  ENFALAC_22: {
+    label: "Enfalac LF — 22 kcal/oz (73 kcal/100mL)",
+    ..._enFromChula(_EN_CHULA.enfalacLf, 22), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 22 kcal/oz",
+  },
+  ENFALAC_26: {
+    label: "Enfalac LF — 26 kcal/oz (87 kcal/100mL)",
+    ..._enFromChula(_EN_CHULA.enfalacLf, 26), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 26 kcal/oz",
+  },
+  ENFALAC_30: {
+    label: "Enfalac LF — 30 kcal/oz (100 kcal/100mL)",
+    ..._enFromChula(_EN_CHULA.enfalacLf, 30), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 30 kcal/oz",
+  },
+  ENFALAC_35: {
+    label: "Enfalac LF — 35 kcal/oz (117 kcal/100mL)",
+    ..._enFromChula(_EN_CHULA.enfalacLf, 35), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 35 kcal/oz",
+  },
+  ENFALAC_40: {
+    label: "Enfalac LF — 40 kcal/oz (133 kcal/100mL)",
+    ..._enFromChula(_EN_CHULA.enfalacLf, 40), lf: true,
+    source: "Chula Handbook Table 7, p. 18 (per 100 kcal), concentrated to 40 kcal/oz",
+  },
+
+  // ── Extensively hydrolysed formula (Pp, 2026-11-24) ────────
+  // Both lactose-free (corn syrup / glucose syrup only, Tables 13 and 14).
+  // Nutramigen at 20 kcal/oz only (Pp); Hi-Q Pepti Gastro at 20, 22, 24, 27,
+  // the higher ones mixed by proportion (nutrition unit, 2026-10-25).
+  NUTRAMIGEN_20: {
+    label: "Nutramigen LGG (20 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.nutramigenLgg, 20), lf: true,
+    source: "Chula Handbook Table 13, p. 26 (per 100 kcal)",
+    note: "Extensive casein hydrolysate · Ca:P 1.5:1",
+  },
+  HIQPEPTI_GASTRO_20: {
+    label: "Hi-Q Pepti Gastro (20 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.hiQPeptiGastro, 20), lf: true,
+    source: "Chula Handbook Table 14, p. 27 (per 100 kcal)",
+    note: "Extensive whey hydrolysate, MCT 50 % · Ca:P 1.8:1",
+  },
+  HIQPEPTI_GASTRO_22: {
+    label: "Hi-Q Pepti Gastro (22 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.hiQPeptiGastro, 22), lf: true,
+    source: "Chula Handbook Table 14, p. 27 (per 100 kcal), concentrated to 22 kcal/oz",
+  },
+  HIQPEPTI_GASTRO_24: {
+    label: "Hi-Q Pepti Gastro (24 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.hiQPeptiGastro, 24), lf: true,
+    source: "Chula Handbook Table 14, p. 27 (per 100 kcal), concentrated to 24 kcal/oz",
+  },
+  HIQPEPTI_GASTRO_27: {
+    label: "Hi-Q Pepti Gastro (27 kcal/oz)",
+    ..._enFromChula(_EN_CHULA.hiQPeptiGastro, 27), lf: true,
+    source: "Chula Handbook Table 14, p. 27 (per 100 kcal), concentrated to 27 kcal/oz",
   },
 
   // ── Infatrini (Nutricia) — 100 kcal/100 mL ────────────────
@@ -513,8 +628,12 @@ const EN_PRODUCTS = [
   { id: "preNan",      group: "Preterm formula",     label: "Pre Nan",                       strengths: [[20, "PRENAN_20"], [22, "PRENAN_22"], [24, "PRENAN_24"], [26, "PRENAN_26"], [27, "PRENAN_27"]] },
   { id: "hiQLbw",      group: "Preterm formula",     label: "Hi-Q LBW",                      strengths: [[20, "HIQLBW_20"], [22, "HIQLBW_22"], [24, "FBM_PF_24"], [26, "HIQLBW_26"], [27, "HIQLBW_27"]] },
   { id: "infatrini",   group: "High-energy formula", label: "Infatrini",                     strengths: [[30, "INFATRINI_30"]] },
-  { id: "hiQLf",       group: "Lactose-free",        label: "HiQ LF",                        strengths: [[20, "LF_20"], [24, "LF_24"], [27, "LF_27"]] },
-  { id: "enfalacLf",   group: "Lactose-free",        label: "Enfalac LF",                    strengths: [[20, "ENFALAC_20"], [24, "ENFALAC_24"], [27, "ENFALAC_27"]] },
+  // Pp, 2026-11-24: lactose-free formula at the strengths the ward uses, 20 to 40.
+  { id: "hiQLf",       group: "Lactose-free",        label: "HiQ LF",                        strengths: [20, 22, 24, 26, 27, 30, 35, 40].map((oz) => [oz, `LF_${oz}`]) },
+  { id: "enfalacLf",   group: "Lactose-free",        label: "Enfalac LF",                    strengths: [20, 22, 24, 26, 27, 30, 35, 40].map((oz) => [oz, `ENFALAC_${oz}`]) },
+  // Pp, 2026-11-24: Nutramigen at 20 kcal/oz only; Hi-Q Pepti Gastro at 20, 22, 24, 27.
+  { id: "nutramigen",  group: "Hydrolysed formula",  label: "Nutramigen LGG",                strengths: [[20, "NUTRAMIGEN_20"]] },
+  { id: "hiQPepti",    group: "Hydrolysed formula",  label: "Hi-Q Pepti Gastro",             strengths: [20, 22, 24, 27].map((oz) => [oz, `HIQPEPTI_GASTRO_${oz}`]) },
 ];
 // Feed 1 + feed 2 together, at most 8 feeds a day (q3h); q4h is 6 (Pp,
 // 2026-10-28: "Feed 1+2 รวมกันมากสุดจะได้แค่ 8 มื้อ หรือถ้ากินทุก 4 ชม ก็จะได้
