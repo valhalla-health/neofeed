@@ -199,6 +199,13 @@ T.section('§4 a registration that matches another ward\'s infant', () => withNo
   const same = g.as('pedDoc', { action: 'registerPatient', isNew: true, patient: reg('NF-320002', 'PED 4', { bw: BW['NF-310003'], dob: DOB, admissionDate: DOB }) });
   T.ok('4.4 the PED doctor is shown the PED record, as before', same.needsConfirm === true && (same.error || '').includes('NF-310003'), same);
   T.ok('4.5 nothing was written', !g.rows('Patient_Registry').some(row => /^NF-32/.test(row[0])));
+  // A new id drawn onto another ward's record: the old "ID taken, draw another" answer, which names no one.
+  const taken = g.as('pedDoc', { action: 'registerPatient', isNew: true, patient: reg('NF-310001', 'PED 4') });
+  T.ok("4.6 a new id that is another ward's record: IdTaken, so the client draws another", taken.needsConfirm === true && taken.code === 'IdTaken', taken);
+  T.eq('4.7 …naming no one', leaks(JSON.stringify(taken).replace(/NF-310001/g, ''), ['NF-310001']), []);
+  const over = g.as('pedDoc', { action: 'registerPatient', isNew: true, confirmOverwrite: true, patient: reg('NF-310001', 'PED 4') });
+  T.ok('4.8 …and an overwrite of it is refused', !!over.error && over.ok !== true && over.code === 'WardScope', over);
+  T.ok('4.9 …leaving the NICU record as it was', (g.rows('Patient_Registry').find(r => r[0] === 'NF-310001') || [])[10] === 'NICU 3');
 }));
 
 T.section('§5 a bed taken by another ward\'s infant; a transfer out of the caller\'s ward', () => withNow(NOON, () => {
