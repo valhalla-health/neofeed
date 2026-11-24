@@ -19,9 +19,13 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
   are not checked. The info line `CR-FLUID-PLAN` still compares IV + feeds with the plan, so a day far from its plan is
   still said. With Other IV 0 both rules hold as before. The red line no longer names the Other IV, since it can no
   longer fire with one.
-- **The ward list.** An order Submitted with the old red line still keeps its infant on NEEDS ENTRY daily
-  (`D.noTpnEntryDueOn` reads the saved reason); a new IV-fluid order has no such reason, so it is asked again after 3
-  days, like any other No TPN order.
+- **A blue line names the IV** (Vera, finding 1; Pp: "ขึ้นฟ้าบอก IV"). Other IV prefills from yesterday's order, so an
+  IV stopped and left in the box would silence both checks. A No TPN day with Other IV above 0 shows "No TPN on IV
+  fluid", the Other IV in mL/kg/d, and asks to set it to 0 if stopped. Info only: no reason, no hold on Submit or Print.
+- **The ward list asks daily** (Vera, finding 2; Pp: "ทุกวัน"). A No TPN order with Other IV above 0 has no 3-day due
+  date (`D.noTpnEntryDueOn`), as one Submitted with the old red line still has none.
+- Vera's comment finding: the CR-NO-TPN-EN comment no longer gives the IV-fluid day as its reason.
+- Tests: `verify-no-tpn-entry-3day-1114` case M (on IV daily, Other IV 0 keeps 3 days).
 - No printed figure moves, so `CONSTANTS_VERSION` stays (alert rule only). No second clinician has reviewed this
   change; Pp's decision alone.
 - Tests: `verify-clinical-rules` CR-NO-TPN-EN, the old "IV fluid alone … critical" case now saves with no reason, plus

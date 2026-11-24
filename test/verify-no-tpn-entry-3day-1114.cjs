@@ -117,6 +117,11 @@ ok('No TPN yesterday, Submitted with the feeds-below critical: asked', D.needsEn
 ok('…also with a title saved under an earlier limit', D.needsEntryOn([lowFeeds(ago(1), ["No TPN: feeds below 60 mL/kg/d or the day's minimum"])], today) === true);
 ok('another critical confirmed (GIR) keeps the 3 days', D.needsEntryOn([lowFeeds(ago(1), ['GIR critically high'])], today) === false);
 ok('the feeds-below order has no due date', D.noTpnEntryDueOn([lowFeeds(ago(1), [D.NO_TPN_FEEDS_LOW_TITLE])]) === null);
+// M (2026-11-24): No TPN on IV fluid has no feed check to save, and is asked every day (Pp: "ทุกวัน").
+const onIv = (ts, ml) => noTpn(ts, { calcInput: { noTpn: true, totalTPN_mL: 0, otherIV_mL: ml } });
+ok('M: No TPN on Other IV 60 yesterday, no critical saved: asked', D.needsEntryOn([onIv(ago(1), 60)], today) === true);
+ok('…and it has no due date', D.noTpnEntryDueOn([onIv(ago(1), 60)]) === null);
+ok('…Other IV 0 keeps the 3 days', D.needsEntryOn([onIv(ago(1), 0)], today) === false);
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 const render = (props) => act(() => { root.render(React.createElement(PatientRegistry, {

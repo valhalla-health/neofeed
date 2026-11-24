@@ -2587,7 +2587,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // so the counted feed (a MEN feed counts for nothing) must reach 80 mL/kg/d,
   // or the day's fluid requirement where that is lower (D.noTpnEnMinPerKg, on
   // the tier tFluid reads). Critical: Submit asks for a reason, which prints
-  // (Pp chose it over a stop, so a day on IV fluid alone can still be ordered).
+  // (Pp chose it over a stop). A day on IV fluid is exempt since 2026-11-24 (below).
   // Float noise stripped, as for K⁺, so 80 is not 79.99…. Its title is
   // D.NO_TPN_FEEDS_LOW_TITLE: the ward list reads it off a Submitted order's
   // critOverride and keeps that infant on daily entries (Pp, 2026-11-14).
@@ -2596,6 +2596,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // ไม่ต้อง alarm ว่าทำไมไม่ให้ TPN"), so neither feed check below runs while
   // Other IV is above 0. CR-FLUID-PLAN still compares the total with the plan.
   const noTpnOnIv = noTpnOn && otherIV_mL > 0;
+  // Other IV prefills from yesterday's order, so an IV stopped and left in the
+  // box would silence both checks. Say the IV on such a day, in blue (Pp,
+  // 2026-11-24, after Vera: "ขึ้นฟ้าบอก IV").
+  if (noTpnOnIv && calc.wtKg > 0) alerts.push({ level: "info", title: "No TPN on IV fluid",
+    body: `No TPN, Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d: ตรวจว่ายังให้ IV อยู่ ถ้าหยุดแล้วให้ใส่ Other IV 0`,
+    ref: "Pp, 2026-11-24" });
   const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw);
   const enCountedPerKg = calc.wtKg > 0 ? calc.enCounted / calc.wtKg : 0;
   const noTpnEnLow = noTpnOn && !noTpnOnIv && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;

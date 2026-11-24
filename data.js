@@ -2328,6 +2328,10 @@ function noTpnEntryDueOn(entries) {
   if (!orderIsNoTpn(last)) return null;
   const crit = last.calcInput.critOverride;
   if (crit && Array.isArray(crit.alerts) && crit.alerts.some(t => String(t).startsWith(NO_TPN_FEEDS_LOW_PREFIX))) return null;
+  // On IV fluid (Other IV above 0) the feed check no longer runs, so nothing is
+  // saved to read; such an infant is asked every day as well (Pp, 2026-11-24:
+  // "ทุกวัน", Vera on the IV-fluid change).
+  if (Number(last.calcInput.otherIV_mL) > 0) return null;
   const d = normalizeDateStr(last.ts);
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? addDaysToDateStr(d, NO_TPN_ENTRY_EVERY_DAYS) : null;
 }

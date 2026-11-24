@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> 📝 **2026-11-24 — A day ticked "No TPN" with Other IV above 0 no longer asks why the feeds are under 80 mL/kg/d, and no longer warns "ลืมสั่ง TPN หรือเปล่า?" (Pp: "เค้ายังกินไม่ได้ ไม่ต้อง alarm"): this PR, not merged.** Frontend only; `CONSTANTS_VERSION` stays. `CHANGELOG.md` 2026-11-24 (2).
+> 📝 **2026-11-24 — A day ticked "No TPN" with Other IV above 0 no longer asks why the feeds are under 80 mL/kg/d, and no longer warns "ลืมสั่ง TPN หรือเปล่า?" (Pp: "เค้ายังกินไม่ได้ ไม่ต้อง alarm"); a blue line names the Other IV instead, and the ward list asks for such an infant every day: this PR, not merged.** Frontend only; `CONSTANTS_VERSION` stays. `CHANGELOG.md` 2026-11-24 (2).
 
 > 📝 **2026-11-22 — Sunday's length and HC hold the TPN order: on a Sunday in Bangkok the order dated that day cannot be Submitted or printed until the infant has a length and an HC from the last 6 days, or the doctor gives a reason it cannot be measured (`calcInput.growthSkip`, not printed): PR #304, merged into `main` on Praew's instruction.** Release follows on her go-ahead of 2026-11-22 ("merge and release after CI passed"). Frontend only, no backend deploy (backend stays `@79`); `CONSTANTS_VERSION` stays `2026-11-20.1`. `CHANGELOG.md` 2026-11-22 (2).
 

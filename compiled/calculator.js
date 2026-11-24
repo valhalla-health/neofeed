@@ -1741,6 +1741,12 @@ function Calculator({
     ref: `Feeding Advancement · MEF ${D.ESPGHAN_TARGETS.en.advancement.mef[0]}–${D.MEN_MAX_ML_KG} mL/kg/d`
   });
   const noTpnOnIv = noTpnOn && otherIV_mL > 0;
+  if (noTpnOnIv && calc.wtKg > 0) alerts.push({
+    level: "info",
+    title: "No TPN on IV fluid",
+    body: `No TPN, Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d: ตรวจว่ายังให้ IV อยู่ ถ้าหยุดแล้วให้ใส่ Other IV 0`,
+    ref: "Pp, 2026-11-24"
+  });
   const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw);
   const enCountedPerKg = calc.wtKg > 0 ? calc.enCounted / calc.wtKg : 0;
   const noTpnEnLow = noTpnOn && !noTpnOnIv && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
