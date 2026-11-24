@@ -212,9 +212,11 @@ clinical judgement. Everything else is engineering sequencing.
         on screen), 19 (P per mL), 25 ("สารน้ำเกินแผน"), 28 (no email at "แพทย์"). The parts of 6, 14, 16,
         18 and 19 that need the team are under B and C.
       - **B · Waiting for the team's numbers — Praew to ask.**
-        - **6 · New feeds.** Hi-Q Pepti Gastro 20 and 24 kcal/oz, and Nutramigen: per 100 mL kcal, protein,
+        - ~~**6 · New feeds.** Hi-Q Pepti Gastro 20 and 24 kcal/oz, and Nutramigen: per 100 mL kcal, protein,
           fat, CHO, Na, K, Ca, P and osmolality from the labels KCMH stocks. The nutrition unit will send
-          the label photos; 24 kcal/oz is mixed by proportion (2026-10-25).
+          the label photos; 24 kcal/oz is mixed by proportion (2026-10-25).~~ **Built 2026-11-24 from the Chula
+          handbook** (Tables 13 and 14; Pp: "ใช้หนังสือเลย"): Nutramigen 20, Hi-Q Pepti Gastro 20/22/24/27
+          (`CHANGELOG.md` 2026-11-24). Still open: compare with the KCMH labels when the photos come.
         - **12–13 · Phase.** The team chose Moltu 2021's three phases for "stable" (2026-10-25). Still
           open: who sets acute / stable / recovery, on what criteria, and which references follow the
           phase and which stay on DOL. Moltu's preterm table: energy 40–55 / 60–80 / 90–120, glucose

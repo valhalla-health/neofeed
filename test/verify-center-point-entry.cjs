@@ -317,12 +317,29 @@ function mount(props, { pressRoute = true } = {}) {
   console.log('\n── §6 center-point/tpn-document.mjs matches the version CP was synced to ──');
   // 2026-10-27: two feed labels added (Enfalac Premature and Pre Nan at 24 kcal/oz).
   // 2026-11-11: the PR #247 feed labels (preterm formulas 20–27, FBM with PF); CP synced in its own PR.
+  // 2026-11-24: 20 feed labels (lactose-free 22–40, Nutramigen, Hi-Q Pepti Gastro). CP's copy is synced in
+  // its own PR, which re-pins test/neofeed-commit; release only after it merges (Vera, finding 1).
+  // 2026-11-24 (2): DONOR_BM, donor breast milk; the same CP sync carries it.
   // 2026-10-28: tpnBagOverfull and its red line (PR #175). CP's copy is synced with both on
   // NICU-Center-Point branch claude/tpn-overfull-stop-1028, which re-pins test/neofeed-commit.
-  const TPN_DOCUMENT_SHA256 = '67ba3b042b06372409a9134d21a9631f9ae4517617f58b2201aed03fc9444876';
+  const TPN_DOCUMENT_SHA256 = '491734f187fc077ad46d1d68b1d8f76d94ae61f2430affa9c91b1692e88b7be0';
   const digest = require('crypto').createHash('sha256')
     .update(fs.readFileSync(DIR + 'center-point/tpn-document.mjs', 'utf8').replace(/\r\n/g, '\n')).digest('hex');
   ok('tpn-document.mjs is the version CP is synced to (else: sync CP, re-pin, update this digest)', digest === TPN_DOCUMENT_SHA256, digest);
+
+  // ── §6b every feed has a CP label, the same as NeoFeed's ─────────────────
+  // CP refuses a preparation key its TPN_PREPARATIONS lacks, so a feed added to
+  // EN_DB without a line in tpn-document.mjs never reaches the TPN room, and the
+  // §6 digest cannot say which line is missing (Vera, 2026-11-24).
+  console.log('\n── §6b every EN_DB feed has a CP label equal to its own ──');
+  {
+    const { TPN_PREPARATIONS } = await import(pathToFileURL(DIR + 'center-point/tpn-document.mjs').href);
+    const DB = window.NEOFEED_DATA.EN_DB;
+    const missing = Object.keys(DB).filter(k => !Object.hasOwn(TPN_PREPARATIONS, k));
+    const differ = Object.keys(DB).filter(k => Object.hasOwn(TPN_PREPARATIONS, k) && TPN_PREPARATIONS[k] !== DB[k].label);
+    ok('every EN_DB key is a CP preparation', missing.length === 0, missing);
+    ok('…labelled as NeoFeed labels it', differ.length === 0, differ);
+  }
 
   // ── §5 NeoFeed's own hosts never serve the CP entry ──────────────────────
   // A main → release merge deploys the working tree to Cloudflare and GitHub

@@ -7,6 +7,100 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-24 (3) — Donor breast milk in Step 2, from Mansen 2026
+
+`data.js` (`EN_SRC_MANSEN_DONOR`, `DONOR_BM`, `EN_PRODUCTS`, `CONSTANTS_VERSION`), `calculator.jsx` (`MilkAssumption`),
+`app.jsx` (FormulasPanel), `center-point/tpn-document.mjs`, `compiled/` and the shells' `?v=`, `tools/reference-tabs.json`,
+the neofeed-clinical-rules skill (CR-U-BREASTMILK), `docs/CLINICAL_CONSTANTS.md`, `STATUS.md`; tests `verify-en-db-sources`,
+`verify-tpn-meeting-0928`, `verify-calc-sum`, `verify-center-point-entry`, `verify-stock-ml-1027`, `verify-tpn-sticker-1116`.
+
+- **Why.** Pp, 2026-11-24: "เพิ่ม donor breast milk จะมีข้อมูล?". The Chula handbook has none (p. 8 gives colostrum and
+  mature milk only). Asked, she chose a sourced row over a copy of mother's milk; a PubMed search offered Mansen 2026,
+  Mills 2019 and Wojcik 2009, and she chose "ใช้ Mansen 2026", the only one with every field.
+- **The row.** Mansen K, Sanders H, Taylor SN, Dunstan R, Israel-Ballard K, Perrin MT, JPEN 2026;50(5):684-692, PMID
+  41942687, Table 1, read from the Europe PMC article page: unfortified Holder-pasteurised donor milk, 1000 simulated
+  pools of five US milk-bank donors (400 donors). Per 100 mL: true protein 0.8 g, fat 3.2 g, lactose 6.8 g, Na 10.1 mg
+  (0.44 mmol), K 44.8 mg, Ca 25.9 mg, P 13.4 mg; metabolizable energy 17.7 kcal/oz, which is 59 kcal/100 mL at the
+  ward's 1 oz = 30 mL. No osmolality.
+- **Two things that read differently.** Its protein is true protein; the WHO mother's-milk row and the formula labels
+  give total protein, which reads higher for the same milk. Its sodium is about half the WHO row's (0.44 against
+  0.9 mmol/100 mL). Both are what the paper prints.
+- **Step 2** offers "Donor Breast Milk" under Breast Milk at one strength, 18 kcal/oz (17.7 rounded: the strength select
+  holds whole numbers), and names its true protein, kcal and source under the feed, as it does for mother's milk.
+- `CONSTANTS_VERSION` 2026-11-24.1 → 2026-11-24.2; every saved order is held for a re-save before it reprints.
+  Center Point's label map gains `DONOR_BM`, in the same CP sync as PR #306.
+- **The ounce.** The paper's kcal/oz is presumably the US ounce (29.57 mL), which would give 59.9 kcal/100 mL. Asked
+  (Vera), Pp kept the ward's 30 mL for every feed: "30 mL เหมือนนมอื่น", so 59.
+- **Checks.** A new agent read Table 1 on the Europe PMC page against `data.js`, the harness transcription and the
+  Step 2 line: every value and conversion matched; its minor points are fixed (full citation in the source line, no
+  unsourced crude-protein figure, the note's centiles named as the simulated pools'). Vera: NO BLOCK, four 🟡 fixed
+  (the ounce asked, the note's 16.2–19.2 kcal/oz centiles pinned in `verify-en-db-sources`, CR-PROTEIN-MAX's reason
+  rewritten with two donor-milk cases, the register's `EN_DB` source cell names Mansen and Chula Tables 13 and 14).
+  Step 2's caveat reads "Donor milk แต่ละ pool …" when donor milk is the only breast-milk feed.
+- No second clinician has reviewed this row; Pp's decision alone (change protocol step 3).
+
+## Session 2026-11-24 (2) — A No TPN day on IV fluid does not ask why the feeds are low
+
+`calculator.jsx` (`noTpnOnIv`), `compiled/calculator.js` and the shells' `?v=`, the neofeed-clinical-rules skill
+(CR-NO-TPN-EN, CR-NO-TPN-PLAN), `docs/CLINICAL_CONSTANTS.md` (`NO_TPN_EN_MIN_ML_KG` row), `STATUS.md`.
+
+- **Why.** Pp, 2026-11-24: "ให้คนไข้ที่ให้ IV fluid แต่ไม่ได้ให้ TPN ไม่ต้องนับนมมาเกี่ยว คือเค้ายังกินไม่ได้ ไม่ต้อง alarm
+  ว่าทำไมไม่ให้ TPN". Asked when to stay quiet, she chose "มี Other IV ก็ไม่เตือน": any Other IV above 0, feeds or none.
+- **What changed.** With "No TPN" ticked and Other IV above 0, `CR-NO-TPN-EN` (feeds under 80 mL/kg/d or the day's
+  minimum: red, a reason asked) and `CR-NO-TPN-PLAN` (feeds more than 20 below the plan: amber, "ลืมสั่ง TPN หรือเปล่า?")
+  are not checked. The info line `CR-FLUID-PLAN` still compares IV + feeds with the plan, so a day far from its plan is
+  still said. With Other IV 0 both rules hold as before. The red line no longer names the Other IV, since it can no
+  longer fire with one.
+- **A blue line names the IV** (Vera, finding 1; Pp: "ขึ้นฟ้าบอก IV"). Other IV prefills from yesterday's order, so an
+  IV stopped and left in the box would silence both checks. A No TPN day with Other IV above 0 shows "No TPN on IV
+  fluid", the Other IV in mL/kg/d, and asks to set it to 0 if stopped. Info only: no reason, no hold on Submit or Print.
+- **The ward list asks daily** (Vera, finding 2; Pp: "ทุกวัน"). A No TPN order with Other IV above 0 has no 3-day due
+  date (`D.noTpnEntryDueOn`), as one Submitted with the old red line still has none.
+- Vera's comment finding: the CR-NO-TPN-EN comment no longer gives the IV-fluid day as its reason.
+- Tests: `verify-no-tpn-entry-3day-1114` case M (on IV daily, Other IV 0 keeps 3 days).
+- No printed figure moves, so `CONSTANTS_VERSION` stays (alert rule only). No second clinician has reviewed this
+  change; Pp's decision alone.
+- Tests: `verify-clinical-rules` CR-NO-TPN-EN, the old "IV fluid alone … critical" case now saves with no reason, plus
+  NPO on IV fluid alone, the plan info line on that day, and Other IV 0 still critical (1,213 pass).
+
+## Session 2026-11-24 — Nutramigen LGG and Hi-Q Pepti Gastro in Step 2; lactose-free formula from 20 to 40 kcal/oz
+
+`data.js` (`EN_KCAL_PER_100ML`, `EN_SRC_CHULA_PER_100_KCAL`, `EN_DB`, `EN_PRODUCTS`, `CONSTANTS_VERSION`), `app.jsx`
+(FormulasPanel), `center-point/tpn-document.mjs`, `compiled/` and the shells' `?v=`, the neofeed-clinical-rules skill
+(CR-U-EN-KCAL), `docs/CLINICAL_CONSTANTS.md`, `BACKLOG.md`, `STATUS.md`; tests `verify-en-db-sources`,
+`verify-tpn-meeting-0928`, `verify-calc-sum`.
+
+Pp, 2026-11-24: "ในcard enteral feeding อยากให้เพิ่ม Nutramigen เข้าไปเป็นตัวเลือกด้วย", then, shown that the Chula
+handbook prints it, "ใช้หนังสือเลย"; then "เพิ่ม Hi-Q Pepti Gastro ด้วย แล้วค่อยมีคำนวณ เป็น 20/22/24/27 kcal/oz สำหรับ hiQ
+ส่วน nutramigen ให้เลือกได้แค่ 20 kcal/oz ให้เพิ่ม lactose free formular ให้ปรับ 20-40 kcal/oz". Asked how the
+lactose-free strengths step, she chose the ones the ward uses (20, 22, 24, 26, 27, 30, 35, 40) and confirmed 40 as the top.
+
+- **Nutramigen LGG, 20 kcal/oz only** (`NUTRAMIGEN_20`): Chula Table 13, p. 26 (extensive hydrolysed casein formula), per
+  100 kcal protein 2.8, fat 5.0, CHO 11.0, Na 47 mg, K 122 mg, Ca 113 mg, P 78 mg, osmolality 320. Per 100 mL at 67 kcal:
+  protein 1.88 g, Ca 75.7 mg, P 52.3 mg. The page prints Ca:P 1.5:1, where its own 113 / 78 is 1.45; the harness
+  allows that one column 0.06 instead of 0.05 and says why.
+- **Hi-Q Pepti Gastro at 20, 22, 24 and 27** (`HIQPEPTI_GASTRO_*`): Chula Table 14, p. 27 (extensive hydrolysed whey,
+  MCT 50 %), per 100 kcal protein 2.7, fat 5.3, CHO 10.4, Na 28, K 98, Ca 75.7, P 42.3, osmolality 220. Above 20 the
+  column is concentrated by proportion, as the nutrition unit said on 2026-10-25, with no osmolality.
+- Both sit in a new Step 2 group, "Hydrolysed formula", and are marked lactose-free (their only carbohydrate is corn
+  syrup or glucose syrup).
+- **Lactose-free formula at 20, 22, 24, 26, 27, 30, 35 and 40** for HiQ LF and Enfalac LF (Chula Table 7, p. 18, as
+  before); `EN_KCAL_PER_100ML` gains 35 → 117 and 40 → 133 (1 oz = 30 mL). The book prints both at 20, so every other
+  strength has no osmolality. The Formula reference page lists the new rows (48 rows, was 33).
+- **The book, not the label.** BACKLOG item B · 6 waited for photos of the labels KCMH stocks; Pp chose the book. The
+  book is the 3rd edition (2565); a label that differs should replace these rows.
+- `CONSTANTS_VERSION` 2026-11-20.1 → 2026-11-24.1 (`EN_DB` changed, the bump rule). No figure moves, but every saved
+  order is held for a re-save before it reprints (`calcMoved` compares the version, not the figures; Vera on this PR),
+  so on release day each active infant's order needs a save before its next print.
+- **Center Point.** `center-point/tpn-document.mjs` gains the 20 new feed labels. CP validates with its own copy and
+  refuses a key it does not hold, so until CP's `web/tpn-document.mjs` is synced and its `test/neofeed-commit`
+  re-pinned, an order on one of the new feeds does not reach the TPN room (it fails closed). The CP sync is a step
+  before the release (Vera, finding 1). `verify-center-point-entry` §6b checks that every `EN_DB` key has a CP label
+  equal to its own label (Vera's added test), so the next feed added without one fails CI.
+- Source: Chula Pediatric Nutrition Handbook 3rd ed. (2565). A new agent read every value of Tables 7, 13 and 14
+  against the page at 200 dpi and found no error. No second clinician has reviewed these rows; Pp's decision alone
+  (change protocol step 3).
+
 ## Session 2026-11-22 (4) — Vera's second run on the Sunday growth gate: a read-only nurse's wording, a new order's reason
 
 `calculator.jsx`, `compiled/calculator.js` and the shells' `?v=` tokens, `test/verify-growth-gate-1122.cjs`.

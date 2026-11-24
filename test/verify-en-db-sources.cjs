@@ -31,6 +31,7 @@
 // Sources (book page = scanned PDF page − 8 for the handbook):
 //   Chula Pediatric Nutrition Handbook 3rd ed. (2565), docs/Nutrition PedCu Ed3.pdf
 //     Table 5 p. 16 (preterm formula), Table 7 p. 18 (lactose-free formula),
+//     Table 13 p. 26 and Table 14 p. 27 (extensively hydrolysed formula, 2026-11-24),
 //     Table 16 p. 29 (balanced supplement formula); all per 100 kcal.
 //     p. 10 (human milk fortifiers, per 1 g protein).
 //   WHO 2006, Optimal feeding of low-birth-weight infants: technical review,
@@ -91,6 +92,44 @@ const T16 = {
   caToP:       [1.8,  1.8],
   osmolality:  [345,  360],
 };
+// Chula Table 13, p. 26. Per 100 kcal.    Nutramigen LGG  (Pregestimil, Similac Alimentum not used)
+// The page prints Ca:P 1.5:1; its own 113 / 78 is 1.45 (Pp chose the book, 2026-11-24).
+const T13 = {
+  page: 26, products: ['nutramigenLgg'],
+  kcalOz:      [20],
+  protein:     [2.8],
+  carb:        [11.0],
+  fat:         [5.0],
+  sodiumMg:    [47],
+  potassiumMg: [122],
+  calciumMg:   [113],
+  phosphMg:    [78],
+  caToP:       [1.5],
+  osmolality:  [320],
+};
+// Chula Table 14, p. 27. Per 100 kcal.    Hi-Q Pepti Gastro  (Hi-Q Pepti, Alfare not used)
+const T14 = {
+  page: 27, products: ['hiQPeptiGastro'],
+  kcalOz:      [20],
+  protein:     [2.7],
+  carb:        [10.4],
+  fat:         [5.3],
+  sodiumMg:    [28],
+  potassiumMg: [98],
+  calciumMg:   [75.7],
+  phosphMg:    [42.3],
+  caToP:       [1.8],
+  osmolality:  [220],
+};
+// Columns whose printed Ca:P is off its own Ca and P by more than rounding.
+const CAP_PRINTED_OFF = { nutramigenLgg: 0.06 };
+// Mansen 2026 (JPEN 50:684, PMID 41942687) Table 1, unfortified Holder-pasteurised
+// donor milk, averages as printed: g/dL, kcal/oz, mg/L. Typed from the article page
+// on 2026-11-24 (Pp chose this source).
+// The 10th and 90th centiles of energy are pinned too: DONOR_BM's note states them.
+const MANSEN_T1_KCAL_OZ_P10_P90 = [16.2, 19.2];
+const MANSEN_T1 = { trueProteinGdL: 0.8, fatGdL: 3.2, lactoseGdL: 6.8, energyKcalOz: 17.7,
+  calciumMgL: 258.9, potassiumMgL: 447.6, sodiumMgL: 101.0, phosphorusMgL: 134.0 };
 // WHO 2006 Box 1.3.1, term mature milk (> 30 days). Per litre.
 const BOX_131_TERM = { energyKcal: 640, proteinG: 12, fatG: 34, carbG: 67, caMmol: 6.5, pMmol: 4.8, naMmol: 9.0, kMmol: 13.9 };
 // Chula p. 10 (PDF p. 18), "Human milk fortifier (per 4 packages)", Enfamil HMF
@@ -104,7 +143,7 @@ const HMF_PROTEIN_G_PER_DOSE = 1.1;
 // Conversions. 1 oz = 30 mL, rounded as the ward has always written it.
 // 22 kcal/oz is the ward's strength for Enfalac Premature and Pre Nan; the
 // book prints both at 24, so their osmolality does not carry over.
-const PER_100ML_AT_OZ = { 20: 67, 22: 73, 24: 80, 26: 87, 27: 90, 30: 100 };
+const PER_100ML_AT_OZ = { 20: 67, 22: 73, 24: 80, 26: 87, 27: 90, 30: 100, 35: 117, 40: 133 };
 const MG_PER_MMOL = { Na: 22.99, K: 39.10, Ca: 40.08, P: 30.97 };
 // Term mature milk is labelled 20 kcal/oz = 67 kcal/100 mL, inside Chula
 // p. 8's mature-milk range (65.2–70); the Box itself gives 64.
@@ -125,6 +164,9 @@ function atStrength(col, oz) {
 const BM = { kcal: BM_KCAL, pro: BOX_131_TERM.proteinG / 10, fat: BOX_131_TERM.fatG / 10, cho: BOX_131_TERM.carbG / 10,
   na: BOX_131_TERM.naMmol / 10, k: BOX_131_TERM.kMmol / 10,
   ca: BOX_131_TERM.caMmol * MG_PER_MMOL.Ca / 10, p: BOX_131_TERM.pMmol * MG_PER_MMOL.P / 10, osm: null };
+const DONOR = { kcal: MANSEN_T1.energyKcalOz * 100 / 30, pro: MANSEN_T1.trueProteinGdL, fat: MANSEN_T1.fatGdL,
+  cho: MANSEN_T1.lactoseGdL, na: MANSEN_T1.sodiumMgL / 10 / MG_PER_MMOL.Na, k: MANSEN_T1.potassiumMgL / 10 / MG_PER_MMOL.K,
+  ca: MANSEN_T1.calciumMgL / 10, p: MANSEN_T1.phosphorusMgL / 10, osm: null };
 const DOSE = HMF_PROTEIN_G_PER_DOSE / P10_ENFAMIL_HMF.proteinG;
 const BM_HMF = { kcal: BM.kcal + P10_ENFAMIL_HMF.energyKcal * DOSE, pro: BM.pro + P10_ENFAMIL_HMF.proteinG * DOSE,
   fat: BM.fat + P10_ENFAMIL_HMF.fatG * DOSE, cho: BM.cho + P10_ENFAMIL_HMF.carbG * DOSE,
@@ -148,6 +190,7 @@ function bmPlusPf(oz) {
 // What every EN_DB key must equal, and the words its `source` must contain.
 const EXPECTED = {
   BM_20:        { want: BM, cites: ['Box 1.3.1'] },
+  DONOR_BM:     { want: DONOR, cites: ['Mansen 2026', 'Table 1'] },
   BM_HMF_24:    { want: BM_HMF, cites: ['p. 10', 'Box 1.3.3'] },
   FBM_PF_22:    { want: atStrength(column(T5, 'enfalacPremature'), 22), cites: ['Table 5', 'p. 16'] },
   PRENAN_22:    { want: atStrength(column(T5, 'preNan'), 22), cites: ['Table 5', 'p. 16'] },
@@ -187,6 +230,28 @@ const EXPECTED = {
   ENFALAC_24:   { want: atStrength(column(T7, 'enfalacLf'), 24), cites: ['Table 7', 'p. 18'] },
   ENFALAC_27:   { want: atStrength(column(T7, 'enfalacLf'), 27), cites: ['Table 7', 'p. 18'] },
   INFATRINI_30: { want: INFATRINI, cites: ['Table 16', 'p. 29'] },
+  // Lactose-free at 22, 26, 30, 35 and 40 kcal/oz too (Pp, 2026-11-24).
+  LF_22:        { want: atStrength(column(T7, 'hiQLf'), 22), cites: ['Table 7', 'p. 18'] },
+  HIQLF_22:     { want: atStrength(column(T7, 'hiQLf'), 22), cites: ['Table 7', 'p. 18'] },
+  ENFALAC_22:   { want: atStrength(column(T7, 'enfalacLf'), 22), cites: ['Table 7', 'p. 18'] },
+  LF_26:        { want: atStrength(column(T7, 'hiQLf'), 26), cites: ['Table 7', 'p. 18'] },
+  HIQLF_26:     { want: atStrength(column(T7, 'hiQLf'), 26), cites: ['Table 7', 'p. 18'] },
+  ENFALAC_26:   { want: atStrength(column(T7, 'enfalacLf'), 26), cites: ['Table 7', 'p. 18'] },
+  LF_30:        { want: atStrength(column(T7, 'hiQLf'), 30), cites: ['Table 7', 'p. 18'] },
+  HIQLF_30:     { want: atStrength(column(T7, 'hiQLf'), 30), cites: ['Table 7', 'p. 18'] },
+  ENFALAC_30:   { want: atStrength(column(T7, 'enfalacLf'), 30), cites: ['Table 7', 'p. 18'] },
+  LF_35:        { want: atStrength(column(T7, 'hiQLf'), 35), cites: ['Table 7', 'p. 18'] },
+  HIQLF_35:     { want: atStrength(column(T7, 'hiQLf'), 35), cites: ['Table 7', 'p. 18'] },
+  ENFALAC_35:   { want: atStrength(column(T7, 'enfalacLf'), 35), cites: ['Table 7', 'p. 18'] },
+  LF_40:        { want: atStrength(column(T7, 'hiQLf'), 40), cites: ['Table 7', 'p. 18'] },
+  HIQLF_40:     { want: atStrength(column(T7, 'hiQLf'), 40), cites: ['Table 7', 'p. 18'] },
+  ENFALAC_40:   { want: atStrength(column(T7, 'enfalacLf'), 40), cites: ['Table 7', 'p. 18'] },
+  // Extensively hydrolysed (Pp, 2026-11-24).
+  NUTRAMIGEN_20: { want: atStrength(column(T13, 'nutramigenLgg'), 20), cites: ['Table 13', 'p. 26'] },
+  HIQPEPTI_GASTRO_20: { want: atStrength(column(T14, 'hiQPeptiGastro'), 20), cites: ['Table 14', 'p. 27'] },
+  HIQPEPTI_GASTRO_22: { want: atStrength(column(T14, 'hiQPeptiGastro'), 22), cites: ['Table 14', 'p. 27'] },
+  HIQPEPTI_GASTRO_24: { want: atStrength(column(T14, 'hiQPeptiGastro'), 24), cites: ['Table 14', 'p. 27'] },
+  HIQPEPTI_GASTRO_27: { want: atStrength(column(T14, 'hiQPeptiGastro'), 27), cites: ['Table 14', 'p. 27'] },
   FBM_INF_MIX:  { want: MIX, cites: ['BM_HMF_24', 'INFATRINI_30'] },
 };
 // Rows with no source. Adding one here is a decision for Pp, not a fix.
@@ -199,7 +264,9 @@ const KEPT = {};
 // FBM 24 ↔ Infatrini 30 left it on 2026-11-06 (Pp: two feeds do it).
 // FBM with HMF hidden since 2026-11-11 (Pp: no HMF in Thailand).
 const CALC_OFFERS = ['BM_20', 'BM_PFP_22', 'BM_PFP_24', 'BM_PFP_27', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_PREM_20', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'PRENAN_20', 'PRENAN_26', 'PRENAN_27', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27', 'FBM_PF_22', 'ENFALAC_PREM_24', 'FBM_PF_24', 'PRENAN_22', 'PRENAN_24',
-  'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27'];
+  'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27', 'DONOR_BM',
+  // Lactose-free 20–40 kcal/oz, Nutramigen 20 and Hi-Q Pepti Gastro (Pp, 2026-11-24).
+  'LF_22', 'LF_26', 'LF_30', 'LF_35', 'LF_40', 'ENFALAC_22', 'ENFALAC_26', 'ENFALAC_30', 'ENFALAC_35', 'ENFALAC_40', 'NUTRAMIGEN_20', 'HIQPEPTI_GASTRO_20', 'HIQPEPTI_GASTRO_22', 'HIQPEPTI_GASTRO_24', 'HIQPEPTI_GASTRO_27'];
 const FIELDS = ['kcal', 'pro', 'fat', 'cho', 'na', 'k', 'ca', 'p'];
 const close = (a, b) => typeof a === 'number' && Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
 
@@ -212,15 +279,20 @@ function loadData() {
 const scenarios = {
   async 'transcription'(A) {
     console.log('\n── #1 the transcription checks itself against its own page ──');
-    for (const [name, t] of [['Table 5', T5], ['Table 7', T7], ['Table 16', T16]]) {
+    for (const [name, t] of [['Table 5', T5], ['Table 7', T7], ['Table 13', T13], ['Table 14', T14], ['Table 16', T16]]) {
       for (const product of t.products) {
         const c = column(t, product);
         const atwater = 4 * c.pro + 9 * c.fat + 4 * c.cho;
         A.ok(`1.${name} ${product}: 4P+9F+4C = ${atwater.toFixed(1)} kcal ≈ 100`, atwater >= 97 && atwater <= 104);
         A.ok(`1.${name} ${product}: Ca/P ${(c.ca / c.p).toFixed(2)} rounds to the printed ${c.caToP}`,
-          Math.abs(c.ca / c.p - c.caToP) <= 0.05 + 1e-9);
+          Math.abs(c.ca / c.p - c.caToP) <= (CAP_PRINTED_OFF[product] ?? 0.05) + 1e-9);
       }
     }
+    const m = MANSEN_T1, mAtw = 4 * m.trueProteinGdL + 9 * m.fatGdL + 4 * m.lactoseGdL, mKcal = m.energyKcalOz * 100 / 30;
+    A.ok(`1.Mansen Table 1: 4P+9F+4L = ${mAtw.toFixed(1)} kcal/100 mL, within 5% of the printed ${m.energyKcalOz} kcal/oz (${mKcal.toFixed(1)})`,
+      Math.abs(mAtw - mKcal) / mKcal <= 0.05);
+    A.ok('1.Mansen Table 1: the donor-milk note states the printed 10th–90th centile of energy',
+      (loadData().EN_DB.DONOR_BM.note || '').includes(`${MANSEN_T1_KCAL_OZ_P10_P90[0]}–${MANSEN_T1_KCAL_OZ_P10_P90[1]} kcal/oz`));
     const b = BOX_131_TERM, atw = (4 * b.proteinG + 9 * b.fatG + 4 * b.carbG) / 10;
     A.ok(`1.Box 1.3.1 term milk: 4P+9F+4C = ${atw.toFixed(1)} kcal/100 mL, within 10% of the label's ${BM_KCAL}`,
       Math.abs(atw - BM_KCAL) / BM_KCAL <= 0.10);
@@ -465,7 +537,8 @@ const scenarios = {
     const rows = [...document.querySelectorAll('table tbody tr')];
     const DB = t.D().EN_DB;
     // 16 since 2026-10-27: Enfalac Premature and Pre Nan at 24 kcal/oz.
-    A.eq('5.1 the page lists its 33 formula rows (fourteen preterm strengths and three FBM with PF added 2026-11-11)', rows.length, 33);
+    // 48 since 2026-11-24: lactose-free at five more strengths each, Nutramigen and Hi-Q Pepti Gastro.
+    A.eq('5.1 the page lists its 49 formula rows (donor milk added 2026-11-24)', rows.length, 49);
     const byLabel = (key) => rows.find(r => {
       const first = r.querySelector('td');
       return first && first.textContent.replace(/\s+/g, ' ').trim() === DB[key].label.replace(/\s+/g, ' ').trim()
