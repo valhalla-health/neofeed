@@ -165,7 +165,8 @@ const ctx = {};
 const statusVar = (gs.match(/^var VALID_STATUS = [^\n]*$/m) || [''])[0] + '\n';
 // _normBed reads the ward table since 2026-11-22: its generated copy and the lines derived from it.
 const wardTable = gs.slice(gs.indexOf('// ── Wards and beds'), gs.indexOf('// ── Sheet accessors')) + '\n';
-vm.runInNewContext(statusVar + wardTable + grab('_isValidStatus') + grab('_readStatus') + grab('_onUnitStatus') + grab('_normBed') + grab('_bedConflict') +
+// ward scope (2026-11-24): _bedConflict now reads each row's ward (_patientWardOfRow, in wardTable), which parses bedHistory
+vm.runInNewContext(statusVar + wardTable + grab('_parseJson') + grab('_asArray') + grab('_isValidStatus') + grab('_readStatus') + grab('_onUnitStatus') + grab('_normBed') + grab('_bedConflict') +
   ';this._bedConflict=_bedConflict;', ctx);
 // Sheet rows: [sessionId, name, …, status (9), currentBed (10)]
 const row = (id, name, bed) => { const r = new Array(18).fill(''); r[0] = id; r[1] = name; r[9] = 'Active'; r[10] = bed; return r; };

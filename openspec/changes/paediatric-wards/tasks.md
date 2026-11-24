@@ -51,19 +51,19 @@ diff touches a dose file, auth or patient data, and the newborn no-move result (
 
 ## 2. Ward-scoped access
 
-- [ ] 2.1 Write `test/verify-ward-scope.cjs` first from `specs/ward-scoped-access`: the sync, the
+- [x] 2.1 Write `test/verify-ward-scope.cjs` first from `specs/ward-scoped-access`: the sync, the
       sign-in sync, the registration duplicate reply, the bed-conflict reply, the order lock, the
       conflict replies of `updateDailyNutrition` and `publishLog`, every write that names a patient,
       two wards syncing in turn, a parked patient, a bed in no ward, a failed registry read, the
       no-ward account, admin and pharmacy. Red against `main`.
-- [ ] 2.2 Backend: the `wards` column read by header; the patient's ward from bed or last bed; the
+- [x] 2.2 Backend: the `wards` column read by header; the patient's ward from bed or last bed; the
       scope check on every path in 2.1, failing closed; the sync cache keyed by ward set; audit rows
       with no patient identifier. Verify 2.1 passes.
-- [ ] 2.3 Backend: an admin-only action that sets an account's wards, audited, and an editor-run
+- [x] 2.3 Backend: an admin-only action that sets an account's wards, audited, and an editor-run
       migration that fills existing doctor and nurse accounts with NICU and SCN and lists patients
       with no ward. Verify the action's cases in 2.1 and that the migration is idempotent in the
       sandbox.
-- [ ] 2.4 Frontend: the ward page shows the caller's wards and the no-ward message; the admin page
+- [x] 2.4 Frontend: the ward page shows the caller's wards and the no-ward message; the admin page
       sets wards; the "found in another ward" search and the patient switcher follow P4. Verify on
       dev local with one account per case.
 - [ ] 2.5 Vera on the diff (auth boundary and patient data); `REFERENCE.md` § PDPA, § Backend (the

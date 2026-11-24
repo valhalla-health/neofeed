@@ -232,12 +232,21 @@ function WardGateCell({ ward, label, sub, list, log, today, onPick, onPrintList 
   );
 }
 
-function WardGate({ patients, log, today, onPick, onPrintList }) {
+// The wards of the table this account holds, in table order (ward-scoped access,
+// 2026-11-24). `wards` is the list the server's last sync named; null (a backend
+// from before ward scope) is every ward, as before. The server sends only these
+// wards' infants, so this is the view of a rule the server keeps, not the rule.
+function heldWards(wards) {
+  return Array.isArray(wards) ? D_R.WARDS.filter(w => wards.includes(w.key)) : D_R.WARDS;
+}
+
+function WardGate({ patients, log, today, onPick, onPrintList, wards = null }) {
   // One list per ward in the table, then "other" (the test area).
   const groups = Object.fromEntries([...D_R.WARDS.map(w => [w.key, []]), ["other", []]]);
   const active = patients.filter(isActivePatient);
   active.forEach(p => groups[D_R.patientWard(p)].push(p));
   const tile = (ward) => ({ ward, list: groups[ward], log, today, onPick: () => onPick(ward), onPrintList });
+  const mine = heldWards(wards);
 
   return (
     <>
@@ -253,9 +262,17 @@ function WardGate({ patients, log, today, onPick, onPrintList }) {
           <div className="sub">{active.length} active sessions · {today}</div>
         </div>
       </div>
+      {/* An account that holds no ward signs in and sees no infant (ward-scoped
+          access): the page says why, and who can change it. */}
+      {mine.length === 0 && (
+        <div className="card ward-none" role="status" style={{ padding: "14px 16px", marginBottom: 14, maxWidth: 760, lineHeight: 1.55 }}>
+          <div style={{ fontWeight: 600 }}>บัญชีนี้ยังไม่มีหอ</div>
+          <div style={{ color: "var(--ink-2)", fontSize: 13 }}>ให้ admin กำหนดหอให้บัญชีนี้ในหน้า Admin ก่อน แล้วจะเห็นผู้ป่วยของหอนั้น ระหว่างนี้ลองใช้แอปกับคนไข้ทดสอบได้</div>
+        </div>
+      )}
       <div className="ward-gate" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 }}>
-        {/* One tile per ward in the table (data.js WARDS), in its order. */}
-        {D_R.WARDS.map(w => <WardGateCell key={w.key} label={w.label} sub={w.sub} {...tile(w.key)} />)}
+        {/* One tile per ward the account holds (data.js WARDS order). */}
+        {mine.map(w => <WardGateCell key={w.key} label={w.label} sub={w.sub} {...tile(w.key)} />)}
         {/* The test area (Pp, 2026-11-14): always shown, so anyone can try
             the app on a made-up infant; register with no bed to land here.
             No Print order: a test order is never a pharmacy order. */}
@@ -350,9 +367,11 @@ function wtpnWho(p) {
   return `GA ${D_R.fmtGA(p.ga)} · BW ${Number(p.bw || 0).toLocaleString("en-US")} g${admit > 1 ? ` · admit DOL ${admit}` : ""}`;
 }
 
-function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
+function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect, wards = null }) {
   const today = D_R.useTodayLocal();
-  const [ward, setWard] = React.useState(WARD_TPN_WARDS.some(([w]) => w === openWard) ? openWard : WARD_TPN_WARDS[0][0]);
+  // Tabs for the wards this account holds, then the test area (ward-scoped access).
+  const tabs = WARD_TPN_WARDS.filter(([w]) => w === "other" || !Array.isArray(wards) || wards.includes(w));
+  const [ward, setWard] = React.useState(tabs.some(([w]) => w === openWard) ? openWard : tabs[0][0]);
   const wardName = (WARD_TPN_WARDS.find(([w]) => w === ward) || [])[1] || ward;
   const rank = (r) => WARD_TPN_RANK[r.level] ?? (r.onTpn ? 2 : 3);
   const rows = D_R.wardTpnRows(patients, log, ward, today)
@@ -372,7 +391,7 @@ function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
           </div>
         </div>
         <div className="seg" role="group" aria-label="เลือก ward">
-          {WARD_TPN_WARDS.map(([w, label]) => (
+          {tabs.map(([w, label]) => (
             <button key={w} type="button" className={ward === w ? "on" : ""} aria-pressed={ward === w}
               onClick={() => setWard(w)}>{label}</button>
           ))}
@@ -832,7 +851,7 @@ function SearchMiss({ query, wardName, elsewhere, onWardChange }) {
 }
 
 function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChange, onSelect, onAdd, onEdit, onDelete, mergeBaseFor,
-  printWard, onPrintWard, onPrintOrder, onPrintAll, onOpenWardTpn }) {
+  printWard, onPrintWard, onPrintOrder, onPrintAll, onOpenWardTpn, wards = null }) {
   const [filter, setFilter]         = React.useState("");
   // Which stats tile the list is narrowed to: null (every active infant),
   // "logged" or "needs" (Pp, 2026-10-12: tap Active / Logged today / Needs
@@ -886,7 +905,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
       onOpenPatient={onSelect}
       onShowNeeds={() => { setFilter(""); setStatFilter("needs"); onPrintWard?.(null); onWardChange?.(printWard); }} />
   );
-  if (!ward) return <WardGate patients={patients} log={log} today={today}
+  if (!ward) return <WardGate patients={patients} log={log} today={today} wards={wards}
     onPick={(w) => { setStatFilter(null); onWardChange?.(w); }}
     onPrintList={onPrintOrder ? onPrintWard : undefined} />;
 

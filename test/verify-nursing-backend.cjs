@@ -63,7 +63,8 @@ function ward(opts, { nursing = true } = {}) {
   g.nt = g.session('nur@kcmh.test', 'nurse');
   g.at = g.session('adm@kcmh.test', 'admin');
   g.as = (tok, body) => g.post(Object.assign({ token: tok }, body));
-  g.sheet('Patient_Registry').data.push(g.patRow('AA-900'), g.patRow('BB-900'));
+  // ward scope (2026-11-24): beds NICU 1 / NICU 2 (col K) so the doctor's and nurse's sync and writes reach both infants
+  g.sheet('Patient_Registry').data.push(g.patRow('AA-900', { 10: 'NICU 1' }), g.patRow('BB-900', { 10: 'NICU 2' }));
   return g;
 }
 const nursingRows = (g) => (g.sheet('Nursing_Log') ? g.rows('Nursing_Log') : []);
@@ -73,7 +74,8 @@ const sync = (g, tok) => JSON.parse(g.postText({ action: 'getActivePatients', to
 T.section('§0 Off until switched on: deploying this code changes nothing (D7)', () => {
   const g = ward(undefined, { nursing: false });
   const s = sync(g);
-  T.eq('switch unset: the sync keeps its old shape — no `nursing` key at all', Object.keys(s).sort(), ['log', 'patients', 'ts']);
+  // ward scope (2026-11-24): the sync now also carries `wards`, appended outside the cache like `ts`
+  T.eq('switch unset: the sync keeps its old shape — no `nursing` key at all', Object.keys(s).sort(), ['log', 'patients', 'ts', 'wards']);
   for (const action of ['logNursingEntry', 'updateNursingEntry', 'deleteNursingEntry']) {
     const r = g.as(action === 'deleteNursingEntry' ? g.at : g.nt,
       { action, sessionId: 'AA-900', entryId: 'x', expectedLastModified: 'y', entry: N() });
@@ -237,7 +239,8 @@ T.section('§5 One row per patient per date; edits keep date and author; stale e
 T.section('§6 The sync carries it — blanks null, zeros 0, window-scoped, fresh on the next sync', () => {
   const g = ward();
   // A third patient discharged long ago is outside every device's sync window.
-  g.sheet('Patient_Registry').data.push(g.patRow('OLD-1', { 9: 'Discharged', 16: addDays(TODAY, -60) }));
+  // ward scope (2026-11-24): bed NICU 3 (col K), so OLD-1 is left out by the sync window, not by having no ward
+  g.sheet('Patient_Registry').data.push(g.patRow('OLD-1', { 9: 'Discharged', 10: 'NICU 3', 16: addDays(TODAY, -60) }));
   const before = sync(g);   // primes the payload cache
   g.as(g.nt, { action: 'logNursingEntry', sessionId: 'AA-900', entry: { ts: TODAY, urineMl: 0, stoolCount: 1, feedType: '' } });
   g.sheet('Nursing_Log').data.push(['2026-01-02', 'OLD-1', 10, 10, '', 10, 0, 0, 'e-old', 'x@kcmh.test', 'y', 'x@kcmh.test', '']);
@@ -262,10 +265,11 @@ T.section('§6 The sync carries it — blanks null, zeros 0, window-scoped, fres
   const g3 = ward();
   g3.as(g3.nt, { action: 'logNursingEntry', sessionId: 'BB-900', entry: N({ ts: addDays(TODAY, -3) }) });
   sync(g3);
-  const head = [...g3.cacheStore.keys()].find(k => /^sync\d+_ward(\+n)?_[^_]+_[^_]+$/.test(k));
+  // ward scope (2026-11-24): the key now carries the ward set after "@" (sync3_ward+n@NICU+SCN_<day>_<version>)
+  const head = [...g3.cacheStore.keys()].find(k => /^sync\d+_ward(\+n)?(@[^_]+)?_[^_]+_[^_]+$/.test(k));
   T.ok('fixture: the sync cached its payload', !!head, [...g3.cacheStore.keys()]);
   // What the code before this change would have stored for the same version.
-  const oldKey = head ? head.replace(/^sync\d+_ward(\+n)?_/, 'sync1_ward_') : '';
+  const oldKey = head ? head.replace(/^sync\d+_ward(\+n)?(@[^_]+)?_/, 'sync1_ward_') : '';
   if (head && head !== oldKey) {
     for (const k of [...g3.cacheStore.keys()].filter(k => k === head || k.startsWith(head + '_'))) {
       g3.cacheStore.set(oldKey + k.slice(head.length), g3.cacheStore.get(k));

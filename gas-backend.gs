@@ -482,10 +482,13 @@ var STAFF_RECHECK_TTL_SECONDS = 60;
 // must_change_password — at their usual indices, with E/F/H blanked. It used to
 // cache the whole Staff row: password_hash, salt and the plaintext temp
 // password sat in ScriptCache for a minute per request (2026-09-17 review).
+// Since ward-scoped access (2026-11-24) it also carries the account's `wards`
+// cell, read by header (getStaffRow), so a ward an admin gives or takes is seen
+// within the same TTL as a role change, and at once after setStaffWards.
 function _staffRowForCache(found) {
   if (!found) return null;
   var d = found.data || [];
-  return { row: found.row, data: [d[0], d[1], d[2], d[3], "", "", d[6], ""] };
+  return { row: found.row, data: [d[0], d[1], d[2], d[3], "", "", d[6], ""], wards: found.wards == null ? null : String(found.wards) };
 }
 // One key for the reader and for _forgetStaffRow. Trimmed and lowercased like
 // getStaffRow's match, so an address typed into setInitialPassword in another
@@ -501,7 +504,12 @@ function _getStaffRowCached(email) {
   // "null" and parses back to null, so a deleted staff row also revokes
   // within the TTL instead of being re-read every request.
   if (hit !== null) {
-    try { return JSON.parse(hit); } catch (e) { /* fall through and re-read */ }
+    try {
+      var cached = JSON.parse(hit);
+      // A row cached by a version before ward scope has no `wards` key: it is
+      // read again, never taken as "no ward" or as every ward.
+      if (cached === null || Object.prototype.hasOwnProperty.call(cached, "wards")) return cached;
+    } catch (e) { /* fall through and re-read */ }
   }
   var found = _staffRowForCache(getStaffRow(email));
   try { cache.put(key, JSON.stringify(found), STAFF_RECHECK_TTL_SECONDS); }
@@ -618,6 +626,9 @@ function verifyToken(token, info) {
     }
     parsed.role = currentRole;
     parsed.name = String(found.data[2] || parsed.email);
+    // The Staff row's wards cell, re-read like the role (ward-scoped access).
+    // _wardScope turns it, with the role, into what this request may see.
+    parsed.wardsCell = found.wards == null ? null : String(found.wards);
     parsed.mustChangePassword = _passwordSession(parsed) &&
       (found.data[6] === true || String(found.data[6] || "").toUpperCase() === "TRUE");
     cache.put("sess_" + token, JSON.stringify(parsed), SESSION_TTL_SECONDS); // sliding window — reset TTL on every use
@@ -642,12 +653,19 @@ function getSheetStaff() {
 }
 
 // ── Staff lookup ──────────────────────────────────────────────
+// `wards` is the row's cell under the header "wards" (any case), or null when
+// the tab has no such column yet (before applyStaffWardsMigration). Read by
+// header, not by position: the column was added after cols A–H, and a hand-
+// added column before it must not move what an account may see.
 function getStaffRow(email) {
   if (!email) return null;
   var rows = getSheetStaff().getDataRange().getValues();
+  var wardsCol = _staffWardsCol(rows[0]);
   var el = email.trim().toLowerCase();
   for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]).trim().toLowerCase() === el) return { row: i + 1, data: rows[i] };
+    if (String(rows[i][0]).trim().toLowerCase() === el) {
+      return { row: i + 1, data: rows[i], wards: wardsCol < 0 ? null : String(rows[i][wardsCol] == null ? "" : rows[i][wardsCol]) };
+    }
   }
   return null;
 }
@@ -956,6 +974,92 @@ var WARD_BED_PREFIXES = WARD_BED_RUNS.map(function (r) { return r.prefix; }).joi
 var WARD_BED_LABEL_RE = new RegExp("^(" + WARD_BED_PREFIXES + ")\\s*-?\\s*(\\d+)(?:\\s*-\\s*(\\d+))?$", "i");
 var WARD_BED_WORD_RE = new RegExp("^(" + WARD_BED_PREFIXES + ")\\b", "i");
 
+// ── Ward-scoped access (openspec/changes/paediatric-wards, design D2; Pp, 2026-11-24) ──
+// A doctor or nurse reads and writes only the patients of the wards their Staff
+// row holds; until 2026-11-24 every signed-in role but pharmacy received every
+// ward's patients. An admin holds every ward by role, and pharmacy none (it reads
+// pharmacyOrders only, as before). The wards are a Staff column read by header
+// (`wards`: ward keys, comma separated), set by an admin through setStaffWards
+// and filled once for the accounts that existed before by
+// applyStaffWardsMigration. A cell that is blank, missing or names no ward of the
+// table holds no ward: the account signs in and receives no patient.
+//
+// A patient's ward is the ward of their bed, or, while parked between beds, of the
+// bed they last left (data.js patientWard). A patient with neither, or whose bed
+// is in no ward of the table, reaches an admin only. The check runs on every path
+// that carries or changes a patient (doPost, registerPatient, _bedConflict,
+// _possibleDuplicate, getActivePatients) and fails closed when the registry
+// cannot be read. Pinned by test/verify-ward-scope.cjs.
+var STAFF_WARDS_HEADER = "wards";
+// What the migration gives every doctor and nurse account that existed before it:
+// the two wards everyone saw then (tasks.md 2.3).
+var MIGRATION_WARDS = ["NICU", "SCN"];
+var WARD_SCOPE_MSG = "Forbidden — ผู้ป่วยรายนี้ไม่อยู่ในหอที่บัญชีนี้ดูแล ถ้าต้องดูแลหอนี้ ให้ admin เพิ่มหอให้บัญชีก่อน";
+var WARD_SCOPE_UNREADABLE_MSG = "ตรวจหอของผู้ป่วยไม่ได้ชั่วคราว — ยังไม่ได้บันทึก ลองใหม่อีกครั้ง";
+var WARD_SCOPE_NO_WARD_EDIT_MSG = "บันทึกไม่ได้ — การแก้นี้ทำให้ผู้ป่วยไม่อยู่ในหอใดเลย (ไม่มีเตียงหรือเตียงก่อนหน้าในหอ) ให้เลือกเตียงในหอ หรือให้ admin เป็นผู้แก้";
+var WARD_SCOPE_NEW_BED_MSG = "ลงทะเบียนได้เฉพาะเตียงในหอที่บัญชีนี้ดูแล — เลือกเตียงในหอของท่าน";
+function _staffWardsCol(header) {
+  var h = header || [];
+  for (var i = 0; i < h.length; i++) {
+    if (String(h[i] == null ? "" : h[i]).trim().toLowerCase() === STAFF_WARDS_HEADER) return i;
+  }
+  return -1;
+}
+// The table's key a word names, any case, or "".
+function _wardKeyOf(word) {
+  var w = String(word || "").trim().toLowerCase();
+  for (var i = 0; i < WARD_KEYS.length; i++) if (WARD_KEYS[i].toLowerCase() === w) return WARD_KEYS[i];
+  return "";
+}
+// The ward keys a Staff cell holds, in table order. Commas, semicolons and spaces
+// separate them, in any case. A word that is no key of the table is dropped, and
+// "*" is not a ward: only the admin role holds every ward.
+function _wardsFromCell(cell) {
+  var want = {};
+  String(cell == null ? "" : cell).split(/[\s,;]+/).forEach(function (part) {
+    var k = _wardKeyOf(part);
+    if (k) want[k] = true;
+  });
+  return WARD_KEYS.filter(function (k) { return want[k] === true; });
+}
+// What a signed-in account may see: null for every patient (admin), or
+// { keys, has } for the wards it holds. Pharmacy and an unknown role hold none.
+function _wardScope(role, cell) {
+  if (role === "admin") return null;
+  var keys = (role === "doctor" || role === "nurse") ? _wardsFromCell(cell) : [];
+  var has = {};
+  keys.forEach(function (k) { has[k] = true; });
+  return { keys: keys, has: has };
+}
+function _scopeWards(scope) { return scope === null ? WARD_KEYS.slice() : scope.keys.slice(); }
+// The scope as a cache-key part: "*" every ward, "-" none, else the keys.
+function _scopeKey(scope) { return scope === null ? "*" : (scope.keys.length ? scope.keys.join("+") : "-"); }
+function _inScope(scope, ward) { return scope === null || (!!ward && scope.has[ward] === true); }
+// The ward a bed is in, or "" (no bed, or a bed in no ward). Mirrors data.js wardGroup.
+function _wardOfBed(bed) {
+  var b = _normBed(bed);
+  if (!b) return "";
+  var m = b.match(WARD_BED_WORD_RE);
+  var run = m ? _wardBedRun(m[1]) : null;
+  return run ? run.ward : "";
+}
+// A registry row's ward: its bed's, or while parked the bed it last left. Mirrors
+// data.js patientWard; "" where data.js says "other".
+function _patientWardOfRow(row) {
+  return row ? _patientWardOf(row[10], _parseJson(row[15], [])) : "";
+}
+// The same from a bed and a bedHistory list (a record not yet written).
+function _patientWardOf(currentBed, bedHistory) {
+  var bed = _normBed(currentBed);
+  if (bed) return _wardOfBed(bed);
+  var hops = _asArray(bedHistory);
+  for (var i = hops.length - 1; i >= 0; i--) {
+    var last = _normBed(hops[i] && hops[i].bed);
+    if (last) return _wardOfBed(last);
+  }
+  return "";
+}
+
 // ── Sheet accessors ───────────────────────────────────────────
 // The header rows are also what the column-drift guard (_assertSchema) checks
 // the live tabs against — one list, so the two cannot disagree.
@@ -1221,7 +1325,8 @@ function _auditNoAccountFailure(email, failsIncludingThis) {
 // - An older client never sends wantSync and gets exactly the reply it always
 //   did. `serverMs` and `syncChars` come only with wantSync, for the client's
 //   timing readout.
-function _loginReply(resp, body, tm) {
+// `scope` is _wardScope's answer for the account that just signed in.
+function _loginReply(resp, body, tm, scope) {
   var sync = null, stats = {};
   if (body.wantSync === true) {
     // A pharmacy account never gets the registry: it carries every infant's
@@ -1229,7 +1334,7 @@ function _loginReply(resp, body, tm) {
     if (!resp.mustChangePassword && resp.role !== "pharmacy") {
       try {
         logAudit("readRegistry", "", resp.email);
-        sync = getActivePatientsJson({ includeArchived: false }, stats);
+        sync = getActivePatientsJson({ includeArchived: false, scope: scope === undefined ? _wardScope(resp.role, "") : scope }, stats);
         tm.lap("sync");
       } catch (e) {
         Logger.log("login: embedded sync left out: " + e.message);
@@ -1318,7 +1423,8 @@ function doPost(e) {
         tm.lap("session");
         // A Google session is never held on a temp password (_passwordSession):
         // it has no password to change, so there's nothing to force — always false.
-        return _loginReply({ status: "ok", name: name, role: role, email: email, token: tok, authMethod: "google", mustChangePassword: false }, body, tm);
+        return _loginReply({ status: "ok", name: name, role: role, email: email, token: tok, authMethod: "google", mustChangePassword: false }, body, tm,
+          _wardScope(role, gFound.wards));
       }
 
       // Path B: email + password (non-Google accounts)
@@ -1401,7 +1507,8 @@ function doPost(e) {
       logAudit("login", "", email);
       _primeStaffRow(email, found);
       tm.lap("session");
-      return _loginReply({ status: "ok", name: name, role: role, email: email, token: token, authMethod: "password", mustChangePassword: mustChange }, body, tm);
+      return _loginReply({ status: "ok", name: name, role: role, email: email, token: token, authMethod: "password", mustChangePassword: mustChange }, body, tm,
+        _wardScope(role, found.wards));
     }
 
     // ── all other actions require valid session token ──────────
@@ -1458,6 +1565,9 @@ function doPost(e) {
     if (user.role === "pharmacy" && !Object.prototype.hasOwnProperty.call(PHARMACY_ACTIONS, action)) {
       return jsonOut({ error: "Forbidden" });
     }
+    // The wards this request may see and change (ward-scoped access, 2026-11-24):
+    // null for an admin, else the wards the Staff row holds, re-read by verifyToken.
+    var scope = _wardScope(user.role, user.wardsCell);
 
     if (action === "getActivePatients") {
       // Only an admin may ask for the full archive (data-subject requests,
@@ -1471,9 +1581,9 @@ function doPost(e) {
       // The payload is JSON text straight from getActivePatientsJson — possibly
       // from its 5-minute cache — rather than an object re-serialised here.
       var syncStats = {};
-      var syncText = getActivePatientsJson({ includeArchived: archive }, syncStats);
+      var syncText = getActivePatientsJson({ includeArchived: archive, scope: scope }, syncStats);
       tm.lap("payload");
-      tm.log("getActivePatients", { cache: syncStats.cache, chars: syncText.length, archive: archive });
+      tm.log("getActivePatients", { cache: syncStats.cache, chars: syncText.length, archive: archive, scope: _scopeKey(scope) });
       var syncOut = ContentService.createTextOutput(syncText);
       syncOut.setMimeType(ContentService.MimeType.JSON);
       return syncOut;
@@ -1492,6 +1602,22 @@ function doPost(e) {
     // the way the other admin-only actions are, before the tab is read. The
     // reply is counts and week labels only, so it is not audited: Audit_Log
     // records reads of personal data, and nothing here is one.
+    // Ward-scoped access (2026-11-24): the admin page's ward control. Both are
+    // admin only, refused before Staff is read. getStaffWards lists each account's
+    // email, name, role, active flag and wards, and never a password column;
+    // setStaffWards replaces one doctor's or nurse's wards. Both are audited.
+    if (action === "getStaffWards") {
+      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      logAudit("readStaffWards", "", user.email);
+      return jsonOut(getStaffWards());
+    }
+    if (action === "setStaffWards") {
+      if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
+      var setWardsResult = setStaffWards(body.email, body.wards, user.email);
+      if (setWardsResult.error) return jsonOut(_errorBody(setWardsResult));
+      return jsonOut({ ok: true, email: setWardsResult.email, wards: setWardsResult.wards });
+    }
+
     if (action === "getUsageWeekly") {
       if (user.role !== "admin") return jsonOut({ error: "Forbidden" });
       var usage = _usageWeeklyFromTab(new Date(), USAGE_ADMIN_WEEKS);
@@ -1525,9 +1651,11 @@ function doPost(e) {
     var canWriteOrder = user.role === "doctor" || user.role === "admin" || !_nursingEnabled();
     var ORDER_FORBIDDEN = { error: "พยาบาลใช้ Calculator ได้ แต่บันทึกหรือ Submit ใบสั่ง TPN ไม่ได้ — บันทึก I/O ที่ Dashboard", code: "Forbidden" };
 
-    if (WARD_LIST_WRITES.hasOwnProperty(action)) {
-      var wardListRefusal = _wardListRefusalFor(body.sessionId, user.role === "admin");
-      if (wardListRefusal) return jsonOut(wardListRefusal);
+    var accessRefusal = _patientAccessRefusal(action, body.sessionId, scope, user.role === "admin");
+    if (accessRefusal) {
+      // Audited without a patient identifier: the action and who asked.
+      if (accessRefusal.code === "WardScope") logAudit("wardScopeRefused:" + action, "", user.email);
+      return jsonOut(_errorBody(accessRefusal));
     }
     if (action === "logDailyNutrition") {
       if (!canWrite) return jsonOut({ error: "Forbidden" });
@@ -1583,7 +1711,11 @@ function doPost(e) {
       var regBase = (!isNewReg && body.base && typeof body.base === "object" && !Array.isArray(body.base)) ? body.base : null;
       var regResult = registerPatient(body.patient, isNewReg, regBase, body.confirmOverwrite === true,
         body.confirmDuplicate === true, user.role === "admin",
-        user.role === "doctor" || user.role === "admin");
+        user.role === "doctor" || user.role === "admin", scope);
+      if (regResult && regResult.code === "WardScope") {
+        logAudit("wardScopeRefused:" + action, "", user.email);
+        return jsonOut(_errorBody(regResult));
+      }
       // A taken id, or an infant that looks like one already on file, and this
       // call did not confirm: pass the question back and write nothing. The
       // look-alike question tells the caller whether an infant is on file, so it
@@ -1788,15 +1920,39 @@ function _outsideWardList(row, seesArchive) {
 // infant's status, so a hand-made order for an archived infant reached the TPN room.
 var WARD_LIST_WRITES = { logDailyNutrition: true, updateDailyNutrition: true, publishLog: true,
   updateNursingEntry: true, deleteNursingEntry: true };
-function _wardListRefusalFor(sessionId, seesArchive) {
-  if (seesArchive === true || !_requiredString(sessionId)) return null;
-  // Fails open on a read that cannot be made: the threat is a hand-made request, and a Sheets
-  // hiccup must not stop the ward saving an order (verify-usage-log's injected read failure).
+// Every action that names a patient by `sessionId` and that a doctor or nurse may
+// send (ward-scoped access, 2026-11-24). registerPatient and updatePatient carry
+// the patient in `patient` and are checked inside registerPatient, under its lock,
+// where the new bed is known. The admin-only actions need no ward: an admin holds
+// every ward.
+var WARD_SCOPED_ACTIONS = { logDailyNutrition: true, updateDailyNutrition: true, publishLog: true,
+  updateWeights: true, deletePatient: true, logNursingEntry: true, updateNursingEntry: true,
+  acquireLogLock: true, releaseLogLock: true };
+// One registry read for both checks, before any sheet changes: the caller's wards
+// (WARD_SCOPED_ACTIONS) and the H5 sync window (WARD_LIST_WRITES). An unknown
+// sessionId passes to the action, which answers it as before. When the read
+// fails, the ward check refuses (it guards what one ward may see of another);
+// the window check alone still lets it through, as before: the threat there is a
+// hand-made request, and a Sheets hiccup must not stop an admin's save.
+function _patientAccessRefusal(action, sessionId, scope, seesArchive) {
+  var checkScope = scope !== null && WARD_SCOPED_ACTIONS.hasOwnProperty(action);
+  var checkWindow = seesArchive !== true && WARD_LIST_WRITES.hasOwnProperty(action);
+  if ((!checkScope && !checkWindow) || !_requiredString(sessionId)) return null;
   var rows;
   try { rows = getSheetPat().getDataRange().getValues(); }
-  catch (e) { Logger.log("ward-list check skipped: the registry read failed"); return null; }
+  catch (e) {
+    if (checkScope) {
+      Logger.log("ward-scope check: the registry read failed, so the request was refused");
+      return { error: WARD_SCOPE_UNREADABLE_MSG, code: "ServiceUnavailable", retryable: true };
+    }
+    Logger.log("ward-list check skipped: the registry read failed");
+    return null;
+  }
   for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === String(sessionId) && _outsideWardList(rows[i], seesArchive)) return { error: OUTSIDE_WARD_LIST_MSG };
+    if (String(rows[i][0]) !== String(sessionId)) continue;
+    if (checkScope && !_inScope(scope, _patientWardOfRow(rows[i]))) return { error: WARD_SCOPE_MSG, code: "WardScope" };
+    if (checkWindow && _outsideWardList(rows[i], seesArchive)) return { error: OUTSIDE_WARD_LIST_MSG };
+    return null;
   }
   return null;
 }
@@ -1880,8 +2036,13 @@ function _fullLogRows(sheet) {
     : [];
 }
 
+// `opts.scope` (ward-scoped access, 2026-11-24) is _wardScope's answer for the
+// caller. null, or no `scope` key, is every ward (an admin, and every editor-run
+// caller); otherwise a patient outside the caller's wards is left out before
+// anything of theirs is read, exactly like one outside the sync window.
 function getActivePatients(opts) {
   var includeArchived = !!(opts && opts.includeArchived);
+  var scope = (opts && opts.scope) ? opts.scope : null;
   var todayKey = _wardDateKey();
   var ss = _book();
   var sheetPat = getSheetPat(ss);
@@ -1894,6 +2055,7 @@ function getActivePatients(opts) {
   for (var k = 1; k < patData.length; k++) {
     var kid = String(patData[k][0] || "");
     if (!kid) continue;
+    if (!_inScope(scope, _patientWardOfRow(patData[k]))) continue;
     if (includeArchived || _patientInSyncWindow(patData[k][9], patData[k][16], todayKey)) {
       inWindow[kid] = true;
       anyInWindow = true;
@@ -2069,10 +2231,29 @@ var SYNC_CACHE_CHUNK_CHARS = 90000;
 var SYNC_CACHE_MAX_CHUNKS = 40;          // ~3.6 MB base64; beyond that, don't cache
 var DATA_VERSION_KEY = "DATA_VERSION";
 
-function _syncCacheKey(includeArchived, todayKey, version, nursingOn) {
+// sync3_ since ward-scoped access (2026-11-24): the payload is the caller's
+// wards' patients, so the key carries the ward set (_scopeKey: "*" every ward,
+// "-" none, else "NICU+SCN"), and one ward's reply is never served to another
+// (test/verify-ward-scope.cjs § 3). `scopeKey` left out is "*".
+function _syncCacheKey(includeArchived, todayKey, version, nursingOn, scopeKey) {
   // "+n": the nursing switch is part of the shape, so flipping it is seen on
   // the very next sync — no write has to bump DATA_VERSION first.
-  return "sync2_" + (includeArchived ? "all" : "ward") + (nursingOn ? "+n" : "") + "_" + todayKey + "_" + version;
+  return "sync3_" + (includeArchived ? "all" : "ward") + (nursingOn ? "+n" : "") + "@" + (scopeKey || "*") + "_" + todayKey + "_" + version;
+}
+// Every ward set a reply can be cached under: every ward, none, and each
+// non-empty set of the table's keys (2^n - 1 of them; 3 for NICU and SCN). Past
+// six wards only "*" and "-" are listed: the new DATA_VERSION already makes
+// every older key one no reader asks for, so the list only frees memory early.
+function _scopeKeysToDrop() {
+  var out = ["*", "-"];
+  var n = WARD_KEYS.length;
+  if (n > 6) return out;
+  for (var mask = 1; mask < (1 << n); mask++) {
+    var keys = [];
+    for (var b = 0; b < n; b++) if (mask & (1 << b)) keys.push(WARD_KEYS[b]);
+    out.push(keys.join("+"));
+  }
+  return out;
 }
 function _dataVersion() {
   return PropertiesService.getScriptProperties().getProperty(DATA_VERSION_KEY) || "0";
@@ -2091,11 +2272,14 @@ function _bumpDataVersion() {
     var today = _wardDateKey();
     try {
       // Every variant of the current heads — with and without the nursing
-      // switch's "+n" — whichever state the switch is in right now.
-      CacheService.getScriptCache().removeAll([
-        _syncCacheKey(false, today, old, false), _syncCacheKey(true, today, old, false),
-        _syncCacheKey(false, today, old, true), _syncCacheKey(true, today, old, true)
-      ]);
+      // switch's "+n", whichever state the switch is in right now, and for
+      // every ward set (a write drops every ward's cached reply).
+      var heads = [];
+      _scopeKeysToDrop().forEach(function (sk) {
+        heads.push(_syncCacheKey(false, today, old, false, sk), _syncCacheKey(true, today, old, false, sk),
+          _syncCacheKey(false, today, old, true, sk), _syncCacheKey(true, today, old, true, sk));
+      });
+      CacheService.getScriptCache().removeAll(heads);
     } catch (e1) { /* cache unavailable: nothing to drop */ }
     props.setProperty(DATA_VERSION_KEY, Utilities.getUuid());
   } catch (e) { Logger.log("_bumpDataVersion failed: " + e.message); }
@@ -2134,24 +2318,29 @@ function _syncCachePut(key, body) {
 // JSON.stringify(getActivePatients(opts)) — same keys, same order — except
 // that `ts` is always fresh, including on a cache hit. `stats` (optional) is
 // filled with { cache: "hit" | "miss" | "off" } for the timing line.
+// `opts.scope` as getActivePatients. The reply also says which wards it holds
+// (`wards`, table order; every ward for an admin), beside `ts` and outside the
+// cache, so the ward page shows the caller's wards (ward-scoped access).
 function getActivePatientsJson(opts, stats) {
   var includeArchived = !!(opts && opts.includeArchived);
+  var scope = (opts && opts.scope) ? opts.scope : null;
   // The nursing switch is read ONCE for both the cache key and the payload: a
   // Script Properties hiccup between two reads would otherwise cache a payload
   // of one shape under the other shape's key, for SYNC_CACHE_TTL_SECONDS.
   var nursingOn = _nursingEnabled();
   var key = null;
   if (SYNC_CACHE_ENABLED) {
-    try { key = _syncCacheKey(includeArchived, _wardDateKey(), _dataVersion(), nursingOn); } catch (e) { key = null; }
+    try { key = _syncCacheKey(includeArchived, _wardDateKey(), _dataVersion(), nursingOn, _scopeKey(scope)); } catch (e) { key = null; }
   }
   var body = key ? _syncCacheGet(key) : null;
   if (stats) stats.cache = !key ? "off" : body == null ? "miss" : "hit";
   if (body == null) {
-    var payload = getActivePatients({ includeArchived: includeArchived, nursingOn: nursingOn });
+    var payload = getActivePatients({ includeArchived: includeArchived, nursingOn: nursingOn, scope: scope });
     body = JSON.stringify({ patients: payload.patients, log: payload.log, nursing: payload.nursing });
     if (key) _syncCachePut(key, body);
   }
-  return body.slice(0, -1) + ',"ts":' + JSON.stringify(new Date().toISOString()) + "}";
+  return body.slice(0, -1) + ',"wards":' + JSON.stringify(_scopeWards(scope)) +
+    ',"ts":' + JSON.stringify(new Date().toISOString()) + "}";
 }
 
 // ── Server-side plausibility validation ─────────────────────────
@@ -4022,6 +4211,143 @@ function applyStaffHeaderColumns() {
   return ensureStaffHeaderColumns(true);
 }
 
+// ── Staff wards (ward-scoped access, 2026-11-24) ──────────────────────────
+// The ward table, each account and its wards, for the admin page. No password
+// column is read into the reply: email, name, role, active and wards only.
+function getStaffWards() {
+  var rows = getSheetStaff().getDataRange().getValues();
+  var col = _staffWardsCol(rows[0]);
+  var staff = [];
+  for (var i = 1; i < rows.length; i++) {
+    var email = String(rows[i][0] || "").trim();
+    if (!email) continue;
+    var role = _staffRole(rows[i][1]);
+    staff.push({
+      email: email,
+      name: String(rows[i][2] || ""),
+      role: role || "",
+      active: rows[i][3] === true || String(rows[i][3]).toUpperCase() === "TRUE",
+      wards: role === "admin" ? WARD_KEYS.slice() : col < 0 ? [] : _wardsFromCell(rows[i][col]),
+    });
+  }
+  return {
+    ok: true, columnReady: col >= 0,
+    wardTable: WARD_TABLE.wards.map(function (w) { return { key: w.key, label: w.label }; }),
+    staff: staff,
+  };
+}
+var STAFF_WARDS_NO_COLUMN_MSG = "ชีต Staff ยังไม่มีคอลัมน์ wards — ให้ผู้ดูแลระบบรัน applyStaffWardsMigration ก่อน";
+// Replaces one doctor's or nurse's wards. `wards` is a list of the table's keys,
+// each once ([] takes every ward away). An admin holds every ward and pharmacy
+// none, by role, so neither is set here. Under the script lock, and the audit row
+// is written first: an access change must not happen unrecorded. The row records
+// who changed whose account to which wards; no patient is named.
+function setStaffWards(email, wards, adminEmail) {
+  if (typeof email !== "string" || !email.trim() || email.length > 254) return { error: "email is required" };
+  if (!Array.isArray(wards) || wards.length > WARD_KEYS.length) return { error: "wards must be a list of ward keys" };
+  var seen = {};
+  for (var w = 0; w < wards.length; w++) {
+    var key = typeof wards[w] === "string" ? wards[w] : "";
+    if (WARD_KEYS.indexOf(key) < 0) return { error: "ไม่มีหอ " + String(key).slice(0, 20) + " ในตารางหอ" };
+    if (seen[key]) return { error: "หอ " + key + " ซ้ำ" };
+    seen[key] = true;
+  }
+  var canon = WARD_KEYS.filter(function (k) { return seen[k] === true; });
+  var lock = LockService.getScriptLock();
+  _waitLockOrBusy(lock, 10000);
+  try {
+    var sh = getSheetStaff();
+    var rows = sh.getDataRange().getValues();
+    var col = _staffWardsCol(rows[0]);
+    if (col < 0) return { error: STAFF_WARDS_NO_COLUMN_MSG };
+    var el = email.trim().toLowerCase();
+    var at = -1;
+    for (var i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]).trim().toLowerCase() === el) { at = i; break; }
+    }
+    if (at < 0) return { error: "ไม่พบบัญชีนี้ในชีต Staff" };
+    var role = _staffRole(rows[at][1]);
+    if (role !== "doctor" && role !== "nurse") {
+      return { error: role === "admin" ? "admin ดูแลทุกหออยู่แล้วโดยตำแหน่ง — ไม่ต้องกำหนดหอ"
+        : "กำหนดหอได้เฉพาะบัญชี doctor และ nurse" };
+    }
+    var target = String(rows[at][0]).trim().toLowerCase();
+    _logAuditStrict("setStaffWards " + (canon.join(",") || "none"), "staff:" + target, adminEmail);
+    _assertRowStillHolds(sh, at + 1, 1, String(rows[at][0]));
+    sh.getRange(at + 1, col + 1).setValue(canon.join(","));
+    // The account's next request reads the new wards, not the cached row.
+    _forgetStaffRow(target);
+    return { ok: true, email: target, wards: canon };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ── applyStaffWardsMigration — run once from the editor, before the deploy ──
+// The backend that filters by ward gives an account with no ward no patient, so
+// before that version is made live (REFERENCE.md § Backend, ward-scoped access):
+//   1. adds the `wards` header after the last Staff column, if it is not there;
+//   2. gives every doctor and nurse row whose cell is blank MIGRATION_WARDS
+//      (NICU,SCN: the wards everyone saw before), and leaves a cell that holds
+//      anything, admin rows and pharmacy rows as they are;
+//   3. lists, by Patient_Registry row number, the patients on the unit or inside
+//      the ward's sync window whose ward cannot be read (no bed and no previous
+//      bed, or a bed in no ward). After the deploy only an admin sees them: give
+//      each a bed first. Row numbers, not IDs: an ID issued before 2026-09-27
+//      carries the initials (Vera, 2026-11-24).
+// migrateStaffWards() is the dry run and changes nothing; the Run button cannot
+// pass an argument, hence applyStaffWardsMigration. Safe to re-run: a filled
+// cell is never written again. The log carries counts and row numbers, never
+// an ID, a name or an email.
+function migrateStaffWards(apply) {
+  apply = apply === true;
+  var out = { applied: apply, column: "", wouldFill: 0, filled: 0, staffRowsFilled: [], patientRowsWithNoWard: [] };
+  var lock = apply ? LockService.getScriptLock() : null;
+  if (lock) _waitLockOrBusy(lock, 30000);
+  try {
+    var sh = getSheetStaff();
+    var rows = sh.getDataRange().getValues();
+    var col = _staffWardsCol(rows[0]);
+    if (col < 0) {
+      col = Math.max(sh.getLastColumn(), (rows[0] || []).length);
+      out.column = "added at column " + (col + 1) + (apply ? "" : " (dry run: not yet)");
+      if (apply) {
+        if (sh.getMaxColumns() < col + 1) sh.insertColumnsAfter(sh.getMaxColumns(), col + 1 - sh.getMaxColumns());
+        sh.getRange(1, col + 1).setValue(STAFF_WARDS_HEADER);
+      }
+    } else {
+      out.column = "found at column " + (col + 1);
+    }
+    var give = MIGRATION_WARDS.filter(function (k) { return WARD_KEYS.indexOf(k) >= 0; }).join(",");
+    for (var i = 1; i < rows.length; i++) {
+      var role = _staffRole(rows[i][1]);
+      if (role !== "doctor" && role !== "nurse") continue;
+      if (String(rows[i][col] == null ? "" : rows[i][col]).trim() !== "") continue;
+      out.wouldFill++;
+      if (!apply) continue;
+      sh.getRange(i + 1, col + 1).setValue(give);
+      out.filled++;
+      out.staffRowsFilled.push(i + 1);
+      _forgetStaffRow(String(rows[i][0] || ""));
+    }
+    var pats = getSheetPat().getDataRange().getValues();
+    var todayKey = _wardDateKey();
+    for (var j = 1; j < pats.length; j++) {
+      if (!String(pats[j][0] || "") || !_patientInSyncWindow(pats[j][9], pats[j][16], todayKey)) continue;
+      if (!_patientWardOfRow(pats[j])) out.patientRowsWithNoWard.push(j + 1);
+    }
+  } finally {
+    // Every ward set's cached sync goes too: the wards an account holds have
+    // just changed (and the harness rule: a locked reader of Patient_Registry bumps).
+    if (lock) { _bumpDataVersion(); lock.releaseLock(); }
+  }
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
+}
+function applyStaffWardsMigration() {
+  return migrateStaffWards(true);
+}
+
 // ── ensureLogHeaderColumns — run once from the editor or clasp ──
 // Same gap as ensureStaffHeaderColumns above, one tab over: getSheetLog()
 // writes the full A–AE header row, but ONLY when it has to create Daily_Log
@@ -4380,15 +4706,23 @@ function _sessionIdConflict(existingRow, p, isNew, base) {
 // the window the caller now hears that such an infant is on file, and to ask an
 // admin, whose sync can carry every row. A named match wins over a hidden one
 // wherever it sits in the tab: that is the record this device can open.
-function _possibleDuplicate(data, p, seesArchive) {
+// Since ward-scoped access (2026-11-24) the same holds across wards: a match in a
+// ward the caller does not hold (`scope`, optional) is said to be in another
+// ward, with no name, bed or ID.
+function _possibleDuplicate(data, p, seesArchive, scope) {
+  if (scope === undefined) scope = null;
   var dob = _fmtDate(p.dob), bw = Number(p.bw);
   if (!dob || !(bw > 0)) return null;
   var todayKey = _wardDateKey();
-  var hiddenId = "";
+  var hiddenId = "", otherWardId = "";
   for (var i = 1; i < data.length; i++) {
     var r = data[i];
     if (!r[0] || String(r[0]) === String(p.sessionId) || _isPdpaErased(r)) continue;
     if (Number(r[3]) !== bw || _fmtDate(r[6]) !== dob) continue;
+    if (!_inScope(scope, _patientWardOfRow(r))) {
+      otherWardId = otherWardId || String(r[0]);
+      continue;
+    }
     if (!seesArchive && !_patientInSyncWindow(r[9], r[16], todayKey)) {
       hiddenId = hiddenId || String(r[0]);
       continue;
@@ -4398,6 +4732,10 @@ function _possibleDuplicate(data, p, seesArchive) {
       String(r[1] || r[2] || "—") + " (" + _readStatus(r[9]) + " " +
       (bed ? "เตียง " + bed : "ยังไม่ระบุเตียง") + " ID " + String(r[0]) + ") " +
       "ถ้าเป็นคนเดียวกัน ให้เปิด record เดิมแทนการลงทะเบียนใหม่" };
+  }
+  if (otherWardId) {
+    return { matchedId: otherWardId, message: "มีเด็ก BW " + bw + " g เกิดวันที่ " + dob + " อยู่ในระบบแล้ว " +
+      "ในหออื่น ถ้าอาจเป็นคนเดียวกัน ให้ถามหอนั้นหรือ admin ก่อนลงทะเบียน" };
   }
   if (!hiddenId) return null;
   return { matchedId: hiddenId, message: "มีเด็ก BW " + bw + " g เกิดวันที่ " + dob + " อยู่ในระบบแล้ว " +
@@ -4430,7 +4768,10 @@ function _normBed(bed) {
 // as isOnUnit() in data.js, read through _onUnitStatus. It applies to the
 // record being saved too: correcting a discharged record whose old bed has
 // since been reused takes that bed from nobody. Mirrors bedBlocker() in data.js.
-function _bedConflict(data, p) {
+// `scope` (optional, ward-scoped access): a holder in a ward the caller does not
+// hold is not named; the bed is said to be taken, and nothing else.
+function _bedConflict(data, p, scope) {
+  if (scope === undefined) scope = null;
   if (!_onUnitStatus(p.status)) return null;
   var bed = _normBed(p.currentBed);
   if (!bed) return null;                       // unassigned is not an occupancy
@@ -4438,6 +4779,10 @@ function _bedConflict(data, p) {
     if (String(data[i][0]) === String(p.sessionId)) continue;   // the patient's own row
     if (!_onUnitStatus(data[i][9])) continue;  // "Active " and "active" hold their bed
     if (_normBed(data[i][10]) !== bed) continue;
+    if (!_inScope(scope, _patientWardOfRow(data[i]))) {
+      return "เตียง " + bed + " มีผู้ป่วยอยู่แล้ว — ต้องให้หอนั้นย้ายผู้ป่วยออกก่อน " +
+             "จึงจะบันทึกเตียงนี้ได้ (หนึ่งเตียงต่อหนึ่งราย)";
+    }
     var who = String(data[i][1] || data[i][0]);
     return "เตียง " + bed + " มี " + who + " อยู่แล้ว — ต้องย้ายผู้ป่วยรายนั้นออกก่อน " +
            "จึงจะบันทึกเตียงนี้ได้ (หนึ่งเตียงต่อหนึ่งราย)";
@@ -4650,7 +4995,14 @@ function _keepStoredHops(storedHops, outHops) {
   });
   return out;
 }
-function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, seesArchive, canDeleteHop) {
+// `scope` (ward-scoped access, 2026-11-24): _wardScope's answer for the caller;
+// undefined or null is every ward (an admin, and the editor-run callers). An
+// edit or a transfer needs the ward the patient is in now, whatever bed it moves
+// them to; a new record needs a bed in one of the caller's wards, or it would be
+// a record only an admin sees. Each refusal is returned before anything is
+// written, as { error, code: "WardScope" }, and names no one.
+function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, seesArchive, canDeleteHop, scope) {
+  if (scope === undefined) scope = null;
   if (!p || typeof p !== "object" || !_requiredString(p.sessionId) || !p.sessionId.trim()) {
     throw new Error("sessionId is required");
   }
@@ -4675,6 +5027,12 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
     // An edit, or an overwrite, of a record outside the ward's list. A new registration whose drawn
     // id is taken still gets IdTaken below, so the client draws another.
     if (_outsideWardList(stored, seesArchive) && (isNew !== true || confirmOverwrite === true)) throw new Error(OUTSIDE_WARD_LIST_MSG);
+    // An edit of another ward's record is refused here. A NEW registration whose
+    // drawn id is another ward's record still gets IdTaken below, which names no
+    // one, so the client draws another id; only an overwrite of it is refused.
+    if (stored && !_inScope(scope, _patientWardOfRow(stored)) && (isNew !== true || confirmOverwrite === true)) {
+      return { error: WARD_SCOPE_MSG, code: "WardScope" };
+    }
     // An edit that carries `base` is an edit of a record this device saw. If
     // the row is gone, it was deleted elsewhere — writing would resurrect it.
     if (!stored && base && isNew !== true) {
@@ -4714,14 +5072,25 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
     // Inside the lock and after the read, so the census it checks is the one
     // this write is about to land in — and on the MERGED record, so a stale
     // device's old "Active" status cannot claim a bed for a discharged patient.
-    var bedTaken = _bedConflict(data, m);
+    var bedTaken = _bedConflict(data, m, scope);
     if (bedTaken) throw new Error(bedTaken);
+    // A record that is new here lands in one of the caller's wards (its bed's).
+    if (!stored && !_inScope(scope, _patientWardOf(m.currentBed, m.bedHistory))) {
+      return { error: WARD_SCOPE_NEW_BED_MSG, code: "WardScope" };
+    }
+    // An edit by a doctor or nurse must leave the record in some ward (any ward:
+    // a transfer out is allowed). Deleting a parked infant's last "Previous beds"
+    // line, or a free-text bed, would put them in no ward, which only an admin
+    // sees: the infant would leave every ward list without a word (Vera, 2026-11-24).
+    if (stored && scope !== null && !_patientWardOf(m.currentBed, m.bedHistory)) {
+      return { error: WARD_SCOPE_NO_WARD_EDIT_MSG, code: "WardScope" };
+    }
     // Last of the refusals, so a save refused for another reason keeps its own message.
     if (!stored && !NEW_SESSION_ID_RE.test(p.sessionId)) throw new Error(NEW_SESSION_ID_MSG);
     // Asked last, of a registration that would otherwise be written: no
     // question about the baby for a save that is refused anyway.
     if (!stored && isNew === true && confirmDuplicate !== true) {
-      var lookalike = _possibleDuplicate(data, m, seesArchive === true);
+      var lookalike = _possibleDuplicate(data, m, seesArchive === true, scope);
       if (lookalike) return { needsConfirm: true, code: "PossibleDuplicate", error: lookalike.message, matchedId: lookalike.matchedId };
     }
     var row21 = [

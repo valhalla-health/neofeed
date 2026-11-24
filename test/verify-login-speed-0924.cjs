@@ -75,7 +75,8 @@ runScenarios(__filename, 'LOGIN SPEED 2026-09-24', {
     g.addStaff('off@kcmh.test', 'doctor', 'Off-Password-1', { active: false });
     g.addStaff('ggl@chula.ac.th', 'doctor', '');
     const T = wardToday();
-    g.sheet('Patient_Registry').data.push(g.patRow('AA-1'));
+    // ward scope (2026-11-24): bed NICU 1 (col K) so the doctor's sync carries AA-1
+    g.sheet('Patient_Registry').data.push(g.patRow('AA-1', { 10: 'NICU 1' }));
     const old = g.logRow('AA-1', addDays(T, -1), { 37: '2026-09-11T01:00:00Z' });        // superseded
     const rev = g.logRow('AA-1', addDays(T, -1), { 35: 2, 36: old[25] });                 // its revision
     g.sheet('Daily_Log').data.push(old, rev);

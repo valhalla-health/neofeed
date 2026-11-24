@@ -89,11 +89,12 @@ T.section('§2 The sync window reads it the same way', () => {
   T.eq('_patientInSyncWindow("active", "", today) is in (it was out)', g.sb._patientInSyncWindow('active', '', TODAY), true);
   T.eq('…an unknown word with no statusDate is out', g.sb._patientInSyncWindow('Expird', '', TODAY), false);
   const pat = g.sheet('Patient_Registry').data;
-  pat.push(g.patRow('LC-1', { 9: 'active' }));
-  pat.push(g.patRow('SP-1', { 9: 'Active ' }));
-  pat.push(g.patRow('DI-1', { 9: ' discharged ', 16: addDays(TODAY, -2) }));
-  pat.push(g.patRow('UK-1', { 9: 'Expird' }));
-  pat.push(g.patRow('UK-2', { 9: 'Expird', 16: addDays(TODAY, -2) }));
+  // ward scope (2026-11-24): each row in its own ward bed (col K), so the doctor's sync is cut by the status reading alone
+  pat.push(g.patRow('LC-1', { 9: 'active', 10: 'NICU 1' }));
+  pat.push(g.patRow('SP-1', { 9: 'Active ', 10: 'NICU 2' }));
+  pat.push(g.patRow('DI-1', { 9: ' discharged ', 10: 'NICU 3', 16: addDays(TODAY, -2) }));
+  pat.push(g.patRow('UK-1', { 9: 'Expird', 10: 'NICU 4' }));
+  pat.push(g.patRow('UK-2', { 9: 'Expird', 10: 'NICU 5', 16: addDays(TODAY, -2) }));
   const ids = g.as({ action: 'getActivePatients' }).patients.map(p => p.sessionId).sort();
   T.eq('the ward gets "active", "Active ", a recent " discharged " and a recent "Expird"; not an undated "Expird"',
     ids, ['DI-1', 'LC-1', 'SP-1', 'UK-2']);
@@ -120,7 +121,8 @@ T.section('§3 The bed guard reads it the same way', () => {
 T.section('§4 The write: one of the four, or refused', () => {
   const g = ward();
   const P = (sid, extra) => Object.assign({ sessionId: sid, name: 'ทารก ' + sid, initials: 'XX', bw: 950, ga: 28.1,
-    sex: 'boys', dob: addDays(TODAY, -3), admissionDate: addDays(TODAY, -3), status: 'Active', currentBed: '',
+    // ward scope (2026-11-24): a doctor registers only into a bed of their wards; NICU 2 is free here
+    sex: 'boys', dob: addDays(TODAY, -3), admissionDate: addDays(TODAY, -3), status: 'Active', currentBed: 'NICU 2',
     diagnosis: 'RDS', weights: [{ dol: 1, w: 950 }], lengths: [], hcs: [], bedHistory: [], statusDate: '' }, extra);
   // Valid new ids and the refusal's own words: R2's refusal of another id shape is Thai too (Vera on 8a77e3a).
   const zzz = g.as({ action: 'registerPatient', isNew: true, patient: P('NF-000125', { status: 'ZZZ' }) });
@@ -138,7 +140,8 @@ T.section('§4 The write: one of the four, or refused', () => {
   T.eq('a blank status is stored as Active', blank.ok === true && rowOf(g, 'NF-000003')[9], 'Active');
 
   // Vera's case: a row typed "Expird", edited with only the diagnosis changed.
-  g.sheet('Patient_Registry').data.push(g.patRow('UK-1', { 9: 'Expird', 16: addDays(TODAY, -2) }));
+  // ward scope (2026-11-24): bed NICU 3 (col K) so the doctor's sync and edit reach the "Expird" row
+  g.sheet('Patient_Registry').data.push(g.patRow('UK-1', { 9: 'Expird', 10: 'NICU 3', 16: addDays(TODAY, -2) }));
   const base = synced(g, 'UK-1');
   T.eq('the ward has the "Expird" row as typed', base && base.status, 'Expird');
   const edit = g.as({ action: 'registerPatient', patient: Object.assign({}, base, { diagnosis: 'RDS, PDA' }), base });
@@ -150,7 +153,8 @@ T.section('§4 The write: one of the four, or refused', () => {
   T.eq('…as Discharged, with the diagnosis', [rowOf(g, 'UK-1')[9], rowOf(g, 'UK-1')[11]], ['Discharged', 'RDS, PDA']);
 
   // A case/space variant is not a change the client made, and is written canonical.
-  g.sheet('Patient_Registry').data.push(g.patRow('LC-1', { 9: 'active ' }));
+  // ward scope (2026-11-24): bed NICU 4 (col K) so the doctor's sync and edit reach the "active " row
+  g.sheet('Patient_Registry').data.push(g.patRow('LC-1', { 9: 'active ', 10: 'NICU 4' }));
   const lcBase = synced(g, 'LC-1');
   const lc = g.as({ action: 'registerPatient', base: lcBase,
     patient: Object.assign({}, lcBase, { status: D.patientStatus(lcBase), diagnosis: 'TTN' }) });

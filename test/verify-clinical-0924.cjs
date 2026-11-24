@@ -46,7 +46,8 @@ T.section('NPE:AA < 20 is a warning, not a save-blocking stop (already true; gua
 const P = (sid, extra) => Object.assign({
   sessionId: sid, name: 'ทารก ' + sid, initials: sid.slice(0, 2), bw: 980, ga: 28.1, sex: 'boys',
   dob: '2026-09-01', admissionDate: '2026-09-01', twinSuffix: '', status: 'Active',
-  currentBed: '', diagnosis: 'RDS', weights: [{ dol: 1, w: 980 }], lengths: [], hcs: [], bedHistory: [],
+  // ward scope (2026-11-24): a doctor registers only into a bed of their wards; the case is the id collision, not the bed
+  currentBed: 'NICU 1', diagnosis: 'RDS', weights: [{ dol: 1, w: 980 }], lengths: [], hcs: [], bedHistory: [],
   statusDate: '', multiplesCount: 0,
 }, extra || {});
 function ward() {

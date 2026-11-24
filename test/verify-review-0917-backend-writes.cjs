@@ -20,10 +20,17 @@ const BUSY = { error: 'มีผู้ใช้อื่นกำลังบั
 const MOVED = { error: 'แถวข้อมูลถูกย้ายระหว่างบันทึก (มีการแก้ไขชีตโดยตรง) — ไม่ได้บันทึก กรุณาซิงก์แล้วลองใหม่', retryable: true };
 const E = (extra) => Object.assign({ dol: 5, weight: 1250, fluid: 150, gir: 6, pro: 3, kcal: 90, na: 3, k: 2, ca: 60, p: 40,
   enVolPerKg: 20, route: 'TPN central', status: 'submitted', calcInput: { wtG: 1250, stops: [] } }, extra || {});
+// ward scope (2026-11-24): a doctor or nurse reads and writes only infants in their wards' beds, so each sessionId gets
+// its own ward bed, the same one every time it is named, from beds no case below names (SCN 5–30 but 9, then iso):
+// no two on-unit infants share one, so no bed conflict appears where a case is about something else.
+const BED_POOL = [5, 6, 7, 8, ...Array.from({ length: 21 }, (_, i) => 10 + i)].map(n => 'SCN ' + n)
+  .concat([1, 2].flatMap(r => [1, 2, 3, 4, 5, 6].map(b => 'iso ' + r + '-' + b)));
+const BED_OF = {};
+const wardBed = (sid) => BED_OF[sid] || (BED_OF[sid] = BED_POOL[Object.keys(BED_OF).length]);
 const P = (sid, extra) => Object.assign({
   sessionId: sid, name: 'ทารก ' + sid, initials: sid.slice(0, 2), bw: 900, ga: 28.1, sex: 'boys',
   dob: '2026-09-01', admissionDate: '2026-09-01', twinSuffix: '', status: 'Active',
-  currentBed: '', diagnosis: 'RDS', weights: [{ dol: 1, w: 900 }], lengths: [], hcs: [], bedHistory: [],
+  currentBed: wardBed(sid), diagnosis: 'RDS', weights: [{ dol: 1, w: 900 }], lengths: [], hcs: [], bedHistory: [],
   statusDate: '', multiplesCount: 0,
 }, extra || {});
 const snapshot = (g) => JSON.stringify(['Patient_Registry', 'Daily_Log'].map(n => g.sheet(n).data));
@@ -508,7 +515,8 @@ T.section('UP-S1 · three-way merge: a stale device no longer erases another dev
   T.eq('a deleted bedHistory entry is removed, the rest kept', [left.length, left.some(h => JSON.stringify(h) === JSON.stringify(hopGone))], [2, false]);
   // A replayed delete (same base and incoming) does not take a second identical line.
   const gReplay = ward();
-  gReplay.seedPatient(P('DUP-1', { weights: W0, bedHistory: [{ bed: 'NICU 4', date: TODAY }, { bed: 'NICU 4', date: TODAY }] }));
+  // ward scope (2026-11-24): kept parked (no bed), as before: parked from NICU 4, it is in the doctor's wards
+  gReplay.seedPatient(P('DUP-1', { weights: W0, currentBed: '', bedHistory: [{ bed: 'NICU 4', date: TODAY }, { bed: 'NICU 4', date: TODAY }] }));
   const dRep = gReplay.synced('DUP-1');
   const delReq = { action: 'updatePatient', base: dRep, patient: Object.assign({}, dRep, { bedHistory: dRep.bedHistory.slice(1) }) };
   gReplay.as(gReplay.dt, delReq); gReplay.as(gReplay.dt, delReq);
@@ -516,7 +524,8 @@ T.section('UP-S1 · three-way merge: a stale device no longer erases another dev
   // Pp, 2026-11-12: only a doctor or an admin deletes a Previous beds line.
   const gRole = ward();
   const hops3 = [{ bed: 'NICU 2', date: TODAY }, { bed: 'NICU 4', date: TODAY }, { bed: 'NICU 4', date: TODAY }];
-  gRole.seedPatient(P('ROLE-1', { weights: W0, bedHistory: hops3 }));
+  // ward scope (2026-11-24): kept parked (no bed), as before: parked from NICU 4, it is in the nurse's wards
+  gRole.seedPatient(P('ROLE-1', { weights: W0, currentBed: '', bedHistory: hops3 }));
   const r0 = gRole.synced('ROLE-1');
   const rNurse = gRole.as(gRole.nt, { action: 'updatePatient', base: r0, patient: Object.assign({}, r0, { bedHistory: r0.bedHistory.slice(1) }) });
   T.eq('a nurse deleting a Previous beds line: saved, line kept', [!!rNurse.ok, gRole.synced('ROLE-1').bedHistory.length], [true, 3]);
@@ -588,7 +597,8 @@ T.section('F · sex must be boys/girls on create; a legacy stored value may ride
   T.ok('create with "M" is refused by the sex guard, and no row is written', sexRefused('NF-000441', 'M'));
   T.ok('create with no sex is refused by the sex guard, and no row is written', sexRefused('NF-000442', ''));
   T.ok('create with "girls" saves', g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('NF-000003', { sex: 'girls' }) }).ok === true);
-  g.sheet('Patient_Registry').data.push(g.patRow('LEG-9', { 5: 'M' }));
+  // ward scope (2026-11-24): bed NICU 8 (col K) so the doctor's edits reach the legacy row
+  g.sheet('Patient_Registry').data.push(g.patRow('LEG-9', { 5: 'M', 10: 'NICU 8' }));
   const leg = g.synced('LEG-9');
   T.ok('an old-client edit carrying the stored "M" unchanged saves', g.as(g.dt, { action: 'updatePatient', patient: Object.assign({}, leg, { diagnosis: 'a' }) }).ok === true);
   T.ok('a base edit with sex untouched saves', g.as(g.dt, { action: 'updatePatient', base: leg, patient: Object.assign({}, leg, { diagnosis: 'b' }) }).ok === true);
