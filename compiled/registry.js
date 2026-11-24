@@ -144,12 +144,16 @@ function WardGateCell({ ward, label, sub, list, log, today, onPick, onPrintList 
     /* @__PURE__ */ React.createElement("span", { className: "ward-print-n" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, logged), " ราย")
   ));
 }
-function WardGate({ patients, log, today, onPick, onPrintList }) {
+function heldWards(wards) {
+  return Array.isArray(wards) ? D_R.WARDS.filter((w) => wards.includes(w.key)) : D_R.WARDS;
+}
+function WardGate({ patients, log, today, onPick, onPrintList, wards = null }) {
   const groups = Object.fromEntries([...D_R.WARDS.map((w) => [w.key, []]), ["other", []]]);
   const active = patients.filter(isActivePatient);
   active.forEach((p) => groups[D_R.patientWard(p)].push(p));
   const tile = (ward) => ({ ward, list: groups[ward], log, today, onPick: () => onPick(ward), onPrintList });
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, D_R.WARDS.map((w) => /* @__PURE__ */ React.createElement(WardGateCell, { key: w.key, label: w.label, sub: w.sub, ...tile(w.key) })), /* @__PURE__ */ React.createElement(WardGateCell, { label: TEST_WARD_NAME, sub: "ไม่มีเตียง · ไม่บันทึกเข้าระบบ", ...tile("other"), onPrintList: null })));
+  const mine = heldWards(wards);
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Ward"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, active.length, " active sessions · ", today))), mine.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "card ward-none", role: "status", style: { padding: "14px 16px", marginBottom: 14, maxWidth: 760, lineHeight: 1.55 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, "บัญชีนี้ยังไม่มีหอ"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-2)", fontSize: 13 } }, "ให้ admin กำหนดหอให้บัญชีนี้ในหน้า Admin ก่อน จึงจะเห็นผู้ป่วยของหอ ระหว่างนี้ลองใช้แอปกับคนไข้ทดสอบได้")), /* @__PURE__ */ React.createElement("div", { className: "ward-gate", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 } }, mine.map((w) => /* @__PURE__ */ React.createElement(WardGateCell, { key: w.key, label: w.label, sub: w.sub, ...tile(w.key) })), /* @__PURE__ */ React.createElement(WardGateCell, { label: TEST_WARD_NAME, sub: "ไม่มีเตียง · ไม่บันทึกเข้าระบบ", ...tile("other"), onPrintList: null })));
 }
 function NoTpnTag({ p, entries }) {
   if (!isActivePatient(p) || !D_R.latestOrderIsNoTpn(entries)) return null;
@@ -233,9 +237,10 @@ function wtpnWho(p) {
   const admit = D_R.admissionDol(p);
   return `GA ${D_R.fmtGA(p.ga)} · BW ${Number(p.bw || 0).toLocaleString("en-US")} g${admit > 1 ? ` · admit DOL ${admit}` : ""}`;
 }
-function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
+function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect, wards = null }) {
   const today = D_R.useTodayLocal();
-  const [ward, setWard] = React.useState(WARD_TPN_WARDS.some(([w]) => w === openWard) ? openWard : WARD_TPN_WARDS[0][0]);
+  const tabs = WARD_TPN_WARDS.filter(([w]) => w === "other" || !Array.isArray(wards) || wards.includes(w));
+  const [ward, setWard] = React.useState(tabs.some(([w]) => w === openWard) ? openWard : tabs[0][0]);
   const wardName = (WARD_TPN_WARDS.find(([w]) => w === ward) || [])[1] || ward;
   const rank = (r) => WARD_TPN_RANK[r.level] ?? (r.onTpn ? 2 : 3);
   const rows = D_R.wardTpnRows(patients, log, ward, today).sort((a, b) => rank(a) - rank(b) || bedSort(a.p, b.p));
@@ -243,7 +248,7 @@ function WardTpnPage({ patients = [], log = {}, ward: openWard, onSelect }) {
   const toLook = rows.filter((r) => r.level === "crit" || r.level === "warn").length;
   const A = D_R.WARD_AA_FLAG, S = D_R.PN_STOP_EN_ML_KG;
   const open = (r) => onSelect && onSelect(r.sessionId);
-  return /* @__PURE__ */ React.createElement("div", { className: "wtpn" }, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "TPN ทั้งหอ · ", wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "ทารก Active ที่คำสั่งล่าสุดมี TPN หรือหยุด TPN มาไม่เกิน ", D_R.WARD_TPN_RECENT_DAYS, " วัน · ค่าจากคำสั่ง Submit ล่าสุดของแต่ละคน")), /* @__PURE__ */ React.createElement("div", { className: "seg", role: "group", "aria-label": "เลือก ward" }, WARD_TPN_WARDS.map(([w, label]) => /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "wtpn" }, /* @__PURE__ */ React.createElement("div", { className: "page-head", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "TPN ทั้งหอ · ", wardName), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "ทารก Active ที่คำสั่งล่าสุดมี TPN หรือหยุด TPN มาไม่เกิน ", D_R.WARD_TPN_RECENT_DAYS, " วัน · ค่าจากคำสั่ง Submit ล่าสุดของแต่ละคน")), /* @__PURE__ */ React.createElement("div", { className: "seg", role: "group", "aria-label": "เลือก ward" }, tabs.map(([w, label]) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: w,
@@ -499,7 +504,8 @@ function PatientRegistry({
   onPrintWard,
   onPrintOrder,
   onPrintAll,
-  onOpenWardTpn
+  onOpenWardTpn,
+  wards = null
 }) {
   const [filter, setFilter] = React.useState("");
   const [statFilter, setStatFilter] = React.useState(null);
@@ -547,6 +553,7 @@ function PatientRegistry({
       patients,
       log,
       today,
+      wards,
       onPick: (w) => {
         setStatFilter(null);
         onWardChange?.(w);

@@ -1296,6 +1296,9 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // server, by sessionId — the `base` half of the three-way merge contract
   // with gas-backend.gs (review UP-S1). See handleEditPatient.
   const serverPatientsRef = React.useRef(new Map());
+  // The wards the last sync said this account holds (ward-scoped access); null
+  // until a sync names them, or when the backend predates the list.
+  const [myWards, setMyWards] = React.useState(null);
   // Sequence number of the last sync whose snapshot was applied.
   const appliedSeqRef = React.useRef(0);
 
@@ -1376,6 +1379,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       // Never auto-pick a patient — keep the current selection only if it
       // still exists in the fresh data, otherwise fall back to none (registry list).
       setActiveId(prev => (D_A.isTestSession(prev) || data.patients.some(p => p.sessionId === prev)) ? prev : null);
+      // The wards this account holds, as the server names them with every sync
+      // (ward-scoped access, 2026-11-24). A backend from before sends no list:
+      // null, every ward, as it was then.
+      setMyWards(Array.isArray(data.wards) ? data.wards.filter(k => D_A.wardByKey(k)) : null);
     }
     // Normalize before anything reads it: Sheets hands `ts` back as a date
     // value (stringified to "Sun Aug 17 2026 …"), which never matches a
@@ -1783,6 +1790,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // NF-02's weekly counts for the Admin page: a read, so not a writeGAS, and
   // quiet, because the card shows its own state (UsageCard).
   const loadUsage = React.useCallback(() => gasPost({ action: "getUsageWeekly" }, { quiet: true }), [gasPost]);
+  // The Admin page's ward control (ward-scoped access, 2026-11-24). Both quiet:
+  // the card shows its own state and the server's refusal in its own words.
+  const staffWardsApi = React.useMemo(() => ({
+    load: () => gasPost({ action: "getStaffWards" }, { quiet: true }),
+    save: (email, wards) => gasPost({ action: "setStaffWards", email, wards }, { quiet: true }),
+  }), [gasPost]);
 
   // While an earlier write's result is unknown, a new write may be that same
   // order or registration a second time — refuse it, and make sure the sync
@@ -2696,20 +2709,20 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
           {/* Print ทั้งหมด's one print job, in place of the list it came from. */}
           {view === "registry" && printBatch && printWard === printBatch.ward &&
             <WardPrintBatch batch={printBatch} patients={patients} log={log} onBack={() => setPrintBatch(null)} />}
-          {view === "registry" && !(printBatch && printWard === printBatch.ward) && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard}
+          {view === "registry" && !(printBatch && printWard === printBatch.ward) && <PatientRegistry patients={patients} activeId={activeId} role={role} log={log} ward={ward} onWardChange={setWard} wards={myWards}
             printWard={printWard} onPrintWard={setPrintWard} onPrintOrder={openOrderToPrint} onPrintAll={startPrintAll}
             onSelect={(id) => {setEditEntry(null);setActiveId(id);setView(growthDueFor(id) ? "fenton" : "log");}} onAdd={handleAddPatient} onEdit={handleEditPatient} mergeBaseFor={mergeBaseFor} onDelete={canDeletePatient ? handleDeletePatient : undefined}
             onOpenWardTpn={() => goTo("wardtpn")} />}
           {/* "TPN ทั้งหอ" opens on the ward the list was on; a tap on an infant
               opens their Dashboard, as a ward-list row does (the Growth view
               first on a Sunday its length and head are due, growthDueFor). */}
-          {view === "wardtpn" && <WardTpnPage patients={patients} log={log} ward={ward}
+          {view === "wardtpn" && <WardTpnPage patients={patients} log={log} ward={ward} wards={myWards}
             onSelect={(id) => { setEditEntry(null); setActiveId(id); setView(growthDueFor(id) ? "fenton" : "log"); }} />}
           {/* Role-checked here as well as in the rail: `view` is plain state,
               and before sessions remounted App an admin's "admin" view was
               still selected for the next user of the tab (SEC-F2). */}
           {view === "admin" && role === "admin" && <AdminDashboard patients={patients.filter(p => !D_A.isTestSession(p.sessionId))} log={log} lastSync={lastSync}
-            signInTiming={signInTiming} loadUsage={GAS_ON ? loadUsage : null}
+            signInTiming={signInTiming} loadUsage={GAS_ON ? loadUsage : null} staffWards={GAS_ON ? staffWardsApi : null}
             includeArchived={includeArchived}
             onToggleArchived={() => {
               includeArchivedRef.current = !includeArchived;
@@ -4249,10 +4262,121 @@ function UsageCard({ load }) {
   );
 }
 
+// Which wards each doctor and nurse account holds (ward-scoped access, Pp
+// 2026-11-24). The server keeps the rule, and sends an account only its wards'
+// infants; this card is where an admin changes an account's wards, one account
+// at a time, through setStaffWards (admin only, audited). An admin holds every
+// ward and pharmacy none, by role, so neither has boxes. A backend from before
+// answers "Unknown action": the card then says the ward control is not live yet.
+function StaffWardsCard({ api }) {
+  const [state, setState] = React.useState({ status: "loading" });
+  const [draft, setDraft] = React.useState({});     // email -> ward keys, while unsaved
+  const [busy, setBusy] = React.useState("");       // the email being saved
+  const [note, setNote] = React.useState(null);     // { email, ok, text }
+  const apiRef = React.useRef(api);
+  apiRef.current = api;
+  const alive = React.useRef(false);
+  const load = React.useCallback(() => {
+    setState({ status: "loading" });
+    Promise.resolve().then(() => apiRef.current.load()).then((res) => {
+      if (!alive.current) return;
+      if (res && res.ok && Array.isArray(res.staff)) setState({ status: "ready", ...res });
+      else if (res && /^Unknown action/.test(String(res.serverError || ""))) setState({ status: "none" });
+      else setState({ status: "error" });
+    }, () => { if (alive.current) setState({ status: "error" }); });
+  }, []);
+  React.useEffect(() => {
+    alive.current = true;
+    load();
+    return () => { alive.current = false; };
+  }, [load]);
+  const table = state.wardTable || [];
+  const clinicians = (state.staff || []).filter(s => s.role === "doctor" || s.role === "nurse");
+  const admins = (state.staff || []).filter(s => s.role === "admin");
+  const held = (s) => draft[s.email] || s.wards || [];
+  const changed = (s) => !!draft[s.email] && draft[s.email].join(",") !== (s.wards || []).join(",");
+  const toggle = (s, key) => setDraft(d => {
+    const now = held(s);
+    const next = table.map(w => w.key).filter(k => (k === key ? !now.includes(k) : now.includes(k)));
+    return { ...d, [s.email]: next };
+  });
+  const save = (s) => {
+    const wards = held(s);
+    setBusy(s.email); setNote(null);
+    Promise.resolve().then(() => apiRef.current.save(s.email, wards)).then((res) => {
+      if (!alive.current) return;
+      setBusy("");
+      if (res && res.ok) {
+        setState(st => ({ ...st, staff: st.staff.map(x => x.email === s.email ? { ...x, wards: res.wards || wards } : x) }));
+        setDraft(d => { const n = { ...d }; delete n[s.email]; return n; });
+        setNote({ email: s.email, ok: true, text: "บันทึกแล้ว — มีผลตั้งแต่การซิงก์ครั้งถัดไปของบัญชีนี้" });
+      } else {
+        setNote({ email: s.email, ok: false, text: (res && (res.serverError || res.error)) || "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง" });
+      }
+    }, () => { if (alive.current) { setBusy(""); setNote({ email: s.email, ok: false, text: "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง" }); } });
+  };
+  return (
+    <div className="card staff-wards-card" style={{ marginBottom: 14 }}>
+      <div className="card-h"><Icon name="dashboard" size={14} color="var(--brand)" /> หอของแต่ละบัญชี
+        <span className="h-meta">doctor และ nurse เห็นและแก้ได้เฉพาะผู้ป่วยในหอที่ติ๊กไว้</span></div>
+      <div className="card-b">
+        {state.status === "loading" && <div className="census-note" style={{ marginTop: 0 }}>กำลังโหลด…</div>}
+        {state.status === "none" && <div className="census-note" style={{ marginTop: 0 }}>backend รุ่นนี้ยังไม่มีการแบ่งสิทธิ์ตามหอ ทุกบัญชียังเห็นทุกหอ</div>}
+        {state.status === "error" && (
+          <div className="census-note" style={{ marginTop: 0, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            โหลดรายชื่อบัญชีไม่สำเร็จ
+            <button className="btn sm" onClick={load}>ลองใหม่</button>
+          </div>
+        )}
+        {state.status === "ready" && !state.columnReady && (
+          <div className="census-flags" role="note">ชีต Staff ยังไม่มีคอลัมน์ wards — ต้องรัน applyStaffWardsMigration ก่อนจึงจะกำหนดหอได้</div>
+        )}
+        {state.status === "ready" && (
+          <div className="staff-wards-list" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {clinicians.length === 0 && <div className="census-note" style={{ marginTop: 0 }}>ยังไม่มีบัญชี doctor หรือ nurse</div>}
+            {clinicians.map(s => (
+              <div key={s.email} className="staff-wards-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 14px",
+                paddingBottom: 10, borderBottom: "1px solid var(--line-2)" }}>
+                <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, overflowWrap: "anywhere" }}>{s.name || s.email}
+                    <span className="chip" style={{ marginLeft: 6, fontSize: 10.5 }}>{s.role}</span>
+                    {!s.active && <span className="chip warn" style={{ marginLeft: 6, fontSize: 10.5 }}>ระงับ</span>}
+                    {held(s).length === 0 && <span className="chip warn" style={{ marginLeft: 6, fontSize: 10.5 }}>ไม่มีหอ</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-3)", overflowWrap: "anywhere" }}>{s.email}</div>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
+                  {table.map(w => (
+                    <label key={w.key} style={{ display: "inline-flex", alignItems: "center", gap: 6, minHeight: 36, cursor: "pointer" }}>
+                      <input type="checkbox" checked={held(s).includes(w.key)} disabled={!state.columnReady || busy === s.email}
+                        onChange={() => toggle(s, w.key)} aria-label={`${w.label} · ${s.name || s.email}`} />
+                      {w.label}
+                    </label>
+                  ))}
+                </div>
+                <button type="button" className="btn sm primary" disabled={!changed(s) || busy === s.email || !state.columnReady}
+                  onClick={() => save(s)}>{busy === s.email ? "กำลังบันทึก…" : "บันทึก"}</button>
+                {note && note.email === s.email && (
+                  <div role="status" style={{ flexBasis: "100%", fontSize: 12.5, color: note.ok ? "var(--ok)" : "var(--crit-ink)" }}>{note.text}</div>
+                )}
+              </div>
+            ))}
+            {admins.length > 0 && (
+              <div className="census-note" style={{ marginTop: 0 }}>
+                admin ดูแลทุกหอโดยตำแหน่ง ({admins.length} บัญชี) · บัญชีเภสัชไม่เห็นรายชื่อผู้ป่วย ใช้หน้าห้อง TPN อย่างเดียว
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
 // Admin dashboard — read-only oversight, syncs from GAS
 // ============================================================
-function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeArchived = false, onToggleArchived, loadUsage = null }) {
+function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeArchived = false, onToggleArchived, loadUsage = null, staffWards = null }) {
   // Re-renders at midnight, so a workstation left on this page rolls the
   // census over to the new day's "Logged today" on its own.
   const today = D_A.useTodayLocal();
@@ -4371,6 +4495,7 @@ function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeA
         </div>
       </div>
       {loadUsage && <UsageCard load={loadUsage} />}
+      {staffWards && <StaffWardsCard api={staffWards} />}
       <div className="card">
         <div className="card-h"><Icon name="log" size={14} color="var(--brand)" /> Recent log entries<span className="h-meta">{allEntries.length} total</span></div>
         {/* Scrolls inside its card on a phone rather than widening the page
