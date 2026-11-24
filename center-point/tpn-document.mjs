@@ -9,6 +9,7 @@ export const TPN_PREPARATIONS = {
   "CA_CALCETATE": "Calcetate 1000 mg",
   "VITD_GENERIC": "Vitamin D3 drops (generic)",
   "BM_20": "Breast Milk (20 kcal/oz, mature)",
+  "DONOR_BM": "Donor Breast Milk (18 kcal/oz, pooled, pasteurised)",
   "BM_PF_20": "Preterm Formula (20 kcal/oz)",
   "FBM_PF_22": "Enfalac Premature (22 kcal/oz)",
   "PRENAN_22": "Pre Nan (22 kcal/oz)",

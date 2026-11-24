@@ -4942,7 +4942,7 @@ function GuidelinesPanel() {
 function FormulasPanel() {
   const DB = D_A.EN_DB;
   const groups = [
-    { label: "Breast Milk", keys: ["BM_20","BM_HMF_24","BM_PFP_22","BM_PFP_24","BM_PFP_27"] },
+    { label: "Breast Milk", keys: ["BM_20","DONOR_BM","BM_HMF_24","BM_PFP_22","BM_PFP_24","BM_PFP_27"] },
     { label: "HiQ LF (Dumex)", keys: ["HIQLF_20","HIQLF_22","HIQLF_24","HIQLF_26","HIQLF_27","HIQLF_30","HIQLF_35","HIQLF_40"] },
     { label: "Enfalac LF (MJN)", keys: ["ENFALAC_20","ENFALAC_22","ENFALAC_24","ENFALAC_26","ENFALAC_27","ENFALAC_30","ENFALAC_35","ENFALAC_40"] },
     // Extensively hydrolysed (Pp, 2026-11-24): Chula Tables 13 and 14.

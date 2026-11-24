@@ -33,7 +33,7 @@
 // Format YYYY-MM-DD or YYYY-MM-DD.N (N = that day's change sequence). Pinned
 // by test/verify-provenance-stamp.cjs, which also rejects a leading = + - @
 // because the sheet would read that as a formula.
-const CONSTANTS_VERSION = "2026-11-24.1";
+const CONSTANTS_VERSION = "2026-11-24.2";
 
 // APP_VERSION identifies the frontend that ran the arithmetic. It used to be
 // maintained by hand and was not bumped between 2026-08-27 and 2026-09-11,
@@ -189,6 +189,16 @@ const EN_SRC_CHULA_PER_100_KCAL = {
 // WHO 2006, Optimal feeding of low-birth-weight infants: technical review.
 // Box 1.3.1 (p. 16): term mature milk (> 30 days), per litre.
 const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmol: 9.0, kMmol: 13.9, caMmol: 6.5, pMmol: 4.8 };
+// Donor human milk (Pp, 2026-11-24, after a PubMed search: "ใช้ Mansen 2026").
+// Mansen K, Sanders H, Taylor SN, Dunstan R, Israel-Ballard K, Perrin MT. Impact
+// of fortifiers on donor milk nutrient composition. JPEN 2026;50(5):684-692,
+// PMID 41942687. Table 1: unfortified, Holder-pasteurised donor milk, 1000
+// simulated pools of five US milk-bank donors (400 donors), averages, as printed:
+// true protein, fat and lactose in g/dL; metabolizable energy (Atwater) in
+// kcal/oz; minerals in mg/L. Protein is TRUE protein (crude runs ~0.3 g higher);
+// carbohydrate is lactose alone (HMOs 0.5 g/dL are not counted).
+const EN_SRC_MANSEN_DONOR = { trueProG: 0.8, fatG: 3.2, lactoseG: 6.8, kcalOz: 17.7,
+  caMgL: 258.9, kMgL: 447.6, naMgL: 101.0, pMgL: 134.0 };
 // Chula Handbook p. 10 (PDF p. 18), "Human milk fortifier (per 4 packages)",
 // Enfamil HMF (Mead Johnson) powder. The protein row reads 1 in every column,
 // so the table is per 1 g protein whatever its title says. Pp, 2026-10-20: BM +
@@ -243,6 +253,14 @@ function _enBmPlusPf(kcalOz) {
     ca: m * b.ca + c.ca * s, p: m * b.p + c.p * s, osm: null };
 }
 const _EN_INFATRINI = _enFromChula(EN_SRC_CHULA_PER_100_KCAL.infatriniPowder, 30);
+// Mansen Table 1 per 100 mL. kcal/oz → kcal/100 mL with the ward's 1 oz = 30 mL
+// (17.7 → 59; at 29.57 mL it would be 59.9). No osmolality in the paper.
+const _EN_DONOR = (() => {
+  const m = EN_SRC_MANSEN_DONOR;
+  return { kcal: m.kcalOz * 100 / 30, pro: m.trueProG, fat: m.fatG, cho: m.lactoseG,
+    na: m.naMgL / 10 / EN_MG_PER_MMOL.na, k: m.kMgL / 10 / EN_MG_PER_MMOL.k,
+    ca: m.caMgL / 10, p: m.pMgL / 10, osm: null };
+})();
 // Alternating feeds: the mean of the two rows, per nutrient. The feeds are
 // never mixed in one bottle, so there is no osmolality to average.
 const _EN_FBM_INF_MIX = (() => {
@@ -410,6 +428,14 @@ const EN_DB = {
     label: "FBM with PF (27 kcal/oz)",
     ..._enBmPlusPf(27), lf: false,
     source: "BM_20 mixed with concentrated Enfalac Premature (milk room chart), Chula Handbook Table 5, p. 16 (per 100 kcal), to 27 kcal/oz",
+  },
+
+  // ── Donor human milk (Pp, 2026-11-24) ─────────────────────
+  DONOR_BM: {
+    label: "Donor Breast Milk (18 kcal/oz, pooled, pasteurised)",
+    ..._EN_DONOR, lf: false,
+    source: "Mansen 2026, JPEN 50:684, Table 1 (unfortified Holder-pasteurised donor milk, 5-donor pools)",
+    note: "True protein 0.8 g/dL; 17.7 kcal/oz (59 kcal/100 mL). Pooled donor milk varies (10th–90th centile 16.2–19.2 kcal/oz)",
   },
 
   // ── Lactose-free — HiQ LF (the Calculator's LF rows) ──────
@@ -622,6 +648,8 @@ const EN_PRODUCTS = [
   // shows it as saved. Pp also wants 24 and 27 when HMF returns: 27 needs a dose
   // of HMF decided first, so only 24 is here.
   { id: "bmHmf",       group: "Breast Milk",         label: "FBM with HMF",                  strengths: [[24, "BM_HMF_24"]], hidden: true },
+  // Pp, 2026-11-24: donor breast milk, Mansen 2026 Table 1; one strength, the paper's 17.7 kcal/oz shown as 18.
+  { id: "donorBm",     group: "Breast Milk",         label: "Donor Breast Milk",             strengths: [[18, "DONOR_BM"]] },
   { id: "fbmPf",       group: "Breast Milk",         label: "FBM with PF",                   strengths: [[22, "BM_PFP_22"], [24, "BM_PFP_24"], [27, "BM_PFP_27"]] },
   { id: "pf",          group: "Preterm formula",     label: "Preterm Formula",               strengths: [[20, "BM_PF_20"], [22, "BM_PF_22"], [24, "BM_PF_24"], [26, "BM_PF_26"], [27, "BM_PF_27"]] },
   { id: "enfalacPrem", group: "Preterm formula",     label: "Enfalac Premature",             strengths: [[20, "ENFALAC_PREM_20"], [22, "FBM_PF_22"], [24, "ENFALAC_PREM_24"], [26, "ENFALAC_PREM_26"], [27, "ENFALAC_PREM_27"]] },
