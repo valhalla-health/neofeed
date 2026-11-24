@@ -7,6 +7,19 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-24 (5) — Ward-scoped access: Vera's two findings
+
+`gas-backend.gs` (`registerPatient`, `migrateStaffWards`), `test/verify-ward-scope.cjs` § 7 and § 11, `REFERENCE.md`
+§ Backend. Corrects entry (4), which said the migration lists infants by sessionId.
+
+- **An edit must leave the infant in some ward.** A doctor could delete a parked infant's last "Previous beds" line
+  (or type a bed in no ward), and the save went through: the infant then had no ward, so every doctor and nurse
+  stopped receiving them and only an admin could give them a bed. A doctor's or nurse's edit that leaves the record
+  in no ward is now refused (`WardScope`, "บันทึกไม่ได้ — การแก้นี้ทำให้ผู้ป่วยไม่อยู่ในหอใดเลย…"); a transfer to
+  another ward still goes through, and an admin may still do it. § 7.7–7.10, red before the fix (4 failed).
+- **The migration lists by row, not by ID.** An ID issued before 2026-09-27 carries the initials, and the list went
+  to the execution log. `patientRowsWithNoWard` holds Patient_Registry row numbers. § 11.5–11.6, red before.
+
 ## Session 2026-11-24 (4) — Ward-scoped access: each account sees and changes only its wards' infants (paediatric-wards group 2)
 
 `gas-backend.gs` (§ Ward-scoped access: `_wardScope`, `_patientWardOfRow`, `_patientAccessRefusal`; `getStaffRow`,

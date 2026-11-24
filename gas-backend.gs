@@ -996,6 +996,7 @@ var STAFF_WARDS_HEADER = "wards";
 var MIGRATION_WARDS = ["NICU", "SCN"];
 var WARD_SCOPE_MSG = "Forbidden — ผู้ป่วยรายนี้ไม่อยู่ในหอที่บัญชีนี้ดูแล ถ้าต้องดูแลหอนี้ ให้ admin เพิ่มหอให้บัญชีก่อน";
 var WARD_SCOPE_UNREADABLE_MSG = "ตรวจหอของผู้ป่วยไม่ได้ชั่วคราว — ยังไม่ได้บันทึก ลองใหม่อีกครั้ง";
+var WARD_SCOPE_NO_WARD_EDIT_MSG = "บันทึกไม่ได้ — การแก้นี้ทำให้ผู้ป่วยไม่อยู่ในหอใดเลย (ไม่มีเตียงหรือเตียงก่อนหน้าในหอ) ให้เลือกเตียงในหอ หรือให้ admin เป็นผู้แก้";
 var WARD_SCOPE_NEW_BED_MSG = "ลงทะเบียนได้เฉพาะเตียงในหอที่บัญชีนี้ดูแล — เลือกเตียงในหอของท่าน";
 function _staffWardsCol(header) {
   var h = header || [];
@@ -4289,16 +4290,18 @@ function setStaffWards(email, wards, adminEmail) {
 //   2. gives every doctor and nurse row whose cell is blank MIGRATION_WARDS
 //      (NICU,SCN: the wards everyone saw before), and leaves a cell that holds
 //      anything, admin rows and pharmacy rows as they are;
-//   3. lists the patients on the unit, or inside the ward's sync window, whose
-//      ward cannot be read (no bed and no previous bed, or a bed in no ward).
-//      After the deploy only an admin sees them: give each a bed first.
+//   3. lists, by Patient_Registry row number, the patients on the unit or inside
+//      the ward's sync window whose ward cannot be read (no bed and no previous
+//      bed, or a bed in no ward). After the deploy only an admin sees them: give
+//      each a bed first. Row numbers, not IDs: an ID issued before 2026-09-27
+//      carries the initials (Vera, 2026-11-24).
 // migrateStaffWards() is the dry run and changes nothing; the Run button cannot
 // pass an argument, hence applyStaffWardsMigration. Safe to re-run: a filled
-// cell is never written again. The log carries counts, row numbers and the
-// patients' sessionIds, never a name or an email.
+// cell is never written again. The log carries counts and row numbers, never
+// an ID, a name or an email.
 function migrateStaffWards(apply) {
   apply = apply === true;
-  var out = { applied: apply, column: "", wouldFill: 0, filled: 0, staffRowsFilled: [], patientsWithNoWard: [] };
+  var out = { applied: apply, column: "", wouldFill: 0, filled: 0, staffRowsFilled: [], patientRowsWithNoWard: [] };
   var lock = apply ? LockService.getScriptLock() : null;
   if (lock) _waitLockOrBusy(lock, 30000);
   try {
@@ -4330,9 +4333,8 @@ function migrateStaffWards(apply) {
     var pats = getSheetPat().getDataRange().getValues();
     var todayKey = _wardDateKey();
     for (var j = 1; j < pats.length; j++) {
-      var sid = String(pats[j][0] || "");
-      if (!sid || !_patientInSyncWindow(pats[j][9], pats[j][16], todayKey)) continue;
-      if (!_patientWardOfRow(pats[j])) out.patientsWithNoWard.push(sid);
+      if (!String(pats[j][0] || "") || !_patientInSyncWindow(pats[j][9], pats[j][16], todayKey)) continue;
+      if (!_patientWardOfRow(pats[j])) out.patientRowsWithNoWard.push(j + 1);
     }
   } finally {
     // Every ward set's cached sync goes too: the wards an account holds have
@@ -5075,6 +5077,13 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
     // A record that is new here lands in one of the caller's wards (its bed's).
     if (!stored && !_inScope(scope, _patientWardOf(m.currentBed, m.bedHistory))) {
       return { error: WARD_SCOPE_NEW_BED_MSG, code: "WardScope" };
+    }
+    // An edit by a doctor or nurse must leave the record in some ward (any ward:
+    // a transfer out is allowed). Deleting a parked infant's last "Previous beds"
+    // line, or a free-text bed, would put them in no ward, which only an admin
+    // sees: the infant would leave every ward list without a word (Vera, 2026-11-24).
+    if (stored && scope !== null && !_patientWardOf(m.currentBed, m.bedHistory)) {
+      return { error: WARD_SCOPE_NO_WARD_EDIT_MSG, code: "WardScope" };
     }
     // Last of the refusals, so a save refused for another reason keeps its own message.
     if (!stored && !NEW_SESSION_ID_RE.test(p.sessionId)) throw new Error(NEW_SESSION_ID_MSG);

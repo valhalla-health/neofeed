@@ -207,7 +207,9 @@ asUser('doctor');
 const shortPwd = post({ action: 'changePassword', token: 't', oldPassword: 'correct-horse-1', newPassword: '123456789' });
 ok('a 9-character new password is refused', /10/.test(shortPwd.error || ''), shortPwd);
 sheets.Audit_Log = makeSheet(['ts', 'action', 'sessionId', 'actorEmail']);
-post({ action: 'updatePatient', token: 't', patient: { ...{ sessionId: 'AB-1200', bw: 1250, ga: 30, dob: '' } } });
+// ward scope (2026-11-24): a whole-record write with no base sets every field, so it carries AB-1200's bed (NICU 1):
+// an edit that leaves an infant in no ward is refused (Vera). The audit row, not the bed, is this case.
+post({ action: 'updatePatient', token: 't', patient: { ...{ sessionId: 'AB-1200', bw: 1250, ga: 30, dob: '', currentBed: 'NICU 1' } } });
 const audit = sheets.Audit_Log.data.slice(1).map(x => [x[1], x[2], x[3]]);
 ok('a registry edit writes an Audit_Log row (who changed BW/GA)', audit.some(a => a[0] === 'updatePatient' && a[1] === 'AB-1200' && a[2] === 'doctor@kcmh.test'), audit);
 asUser('admin');

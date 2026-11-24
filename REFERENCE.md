@@ -649,12 +649,12 @@ Staff row today has no `wards` cell. So run the migration from the pushed HEAD b
 1. `clasp push` from this repo (step 1 above). HEAD now holds the migration; the ward's deployment is unchanged.
 2. In the editor, run `migrateStaffWards` (the dry run). Its log says where the `wards` column will go, how many
    doctor and nurse rows it would fill (`wouldFill`) and which infants on the unit have no ward
-   (`patientsWithNoWard`, by sessionId).
+   (`patientRowsWithNoWard`, by Patient_Registry row number: an ID from before 2026-09-27 carries the initials).
 3. Give each listed infant a bed in the app first, as an admin. After the deploy only an admin sees them.
 4. Run `applyStaffWardsMigration`. It adds the `wards` header after the last Staff column if missing, and writes
    `NICU,SCN` into every doctor and nurse row whose cell is blank. A cell that holds anything, and admin and
    pharmacy rows, are left as they are. It is safe to run again: a second run fills nothing.
-5. **The check:** run `migrateStaffWards` again. `wouldFill` must be 0 and `patientsWithNoWard` empty. If not, stop.
+5. **The check:** run `migrateStaffWards` again. `wouldFill` must be 0 and `patientRowsWithNoWard` empty. If not, stop.
 6. `clasp update-deployment` (steps 2–5 above). On dev local before this step, compare one doctor's and one nurse's
    ward list with the same accounts on the current release: the same infants.
 

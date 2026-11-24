@@ -307,6 +307,18 @@ T.section('§7 a parked child, a bed in no ward, no bed', () => withNow(NOON, ()
     && ['NF-310006', 'NF-310007'].every(s => sids(sync(g, 'admin')).includes(s)));
   const r = g.as('nicuDoc', { action: 'updateWeights', sessionId: 'NF-310006', weights: [{ dol: 1, w: 1500 }, { dol: 3, w: 1490 }] });
   T.ok('7.6 a NICU doctor cannot write to the infant in no ward', !!r.error && r.ok !== true, r);
+  // Vera, 2026-11-24: deleting a parked infant's last "Previous beds" line left them in no ward, an admin's only.
+  const p5 = asSynced(g, 'nicuDoc', 'NF-310005');
+  const before7 = sheetsNow(g);
+  const lastHop = g.as('nicuDoc', { action: 'updatePatient', patient: Object.assign({}, p5, { bedHistory: [] }), base: p5 });
+  T.ok("7.7 a doctor deleting a parked infant's last previous bed is refused: it would leave them in no ward",
+    !!lastHop.error && lastHop.ok !== true && lastHop.code === 'WardScope', lastHop);
+  T.ok("7.8 …nothing changed, and the infant is still on the NICU doctor's list", sheetsNow(g) === before7 && sids(sync(g, 'nicuDoc')).includes('NF-310005'));
+  const n1 = asSynced(g, 'nicuDoc', 'NF-310001');
+  const freeText = g.as('nicuDoc', { action: 'updatePatient', patient: Object.assign({}, n1, { currentBed: 'OR 2' }), base: n1 });
+  T.ok('7.9 …and so is a move to a bed in no ward (OR 2)', !!freeText.error && freeText.code === 'WardScope', freeText);
+  const adminHop = g.as('admin', { action: 'updatePatient', patient: Object.assign({}, p5, { bedHistory: [] }), base: p5 });
+  T.ok('7.10 an admin may still do it', adminHop.ok === true, adminHop);
 }));
 
 T.section('§8 a registry read that fails', () => withNow(NOON, () => {
@@ -396,8 +408,11 @@ T.section('§11 the migration', () => withNow(NOON, () => {
   T.eq('11.4 every doctor and nurse holds NICU,SCN (a role cell in any case included); admin and pharmacy stay blank',
     ['a@kcmh.test', 'd1@kcmh.test', 'd2@kcmh.test', 'n1@kcmh.test', 'rx2@kcmh.test', 'off@kcmh.test'].map(cell),
     ['', 'NICU,SCN', 'NICU,SCN', 'NICU,SCN', '', 'NICU,SCN']);
-  T.eq('11.5 it lists the infants on the unit with no ward, by ID', res && res.patientsWithNoWard, ['NF-310007']);
-  T.ok('11.6 its log names no infant by name', !g.env.logs.join('\n').includes(NAME('NF-310007')));
+  // By Patient_Registry row, not ID: an ID issued before 2026-09-27 carries the initials (Vera, 2026-11-24).
+  const noWardRow = g.sheet('Patient_Registry').data.findIndex(r => r[0] === 'NF-310007') + 1;
+  T.eq('11.5 it lists the infants on the unit with no ward, by registry row', res && res.patientRowsWithNoWard, [noWardRow]);
+  T.ok('11.6 its log names no infant, by name or by ID',
+    !g.env.logs.join('\n').includes(NAME('NF-310007')) && !g.env.logs.join('\n').includes('NF-310007'));
   staff.data.find(r => r[0] === 'n1@kcmh.test')[8] = 'SCN';
   const again = g.sb.applyStaffWardsMigration();
   T.eq('11.7 run again: it fills nothing and leaves a ward an admin set', [again && again.filled, cell('n1@kcmh.test'), staff.data[0].length], [0, 'SCN', 9]);

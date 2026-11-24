@@ -313,7 +313,9 @@ T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visibl
   T.ok('register ok', reg.ok, reg); matches('after registerPatient');
   const w = post({ action: 'updateWeights', sessionId: 'NF-000011', weights: [{ dol: 1, w: 1500 }, { dol: 2, w: 1490 }] });
   T.ok('updateWeights ok', w.ok, w); matches('after updateWeights');
-  const disch = post({ action: 'updatePatient', patient: { sessionId: 'BB-1', name: 'x', bw: 1200, ga: 30.1, sex: 'boys', status: 'Discharged', statusDate: addDays(TODAY, -45), currentBed: '' } });
+  // ward scope (2026-11-24): a whole-record write with no base sets every field; it keeps BB-1's bed (NICU 2), since an
+  // edit that leaves an infant in no ward is refused (Vera). The discharge, not the bed, is this case.
+  const disch = post({ action: 'updatePatient', patient: { sessionId: 'BB-1', name: 'x', bw: 1200, ga: 30.1, sex: 'boys', status: 'Discharged', statusDate: addDays(TODAY, -45), currentBed: 'NICU 2' } });
   T.ok('discharge ok', disch.ok, disch); matches('after a discharge moves a patient out of the window');
   matches('admin archive variant', g.at, true);
   const bbEntry = g.rows('Daily_Log').find(r => r[1] === 'BB-1')[25];
