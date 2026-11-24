@@ -193,7 +193,8 @@ eq('…and blank lines would still print a trial', Core.fixedLinesReady(Core.PN_
 // 2026-11-16.1 with this harness's figures; 2026-11-18.1 since IV lipid counts 10 kcal/g (Pp, Q8);
 // 2026-11-20.1 since Na, K and Ca:P follow Jochum Table 3 and R 8.12 (Pp, Q5 and Q7).
 // 2026-11-24.1 since Nutramigen, Hi-Q Pepti Gastro and lactose-free to 40 kcal/oz joined EN_DB.
-ok('the constants version moved with the figures', D.CONSTANTS_VERSION === '2026-11-24.1', D.CONSTANTS_VERSION);
+// 2026-11-24.2 since donor milk joined EN_DB.
+ok('the constants version moved with the figures', D.CONSTANTS_VERSION === '2026-11-24.2', D.CONSTANTS_VERSION);
 
 if (root) act(() => root.unmount());
 console.log(`\nTPN STICKER 1116: ${fail ? 'FAILURES' : 'ALL PASS'} (${pass} passed, ${fail} failed)`);

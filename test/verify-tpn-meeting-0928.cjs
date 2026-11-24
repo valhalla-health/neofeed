@@ -386,8 +386,8 @@ function baseOrder({ tf = 120 } = {}) {
       offered, ['BM_20', 'BM_PFP_22', 'BM_PFP_24', 'BM_PFP_27', 'BM_PF_20', 'BM_PF_22', 'BM_PF_24', 'BM_PF_26', 'BM_PF_27', 'ENFALAC_20', 'ENFALAC_24', 'ENFALAC_27',
         'ENFALAC_PREM_20', 'ENFALAC_PREM_24', 'ENFALAC_PREM_26', 'ENFALAC_PREM_27', 'FBM_PF_22', 'FBM_PF_24', 'HIQLBW_20', 'HIQLBW_22', 'HIQLBW_26', 'HIQLBW_27',
         'INFATRINI_30', 'LF_20', 'LF_24', 'LF_27', 'PRENAN_20', 'PRENAN_22', 'PRENAN_24', 'PRENAN_26', 'PRENAN_27',
-        // Pp, 2026-11-24: lactose-free 20–40 kcal/oz, Nutramigen 20, Hi-Q Pepti Gastro 20–27.
-        'LF_22', 'LF_26', 'LF_30', 'LF_35', 'LF_40', 'ENFALAC_22', 'ENFALAC_26', 'ENFALAC_30', 'ENFALAC_35', 'ENFALAC_40', 'NUTRAMIGEN_20', 'HIQPEPTI_GASTRO_20', 'HIQPEPTI_GASTRO_22', 'HIQPEPTI_GASTRO_24', 'HIQPEPTI_GASTRO_27'].sort());
+        // Pp, 2026-11-24: lactose-free 20–40 kcal/oz, Nutramigen 20, Hi-Q Pepti Gastro 20–27, donor milk.
+        'DONOR_BM', 'LF_22', 'LF_26', 'LF_30', 'LF_35', 'LF_40', 'ENFALAC_22', 'ENFALAC_26', 'ENFALAC_30', 'ENFALAC_35', 'ENFALAC_40', 'NUTRAMIGEN_20', 'HIQPEPTI_GASTRO_20', 'HIQPEPTI_GASTRO_22', 'HIQPEPTI_GASTRO_24', 'HIQPEPTI_GASTRO_27'].sort());
     // The Formula reference page (app.jsx, not mounted here): the same split, and Pre Nan at last.
     const src = R('app.jsx');
     const block = /function FormulasPanel\(\)[\s\S]*?const groups = \[([\s\S]*?)\];/.exec(src)?.[1] || '';

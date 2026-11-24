@@ -1,6 +1,8 @@
 # NeoFeed — Status
 
-> 📝 **2026-11-24 — Step 2 offers Nutramigen LGG (20 kcal/oz) and Hi-Q Pepti Gastro (20, 22, 24, 27) from the Chula handbook, Tables 13 and 14, and lactose-free formula at 20, 22, 24, 26, 27, 30, 35 and 40 kcal/oz: PR #306, merged into `main` on Praew's instruction.** Release follows on her go-ahead. Frontend only; `CONSTANTS_VERSION` 2026-11-20.1 → 2026-11-24.1; Center Point's label map needs the same lines before the release. `CHANGELOG.md` 2026-11-24.
+> 📝 **2026-11-24 — Step 2 offers donor breast milk (pooled, pasteurised; Mansen 2026 Table 1: true protein 0.8 g, 59 kcal per 100 mL): PR #308, merged into `main` on Praew's instruction.** Release follows on her go-ahead ("PR sync รายชื่อนม then release"). Frontend only; `CONSTANTS_VERSION` 2026-11-24.2; Center Point's label map gains `DONOR_BM` in its PR #41, with #306's labels. `CHANGELOG.md` 2026-11-24 (3).
+
+> 📝 **2026-11-24 — Step 2 offers Nutramigen LGG (20 kcal/oz) and Hi-Q Pepti Gastro (20, 22, 24, 27) from the Chula handbook, Tables 13 and 14, and lactose-free formula at 20, 22, 24, 26, 27, 30, 35 and 40 kcal/oz: PR #306, merged into `main` on Praew's instruction.** Release follows on her go-ahead. Frontend only; `CONSTANTS_VERSION` 2026-11-20.1 → 2026-11-24.1; Center Point's label map: its PR #41. `CHANGELOG.md` 2026-11-24.
 
 > 📝 **2026-11-22 — Sunday's length and HC hold the TPN order: on a Sunday in Bangkok the order dated that day cannot be Submitted or printed until the infant has a length and an HC from the last 6 days, or the doctor gives a reason it cannot be measured (`calcInput.growthSkip`, not printed): PR #304, merged into `main` on Praew's instruction, live via release #305 (`release-2026-11-22-pr305`).** Frontend only, no backend deploy (backend stays `@79`); `CONSTANTS_VERSION` stays `2026-11-20.1`. `CHANGELOG.md` 2026-11-22 (2).
 

@@ -7,6 +7,38 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-24 (3) — Donor breast milk in Step 2, from Mansen 2026
+
+`data.js` (`EN_SRC_MANSEN_DONOR`, `DONOR_BM`, `EN_PRODUCTS`, `CONSTANTS_VERSION`), `calculator.jsx` (`MilkAssumption`),
+`app.jsx` (FormulasPanel), `center-point/tpn-document.mjs`, `compiled/` and the shells' `?v=`, `tools/reference-tabs.json`,
+the neofeed-clinical-rules skill (CR-U-BREASTMILK), `docs/CLINICAL_CONSTANTS.md`, `STATUS.md`; tests `verify-en-db-sources`,
+`verify-tpn-meeting-0928`, `verify-calc-sum`, `verify-center-point-entry`, `verify-stock-ml-1027`, `verify-tpn-sticker-1116`.
+
+- **Why.** Pp, 2026-11-24: "เพิ่ม donor breast milk จะมีข้อมูล?". The Chula handbook has none (p. 8 gives colostrum and
+  mature milk only). Asked, she chose a sourced row over a copy of mother's milk; a PubMed search offered Mansen 2026,
+  Mills 2019 and Wojcik 2009, and she chose "ใช้ Mansen 2026", the only one with every field.
+- **The row.** Mansen K, Sanders H, Taylor SN, Dunstan R, Israel-Ballard K, Perrin MT, JPEN 2026;50(5):684-692, PMID
+  41942687, Table 1, read from the Europe PMC article page: unfortified Holder-pasteurised donor milk, 1000 simulated
+  pools of five US milk-bank donors (400 donors). Per 100 mL: true protein 0.8 g, fat 3.2 g, lactose 6.8 g, Na 10.1 mg
+  (0.44 mmol), K 44.8 mg, Ca 25.9 mg, P 13.4 mg; metabolizable energy 17.7 kcal/oz, which is 59 kcal/100 mL at the
+  ward's 1 oz = 30 mL. No osmolality.
+- **Two things that read differently.** Its protein is true protein; the WHO mother's-milk row and the formula labels
+  give total protein, which reads higher for the same milk. Its sodium is about half the WHO row's (0.44 against
+  0.9 mmol/100 mL). Both are what the paper prints.
+- **Step 2** offers "Donor Breast Milk" under Breast Milk at one strength, 18 kcal/oz (17.7 rounded: the strength select
+  holds whole numbers), and names its true protein, kcal and source under the feed, as it does for mother's milk.
+- `CONSTANTS_VERSION` 2026-11-24.1 → 2026-11-24.2; every saved order is held for a re-save before it reprints.
+  Center Point's label map gains `DONOR_BM`, in the same CP sync as PR #306.
+- **The ounce.** The paper's kcal/oz is presumably the US ounce (29.57 mL), which would give 59.9 kcal/100 mL. Asked
+  (Vera), Pp kept the ward's 30 mL for every feed: "30 mL เหมือนนมอื่น", so 59.
+- **Checks.** A new agent read Table 1 on the Europe PMC page against `data.js`, the harness transcription and the
+  Step 2 line: every value and conversion matched; its minor points are fixed (full citation in the source line, no
+  unsourced crude-protein figure, the note's centiles named as the simulated pools'). Vera: NO BLOCK, four 🟡 fixed
+  (the ounce asked, the note's 16.2–19.2 kcal/oz centiles pinned in `verify-en-db-sources`, CR-PROTEIN-MAX's reason
+  rewritten with two donor-milk cases, the register's `EN_DB` source cell names Mansen and Chula Tables 13 and 14).
+  Step 2's caveat reads "Donor milk แต่ละ pool …" when donor milk is the only breast-milk feed.
+- No second clinician has reviewed this row; Pp's decision alone (change protocol step 3).
+
 ## Session 2026-11-24 — Nutramigen LGG and Hi-Q Pepti Gastro in Step 2; lactose-free formula from 20 to 40 kcal/oz
 
 `data.js` (`EN_KCAL_PER_100ML`, `EN_SRC_CHULA_PER_100_KCAL`, `EN_DB`, `EN_PRODUCTS`, `CONSTANTS_VERSION`), `app.jsx`

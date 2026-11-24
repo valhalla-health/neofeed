@@ -5297,7 +5297,8 @@ function WorkVal({ k, v, d = 2, t }) {
 // `keys`: the EN_DB key of each feed given today.
 function MilkAssumption({ keys }) {
   const bmKeys = keys.filter((k) => k in BM_ASSUMED_FEEDS);
-  if (bmKeys.length === 0) return null;
+  const donor = keys.includes("DONOR_BM") ? D.EN_DB.DONOR_BM : null;
+  if (bmKeys.length === 0 && !donor) return null;
   const bm = D.EN_DB.BM_20, bmh = D.EN_DB.BM_HMF_24;
   const hmfG = D.EN_HMF_PROTEIN_G_PER_DOSE;
   const hmfKcal = D.EN_SRC_CHULA_ENFAMIL_HMF_PER_G_PROTEIN.kcal * hmfG;
@@ -5305,10 +5306,18 @@ function MilkAssumption({ keys }) {
   return (
     <div className="en-milk-assumption" data-rule="CR-U-BREASTMILK" style={{ marginTop: 8, paddingTop: 6,
       borderTop: "1px dashed var(--line-2)", fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5 }}>
-      <div>
-        นมแม่ที่ใช้คำนวณ ต่อ 100 mL: protein <WorkVal k="bm.pro" v={bm.pro} /> g · <WorkVal k="bm.kcal" v={bm.kcal} d={1} /> kcal
-        <span style={quiet}> · {bm.source}</span>
-      </div>
+      {bmKeys.length > 0 && (
+        <div>
+          นมแม่ที่ใช้คำนวณ ต่อ 100 mL: protein <WorkVal k="bm.pro" v={bm.pro} /> g · <WorkVal k="bm.kcal" v={bm.kcal} d={1} /> kcal
+          <span style={quiet}> · {bm.source}</span>
+        </div>
+      )}
+      {donor && (
+        <div>
+          Donor milk ที่ใช้คำนวณ ต่อ 100 mL: true protein <WorkVal k="dbm.pro" v={donor.pro} /> g · <WorkVal k="dbm.kcal" v={donor.kcal} d={1} /> kcal
+          <span style={quiet}> · {donor.source}</span>
+        </div>
+      )}
       {bmKeys.some((k) => BM_ASSUMED_FEEDS[k]) && (
         <div>
           HMF ที่เติมต่อ 100 mL: protein +<WorkVal k="hmf.pro" v={hmfG} /> g · +<WorkVal k="hmf.kcal" v={hmfKcal} d={1} /> kcal
@@ -5317,7 +5326,9 @@ function MilkAssumption({ keys }) {
         </div>
       )}
       {bmKeys.includes("FBM_INF_MIX") && <div style={quiet}>{D.EN_DB.FBM_INF_MIX.note}</div>}
-      <div style={{ fontWeight: 600 }}>นมแม่จริงแต่ละคนมีโปรตีนและพลังงานไม่เท่ากัน ค่านี้มาจากแหล่งอ้างอิง ไม่ได้วัดจากนมของแม่คนนี้</div>
+      <div style={{ fontWeight: 600 }}>{bmKeys.length > 0
+        ? "นมแม่จริงแต่ละคนมีโปรตีนและพลังงานไม่เท่ากัน ค่านี้มาจากแหล่งอ้างอิง ไม่ได้วัดจากนมของแม่คนนี้"
+        : "Donor milk แต่ละ pool มีโปรตีนและพลังงานไม่เท่ากัน ค่านี้มาจากแหล่งอ้างอิง ไม่ได้วัดจากนมขวดนี้"}</div>
     </div>
   );
 }
@@ -5363,7 +5374,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
   const aboutFeed = (key) => {
     const row = D.EN_DB[key];
     if (!row) return `${key}: not in the feed list`;
-    return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
+    return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS || key === "DONOR_BM" ? " (CR-U-BREASTMILK)" : ""}`;
   };
   const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d หรือให้ energy และ protein ถึง ${D.FULL_EN_NEEDS_FRACTION * 100}% ของเป้า enteral (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = <>kg = <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)</>;
