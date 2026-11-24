@@ -39,6 +39,30 @@ the neofeed-clinical-rules skill (CR-U-BREASTMILK), `docs/CLINICAL_CONSTANTS.md`
   Step 2's caveat reads "Donor milk แต่ละ pool …" when donor milk is the only breast-milk feed.
 - No second clinician has reviewed this row; Pp's decision alone (change protocol step 3).
 
+## Session 2026-11-24 (2) — A No TPN day on IV fluid does not ask why the feeds are low
+
+`calculator.jsx` (`noTpnOnIv`), `compiled/calculator.js` and the shells' `?v=`, the neofeed-clinical-rules skill
+(CR-NO-TPN-EN, CR-NO-TPN-PLAN), `docs/CLINICAL_CONSTANTS.md` (`NO_TPN_EN_MIN_ML_KG` row), `STATUS.md`.
+
+- **Why.** Pp, 2026-11-24: "ให้คนไข้ที่ให้ IV fluid แต่ไม่ได้ให้ TPN ไม่ต้องนับนมมาเกี่ยว คือเค้ายังกินไม่ได้ ไม่ต้อง alarm
+  ว่าทำไมไม่ให้ TPN". Asked when to stay quiet, she chose "มี Other IV ก็ไม่เตือน": any Other IV above 0, feeds or none.
+- **What changed.** With "No TPN" ticked and Other IV above 0, `CR-NO-TPN-EN` (feeds under 80 mL/kg/d or the day's
+  minimum: red, a reason asked) and `CR-NO-TPN-PLAN` (feeds more than 20 below the plan: amber, "ลืมสั่ง TPN หรือเปล่า?")
+  are not checked. The info line `CR-FLUID-PLAN` still compares IV + feeds with the plan, so a day far from its plan is
+  still said. With Other IV 0 both rules hold as before. The red line no longer names the Other IV, since it can no
+  longer fire with one.
+- **A blue line names the IV** (Vera, finding 1; Pp: "ขึ้นฟ้าบอก IV"). Other IV prefills from yesterday's order, so an
+  IV stopped and left in the box would silence both checks. A No TPN day with Other IV above 0 shows "No TPN on IV
+  fluid", the Other IV in mL/kg/d, and asks to set it to 0 if stopped. Info only: no reason, no hold on Submit or Print.
+- **The ward list asks daily** (Vera, finding 2; Pp: "ทุกวัน"). A No TPN order with Other IV above 0 has no 3-day due
+  date (`D.noTpnEntryDueOn`), as one Submitted with the old red line still has none.
+- Vera's comment finding: the CR-NO-TPN-EN comment no longer gives the IV-fluid day as its reason.
+- Tests: `verify-no-tpn-entry-3day-1114` case M (on IV daily, Other IV 0 keeps 3 days).
+- No printed figure moves, so `CONSTANTS_VERSION` stays (alert rule only). No second clinician has reviewed this
+  change; Pp's decision alone.
+- Tests: `verify-clinical-rules` CR-NO-TPN-EN, the old "IV fluid alone … critical" case now saves with no reason, plus
+  NPO on IV fluid alone, the plan info line on that day, and Other IV 0 still critical (1,213 pass).
+
 ## Session 2026-11-24 — Nutramigen LGG and Hi-Q Pepti Gastro in Step 2; lactose-free formula from 20 to 40 kcal/oz
 
 `data.js` (`EN_KCAL_PER_100ML`, `EN_SRC_CHULA_PER_100_KCAL`, `EN_DB`, `EN_PRODUCTS`, `CONSTANTS_VERSION`), `app.jsx`

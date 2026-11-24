@@ -1740,19 +1740,26 @@ function Calculator({
     body: `EN ${fmt(calc.enVolPerKg, 0)} mL/kg/d is above the ${D.MEN_MAX_ML_KG} mL/kg/d trophic ceiling, and a MEN feed counts toward neither fluid nor nutrition. ถ้าเพิ่มนมแล้ว ให้เอาเครื่องหมาย MEN ออก.`,
     ref: `Feeding Advancement · MEF ${D.ESPGHAN_TARGETS.en.advancement.mef[0]}–${D.MEN_MAX_ML_KG} mL/kg/d`
   });
+  const noTpnOnIv = noTpnOn && otherIV_mL > 0;
+  if (noTpnOnIv && calc.wtKg > 0) alerts.push({
+    level: "info",
+    title: "No TPN on IV fluid",
+    body: `No TPN, Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d: ตรวจว่ายังให้ IV อยู่ ถ้าหยุดแล้วให้ใส่ Other IV 0`,
+    ref: "Pp, 2026-11-24"
+  });
   const noTpnEnMin = D.noTpnEnMinPerKg(dol, wtG, patient?.bw);
   const enCountedPerKg = calc.wtKg > 0 ? calc.enCounted / calc.wtKg : 0;
-  const noTpnEnLow = noTpnOn && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
+  const noTpnEnLow = noTpnOn && !noTpnOnIv && calc.wtKg > 0 && Number(enCountedPerKg.toPrecision(12)) < noTpnEnMin;
   const noTpnEnBasis = noTpnEnMin < D.NO_TPN_EN_MIN_ML_KG ? `fluid requirement DOL ${dol} ${tFluid[0]}–${tFluid[1]} mL/kg/d` : `เกณฑ์ ${D.NO_TPN_EN_MIN_ML_KG} mL/kg/d`;
   if (noTpnEnLow) alerts.push({
     level: "crit",
     title: D.NO_TPN_FEEDS_LOW_TITLE,
-    body: `No TPN แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""}${otherIV_mL > 0 ? ` · Other IV ${fmt(otherIV_mL / calc.wtKg, 0)} mL/kg/d` : ""} — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
+    body: `No TPN แต่นมที่นับได้ ${vsLimit(enCountedPerKg, noTpnEnMin, 0)} mL/kg/d ต่ำกว่า ${fmt(noTpnEnMin, 0)} mL/kg/d (${noTpnEnBasis})${isMEN && calc.enVolTotal > 0 ? " · นม MEN ไม่นับ" : ""} — ตรวจว่าหยุด TPN ได้แล้ว หรือยังต้องให้ TPN / IV fluid.`,
     ref: "Pp, 2026-11-01"
   });
   if (bagOrdered && sOsm === "crit") alerts.push({ level: "crit", title: "Osmolarity > peripheral limit", body: `${fmt(calc.osm, 0)} mOsm/L — a peripheral line takes under ${D.OSM_PERIPHERAL_MAX} mOsm/L; switch to central.`, ref: "KCMH TPN form" });
   const noTpnPlanGap = fluidTargetPerKg - enCountedPerKg;
-  const noTpnPlanLow = noTpnOn && calc.wtKg > 0 && fluidTargetPerKg > 0 && !noTpnEnLow && Number(noTpnPlanGap.toPrecision(12)) > D.NO_TPN_PLAN_GAP_ML_KG;
+  const noTpnPlanLow = noTpnOn && !noTpnOnIv && calc.wtKg > 0 && fluidTargetPerKg > 0 && !noTpnEnLow && Number(noTpnPlanGap.toPrecision(12)) > D.NO_TPN_PLAN_GAP_ML_KG;
   if (noTpnPlanLow) alerts.push({
     level: "warn",
     title: "No TPN: feeds well below the fluid plan",

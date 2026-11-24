@@ -1,5 +1,7 @@
 # NeoFeed — Status
 
+> 📝 **2026-11-24 — A day ticked "No TPN" with Other IV above 0 no longer asks why the feeds are under 80 mL/kg/d, and no longer warns "ลืมสั่ง TPN หรือเปล่า?" (Pp: "เค้ายังกินไม่ได้ ไม่ต้อง alarm"); a blue line names the Other IV instead, and the ward list asks for such an infant every day: PR #307; goes live with the next release.** Frontend only; `CONSTANTS_VERSION` stays. `CHANGELOG.md` 2026-11-24 (2).
+
 > 📝 **2026-11-24 — Step 2 offers donor breast milk (pooled, pasteurised; Mansen 2026 Table 1: true protein 0.8 g, 59 kcal per 100 mL): PR #308, merged into `main` on Praew's instruction.** Release follows on her go-ahead ("PR sync รายชื่อนม then release"). Frontend only; `CONSTANTS_VERSION` 2026-11-24.2; Center Point's label map gains `DONOR_BM` in its PR #41, with #306's labels. `CHANGELOG.md` 2026-11-24 (3).
 
 > 📝 **2026-11-24 — Step 2 offers Nutramigen LGG (20 kcal/oz) and Hi-Q Pepti Gastro (20, 22, 24, 27) from the Chula handbook, Tables 13 and 14, and lactose-free formula at 20, 22, 24, 26, 27, 30, 35 and 40 kcal/oz: PR #306, merged into `main` on Praew's instruction.** Release follows on her go-ahead. Frontend only; `CONSTANTS_VERSION` 2026-11-20.1 → 2026-11-24.1; Center Point's label map: its PR #41. `CHANGELOG.md` 2026-11-24.
