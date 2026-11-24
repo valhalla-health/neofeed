@@ -7,6 +7,26 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-24 (2) — A No TPN day on IV fluid does not ask why the feeds are low
+
+`calculator.jsx` (`noTpnOnIv`), `compiled/calculator.js` and the shells' `?v=`, the neofeed-clinical-rules skill
+(CR-NO-TPN-EN, CR-NO-TPN-PLAN), `docs/CLINICAL_CONSTANTS.md` (`NO_TPN_EN_MIN_ML_KG` row), `STATUS.md`.
+
+- **Why.** Pp, 2026-11-24: "ให้คนไข้ที่ให้ IV fluid แต่ไม่ได้ให้ TPN ไม่ต้องนับนมมาเกี่ยว คือเค้ายังกินไม่ได้ ไม่ต้อง alarm
+  ว่าทำไมไม่ให้ TPN". Asked when to stay quiet, she chose "มี Other IV ก็ไม่เตือน": any Other IV above 0, feeds or none.
+- **What changed.** With "No TPN" ticked and Other IV above 0, `CR-NO-TPN-EN` (feeds under 80 mL/kg/d or the day's
+  minimum: red, a reason asked) and `CR-NO-TPN-PLAN` (feeds more than 20 below the plan: amber, "ลืมสั่ง TPN หรือเปล่า?")
+  are not checked. The info line `CR-FLUID-PLAN` still compares IV + feeds with the plan, so a day far from its plan is
+  still said. With Other IV 0 both rules hold as before. The red line no longer names the Other IV, since it can no
+  longer fire with one.
+- **The ward list.** An order Submitted with the old red line still keeps its infant on NEEDS ENTRY daily
+  (`D.noTpnEntryDueOn` reads the saved reason); a new IV-fluid order has no such reason, so it is asked again after 3
+  days, like any other No TPN order.
+- No printed figure moves, so `CONSTANTS_VERSION` stays (alert rule only). No second clinician has reviewed this
+  change; Pp's decision alone.
+- Tests: `verify-clinical-rules` CR-NO-TPN-EN, the old "IV fluid alone … critical" case now saves with no reason, plus
+  NPO on IV fluid alone, the plan info line on that day, and Other IV 0 still critical (1,213 pass).
+
 ## Session 2026-11-22 (4) — Vera's second run on the Sunday growth gate: a read-only nurse's wording, a new order's reason
 
 `calculator.jsx`, `compiled/calculator.js` and the shells' `?v=` tokens, `test/verify-growth-gate-1122.cjs`.
