@@ -267,7 +267,7 @@ function WardGate({ patients, log, today, onPick, onPrintList, wards = null }) {
       {mine.length === 0 && (
         <div className="card ward-none" role="status" style={{ padding: "14px 16px", marginBottom: 14, maxWidth: 760, lineHeight: 1.55 }}>
           <div style={{ fontWeight: 600 }}>บัญชีนี้ยังไม่มีหอ</div>
-          <div style={{ color: "var(--ink-2)", fontSize: 13 }}>ให้ admin กำหนดหอให้บัญชีนี้ในหน้า Admin ก่อน จึงจะเห็นผู้ป่วยของหอ ระหว่างนี้ลองใช้แอปกับคนไข้ทดสอบได้</div>
+          <div style={{ color: "var(--ink-2)", fontSize: 13 }}>ให้ admin กำหนดหอให้บัญชีนี้ในหน้า Admin ก่อน แล้วจะเห็นผู้ป่วยของหอนั้น ระหว่างนี้ลองใช้แอปกับคนไข้ทดสอบได้</div>
         </div>
       )}
       <div className="ward-gate" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, maxWidth: 760 }}>

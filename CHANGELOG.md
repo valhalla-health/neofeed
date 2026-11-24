@@ -7,6 +7,54 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-24 (4) — Ward-scoped access: each account sees and changes only its wards' infants (paediatric-wards group 2)
+
+`gas-backend.gs` (§ Ward-scoped access: `_wardScope`, `_patientWardOfRow`, `_patientAccessRefusal`; `getStaffRow`,
+`verifyToken`, `_loginReply`, `getActivePatients(Json)`, `_syncCacheKey`, `registerPatient`, `_bedConflict`,
+`_possibleDuplicate`; new `getStaffWards`, `setStaffWards`, `migrateStaffWards`, `applyStaffWardsMigration`),
+`registry.jsx` (WardGate, WardTpnPage), `app.jsx` (the sync's `wards`, StaffWardsCard on the Admin page), `compiled/`
+and the shells' `?v=`, `test/gas-vm-sandbox.cjs` (a `wards` column), new `test/verify-ward-scope.cjs` and
+`test/verify-ward-scope-frontend.cjs`, the fixtures of 17 older harnesses, `REFERENCE.md`
+§ Backend and § Thai PDPA, `PRD.md` § 5, `openspec/changes/paediatric-wards/tasks.md`, `STATUS.md`.
+
+- **Why.** On 2026-11-24 Pp compared NeoFeed with another clinical app and found no access by ward at all: the
+  backend sent every ward's infants to every doctor, nurse and admin, and the 20 Nov H5 change only blocks writes to
+  records outside the sync window. She decided ward-scoped access is finished before any other step of the
+  ward-expansion plan ("ทำก่อน"). This is tasks.md group 2 (2.1–2.6), against `specs/ward-scoped-access`.
+- **The rule, on the server.** `Staff` gains a `wards` column, read by header (ward keys, comma separated, any
+  case; a word that is no key of the table is dropped, and `*` is not a ward). An admin holds every ward by role,
+  pharmacy none. An infant's ward is their bed's, or, while parked, the bed they last left (data.js
+  `patientWard`); an infant with neither, or on a bed in no ward, reaches an admin only. The sync and the copy the
+  sign-in reply embeds carry only the caller's wards, and the sync cache key carries the ward set (`sync2_` →
+  `sync3_`, `@NICU+SCN`), so one ward's cached reply never reaches another; a write drops every ward set's head.
+  Every write and the order lock that names an infant by `sessionId` is refused outside the caller's wards before
+  any sheet changes (one registry read, shared with the H5 window check), with `code: "WardScope"`, a message that
+  names no one, and an `Audit_Log` row `wardScopeRefused:<action>` with no sessionId. It fails closed when the
+  registry cannot be read (`ServiceUnavailable`, retryable); the H5 window check alone still fails open, as before.
+  `registerPatient` checks under its lock: an edit or a transfer needs the ward the infant is in now, so a NICU
+  doctor can move an infant to a free paediatric bed and then no longer sees them; a new record needs a bed in the
+  caller's wards (a record with no bed would be an admin's only); a bed held in another ward is "taken" with no
+  name; a look-alike in another ward is "in another ward" with no name, bed or ID; a new id drawn onto another
+  ward's record still gets IdTaken, so the client draws another.
+- **Setting wards.** `getStaffWards` and `setStaffWards`, admin only, refused before Staff is read. The list carries
+  email, name, role, active and wards, never a password column. A change is audited first
+  (`setStaffWards NICU,SCN`, `staff:<email>`, the admin) under the script lock, then written in table order, and the
+  account's cached Staff row is dropped, so its next request reads the new wards. Admin and pharmacy accounts are
+  refused (by role). The Admin page's new card "หอของแต่ละบัญชี" ticks wards per doctor and nurse account.
+- **The migration.** `migrateStaffWards` (dry run) and `applyStaffWardsMigration`, from the editor: add the header,
+  give every doctor and nurse row with a blank cell `NICU,SCN`, leave every other cell, list the infants in the
+  sync window with no ward by sessionId. Idempotent. REFERENCE.md § Backend gives the order: push, dry run, give the
+  listed infants a bed, apply, dry run again (0 to fill, none listed), then `clasp update-deployment`.
+- **The ward page** shows the tiles of the caller's wards, then ทดสอบระบบ; an account with no ward reads
+  "บัญชีนี้ยังไม่มีหอ" and who can change it. "TPN ทั้งหอ" shows the same tabs. P4 (the patient switcher) and the
+  "found in another ward" search need no code: both read the patients the server sent, which are the caller's wards.
+- **Tests.** `test/verify-ward-scope.cjs` (§ 1–11) was written first and is red against `main` `c37d8b6` (77 failed,
+  65 passed: the passes are the admin, pharmacy and as-before cases) and green on this branch (162 checks).
+  `test/verify-ward-scope-frontend.cjs` (the ward page, "TPN ทั้งหอ", the Admin card; 24 checks) was written after the
+  code; against `main` 7 fail and the 4 as-before cases pass. The sandbox's Staff rows carry `wards` (NICU,SCN unless a
+  harness names them), the migrated state, and the older harnesses whose made-up infants had no bed, or a bed in no
+  ward, give them a NICU or SCN bed or act as an admin (each line marked `ward scope (2026-11-24)`).
+
 ## Session 2026-11-24 (3) — Donor breast milk in Step 2, from Mansen 2026
 
 `data.js` (`EN_SRC_MANSEN_DONOR`, `DONOR_BM`, `EN_PRODUCTS`, `CONSTANTS_VERSION`), `calculator.jsx` (`MilkAssumption`),

@@ -238,8 +238,9 @@ groups, bed sort and sticker label all read it. Until 2026-11-22 each wrote NICU
 the table is a data change: one row, two generated copies, and no other edit.
 
 **Not for a real ward yet.** Every ward in the table is a newborn unit until a rule set is chosen by age (tasks.md
-group 3): it is offered Aminoven only and starts at the newborn 30 mL dead space. Access is not limited by ward yet
-either (group 2). A paediatric ward's row lands with its rule set (group 5), on Pp's word. Until then, add a ward only
+group 3): it is offered Aminoven only and starts at the newborn 30 mL dead space. Access is limited by ward since
+group 2 (§ Thai PDPA compliance posture, "Access by ward"): no clinician account holds a new ward until an admin gives it
+one. A paediatric ward's row lands with its rule set (group 5), on Pp's word. Until then, add a ward only
 to try the steps, on dev local or in a harness, and take it out again.
 
 1. **The row.** Add one line to `WARDS`, in the place the ward should be listed (table order is screen order;
@@ -640,6 +641,29 @@ path. Say in the ward's release notice that open NeoFeed tabs and the TPN room's
 Running a function from the Apps Script editor (e.g. the one-off `applyStaffHeaderColumns`
 / `applyLogHeaderColumns` migrations) executes as the signed-in user and may raise an OAuth
 consent — that is Praew's to approve, not something to click through on her behalf.
+
+**Ward-scoped access (2026-11-24, `paediatric-wards` group 2) deploys in this order: migration, check, then
+`clasp update-deployment`.** The backend that filters by ward gives an account with no ward no infant, and every
+Staff row today has no `wards` cell. So run the migration from the pushed HEAD before the ward's deployment moves:
+
+1. `clasp push` from this repo (step 1 above). HEAD now holds the migration; the ward's deployment is unchanged.
+2. In the editor, run `migrateStaffWards` (the dry run). Its log says where the `wards` column will go, how many
+   doctor and nurse rows it would fill (`wouldFill`) and which infants on the unit have no ward
+   (`patientsWithNoWard`, by sessionId).
+3. Give each listed infant a bed in the app first, as an admin. After the deploy only an admin sees them.
+4. Run `applyStaffWardsMigration`. It adds the `wards` header after the last Staff column if missing, and writes
+   `NICU,SCN` into every doctor and nurse row whose cell is blank. A cell that holds anything, and admin and
+   pharmacy rows, are left as they are. It is safe to run again: a second run fills nothing.
+5. **The check:** run `migrateStaffWards` again. `wouldFill` must be 0 and `patientsWithNoWard` empty. If not, stop.
+6. `clasp update-deployment` (steps 2–5 above). On dev local before this step, compare one doctor's and one nurse's
+   ward list with the same accounts on the current release: the same infants.
+
+The frontend can go before or after: a frontend from before ignores the sync's `wards` list and shows every ward's
+tile (the ones the account does not hold are empty), and this frontend against an older backend reads no list and
+shows every ward, as before. **To roll back,** move the deployment to the previous version; the `wards` column stays
+and the older backend never reads it. A Staff row an admin adds later starts with no ward: give it one on the Admin
+page (`setStaffWards`), or type ward keys into its `wards` cell (comma separated, any case; seen within a minute).
+The sync cache key carries the ward set (`sync3_`), so no ward's cached reply reaches another.
 
 Redeploys are live and NICU staff are on them: **always confirm before the redeploy step.**
 
@@ -1088,6 +1112,25 @@ dropped; the sign-in of a suspended account, even with the right password, is un
 it and is dropped past it. Registration's look-alike question leaves a
 `possibleDuplicate` row with the ID it matched, whether or not the answer named
 that infant.
+
+**Access by ward (code since 2026-11-24, not live; `openspec/changes/paediatric-wards`, design D2):** a doctor or
+nurse reads and changes only the infants of the wards their Staff row holds, and the server enforces it. Until then
+every signed-in role but pharmacy received every ward's infants on every sync. The wards are a `wards` column on
+`Staff`, read by header; an admin holds every ward by role and pharmacy none. An infant's ward is the ward of their
+bed, or, while parked between beds, of the bed they last left; an infant with neither, or on a bed in no ward of the
+table, reaches an admin only. The rule covers the sync and the copy the sign-in reply carries, every write and the
+order lock that names an infant, the bed-conflict reply (a bed in another ward is "taken", and nobody is named) and
+registration's look-alike question (a match in another ward is said to exist, with no name, bed or ID). It fails
+closed when the registry cannot be read. An account with no ward signs in and receives no infant. Only an admin
+changes an account's wards (`setStaffWards`, the Admin page's "หอของแต่ละบัญชี" card), and the TPN room still lists
+every ward's orders, with no name, initials or date of birth. `test/verify-ward-scope.cjs` pins it. **Open with Pp
+and the DPO:** gate 0.7 (the DPO's written answer on ward-scoped access, and the IT Change Request), and who gets
+which ward on the live Sheet. The migration's default is NICU and SCN for every doctor and nurse that exists today,
+which is what each saw before.
+
+Ward scope's own `Audit_Log` rows: `wardScopeRefused:<action>` (a doctor or nurse refused an infant outside their
+wards; the row has no sessionId), `readStaffWards` and `setStaffWards <wards>` (an admin read or changed the wards of
+the account in the sessionId column, written `staff:<email>`).
 
 **Data minimization:** `handleLogout()` in `app.jsx` clears
 `neofeed_calc_*`/`neofeed_acked_*` localStorage keys on logout, since those

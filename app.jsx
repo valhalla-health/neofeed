@@ -2681,8 +2681,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       <main className="work">
         <div className="work-inner">
           <ViewErrorBoundary variant="view" resetKey={`${view}|${activeId || ""}`} onGoRegistry={() => goTo("registry")}>
-          {/* Banner: GAS connected but no real patients yet */}
-          {GAS_ON && syncState === "ok" && patients.length === 0 && (
+          {/* Banner: GAS connected but no real patients yet. Not for an
+              account with no ward: the ward page says why it sees no one, and
+              registering is not the answer (ward-scoped access). */}
+          {GAS_ON && syncState === "ok" && patients.length === 0 && !(Array.isArray(myWards) && myWards.length === 0) && (
             <div style={{ padding:"12px 16px", background:"var(--brand-bg)", border:"1px solid var(--brand-line)",
               borderRadius:8, marginBottom:14, fontSize:13, color:"var(--brand-2)", display:"flex", alignItems:"center", gap:10 }}>
               <Icon name="info" size={14} color="var(--brand)" />
