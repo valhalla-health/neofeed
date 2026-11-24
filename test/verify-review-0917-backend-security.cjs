@@ -17,7 +17,8 @@ const T = recorder('REVIEW 2026-09-17 BACKEND · SECURITY');
 const P = (sid, extra) => Object.assign({
   sessionId: sid, name: 'ทารก', initials: 'AB', bw: 900, ga: 28.1, sex: 'boys',
   dob: '2026-09-01', admissionDate: '2026-09-01', twinSuffix: '', status: 'Active',
-  currentBed: '', diagnosis: 'RDS', weights: [{ dol: 1, w: 900 }], lengths: [], hcs: [], bedHistory: [],
+  // ward scope (2026-11-24): a bed in the nurse's and doctor's wards, so their edits and saves reach the infant
+  currentBed: 'NICU 1', diagnosis: 'RDS', weights: [{ dol: 1, w: 900 }], lengths: [], hcs: [], bedHistory: [],
   statusDate: '', multiplesCount: 0,
 }, extra || {});
 const E = (extra) => Object.assign({ dol: 16, weight: 950, fluid: 150, gir: 6, pro: 3, kcal: 90,
@@ -228,7 +229,8 @@ T.section('A6 / SEC-B9 · absolute 12 h session age, legacy sessions stamped not
 
 T.section('SEC-B10 · backfillDefaultPasswords never logs a temp password', () => {
   const g = boot();
-  g.sheet('Staff').data.push(['nurse2@kcmh.test', 'nurse', 'N2', true, '', '', '', '']);
+  // ward scope (2026-11-24): the ninth Staff column, wards
+  g.sheet('Staff').data.push(['nurse2@kcmh.test', 'nurse', 'N2', true, '', '', '', '', 'NICU,SCN']);
   const ret = g.sb.backfillDefaultPasswords();
   const temp = g.rows('Staff')[0][7];
   T.ok('a temp password was provisioned into col H', typeof temp === 'string' && temp.length >= 8, temp);

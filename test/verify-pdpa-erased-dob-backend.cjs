@@ -40,9 +40,10 @@ function ward() {
 }
 
 function register(g, sid) {
+  // ward scope (2026-11-24): a bed in the doctor's and nurse's wards, so the sync carries the infant and the saves reach it
   g.seedPatient({
     sessionId: sid, name: 'ทารก ' + sid, initials: sid.slice(0, 2), bw: 900, ga: 28.1, sex: 'boys',
-    dob: DOB, admissionDate: ADMIT, twinSuffix: '', status: 'Active', currentBed: '', diagnosis: 'RDS',
+    dob: DOB, admissionDate: ADMIT, twinSuffix: '', status: 'Active', currentBed: 'NICU 1', diagnosis: 'RDS',
     weights: [{ dol: 5, w: 900 }], lengths: [], hcs: [], bedHistory: [], statusDate: '', multiplesCount: 0,
   });
 }

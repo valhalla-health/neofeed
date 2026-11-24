@@ -19,7 +19,8 @@ const E = (extra, ci) => Object.assign({ dol: 5, weight: 1250, fluid: 150, gir: 
 const P = (sid) => ({
   sessionId: sid, name: 'ทารก ' + sid, initials: sid.slice(0, 2), bw: 900, ga: 28.1, sex: 'boys',
   dob: '2026-09-01', admissionDate: '2026-09-01', twinSuffix: '', status: 'Active',
-  currentBed: '', diagnosis: 'RDS', weights: [{ dol: 1, w: 900 }], lengths: [], hcs: [], bedHistory: [],
+  // ward scope (2026-11-24): a bed in the doctor's wards, so the log writes reach the save-stop checks
+  currentBed: 'NICU 1', diagnosis: 'RDS', weights: [{ dol: 1, w: 900 }], lengths: [], hcs: [], bedHistory: [],
   statusDate: '', multiplesCount: 0,
 });
 const STALE = /แอปในแท็บนี้เป็นรุ่นเก่า/;

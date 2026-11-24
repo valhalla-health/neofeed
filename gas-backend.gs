@@ -4335,7 +4335,9 @@ function migrateStaffWards(apply) {
       if (!_patientWardOfRow(pats[j])) out.patientsWithNoWard.push(sid);
     }
   } finally {
-    if (lock) lock.releaseLock();
+    // Every ward set's cached sync goes too: the wards an account holds have
+    // just changed (and the harness rule: a locked reader of Patient_Registry bumps).
+    if (lock) { _bumpDataVersion(); lock.releaseLock(); }
   }
   Logger.log(JSON.stringify(out, null, 2));
   return out;

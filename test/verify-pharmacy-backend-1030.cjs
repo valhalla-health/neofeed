@@ -387,13 +387,14 @@ T.section('§9 pharmacyOrders · prescriber and bed come from the server, not fr
   g.addStaff('doc3@kcmh.test', 'doctor', 'Doctor-Password-3', { name: 'Dr Three' });
   const d2 = g.session('doc2@kcmh.test', 'doctor');
   const d3 = g.session('doc3@kcmh.test', 'doctor');
-  g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100006', 'SENTINEL-BED TEST0001') });
+  // ward scope (2026-11-24): a free-text bed is in no ward, so an admin registers NF-100006 and saves its order (AB is overwritten below)
+  g.as(g.at, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100006', 'SENTINEL-BED TEST0001') });
   g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100007', 'NICU 5') });
   g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100008', 'NICU 6') });
   g.as(g.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P('NF-100009', 'NICU 9') });
   g.log('NF-100001', today, ED(today, {}, { savedByLabel: 'Prof Synthetic Boss (boss@kcmh.test)' }));
   g.log('NF-100002', today, ED(today, {}, { savedByLabel: 'SENTINEL-LABEL <img src=x onerror=alert(1)>' }));
-  const bedRow = g.log('NF-100006', today, ED(today));
+  const bedRow = g.as(g.at, { action: 'logDailyNutrition', sessionId: 'NF-100006', entry: Object.assign(ED(today), { ts: today }) });
   const ns = g.as(g.nt, { action: 'logDailyNutrition', sessionId: 'NF-100007',
     entry: ED(today, { ts: today, status: 'draft' }, { savedByLabel: 'Dr Test (doc@kcmh.test)' }) });
   // A draft: since 2026-11-07 a nurse's new order is never submitted (N1, verify-walk-1107.cjs).

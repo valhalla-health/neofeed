@@ -54,8 +54,9 @@ function ward() {
   g.sb.UrlFetchApp.fetch = (...a) => { g.fetches++; return realFetch(...a); };
   return g;
 }
+// ward scope (2026-11-24): a doctor or nurse registers only into a bed of their wards; NICU 1 is free in every case below
 const P = (sid, extra) => Object.assign({ sessionId: sid, name: 'ทารกใหม่', initials: 'ทม', bw: 1000, ga: 30.1, sex: 'boys',
-  dob: day(-5), admissionDate: day(-5), twinSuffix: '', status: 'Active', currentBed: '', diagnosis: 'RDS',
+  dob: day(-5), admissionDate: day(-5), twinSuffix: '', status: 'Active', currentBed: 'NICU 1', diagnosis: 'RDS',
   weights: [{ dol: 1, w: 1000 }], lengths: [], hcs: [], bedHistory: [], statusDate: '', multiplesCount: 0 }, extra);
 const E = (status, calcInput) => ({ dol: 5, weight: 1000, fluid: 150, gir: 7, pro: 2, kcal: 42, na: 2, k: 2.5, ca: 0, p: 0,
   enVolPerKg: 0, route: 'TPN central', status, constantsVersion: '2026-11-18.1', calcInput });
@@ -438,7 +439,8 @@ T.section('§6 A10 · the registry\'s free text', atNoon(() => {
   for (const f of Object.keys(FIELD_MAX)) {
     const max = FIELD_MAX[f];
     const g = ward();
-    const atCap = g.as(g.dt, { action: 'registerPatient', isNew: true, patient: P('NF-100201', { [f]: fill(f, max) }) });
+    // ward scope (2026-11-24): a 60-character free-text bed is in no ward, so only an admin may register into it
+    const atCap = g.as(f === 'currentBed' ? g.at : g.dt, { action: 'registerPatient', isNew: true, patient: P('NF-100201', { [f]: fill(f, max) }) });
     T.eq(f + ': ' + max + ' characters land', atCap.ok, true);
     const h = ward();
     const r = h.as(h.dt, { action: 'registerPatient', isNew: true, patient: P('NF-100202', { [f]: fill(f, max + 1) }) });
@@ -453,15 +455,16 @@ T.section('§6 A10 · the registry\'s free text', atNoon(() => {
   const g = ward();
   const longName = 'ก'.repeat(300), longDx = 'RDS · '.repeat(600), longBed = 'เตียง  ชั่วคราว '.repeat(10).trim();
   g.sheet('Patient_Registry').data.push(g.patRow('NF-300001', { 1: longName, 11: longDx, 10: longBed }));
-  const stored = g.as(g.dt, { action: 'getActivePatients' }).patients.find(p => p.sessionId === 'NF-300001');
-  const withBase = g.as(g.dt, { action: 'updatePatient', base: stored, patient: Object.assign({}, stored, { twinSuffix: 'A' }) });
+  // ward scope (2026-11-24): the long free-text bed is in no ward, so this record reaches an admin only; the admin edits it
+  const stored = g.as(g.at, { action: 'getActivePatients' }).patients.find(p => p.sessionId === 'NF-300001');
+  const withBase = g.as(g.at, { action: 'updatePatient', base: stored, patient: Object.assign({}, stored, { twinSuffix: 'A' }) });
   T.eq('a stored 300-character name, 3,600-character diagnosis and long bed: an edit of something else goes through', withBase.ok, true);
-  const noBase = g.as(g.dt, { action: 'updatePatient', patient: Object.assign({}, stored, { twinSuffix: 'B' }) });
+  const noBase = g.as(g.at, { action: 'updatePatient', patient: Object.assign({}, stored, { twinSuffix: 'B' }) });
   T.eq('…from a client with no base too, carrying the same text', noBase.ok, true);
-  const spaced = g.as(g.dt, { action: 'updatePatient', patient: Object.assign({}, stored, { name: longName + ' ', twinSuffix: 'C' }) });
+  const spaced = g.as(g.at, { action: 'updatePatient', patient: Object.assign({}, stored, { name: longName + ' ', twinSuffix: 'C' }) });
   T.eq('…a stray space does not make it new', spaced.ok, true);
   const nameBefore = g.sheet('Patient_Registry').data[1][1];
-  const changed = g.as(g.dt, { action: 'updatePatient', base: stored, patient: Object.assign({}, stored, { name: longName + 'ข' }) });
+  const changed = g.as(g.at, { action: 'updatePatient', base: stored, patient: Object.assign({}, stored, { name: longName + 'ข' }) });
   T.ok('…changing the long name to another long name is refused', !!changed.error && String(changed.error).includes('Name'), changed);
   T.eq('…the sheet keeps the stored name', g.sheet('Patient_Registry').data[1][1], nameBefore);
 }));
@@ -505,14 +508,16 @@ T.section('§7 R2 · a new sessionId is NF- and six digits', atNoon(() => {
   T.ok('2,000 draws of the app\'s own newSessionId all match the shape', draws.every(s => /^NF-\d{6}$/.test(s)), draws.find(s => !/^NF-\d{6}$/.test(s)));
   const a = ward();
   const twinA = a.as(a.dt, { action: 'registerPatient', isNew: true, patient: P(draws[0], { twinSuffix: 'A', multiplesCount: 2 }) });
-  const twinB = a.as(a.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P(draws[1] === draws[0] ? 'NF-000001' : draws[1], { twinSuffix: 'B', multiplesCount: 2 }) });
+  // ward scope (2026-11-24): twin B in NICU 2, since twin A now holds NICU 1 (one infant per bed)
+  const twinB = a.as(a.dt, { action: 'registerPatient', isNew: true, confirmDuplicate: true, patient: P(draws[1] === draws[0] ? 'NF-000001' : draws[1], { twinSuffix: 'B', multiplesCount: 2, currentBed: 'NICU 2' }) });
   T.eq('twins are two draws and a letter: the second confirms it is another baby, and both land', [twinA.ok, twinB.ok, a.rows('Patient_Registry').length], [true, true, 2]);
 }));
 
 T.section('§7 R2 · an id issued before 2026-09-27 keeps working everywhere', atNoon(() => {
   const OLD = 'สจ-BW900-A';
   const g = ward();
-  g.sheet('Patient_Registry').data.push(g.patRow(OLD, { 3: 900 }));
+  // ward scope (2026-11-24): bed NICU 1 (col K) so the nurse's sync and the doctor's writes reach the old-id row
+  g.sheet('Patient_Registry').data.push(g.patRow(OLD, { 3: 900, 10: 'NICU 1' }));
   const sync = g.as(g.nt, { action: 'getActivePatients' });
   const p = sync.patients.find(x => x.sessionId === OLD);
   T.ok('sync carries it', !!p, sync.patients.map(x => x.sessionId));
