@@ -195,7 +195,7 @@ const EN_SRC_WHO_TERM_MILK_PER_L = { kcal: 640, pro: 12, fat: 34, cho: 67, naMmo
 // PMID 41942687. Table 1: unfortified, Holder-pasteurised donor milk, 1000
 // simulated pools of five US milk-bank donors (400 donors), averages, as printed:
 // true protein, fat and lactose in g/dL; metabolizable energy (Atwater) in
-// kcal/oz; minerals in mg/L. Protein is TRUE protein (crude runs ~0.3 g higher);
+// kcal/oz; minerals in mg/L. Protein is TRUE protein, where the WHO row and labels give total protein;
 // carbohydrate is lactose alone (HMOs 0.5 g/dL are not counted).
 const EN_SRC_MANSEN_DONOR = { trueProG: 0.8, fatG: 3.2, lactoseG: 6.8, kcalOz: 17.7,
   caMgL: 258.9, kMgL: 447.6, naMgL: 101.0, pMgL: 134.0 };
@@ -255,6 +255,7 @@ function _enBmPlusPf(kcalOz) {
 const _EN_INFATRINI = _enFromChula(EN_SRC_CHULA_PER_100_KCAL.infatriniPowder, 30);
 // Mansen Table 1 per 100 mL. kcal/oz → kcal/100 mL with the ward's 1 oz = 30 mL
 // (17.7 → 59; at 29.57 mL it would be 59.9). No osmolality in the paper.
+// 30 mL, not the paper's 29.57: Pp, 2026-11-24, "30 mL เหมือนนมอื่น" (Vera asked).
 const _EN_DONOR = (() => {
   const m = EN_SRC_MANSEN_DONOR;
   return { kcal: m.kcalOz * 100 / 30, pro: m.trueProG, fat: m.fatG, cho: m.lactoseG,
@@ -434,8 +435,8 @@ const EN_DB = {
   DONOR_BM: {
     label: "Donor Breast Milk (18 kcal/oz, pooled, pasteurised)",
     ..._EN_DONOR, lf: false,
-    source: "Mansen 2026, JPEN 50:684, Table 1 (unfortified Holder-pasteurised donor milk, 5-donor pools)",
-    note: "True protein 0.8 g/dL; 17.7 kcal/oz (59 kcal/100 mL). Pooled donor milk varies (10th–90th centile 16.2–19.2 kcal/oz)",
+    source: "Mansen 2026, JPEN 50(5):684-692, Table 1 (unfortified Holder-pasteurised donor milk, simulated 5-donor pools)",
+    note: "True protein 0.8 g/dL; 17.7 kcal/oz (59 kcal/100 mL). Donor milk varies (Table 1, 10th–90th centile of the simulated pools: 16.2–19.2 kcal/oz)",
   },
 
   // ── Lactose-free — HiQ LF (the Calculator's LF rows) ──────

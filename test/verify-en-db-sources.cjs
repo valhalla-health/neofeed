@@ -126,6 +126,8 @@ const CAP_PRINTED_OFF = { nutramigenLgg: 0.06 };
 // Mansen 2026 (JPEN 50:684, PMID 41942687) Table 1, unfortified Holder-pasteurised
 // donor milk, averages as printed: g/dL, kcal/oz, mg/L. Typed from the article page
 // on 2026-11-24 (Pp chose this source).
+// The 10th and 90th centiles of energy are pinned too: DONOR_BM's note states them.
+const MANSEN_T1_KCAL_OZ_P10_P90 = [16.2, 19.2];
 const MANSEN_T1 = { trueProteinGdL: 0.8, fatGdL: 3.2, lactoseGdL: 6.8, energyKcalOz: 17.7,
   calciumMgL: 258.9, potassiumMgL: 447.6, sodiumMgL: 101.0, phosphorusMgL: 134.0 };
 // WHO 2006 Box 1.3.1, term mature milk (> 30 days). Per litre.
@@ -289,6 +291,8 @@ const scenarios = {
     const m = MANSEN_T1, mAtw = 4 * m.trueProteinGdL + 9 * m.fatGdL + 4 * m.lactoseGdL, mKcal = m.energyKcalOz * 100 / 30;
     A.ok(`1.Mansen Table 1: 4P+9F+4L = ${mAtw.toFixed(1)} kcal/100 mL, within 5% of the printed ${m.energyKcalOz} kcal/oz (${mKcal.toFixed(1)})`,
       Math.abs(mAtw - mKcal) / mKcal <= 0.05);
+    A.ok('1.Mansen Table 1: the donor-milk note states the printed 10th–90th centile of energy',
+      (loadData().EN_DB.DONOR_BM.note || '').includes(`${MANSEN_T1_KCAL_OZ_P10_P90[0]}–${MANSEN_T1_KCAL_OZ_P10_P90[1]} kcal/oz`));
     const b = BOX_131_TERM, atw = (4 * b.proteinG + 9 * b.fatG + 4 * b.carbG) / 10;
     A.ok(`1.Box 1.3.1 term milk: 4P+9F+4C = ${atw.toFixed(1)} kcal/100 mL, within 10% of the label's ${BM_KCAL}`,
       Math.abs(atw - BM_KCAL) / BM_KCAL <= 0.10);

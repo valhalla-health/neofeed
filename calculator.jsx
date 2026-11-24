@@ -5326,7 +5326,9 @@ function MilkAssumption({ keys }) {
         </div>
       )}
       {bmKeys.includes("FBM_INF_MIX") && <div style={quiet}>{D.EN_DB.FBM_INF_MIX.note}</div>}
-      <div style={{ fontWeight: 600 }}>นมแม่จริงแต่ละคนมีโปรตีนและพลังงานไม่เท่ากัน ค่านี้มาจากแหล่งอ้างอิง ไม่ได้วัดจากนมของแม่คนนี้</div>
+      <div style={{ fontWeight: 600 }}>{bmKeys.length > 0
+        ? "นมแม่จริงแต่ละคนมีโปรตีนและพลังงานไม่เท่ากัน ค่านี้มาจากแหล่งอ้างอิง ไม่ได้วัดจากนมของแม่คนนี้"
+        : "Donor milk แต่ละ pool มีโปรตีนและพลังงานไม่เท่ากัน ค่านี้มาจากแหล่งอ้างอิง ไม่ได้วัดจากนมขวดนี้"}</div>
     </div>
   );
 }
@@ -5372,7 +5374,7 @@ function WorkingPanel({ id, calc, route, wtG, dol, dexPct, aaPerKg, feeds, tGir,
   const aboutFeed = (key) => {
     const row = D.EN_DB[key];
     if (!row) return `${key}: not in the feed list`;
-    return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS ? " (CR-U-BREASTMILK)" : ""}`;
+    return `${row.label} · ${row.unsourced ? "No source" : `Source: ${row.source}`}${key in BM_ASSUMED_FEEDS || key === "DONOR_BM" ? " (CR-U-BREASTMILK)" : ""}`;
   };
   const band = useEN ? `เป้าหมาย enteral เพราะนมที่นับได้ถึง ${D.FULL_EN_ML_KG} mL/kg/d หรือให้ energy และ protein ถึง ${D.FULL_EN_NEEDS_FRACTION * 100}% ของเป้า enteral (CR-U-SWITCH)` : `เป้าหมาย PN ของ DOL ${dol} (CR-U-SWITCH)`;
   const kgRow = <>kg = <WorkVal k="wtG" v={wtG} d={0} /> g ÷ 1,000, TPN calc. weight (CR-U-DOSING-WEIGHT)</>;

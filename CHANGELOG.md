@@ -23,12 +23,20 @@ the neofeed-clinical-rules skill (CR-U-BREASTMILK), `docs/CLINICAL_CONSTANTS.md`
   (0.44 mmol), K 44.8 mg, Ca 25.9 mg, P 13.4 mg; metabolizable energy 17.7 kcal/oz, which is 59 kcal/100 mL at the
   ward's 1 oz = 30 mL. No osmolality.
 - **Two things that read differently.** Its protein is true protein; the WHO mother's-milk row and the formula labels
-  give total protein, about 0.3 g/100 mL more for the same milk. Its sodium is about half the WHO row's (0.44 against
+  give total protein, which reads higher for the same milk. Its sodium is about half the WHO row's (0.44 against
   0.9 mmol/100 mL). Both are what the paper prints.
 - **Step 2** offers "Donor Breast Milk" under Breast Milk at one strength, 18 kcal/oz (17.7 rounded: the strength select
   holds whole numbers), and names its true protein, kcal and source under the feed, as it does for mother's milk.
 - `CONSTANTS_VERSION` 2026-11-24.1 → 2026-11-24.2; every saved order is held for a re-save before it reprints.
   Center Point's label map gains `DONOR_BM`, in the same CP sync as PR #306.
+- **The ounce.** The paper's kcal/oz is presumably the US ounce (29.57 mL), which would give 59.9 kcal/100 mL. Asked
+  (Vera), Pp kept the ward's 30 mL for every feed: "30 mL เหมือนนมอื่น", so 59.
+- **Checks.** A new agent read Table 1 on the Europe PMC page against `data.js`, the harness transcription and the
+  Step 2 line: every value and conversion matched; its minor points are fixed (full citation in the source line, no
+  unsourced crude-protein figure, the note's centiles named as the simulated pools'). Vera: NO BLOCK, four 🟡 fixed
+  (the ounce asked, the note's 16.2–19.2 kcal/oz centiles pinned in `verify-en-db-sources`, CR-PROTEIN-MAX's reason
+  rewritten with two donor-milk cases, the register's `EN_DB` source cell names Mansen and Chula Tables 13 and 14).
+  Step 2's caveat reads "Donor milk แต่ละ pool …" when donor milk is the only breast-milk feed.
 - No second clinician has reviewed this row; Pp's decision alone (change protocol step 3).
 
 ## Session 2026-11-24 — Nutramigen LGG and Hi-Q Pepti Gastro in Step 2; lactose-free formula from 20 to 40 kcal/oz
