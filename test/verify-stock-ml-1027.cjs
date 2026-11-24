@@ -168,7 +168,7 @@ function order700(box, zn, k2 = 0.5) {
       [1.5 * 0.7 * 10, 11], [25.5, 26], [36, 36]]) {
       eq(`roundWholeMl(${v})`, roundWholeMl(v), want);
     }
-    eq('CONSTANTS_VERSION (2026-10-27.2 here; moved on by 2026-10-28.1, then 2026-11-06.1, the pumps at 0.1 mL/hr, then 2026-11-11.1, preterm formulas at 20/22/24/27, then 2026-11-15.1, whole numbers through displayNum, then 2026-11-16.1, prepared up to the next 10 mL and whole-mL D50W, amino acid and WFI, then 2026-11-18.1, IV lipid at 10 kcal/g, then 2026-11-20.1, Na and K by Jochum Table 3 and Ca:P 1.0–1.3 on DOL 1–7)', window.NEOFEED_DATA.CONSTANTS_VERSION, '2026-11-20.1');
+    eq('CONSTANTS_VERSION (2026-10-27.2 here; moved on by 2026-10-28.1, then 2026-11-06.1, the pumps at 0.1 mL/hr, then 2026-11-11.1, preterm formulas at 20/22/24/27, then 2026-11-15.1, whole numbers through displayNum, then 2026-11-16.1, prepared up to the next 10 mL and whole-mL D50W, amino acid and WFI, then 2026-11-18.1, IV lipid at 10 kcal/g, then 2026-11-20.1, Na and K by Jochum Table 3 and Ca:P 1.0–1.3 on DOL 1–7, then 2026-11-24.1, Nutramigen, Hi-Q Pepti Gastro and lactose-free to 40 kcal/oz)', window.NEOFEED_DATA.CONSTANTS_VERSION, '2026-11-24.1');
     const D = window.NEOFEED_DATA;
     eq('displayNum(1.5 × 0.7, 1): the float tie 1.0499999999999998 is 1.1', D.displayNum(1.5 * 0.7, 1), '1.1');
     eq('displayNum(1.005, 2)', D.displayNum(1.005, 2), '1.01');
