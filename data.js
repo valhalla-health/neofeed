@@ -3273,8 +3273,13 @@ function moveGrowthRows(rows, shift, admitDolBefore, admitDolAfter) {
 //   beds          runs of beds, each a prefix and either `count` (flat beds
 //                 "<prefix> 1" … "<prefix> <count>") or `rooms` (beds per room:
 //                 [2, 2, 4] is "<prefix> 1-1", "1-2", "2-1", "2-2", "3-1" … "3-4")
+//   deadVolMl     the dead space (ปริมาตรคาสาย) a new TPN order on the ward
+//                 starts with, mL/day: the ward's giving set (defaultDeadVolFor).
+//                 It moves printed bag amounts, so a new ward's value comes from
+//                 the TPN room (tasks gate 0.6), never a guess.
 //
-// It holds no clinical flag. gas-backend.gs and tpn-room-core.js cannot load
+// It holds no rule-set flag: the rules follow the child's age (ruleSetFor),
+// never the ward. gas-backend.gs and tpn-room-core.js cannot load
 // this file, so each keeps a copy that tools/ward-table.cjs writes, and a
 // blocking check fails when a copy differs. Adding a ward: REFERENCE.md §
 // Adding a ward.
@@ -3288,11 +3293,19 @@ function moveGrowthRows(rows, shift, admitDolBefore, admitDolAfter) {
 // off-list bed as an extra option) but can no longer be re-picked, so check
 // the census first.
 // ============================================================
+// Dead space (ปริมาตรคาสาย, sheet G8) a new TPN order starts with on NICU and
+// SCN, mL/day — what stays in the giving set, so pharmacy prepares delivered +
+// this and the Factor scales every additive. Praew (2026-09-18): "ใน SCN+NICU
+// แก้เป็น +30 ml อัตโนมัติไปเลย". Until then every order started at 0 (no
+// overfill). It is a starting value — the field and its chips still change it
+// per order — and a saved order keeps its own. Each ward row carries its own
+// (deadVolMl); since 2026-11-25 both rows read this one constant.
+const NEWBORN_DEAD_VOL_ML = 30;
 const WARDS = freezeWards([
   { key: "NICU", label: "NICU", sub: "NICU 1–12 · iso 1–3", stickerLabel: "9B2(NICU)",
-    beds: [{ prefix: "NICU", count: 12 }, { prefix: "iso", rooms: [2, 2, 4] }] },
+    beds: [{ prefix: "NICU", count: 12 }, { prefix: "iso", rooms: [2, 2, 4] }], deadVolMl: NEWBORN_DEAD_VOL_ML },
   { key: "SCN", label: "SCN", sub: "SCN 1–30", stickerLabel: "9B1(SCN)",
-    beds: [{ prefix: "SCN", count: 30 }] },
+    beds: [{ prefix: "SCN", count: 30 }], deadVolMl: NEWBORN_DEAD_VOL_ML },
 ]);
 function freezeWards(rows) {
   return Object.freeze(rows.map(w => Object.freeze({
@@ -3379,40 +3392,48 @@ function wardGroup(bed) {
   return run ? run.ward : "other";
 }
 
-// NeoFeed's wards are newborn units — NICU (with its iso rooms) and SCN — so,
-// until a ward for older children is added, every patient is on one, with or
-// without a bed. Praew named the two units in both rules below ("newborn
-// (NICU+SCN)", "SCN+NICU"). A ward for children ≥ 2 years joins by adding its
-// bedWard() value here (once bedWard recognises it), and gets Aminoplasmal
-// and its own dead-space default.
-const OLDER_CHILD_WARDS = Object.freeze([]);
-function isNewbornUnit(patient) {
-  return !OLDER_CHILD_WARDS.includes(bedWard(patient?.currentBed));
+// ============================================================
+// Rule sets (openspec/changes/paediatric-wards, design D3; tasks group 3).
+// A rule set is the tables, limits and products an order is computed and
+// checked under. It follows the child's age on the admission date of the
+// registry record, is fixed for that admission, and never follows the bed or
+// the ward: a newborn boarded in another ward keeps the newborn rules.
+//
+// Only the newborn set exists. Until a paediatric set is signed (tasks group 4,
+// gates 0.3–0.5) every patient is on it, whatever the bed and with or without a
+// date of birth, so no figure moves. gas-backend.gs keeps the same answer
+// (_ruleSetOf) and refuses an order whose set differs from it;
+// test/verify-rule-set.cjs compares the two.
+// ============================================================
+const RULE_SETS = Object.freeze(["newborn"]);
+function ruleSetFor(patient) {
+  return "newborn";
 }
-// The labels of the wards whose beds are all newborn beds, in table order: the
-// wards that start at the newborn dead space. The calculator's dead-space hint
-// names these, so a ward for older children, once in OLDER_CHILD_WARDS, drops
-// out of it (Vera, 2026-11-22).
-function newbornWardLabels() {
-  return WARDS.filter(w => w.beds.every(r => !OLDER_CHILD_WARDS.includes(r.prefix))).map(w => w.label);
+// The target tables of a patient's rule set. The Calculator reads its bands
+// from here, never from TARGETS, TPN_TARGETS or ENTERAL_TARGETS by name, so a
+// second set's tables can sit beside these without a newborn band moving.
+const RULE_SET_TABLES = Object.freeze({
+  newborn: Object.freeze({ TARGETS, TPN_TARGETS, ENTERAL_TARGETS }),
+});
+function ruleTablesFor(patient) {
+  return RULE_SET_TABLES[ruleSetFor(patient)];
+}
+// The newborn rules: Fenton (a preterm chart) and the Sunday length and HC
+// (weeklyGrowthMissing), and the amino-acid list below. Since 2026-11-25 by
+// rule set; until then by ward (OLDER_CHILD_WARDS, which held no ward).
+function isNewbornUnit(patient) {
+  return ruleSetFor(patient) === "newborn";
 }
 
 // Which amino-acid stocks (KCMH_STOCK keys) a patient may be ordered from,
-// default first. Aminoplasmal 15% is contraindicated under 2 years by its
-// label; Praew (2026-09-18): "plan ไว้สำหรับเด็กโตในอนาคต ปิดช่องนี้ไม่โชว์ใน
-// newborn (NICU+SCN)". So every patient today is offered Aminoven only.
+// default first: the products their rule set lists, nothing else. The newborn
+// set lists Aminoven only. Aminoplasmal 15% is contraindicated under 2 years by
+// its label; Praew (2026-09-18): "plan ไว้สำหรับเด็กโตในอนาคต ปิดช่องนี้ไม่โชว์ใน
+// newborn (NICU+SCN)". It joins the paediatric set by label age (tasks 4.5).
 function aaProductsFor(patient) {
-  return isNewbornUnit(patient) ? ["aminoven10"] : ["aminoven10", "aminoplasmal15"];
+  return isNewbornUnit(patient) ? ["aminoven10"] : [];
 }
 
-// Dead space (ปริมาตรคาสาย, sheet G8) a new TPN order starts with, mL/day —
-// what stays in the giving set, so pharmacy prepares delivered + this and the
-// Factor scales every additive. Praew (2026-09-18): "ใน SCN+NICU แก้เป็น +30 ml
-// อัตโนมัติไปเลย". Until then every order started at 0 (no overfill). It is a
-// starting value — the field and its chips still change it per order — and a
-// saved order keeps its own. A future older-children ward starts at 0 until
-// its own value is decided.
-const NEWBORN_DEAD_VOL_ML = 30;
 // Soluvit N or Peditrace for the day, mL: mL/kg × kg, capped at the label's daily
 // maximum (CR-SOLUVIT-CAP, CR-PEDITRACE-CAP), before the overfill. A function so
 // the caps, which no orderable weight reaches, are tested directly: since
@@ -3421,8 +3442,18 @@ function vitaminMlPerDay(stockKey, wtKg) {
   const s = KCMH_STOCK[stockKey];
   return Math.min(s.mlPerKg * wtKg, s.maxMl);
 }
+// The dead space a new order starts with is the ward's giving set (WARDS
+// deadVolMl, design D1), not a rule set: the patient's ward (their bed's, or
+// while parked the bed they left), and with no ward the newborn units' 30 mL,
+// as every order had before the ward table held it (Quick calc included).
 function defaultDeadVolFor(patient) {
-  return isNewbornUnit(patient) ? NEWBORN_DEAD_VOL_ML : 0;
+  const ward = wardByKey(patientWard(patient));
+  return ward ? ward.deadVolMl : NEWBORN_DEAD_VOL_ML;
+}
+// The labels of the wards that start at `ml` of dead space, in table order.
+// The calculator's dead-space hint names them ("NICU/SCN starts at 30").
+function wardLabelsStartingAt(ml) {
+  return WARDS.filter(w => w.deadVolMl === ml).map(w => w.label);
 }
 // The volume pharmacy prepares, mL/day (sheet G7): delivered plus the dead
 // space, rounded UP to the next 10 mL above that sum. The TPN set holds exactly
@@ -3512,8 +3543,8 @@ function weeklyGrowthMissing(p, now) {
   // A discharged infant is not measured, a test patient is saved nowhere, and
   // a record with no bed in the system is read-only: a save would be refused.
   if (!isOnUnit(p) || isTestSession(p.sessionId) || isReadOnlyOther(p)) return null;
-  // Fenton is a preterm chart: an older child's ward (OLDER_CHILD_WARDS) is not
-  // asked on Sundays, nor is its TPN order held (Vera, 2026-11-22).
+  // Fenton is a preterm chart: a child on another rule set (isNewbornUnit) is
+  // not asked on Sundays, nor is their TPN order held (Vera, 2026-11-22).
   if (!isNewbornUnit(p)) return null;
   if (!isSundayBangkok(now)) return null;
   const dol = liveDol(p);
@@ -4141,7 +4172,7 @@ window.NEOFEED_DATA = {
   KCMH_STOCK, MAX_DEXTROSE_G_KG, K_BAG_MEQ_PER_L, kBagLimitsFor, LIPID_GKGH, MAX_ZN_MG_DAY, TPN_WT_RANGE_G, TPN_WT_MANUAL_MAX_DIFF, MG_MG_PER_MEQ, MG_MEQ_HABIT_MG, GLYCO_NA_HABIT_MEQ, GLYCO_P_HABIT_MG, MEN_MAX_ML_KG, FULL_EN_ML_KG, NO_TPN_EN_MIN_ML_KG, noTpnEnMinPerKg, NO_TPN_PLAN_GAP_ML_KG,
   TPN_BOTTLE_MAX_ML, VIT_D_MAX_IU_DAY, HEPARIN_USUAL_MAX_U_ML, FIRST_DAYS_LAST_DOL,
   // Newborn units (every ward today): which amino-acid stock, what dead space a new order starts with
-  OLDER_CHILD_WARDS, isNewbornUnit, newbornWardLabels, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, preparedVolFor, vitaminMlPerDay,
+  RULE_SETS, ruleSetFor, RULE_SET_TABLES, ruleTablesFor, isNewbornUnit, wardLabelsStartingAt, aaProductsFor, NEWBORN_DEAD_VOL_ML, defaultDeadVolFor, preparedVolFor, vitaminMlPerDay,
   // Provenance — which constants and which frontend produced a printed number.
   // Written to Daily_Log AF/AG and printed on the order form. Bump
   // CONSTANTS_VERSION whenever a value above can move a dose.

@@ -74,19 +74,19 @@ diff touches a dose file, auth or patient data, and the newborn no-move result (
 
 ## 3. Rule-set selection, newborn branch only
 
-- [ ] 3.1 Add cases to `test/verify-clinical-rules.cjs` and a new `test/verify-rule-set.cjs`: the
+- [x] 3.1 Add cases to `test/verify-clinical-rules.cjs` and a new `test/verify-rule-set.cjs`: the
       rule set is "newborn" for every record the backend accepts today whatever the bed, with or
       without a date of birth; a new registration with a date of birth after admission is refused;
       a stored set that differs is refused; a stale tab that sends no set is treated as newborn.
       Red against `main`.
-- [ ] 3.2 Add `ruleSetFor` and route `isNewbornUnit`, `aaProductsFor` and the target-table lookups
+- [x] 3.2 Add `ruleSetFor` and route `isNewbornUnit`, `aaProductsFor` and the target-table lookups
       through it; remove `OLDER_CHILD_WARDS`; `defaultDeadVolFor` reads the ward table. Verify 3.1
       passes.
-- [ ] 3.3 Backend stores the rule set on the registry record, derives it from date of birth and
+- [x] 3.3 Backend stores the rule set on the registry record, derives it from date of birth and
       admission date, refuses a mismatch, and requires a credible date of birth on new
       registrations. Verify with the sandbox cases in 3.1, including an existing record with no date
       of birth that still saves.
-- [ ] 3.4 Update `CR-U-DEAD-SPACE` (by ward table) and the amino-acid product note (by rule set and
+- [x] 3.4 Update `CR-U-DEAD-SPACE` (by ward table) and the amino-acid product note (by rule set and
       label age) in the clinical-rules skill, in the same commit as 3.2. `CONSTANTS_VERSION` does not
       move; verify with `calc-compare` at zero differences, `test/verify-calc-sum.cjs` green, and a
       no-move case on the saved-order key and an I/O-only revision.

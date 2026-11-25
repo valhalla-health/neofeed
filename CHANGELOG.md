@@ -7,6 +7,52 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-25 — The rule set, newborn branch only (paediatric-wards group 3)
+
+`data.js` (§ Rule sets: `RULE_SETS`, `ruleSetFor`, `RULE_SET_TABLES`, `ruleTablesFor`; `isNewbornUnit`,
+`aaProductsFor`, `defaultDeadVolFor`, `wardLabelsStartingAt`; `WARDS` gains `deadVolMl`; `OLDER_CHILD_WARDS` and
+`newbornWardLabels` removed), `calculator.jsx` (every target band through `RT = D.ruleTablesFor(patient)`, the printed
+Ca:P band too; the save sends `ruleSet`; the dead-space hint), `compiled/` and the shells' `?v=`, `gas-backend.gs`
+(§ Rule sets: `_ruleSetOf`, `_storedRuleSet`, `_ruleSetRefusal`, `_checkDobCredible`; `PAT_HEADERS` V `ruleSet`;
+`registerPatient`; `_patientAccessRefusal`; `ensurePatHeaderColumns`), `tools/ward-table.cjs` (a row needs
+`deadVolMl`), new `test/verify-rule-set.cjs`, `test/verify-ward-table.cjs`, `verify-ward-scope.cjs`,
+`verify-ward-requests-0918.cjs`, `verify-growth-gate-1122.cjs`, the `neofeed-clinical-rules` skill (`CR-U-DEAD-SPACE`,
+the amino-acid note in `CR-U-SALTS`, `CR-GROWTH-WEEKLY`, four anchors), `tools/reference-tabs.json`,
+`docs/CLINICAL_CONSTANTS.md` (two rows' notes), `REFERENCE.md` (§ Adding a ward, § Backend), `BACKLOG.md`,
+`app-walkthrough.md`, `test/README.md`, `openspec/changes/paediatric-wards/tasks.md` (3.1–3.4), `STATUS.md`.
+
+- **Why.** Group 3 of the ward-expansion plan (design D3): before a paediatric rule set can exist, the code has to
+  ask *which* set a patient is on, by age at admission, and stop asking the ward. Pp asked for it on 2026-11-25
+  ("ขั้นต่อไปของแผนขยายหอคือ group 3 … Do it").
+- **The rule.** `ruleSetFor(patient)` returns `"newborn"` for every patient: any bed, no bed, a parked infant, a
+  free-text bed, Quick calc and Center Point (no patient), with or without a date of birth. The branch that would read
+  the age waits for a signed paediatric set (group 4). `isNewbornUnit` (the Sunday growth gate, the amino-acid list)
+  now reads it, not the bed's ward. The Calculator reads every band from `ruleTablesFor(patient)`, which hands back
+  the same `TARGETS`, `TPN_TARGETS` and `ENTERAL_TARGETS` objects, so no band can differ. `aaProductsFor` offers the
+  products the set lists: Aminoven only, as before; outside the newborn set it offers nothing until a set lists
+  something (Aminoplasmal by label age is task 4.5).
+- **Dead space follows the ward table.** Each `WARDS` row carries `deadVolMl` (30 for NICU and SCN, from
+  `NEWBORN_DEAD_VOL_ML`, which moved above the table). `defaultDeadVolFor` reads the patient's ward (bed, or the bed
+  left while parked), and with no ward the same 30 mL, as every order had. The hint names the wards that start at the
+  patient's value. `tools/ward-table.cjs` refuses a row with no `deadVolMl`.
+- **The backend.** `_ruleSetOf(dob, admissionDate)` gives data.js's answer (the harness compares them).
+  `registerPatient` writes it into Patient_Registry V (`ruleSet`) on every save; a doctor's or nurse's edit of a
+  record whose V holds another set is refused (`code: "RuleSet"`), an admin's rewrites it. `logDailyNutrition`,
+  `updateDailyNutrition` and `publishLog` are refused before any sheet changes, for every role, when V holds a set
+  that is not the derived one, and the first two also when the set the tab sent differs; a tab that sends none ran
+  the newborn rules and is read as newborn. The check shares the ward-scope check's one registry read. A blank V
+  (every row until its next save) reads as the derived set, so no migration is needed; `ensurePatHeaderColumns(true)`
+  labels the column.
+- **A credible date of birth.** A new registration with no date of birth, or one later than the admission date, is
+  refused. An edit that leaves both stored dates as they were passes, as `_checkAdmissionDate` lets an unchanged date
+  through; an edit that moves the date of birth past admission is refused. The Register form derives the date of birth
+  from the admit date and DOL แรกรับ (at least 1), so it always sends one, never after admission.
+- **Not in this change.** Per-set constants versions (4.1), the Quick calc heading naming its set (4.7), and the
+  helpers inside `data.js` that grade without a patient (`girStatus`, the ward TPN page's flags, `noTpnEnMinPerKg`)
+  still read the newborn tables by name; each moves when a second set exists.
+- **Tests.** `verify-rule-set.cjs` (new, 42 checks): red against `main` at `5363edb` (23 failed), green here. The
+  clinical-rules harness gains eight cases (dead space by ward and with no ward, Aminoven by set) and passes 1,243.
+
 ## Session 2026-11-24 (5) — Ward-scoped access: Vera's two findings
 
 `gas-backend.gs` (`registerPatient`, `migrateStaffWards`), `test/verify-ward-scope.cjs` § 7 and § 11, `REFERENCE.md`

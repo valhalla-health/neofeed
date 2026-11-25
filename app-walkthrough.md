@@ -913,11 +913,14 @@ reintroduce a bypass that's independent of `GAS_ON`.)
    Not offered on Center Point.
    Step 4 also has a **Magnesium**
    tile: the TPN's Mg in mEq/kg/d against `TARGETS.mg` (`EN_DB` has no Mg).
-   The amino-acid stock comes from `D.aaProductsFor(patient)` — Aminoven on
-   every ward today; Aminoplasmal 15% (contraindicated under 2 years) waits
-   for a future older-children ward and is never offered on Center Point.
+   The amino-acid stock comes from `D.aaProductsFor(patient)`, by the
+   patient's rule set (`D.ruleSetFor`, never the ward): Aminoven for everyone
+   today, the newborn set being the only one; Aminoplasmal 15% (contraindicated
+   under 2 years) waits for a signed paediatric set and is never offered on
+   Center Point. Every target band comes from `D.ruleTablesFor(patient)`.
    A new order's **dead space** (ปริมาตรคาสาย) starts at
-   `D.defaultDeadVolFor(patient)` — 30 mL on NICU/SCN (2026-09-18) — unless
+   `D.defaultDeadVolFor(patient)` — the ward table's `deadVolMl`, 30 mL on
+   NICU/SCN (2026-09-18), and 30 with no ward — unless
    the order it is copied from set a non-zero one; a saved order keeps its
    own. With no TPN volume there is no bag, so `preparedVol` is 0 whatever
    the field says.
