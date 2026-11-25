@@ -133,6 +133,12 @@ function refFor(g, opts) {
 }
 const strip = (o) => JSON.stringify(Object.assign({}, o, { ts: 'X' }));
 const stripText = (s) => s.replace(/,"ts":"[^"]*"}$/, ',"ts":"X"}');
+// ward scope (2026-11-24): the server's JSON now carries "wards" (the caller's ward keys) just before "ts", outside the
+// cache; the reference predates it, so the expected text gets it inserted there. A direct call and an admin hold every
+// ward of the table; addStaff gives each doctor and nurse NICU,SCN.
+const withWards = (json, wards) => json.replace(/,"ts":("[^"]*")}$/, ',"wards":' + JSON.stringify(wards) + ',"ts":$1}');
+const allWards = (g) => Array.from(g.sb.WARD_KEYS);
+const STAFF_WARDS = ['NICU', 'SCN'];
 const E = (extra) => Object.assign({ dol: 4, weight: 1260, fluid: 150, gir: 6, pro: 3, kcal: 90, na: 3, k: 2, ca: 60, p: 40,
   enVolPerKg: 20, route: 'TPN central', status: 'submitted', calcInput: { wtG: 1260, stops: [] } }, extra || {});
 
@@ -158,7 +164,8 @@ function same(g, label, opts) {
   const got = g.sb.getActivePatients(opts);
   T.ok(label + ' — object identical to the full-read reference', strip(ref) === strip(got), { ref: strip(ref).slice(0, 240), got: strip(got).slice(0, 240) });
   const text = g.sb.getActivePatientsJson(opts);
-  T.ok(label + ' — JSON text identical except ts', stripText(text) === stripText(JSON.stringify(ref)), { ref: JSON.stringify(ref).slice(0, 200), text: text.slice(0, 200) });
+  // ward scope (2026-11-24): the reference text with the "wards" key the server adds (every ward: no scope on a direct call)
+  T.ok(label + ' — JSON text identical except ts', stripText(text) === stripText(withWards(JSON.stringify(ref), allWards(g))), { ref: JSON.stringify(ref).slice(0, 200), text: text.slice(0, 200) });
   return ref;
 }
 let eid = 0;
@@ -167,10 +174,11 @@ const lrow = (g, sid, ts, extra) => g.logRow(sid, ts, Object.assign({ 25: 'e' + 
 
 T.section('A1 · the ward sync window: undated archive out, admin archive unchanged', () => {
   const g = setup([]);
-  const P = (sid, st, sd) => pat(g, sid, st, sd);
+  // ward scope (2026-11-24): each row in its own ward bed (col K), so the doctor's sync is cut by the window alone
+  const P = (sid, st, sd, bed) => pat(g, sid, st, sd, { 10: bed });
   g.sheet('Patient_Registry').data.push(
-    P('ACT', 'Active'), P('BLANK', ''), P('D30', 'Discharged', bkkMidnight(addDays(TODAY, -30))), P('D31', 'Discharged', bkkMidnight(addDays(TODAY, -31))),
-    P('S30', 'Transferred', addDays(TODAY, -30)), P('NODATE', 'Discharged', ''), P('BADDATE', 'Expired', 'not a date'));
+    P('ACT', 'Active', '', 'NICU 1'), P('BLANK', '', '', 'NICU 2'), P('D30', 'Discharged', bkkMidnight(addDays(TODAY, -30)), 'NICU 3'), P('D31', 'Discharged', bkkMidnight(addDays(TODAY, -31)), 'NICU 4'),
+    P('S30', 'Transferred', addDays(TODAY, -30), 'NICU 5'), P('NODATE', 'Discharged', '', 'NICU 6'), P('BADDATE', 'Expired', 'not a date', 'NICU 7'));
   const ids = (res) => res.patients.map(p => p.sessionId).sort();
   T.eq('_patientInSyncWindow: non-Active with no statusDate is OUT', g.sb._patientInSyncWindow('Discharged', '', TODAY), false);
   T.eq('…with an unparseable statusDate is OUT', g.sb._patientInSyncWindow('Discharged', 'not a date', TODAY), false);
@@ -258,12 +266,16 @@ T.section('A3 · a row shift between the column-B read and a block read falls ba
 
 T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visible to the next sync', () => {
   const g = setup([]);
-  g.sheet('Patient_Registry').data.push(pat(g, 'AA-1'), pat(g, 'BB-1'));
+  // ward scope (2026-11-24): beds NICU 1 / NICU 2 (col K), so the doctor's and nurse's syncs and writes reach both
+  g.sheet('Patient_Registry').data.push(pat(g, 'AA-1', null, null, { 10: 'NICU 1' }), pat(g, 'BB-1', null, null, { 10: 'NICU 2' }));
   g.sheet('Daily_Log').data.push(lrow(g, 'AA-1', addDays(TODAY, -1)), lrow(g, 'BB-1', addDays(TODAY, -1)));
   const syncText = (tok, archived) => g.postText({ action: 'getActivePatients', token: tok || g.dt, includeArchived: !!archived });
+  // ward scope (2026-11-24): the reference text with the caller's "wards" (admin: every ward; doctor, nurse: NICU,SCN)
+  const refText = (tok, archived) => withWards(JSON.stringify(refFor(g, { includeArchived: !!archived && tok === g.at })),
+    tok === g.at ? allWards(g) : STAFF_WARDS);
   const matches = (label, tok, archived) => {
     const text = syncText(tok, archived);
-    const ref = JSON.stringify(refFor(g, { includeArchived: !!archived && tok === g.at }));
+    const ref = refText(tok, archived);
     T.ok(label, stripText(text) === stripText(ref), { got: text.slice(0, 160), want: ref.slice(0, 160) });
     return text;
   };
@@ -279,7 +291,8 @@ T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visibl
   // ticked between two fast syncs (CI run 35302157754).
   T.eq('…with a fresh ts: the time of this request, not the cached one', JSON.parse(second).ts, new Date(at).toISOString());
   T.eq('…and is audited exactly like a sheet read', g.rows('Audit_Log').length, auditRows + 1);
-  const head = [...g.cacheStore.entries()].find(([k]) => /^sync\d+_ward_/.test(k) && g.cacheStore.has(k + '_0'));
+  // ward scope (2026-11-24): the key now carries the ward set after "@" (sync3_ward@NICU+SCN_<day>_<version>)
+  const head = [...g.cacheStore.entries()].find(([k]) => /^sync\d+_ward(@[^_]+)?_/.test(k) && g.cacheStore.has(k + '_0'));
   T.ok('cached under the ward date + DATA_VERSION, for 300 s', head && head[0].includes(TODAY) && head[1].ttl === 300, head && head[0]);
   const expired = withNow(Date.now() + 301e3, () => { const c = sheetsCells(); syncText(); return sheetsCells() > c; });
   T.ok('after 300 s it reads the sheet again', expired);
@@ -300,7 +313,9 @@ T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visibl
   T.ok('register ok', reg.ok, reg); matches('after registerPatient');
   const w = post({ action: 'updateWeights', sessionId: 'NF-000011', weights: [{ dol: 1, w: 1500 }, { dol: 2, w: 1490 }] });
   T.ok('updateWeights ok', w.ok, w); matches('after updateWeights');
-  const disch = post({ action: 'updatePatient', patient: { sessionId: 'BB-1', name: 'x', bw: 1200, ga: 30.1, sex: 'boys', status: 'Discharged', statusDate: addDays(TODAY, -45), currentBed: '' } });
+  // ward scope (2026-11-24): a whole-record write with no base sets every field; it keeps BB-1's bed (NICU 2), since an
+  // edit that leaves an infant in no ward is refused (Vera). The discharge, not the bed, is this case.
+  const disch = post({ action: 'updatePatient', patient: { sessionId: 'BB-1', name: 'x', bw: 1200, ga: 30.1, sex: 'boys', status: 'Discharged', statusDate: addDays(TODAY, -45), currentBed: 'NICU 2' } });
   T.ok('discharge ok', disch.ok, disch); matches('after a discharge moves a patient out of the window');
   matches('admin archive variant', g.at, true);
   const bbEntry = g.rows('Daily_Log').find(r => r[1] === 'BB-1')[25];
@@ -316,9 +331,9 @@ T.section('A2 · 5-minute cache: hit/miss, fresh ts, audited, every write visibl
   matches('a typed hand edit + onEdit is visible at once');
   syncText();
   g.sheet('Daily_Log').data.splice(1, 1);
-  const stale = stripText(syncText()) !== stripText(JSON.stringify(refFor(g, {})));
+  const stale = stripText(syncText()) !== stripText(refText());
   T.ok('KNOWN LIMIT (documented): a structural hand edit with no onEdit is stale until the TTL', stale);
-  const fresh = withNow(Date.now() + 301e3, () => stripText(syncText()) === stripText(JSON.stringify(refFor(g, {}))));
+  const fresh = withNow(Date.now() + 301e3, () => stripText(syncText()) === stripText(refText()));
   T.ok('…and correct once the TTL has passed', fresh);
 });
 
@@ -343,10 +358,11 @@ T.section('A2 · cache failure modes degrade to a correct read', () => {
   for (let i = 0; i < 60; i++) g.sheet('Daily_Log').data.push(lrow(g, 'AA-1', addDays(TODAY, -2 - i), { 24: JSON.stringify({ blob: crypto.randomBytes(2500).toString('hex') }) }));
   g.sb._bumpDataVersion();
   const a = g.sb.getActivePatientsJson({});
-  const head = [...g.cacheStore.entries()].find(([k]) => /^sync\d+_ward_/.test(k) && g.cacheStore.has(k + '_0'));
+  // ward scope (2026-11-24): the key carries the ward set after "@" ("@*" on a direct call); the text carries "wards"
+  const head = [...g.cacheStore.entries()].find(([k]) => /^sync\d+_ward(@[^_]+)?_/.test(k) && g.cacheStore.has(k + '_0'));
   const b = g.sb.getActivePatientsJson({});
   T.ok('a multi-chunk payload (' + (head && head[1].v) + ' chunks) round-trips byte-identical', head && Number(head[1].v) >= 2 && stripText(a) === stripText(b) &&
-    stripText(b) === stripText(JSON.stringify(refFor(g, {}))));
+    stripText(b) === stripText(withWards(JSON.stringify(refFor(g, {})), allWards(g))));
   const realKey = g.sb._wardDateKey;
   g.sb.getActivePatientsJson({});
   g.sb._wardDateKey = function (v) { return v === undefined ? addDays(TODAY, 1) : realKey(v); };

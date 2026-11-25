@@ -121,7 +121,8 @@ T.section('§1 The tab is made by the first completed calculation, 4 columns wid
 T.section('§2 ward = the ward list the infant is on, type = the order\'s route family', () => {
   const g = ward();
   for (const [sid, p] of Object.entries(PATIENTS)) {
-    const c = g.save(sid);
+    // ward scope (2026-11-24): an infant with no bed or a free-text bed (ward "other") reaches an admin only, so the admin saves those two
+    const c = g.save(sid, undefined, p.want === 'other' ? g.at : undefined);
     T.ok(`${sid} saved`, !!c.entryId, c);
     const row = usage(g)[usage(g).length - 1] || [];
     T.eq(`bed "${p.bed}"${p.history ? ' (parked, last bed SCN 4)' : ''} → ${p.want}`, row[2], p.want);
@@ -199,7 +200,8 @@ T.section('§3 Not a completed calculation, and a request fired twice', () => {
   const io = g.as(g.nt, { action: 'logNursingEntry', sessionId: 'NF-100003', entry: { ts: TODAY, ivInMl: 100, urineMl: 60, appVersion: 'test' } });
   T.eq('a nursing I/O entry is not a calculation: no row', [io.ok, usage(g).length], [true, 2]);
   g.env.lockTimeout = true;
-  const busy = g.save('NF-100004');
+  // ward scope (2026-11-24): NF-100004 has no bed, so only an admin reaches it; the admin's save meets the lock timeout
+  const busy = g.save('NF-100004', {}, g.at);
   g.env.lockTimeout = false;
   T.eq('a save refused as Busy writes no row', [busy.code, usage(g).length], ['Busy', 2]);
   for (let i = 0; i < 5; i++) g.as(g.dt, { action: 'getActivePatients' });
@@ -210,8 +212,9 @@ T.section('§3 Not a completed calculation, and a request fired twice', () => {
 T.section('§4 No patient field in a usage row', () => {
   const g = ward();
   const ids = [];
-  for (const sid of Object.keys(PATIENTS)) {
-    const c = g.save(sid, { route: sid.endsWith('2') ? 'Enteral only' : 'TPN peripheral' });
+  for (const [sid, p] of Object.entries(PATIENTS)) {
+    // ward scope (2026-11-24): the two ward-"other" infants (no bed, free-text bed) reach an admin only, so the admin saves those
+    const c = g.save(sid, { route: sid.endsWith('2') ? 'Enteral only' : 'TPN peripheral' }, p.want === 'other' ? g.at : undefined);
     ids.push(c.entryId);
   }
   const rows = usage(g);
@@ -269,6 +272,10 @@ T.section('§5 A usage row never blocks or slows a save', () => {
     // ward lookup that follows a completed order, not the next save's own check.
     ['the registry read for the ward fails after the order is written', (g) => {
       let armed = false;
+      // ward scope (2026-11-24): the arm lasts one request. A draft save arms it with no ward lookup after; the next
+      // request's own registry read (the ward check, now fail-closed) is not the read this case is about.
+      const realDoPost = g.sb.doPost;
+      g.sb.doPost = (e) => { armed = false; return realDoPost(e); };
       g.sheet('Daily_Log').hooks.beforeWrite = () => { armed = true; };
       g.sheet('Patient_Registry').hooks.beforeRead = () => {
         if (armed) { armed = false; throw new Error('Service Spreadsheets timed out while accessing document with id x.'); }

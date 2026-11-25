@@ -95,9 +95,10 @@ const LOG_HEADER = ['ts','sessionId','dol','weight','fluid','gir','pro','kcal','
   'suppMTV','suppVitD_IU','suppCa_mg','suppCaType','suppPO4_mmol','suppPO4Type','suppFe_mg','suppFeType',
   'calcInputJson','entryId','lastModified','lastModifiedBy','ioInput','ioOutput','drainContent','constantsVersion','appVersion',
   'published','publishedBy','revisionNumber','revisionOf','supersededAt'];
-const patRow = (sid, status, statusDate) => {
+// ward scope (2026-11-24): a bed (col K) puts the row in a ward, so a doctor's sync and edits can reach it
+const patRow = (sid, status, statusDate, bed) => {
   const r = new Array(18).fill('');
-  r[0] = sid; r[1] = sid.slice(0, 2); r[3] = 1200; r[4] = 30; r[9] = status || 'Active'; r[16] = statusDate || '';
+  r[0] = sid; r[1] = sid.slice(0, 2); r[3] = 1200; r[4] = 30; r[9] = status || 'Active'; r[10] = bed || ''; r[16] = statusDate || '';
   return r;
 };
 const ENTRY = { dol: 5, weight: 1200, fluid: 150, gir: 6, pro: 3, kcal: 90, na: 3, k: 2, ca: 60, p: 40,
@@ -108,7 +109,8 @@ function freshLog() { sheets.Daily_Log = makeSheet(LOG_HEADER); return sheets.Da
 function logRows() { return sheets.Daily_Log.data.slice(1); }
 
 console.log('\n── B5 · a log row needs a registered patient ──');
-sheets.Patient_Registry = makeSheet(PAT_HEADER, [patRow('AB-1200')]);
+// ward scope (2026-11-24): AB-1200 in NICU 1, so the doctor's updatePatient in B7 reaches it
+sheets.Patient_Registry = makeSheet(PAT_HEADER, [patRow('AB-1200', 'Active', '', 'NICU 1')]);
 freshLog();
 let r = sandbox.logDailyNutrition('NOPE-1', { ...ENTRY, ts: '2026-09-10' }, 'a@x');
 ok('logDailyNutrition refuses an unregistered sessionId', !!r.error && /ไม่พบผู้ป่วย/.test(r.error), r);
@@ -172,8 +174,9 @@ eq('…and the published row it replaced goes with it', logRows().length, 0);
 
 console.log('\n── B3 · login: no stored record for unknown emails, one message ──');
 const salt = 'salt-1';
-const staffRow = (email, active) => [email, 'doctor', 'Dr ' + email, active, sandbox.hashPwdV2('correct-horse-1', salt), salt, false, ''];
-sheets.Staff = makeSheet(['email', 'role', 'name', 'active', 'password_hash', 'salt', 'mcp', 'tmp'],
+// ward scope (2026-11-24): the ninth Staff column, wards, read by header
+const staffRow = (email, active) => [email, 'doctor', 'Dr ' + email, active, sandbox.hashPwdV2('correct-horse-1', salt), salt, false, '', 'NICU,SCN'];
+sheets.Staff = makeSheet(['email', 'role', 'name', 'active', 'password_hash', 'salt', 'mcp', 'tmp', 'wards'],
   [staffRow('doc@kcmh.test', true), staffRow('gone@kcmh.test', false)]);
 const before = Object.keys(props).length;
 const unknowns = [];
@@ -198,12 +201,15 @@ const good = post({ action: 'login', email: 'doc@kcmh.test', password: 'correct-
 eq('the right password still logs in', good.status, 'ok');
 
 console.log('\n── B7 · password floor, registry audit, erasure miss ──');
-const asUser = (role) => { sandbox.verifyToken = () => ({ email: role + '@kcmh.test', role, name: role, mustChangePassword: false }); };
+// ward scope (2026-11-24): the real verifyToken now also returns the Staff wards cell; the stub gives the pre-migration NICU,SCN
+const asUser = (role) => { sandbox.verifyToken = () => ({ email: role + '@kcmh.test', role, name: role, mustChangePassword: false, wardsCell: 'NICU,SCN' }); };
 asUser('doctor');
 const shortPwd = post({ action: 'changePassword', token: 't', oldPassword: 'correct-horse-1', newPassword: '123456789' });
 ok('a 9-character new password is refused', /10/.test(shortPwd.error || ''), shortPwd);
 sheets.Audit_Log = makeSheet(['ts', 'action', 'sessionId', 'actorEmail']);
-post({ action: 'updatePatient', token: 't', patient: { ...{ sessionId: 'AB-1200', bw: 1250, ga: 30, dob: '' } } });
+// ward scope (2026-11-24): a whole-record write with no base sets every field, so it carries AB-1200's bed (NICU 1):
+// an edit that leaves an infant in no ward is refused (Vera). The audit row, not the bed, is this case.
+post({ action: 'updatePatient', token: 't', patient: { ...{ sessionId: 'AB-1200', bw: 1250, ga: 30, dob: '', currentBed: 'NICU 1' } } });
 const audit = sheets.Audit_Log.data.slice(1).map(x => [x[1], x[2], x[3]]);
 ok('a registry edit writes an Audit_Log row (who changed BW/GA)', audit.some(a => a[0] === 'updatePatient' && a[1] === 'AB-1200' && a[2] === 'doctor@kcmh.test'), audit);
 asUser('admin');
@@ -212,9 +218,10 @@ ok('an erasure request that matches nothing says so', !!erase.error, erase);
 
 console.log('\n── B6 · the sync payload is limited to the sync window ──');
 sheets.Patient_Registry = makeSheet(PAT_HEADER, [
-  patRow('ACT-1', 'Active'), patRow('BLANK-1', ''),
-  patRow('RECENT-1', 'Discharged', daysAgo(5)), patRow('OLD-1', 'Discharged', daysAgo(60)),
-  patRow('NODATE-1', 'Transferred', ''),
+  // ward scope (2026-11-24): every row in a ward bed, so the doctor's sync is cut by the window only
+  patRow('ACT-1', 'Active', '', 'NICU 1'), patRow('BLANK-1', '', '', 'NICU 2'),
+  patRow('RECENT-1', 'Discharged', daysAgo(5), 'NICU 3'), patRow('OLD-1', 'Discharged', daysAgo(60), 'NICU 4'),
+  patRow('NODATE-1', 'Transferred', '', 'NICU 5'),
 ]);
 freshLog();
 for (const sid of ['ACT-1', 'RECENT-1', 'OLD-1']) {

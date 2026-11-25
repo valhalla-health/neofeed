@@ -37,7 +37,10 @@ const LOG_HEADER = ['ts', 'sessionId', 'dol', 'weight', 'fluid', 'gir', 'pro', '
   'published', 'publishedBy', 'revisionNumber', 'revisionOf', 'supersededAt'];
 const PAT_HEADER = ['sessionId', 'name', 'initials', 'bw', 'ga', 'sex', 'dob', 'admissionDate', 'twinSuffix', 'status',
   'currentBed', 'diagnosis', 'weights', 'lengths', 'hcs', 'bedHistory', 'statusDate', 'multiplesCount'];
-const STAFF_HEADER = ['email', 'role', 'name', 'active', 'password_hash', 'salt', 'must_change_password', 'temp_password'];
+// `wards` (I) since ward-scoped access (openspec/changes/paediatric-wards, task 2.2): read by header.
+// addStaff fills it with NICU,SCN, what applyStaffWardsMigration gives every doctor and nurse that
+// existed before it, unless the harness names the wards (`extra.wards`, '' for none).
+const STAFF_HEADER = ['email', 'role', 'name', 'active', 'password_hash', 'salt', 'must_change_password', 'temp_password', 'wards'];
 const AUDIT_HEADER = ['ts', 'action', 'sessionId', 'actorEmail'];
 
 const wardToday = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
@@ -381,7 +384,7 @@ function boot(opts) {
       let hash = '', salt = '';
       if (password) { salt = crypto.randomUUID(); hash = sandbox.hashPwdV2(password, salt); }
       env.sheets.Staff.data.push([email, role, extra.name || email.split('@')[0], extra.active === undefined ? true : extra.active,
-        hash, salt, !!extra.mustChange, extra.temp || '']);
+        hash, salt, !!extra.mustChange, extra.temp || '', extra.wards === undefined ? 'NICU,SCN' : extra.wards]);
     },
     session(email, role) { return sandbox.createSession(email, role, email.split('@')[0], false); },
     expireStaffCache(email) { cacheStore.delete('staffrc_' + String(email).toLowerCase()); },

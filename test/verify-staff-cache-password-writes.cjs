@@ -61,7 +61,8 @@ T.section('§ 1 · after a forced change, the next request is served at once', (
 
   const ch = change(g, first.token);
   T.eq('the change succeeds and rotates the token', [ch.ok, ch.mustChangePassword, typeof ch.token], [true, false, 'string']);
-  T.eq('Staff cols G/H are cleared in the sheet', staffRow(g, email).slice(6), [false, '']);
+  // ward scope (2026-11-24): col I is now wards, so G/H are bounded to G–H
+  T.eq('Staff cols G/H are cleared in the sheet', staffRow(g, email).slice(6, 8), [false, '']);
   const next = sync(g, ch.token);
   T.ok('the rotated token is served at once, not PasswordChangeRequired', served(next), next);
   T.eq('the temp-password token is revoked', sync(g, first.token), { error: 'Unauthorized' });
@@ -92,7 +93,8 @@ T.section('§ 3 · an admin reset (setInitialPassword) is seen by the next sign-
   T.eq('held at the forced change, which caches col G TRUE', sync(g, held.token).error, 'PasswordChangeRequired');
   // Typed in the Apps Script editor the way an admin might.
   g.sb.setInitialPassword(' R@RedCross.or.th ', 'Admin-Chosen-Pass-7');
-  T.eq('the reset lands on the row and clears cols G/H', staffRow(g, email).slice(6), [false, '']);
+  // ward scope (2026-11-24): col I is now wards, so G/H are bounded to G–H
+  T.eq('the reset lands on the row and clears cols G/H', staffRow(g, email).slice(6, 8), [false, '']);
   const fresh = login(g, email, 'Admin-Chosen-Pass-7');
   T.eq('the admin\'s password signs in, not flagged', [fresh.status, fresh.mustChangePassword], ['ok', false]);
   const res = sync(g, fresh.token);
@@ -125,7 +127,8 @@ T.section('§ 5 · clearStaffPassword is seen by the next session at once', () =
   const before = g.session(email, 'nurse');
   T.eq('held by col G before the clear', sync(g, before).error, 'PasswordChangeRequired');
   g.sb.clearStaffPassword(email);
-  T.eq('cols E–H are blank', staffRow(g, email).slice(4), ['', '', '', '']);
+  // ward scope (2026-11-24): col I is now wards, so E–H are bounded to E–H
+  T.eq('cols E–H are blank', staffRow(g, email).slice(4, 8), ['', '', '', '']);
   const res = sync(g, g.session(email, 'nurse'));
   T.ok('the next session is served, not held by the cleared flag', served(res), res);
 });

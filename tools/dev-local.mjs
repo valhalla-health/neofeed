@@ -85,9 +85,23 @@ function seed(tree) {
     { email: "doctor@dev.local", role: "doctor", name: "Dr Dev" },
     { email: "nurse@dev.local", role: "nurse", name: "Nurse Dev" },
   ].map(a => ({ ...a, password: randomBytes(9).toString("base64url") }));
-  for (const a of accounts) g.addStaff(a.email, a.role, a.password, { name: a.name });
+  // Ward-scoped access (2026-11-24): a tree whose backend has the migration seeds the doctor and nurse with no ward
+  // and runs it, as the live Sheet will be, so they hold NICU,SCN the way every existing account will.
+  const migrates = typeof g.sb.applyStaffWardsMigration === "function";
+  for (const a of accounts) g.addStaff(a.email, a.role, a.password, { name: a.name, ...(migrates ? { wards: "" } : {}) });
   const pharmacy = { email: "pharmacy@dev.local", role: "pharmacy", name: "Pharmacist Dev", password: randomBytes(9).toString("base64url") };
   g.addStaff(pharmacy.email, pharmacy.role, pharmacy.password, { name: pharmacy.name });
+  // One account per ward-scope case, after the migration: an admin (every ward, and the Admin page's ward card), a
+  // nurse who holds SCN only, and a doctor added later, with no ward. A tree from before ward scope gets none of them.
+  const wardAccounts = !migrates ? [] : [
+    { email: "admin@dev.local", role: "admin", name: "Admin Dev", wards: "" },
+    { email: "scn.nurse@dev.local", role: "nurse", name: "SCN Nurse Dev", wards: "SCN" },
+    { email: "new.doctor@dev.local", role: "doctor", name: "New Doctor Dev", wards: "" },
+  ].map(a => ({ ...a, password: randomBytes(9).toString("base64url") }));
+  if (migrates) {
+    g.sb.applyStaffWardsMigration();
+    for (const a of wardAccounts) g.addStaff(a.email, a.role, a.password, { name: a.name, wards: a.wards });
+  }
 
   for (const [sid, name, bed] of [["AA-1", "AA", "NICU 1"], ["BB-1", "BB", "NICU 2"], ["CC-1", "CC", "NICU 3"],
     ["DD-1", "DD", "NICU 4"], ["SS-1", "SS", "SCN 1"], ["TT-1", "TT", "SCN 2"]]) {
@@ -113,14 +127,14 @@ function seed(tree) {
   log.push(g.logRow("BB-1", day, order("draft", constants)));
   log.push(g.logRow("CC-1", day, { ...order("submitted", OLDER_CONSTANTS), 38: figures(OLDER_CONSTANTS) }));
   log.push(g.logRow("SS-1", day, { ...order("submitted", constants), 38: figures(constants) }));
-  return { g, accounts, pharmacy, constants, today };
+  return { g, accounts, pharmacy, wardAccounts, constants, today };
 }
 
 // Start the server. `port` 0 picks a free one. Resolves to { url, accounts, pharmacy,
 // constants, today, g, stop }.
 export async function start({ tree = path.join(HERE, ".."), port = 8155, quiet = false } = {}) {
   tree = path.resolve(tree);
-  const { g, accounts, pharmacy, constants, today } = seed(tree);
+  const { g, accounts, pharmacy, wardAccounts, constants, today } = seed(tree);
   // The TPN room's pages run under the hosts' real policy, with only the backend's
   // address swapped: a page that breaks under it fails here, not on the host.
   const headersFile = path.join(tree, "_headers");
@@ -157,10 +171,11 @@ export async function start({ tree = path.join(HERE, ".."), port = 8155, quiet =
     console.log(`NeoFeed dev-local: ${url}  (tree ${tree})`);
     console.log(`  backend: gas-backend.gs in the sandbox · CONSTANTS_VERSION ${constants} · ward day ${today}`);
     for (const a of [...accounts, pharmacy]) console.log(`  ${a.role.padEnd(8)} ${a.email}  ${a.password}`);
+    for (const a of wardAccounts) console.log(`  ${a.role.padEnd(8)} ${a.email}  ${a.password}  (wards: ${a.wards || "none"})`);
     console.log(`  TPN room: ${url}/tpn-room.html (the pharmacy account)`);
     console.log("  Ctrl+C stops it. Made-up infants AA–DD (NICU) and SS–TT (SCN); see the header of this file.");
   }
-  return { url, accounts, pharmacy, constants, today, g, stop };
+  return { url, accounts, pharmacy, wardAccounts, constants, today, g, stop };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

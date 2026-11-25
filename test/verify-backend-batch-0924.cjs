@@ -25,7 +25,8 @@ const T = recorder('BACKEND BATCH 2026-09-24');
 const P = (sid, extra) => Object.assign({
   sessionId: sid, name: 'ทารก ' + sid, initials: sid.slice(0, 2), bw: 900, ga: 28.1, sex: 'boys',
   dob: '2026-09-01', admissionDate: '2026-09-01', twinSuffix: '', status: 'Active',
-  currentBed: '', diagnosis: 'RDS', weights: [{ dol: 1, w: 900 }], lengths: [], hcs: [], bedHistory: [],
+  // ward scope (2026-11-24): a bed in the doctor's wards, so a refusal is the case's own (Thai validation), not WardScope
+  currentBed: 'NICU 5', diagnosis: 'RDS', weights: [{ dol: 1, w: 900 }], lengths: [], hcs: [], bedHistory: [],
   statusDate: '', multiplesCount: 0,
 }, extra || {});
 const E = (extra) => Object.assign({ dol: 5, weight: 1250, fluid: 150, gir: 6, pro: 3, kcal: 90,
@@ -75,7 +76,8 @@ T.section('BE-4 · status is canonicalised — no bed-skip, no ghost record', ()
 T.section('F2 · updateWeights fills an empty dob, never overwrites a real one', () => {
   const g = ward();
   // A legacy row: admission date present (patRow default), dob EMPTY.
-  g.sheet('Patient_Registry').data.push(g.patRow('BB-900', { 6: '', 12: JSON.stringify([{ dol: 5, w: 1000 }]) }));
+  // ward scope (2026-11-24): bed NICU 1 (col K) so the doctor's updateWeights reaches the row
+  g.sheet('Patient_Registry').data.push(g.patRow('BB-900', { 6: '', 10: 'NICU 1', 12: JSON.stringify([{ dol: 5, w: 1000 }]) }));
   const r1 = g.as({ action: 'updateWeights', sessionId: 'BB-900',
     weights: [{ dol: 1, w: 1050 }, { dol: 5, w: 1000 }], dob: '2026-09-15' });
   T.ok('updateWeights ok', r1.ok === true, r1);

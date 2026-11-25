@@ -792,6 +792,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     return Date.now() - lastSyncAttemptRef.current < wait;
   }, []);
   const serverPatientsRef = React.useRef(/* @__PURE__ */ new Map());
+  const [myWards, setMyWards] = React.useState(null);
   const appliedSeqRef = React.useRef(0);
   const loginSyncRef = React.useRef(null);
   const signInRef = React.useRef(null);
@@ -836,6 +837,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       const fromServer = withDob.filter((p) => !D_A.isTestSession(p.sessionId));
       setPatients((prev) => [...fromServer, ...prev.filter((p) => D_A.isTestSession(p.sessionId))]);
       setActiveId((prev) => D_A.isTestSession(prev) || data.patients.some((p) => p.sessionId === prev) ? prev : null);
+      setMyWards(Array.isArray(data.wards) ? data.wards.filter((k) => D_A.wardByKey(k)) : null);
     }
     if (data.log) setLog((prev) => ({ ...D_A.normalizeLogMap(data.log), ...onlyTestKeys(prev) }));
     const nursingServed = !!data.nursing && typeof data.nursing === "object" && !Array.isArray(data.nursing);
@@ -1094,6 +1096,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     setNursing((prev) => ({ ...notTest(prev), ...st.nursing }));
   }, [user && user.email]);
   const loadUsage = React.useCallback(() => gasPost({ action: "getUsageWeekly" }, { quiet: true }), [gasPost]);
+  const staffWardsApi = React.useMemo(() => ({
+    load: () => gasPost({ action: "getStaffWards" }, { quiet: true }),
+    save: (email, wards) => gasPost({ action: "setStaffWards", email, wards }, { quiet: true })
+  }), [gasPost]);
   const blockedByUnknownWrite = (quiet = false) => {
     if (!GAS_ON || !unknownWriteRef.current) return null;
     const error = "ยังไม่ทราบผลการบันทึกครั้งก่อน — กำลังซิงก์ตรวจสอบกับเซิร์ฟเวอร์ รอสักครู่แล้วลองใหม่";
@@ -1681,7 +1687,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       warn: alertBadge.level === "warn",
       onClick: () => goTo("alerts")
     }
-  ), role === "admin" && /* @__PURE__ */ React.createElement(RailItem, { icon: "dashboard", label: "Admin dashboard", active: view === "admin", onClick: () => goTo("admin") }), /* @__PURE__ */ React.createElement("div", { className: "rail-section" }, "Reference"), /* @__PURE__ */ React.createElement(RailItem, { icon: "info", label: "Guidelines (ESPGHAN)", active: view === "guidelines", onClick: () => goTo("guidelines") }), /* @__PURE__ */ React.createElement("div", { className: "rail-item", style: { opacity: 0.45, cursor: "default", pointerEvents: "none" } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 15 }), /* @__PURE__ */ React.createElement("span", null, "Drug compatibility"), /* @__PURE__ */ React.createElement("span", { className: "count", style: { marginLeft: "auto", fontSize: 10 } }, "soon")), /* @__PURE__ */ React.createElement(RailItem, { icon: "info", label: "Formulas + products", active: view === "formulas", onClick: () => goTo("formulas") }), /* @__PURE__ */ React.createElement("div", { className: "rail-foot" }, /* @__PURE__ */ React.createElement("div", { className: "conn" }, /* @__PURE__ */ React.createElement("span", { className: "dot", style: { background: freshness.level === "ok" ? "var(--ok)" : freshness.level === "local" ? "var(--line)" : freshness.level === "warn" ? "var(--warn)" : "var(--crit)" } }), !GAS_ON ? "Local only" : lastSync ? `Sync · ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Not synced"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4 } }, "V2.0 · ESPGHAN 2018/2022"))), /* @__PURE__ */ React.createElement("main", { className: "work" }, /* @__PURE__ */ React.createElement("div", { className: "work-inner" }, /* @__PURE__ */ React.createElement(ViewErrorBoundary, { variant: "view", resetKey: `${view}|${activeId || ""}`, onGoRegistry: () => goTo("registry") }, GAS_ON && syncState === "ok" && patients.length === 0 && /* @__PURE__ */ React.createElement("div", { style: {
+  ), role === "admin" && /* @__PURE__ */ React.createElement(RailItem, { icon: "dashboard", label: "Admin dashboard", active: view === "admin", onClick: () => goTo("admin") }), /* @__PURE__ */ React.createElement("div", { className: "rail-section" }, "Reference"), /* @__PURE__ */ React.createElement(RailItem, { icon: "info", label: "Guidelines (ESPGHAN)", active: view === "guidelines", onClick: () => goTo("guidelines") }), /* @__PURE__ */ React.createElement("div", { className: "rail-item", style: { opacity: 0.45, cursor: "default", pointerEvents: "none" } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 15 }), /* @__PURE__ */ React.createElement("span", null, "Drug compatibility"), /* @__PURE__ */ React.createElement("span", { className: "count", style: { marginLeft: "auto", fontSize: 10 } }, "soon")), /* @__PURE__ */ React.createElement(RailItem, { icon: "info", label: "Formulas + products", active: view === "formulas", onClick: () => goTo("formulas") }), /* @__PURE__ */ React.createElement("div", { className: "rail-foot" }, /* @__PURE__ */ React.createElement("div", { className: "conn" }, /* @__PURE__ */ React.createElement("span", { className: "dot", style: { background: freshness.level === "ok" ? "var(--ok)" : freshness.level === "local" ? "var(--line)" : freshness.level === "warn" ? "var(--warn)" : "var(--crit)" } }), !GAS_ON ? "Local only" : lastSync ? `Sync · ${lastSync.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Not synced"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4 } }, "V2.0 · ESPGHAN 2018/2022"))), /* @__PURE__ */ React.createElement("main", { className: "work" }, /* @__PURE__ */ React.createElement("div", { className: "work-inner" }, /* @__PURE__ */ React.createElement(ViewErrorBoundary, { variant: "view", resetKey: `${view}|${activeId || ""}`, onGoRegistry: () => goTo("registry") }, GAS_ON && syncState === "ok" && patients.length === 0 && !(Array.isArray(myWards) && myWards.length === 0) && /* @__PURE__ */ React.createElement("div", { style: {
     padding: "12px 16px",
     background: "var(--brand-bg)",
     border: "1px solid var(--brand-line)",
@@ -1712,6 +1718,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       log,
       ward,
       onWardChange: setWard,
+      wards: myWards,
       printWard,
       onPrintWard: setPrintWard,
       onPrintOrder: openOrderToPrint,
@@ -1733,6 +1740,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       patients,
       log,
       ward,
+      wards: myWards,
       onSelect: (id) => {
         setEditEntry(null);
         setActiveId(id);
@@ -1747,6 +1755,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       lastSync,
       signInTiming,
       loadUsage: GAS_ON ? loadUsage : null,
+      staffWards: GAS_ON ? staffWardsApi : null,
       includeArchived,
       onToggleArchived: () => {
         includeArchivedRef.current = !includeArchived;
@@ -2724,7 +2733,95 @@ function UsageCard({ load }) {
   }, [fetchUsage]);
   return /* @__PURE__ */ React.createElement("div", { className: "card usage-card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "chart", size: 14, color: "var(--brand)" }), " Usage", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, "คำสั่งที่ Submit ต่อสัปดาห์ · ", USAGE_WEEKS_SHOWN, " สัปดาห์ล่าสุด")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, state.status === "loading" && /* @__PURE__ */ React.createElement("div", { className: "census-note", style: { marginTop: 0 } }, "กำลังโหลด…"), state.status === "none" && /* @__PURE__ */ React.createElement("div", { className: "census-note usage-empty", style: { marginTop: 0 } }, "ยังไม่มีข้อมูล"), state.status === "error" && /* @__PURE__ */ React.createElement("div", { className: "census-note usage-error", style: { marginTop: 0, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, "โหลดข้อมูลการใช้งานไม่สำเร็จ", /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: fetchUsage }, "ลองใหม่")), state.status === "ready" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(UsageChart, { weeks: state.weeks }), /* @__PURE__ */ React.createElement("div", { className: "census-note" }, "นับหนึ่งครั้งต่อคำสั่ง TPN/EN ที่ Submit ครั้งแรก ไม่นับร่าง การแก้ไข การพิมพ์ และ quick calc · สัปดาห์เริ่มวันจันทร์"))));
 }
-function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeArchived = false, onToggleArchived, loadUsage = null }) {
+function StaffWardsCard({ api }) {
+  const [state, setState] = React.useState({ status: "loading" });
+  const [draft, setDraft] = React.useState({});
+  const [busy, setBusy] = React.useState("");
+  const [note, setNote] = React.useState(null);
+  const apiRef = React.useRef(api);
+  apiRef.current = api;
+  const alive = React.useRef(false);
+  const load = React.useCallback(() => {
+    setState({ status: "loading" });
+    Promise.resolve().then(() => apiRef.current.load()).then((res) => {
+      if (!alive.current) return;
+      if (res && res.ok && Array.isArray(res.staff)) setState({ status: "ready", ...res });
+      else if (res && /^Unknown action/.test(String(res.serverError || ""))) setState({ status: "none" });
+      else setState({ status: "error" });
+    }, () => {
+      if (alive.current) setState({ status: "error" });
+    });
+  }, []);
+  React.useEffect(() => {
+    alive.current = true;
+    load();
+    return () => {
+      alive.current = false;
+    };
+  }, [load]);
+  const table = state.wardTable || [];
+  const clinicians = (state.staff || []).filter((s) => s.role === "doctor" || s.role === "nurse");
+  const admins = (state.staff || []).filter((s) => s.role === "admin");
+  const held = (s) => draft[s.email] || s.wards || [];
+  const changed = (s) => !!draft[s.email] && draft[s.email].join(",") !== (s.wards || []).join(",");
+  const toggle = (s, key) => setDraft((d) => {
+    const now = held(s);
+    const next = table.map((w) => w.key).filter((k) => k === key ? !now.includes(k) : now.includes(k));
+    return { ...d, [s.email]: next };
+  });
+  const save = (s) => {
+    const wards = held(s);
+    setBusy(s.email);
+    setNote(null);
+    Promise.resolve().then(() => apiRef.current.save(s.email, wards)).then((res) => {
+      if (!alive.current) return;
+      setBusy("");
+      if (res && res.ok) {
+        setState((st) => ({ ...st, staff: st.staff.map((x) => x.email === s.email ? { ...x, wards: res.wards || wards } : x) }));
+        setDraft((d) => {
+          const n = { ...d };
+          delete n[s.email];
+          return n;
+        });
+        setNote({ email: s.email, ok: true, text: "บันทึกแล้ว — มีผลตั้งแต่การซิงก์ครั้งถัดไปของบัญชีนี้" });
+      } else {
+        setNote({ email: s.email, ok: false, text: res && (res.serverError || res.error) || "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง" });
+      }
+    }, () => {
+      if (alive.current) {
+        setBusy("");
+        setNote({ email: s.email, ok: false, text: "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง" });
+      }
+    });
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "card staff-wards-card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "dashboard", size: 14, color: "var(--brand)" }), " หอของแต่ละบัญชี", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, "doctor และ nurse เห็นและแก้ได้เฉพาะผู้ป่วยในหอที่ติ๊กไว้")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, state.status === "loading" && /* @__PURE__ */ React.createElement("div", { className: "census-note", style: { marginTop: 0 } }, "กำลังโหลด…"), state.status === "none" && /* @__PURE__ */ React.createElement("div", { className: "census-note", style: { marginTop: 0 } }, "backend รุ่นนี้ยังไม่มีการแบ่งสิทธิ์ตามหอ ทุกบัญชียังเห็นทุกหอ"), state.status === "error" && /* @__PURE__ */ React.createElement("div", { className: "census-note", style: { marginTop: 0, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } }, "โหลดรายชื่อบัญชีไม่สำเร็จ", /* @__PURE__ */ React.createElement("button", { className: "btn sm", onClick: load }, "ลองใหม่")), state.status === "ready" && !state.columnReady && /* @__PURE__ */ React.createElement("div", { className: "census-flags", role: "note" }, "ชีต Staff ยังไม่มีคอลัมน์ wards — ต้องรัน applyStaffWardsMigration ก่อนจึงจะกำหนดหอได้"), state.status === "ready" && /* @__PURE__ */ React.createElement("div", { className: "staff-wards-list", style: { display: "flex", flexDirection: "column", gap: 10 } }, clinicians.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "census-note", style: { marginTop: 0 } }, "ยังไม่มีบัญชี doctor หรือ nurse"), clinicians.map((s) => /* @__PURE__ */ React.createElement("div", { key: s.email, className: "staff-wards-row", style: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "6px 14px",
+    paddingBottom: 10,
+    borderBottom: "1px solid var(--line-2)"
+  } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 200px", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, overflowWrap: "anywhere" } }, s.name || s.email, /* @__PURE__ */ React.createElement("span", { className: "chip", style: { marginLeft: 6, fontSize: 10.5 } }, s.role), !s.active && /* @__PURE__ */ React.createElement("span", { className: "chip warn", style: { marginLeft: 6, fontSize: 10.5 } }, "ระงับ"), held(s).length === 0 && /* @__PURE__ */ React.createElement("span", { className: "chip warn", style: { marginLeft: 6, fontSize: 10.5 } }, "ไม่มีหอ")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-3)", overflowWrap: "anywhere" } }, s.email)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "4px 14px" } }, table.map((w) => /* @__PURE__ */ React.createElement("label", { key: w.key, style: { display: "inline-flex", alignItems: "center", gap: 6, minHeight: 36, cursor: "pointer" } }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "checkbox",
+      checked: held(s).includes(w.key),
+      disabled: !state.columnReady || busy === s.email,
+      onChange: () => toggle(s, w.key),
+      "aria-label": `${w.label} · ${s.name || s.email}`
+    }
+  ), w.label))), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      className: "btn sm primary",
+      disabled: !changed(s) || busy === s.email || !state.columnReady,
+      onClick: () => save(s)
+    },
+    busy === s.email ? "กำลังบันทึก…" : "บันทึก"
+  ), note && note.email === s.email && /* @__PURE__ */ React.createElement("div", { role: "status", style: { flexBasis: "100%", fontSize: 12.5, color: note.ok ? "var(--ok)" : "var(--crit-ink)" } }, note.text))), admins.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "census-note", style: { marginTop: 0 } }, "admin ดูแลทุกหอโดยตำแหน่ง (", admins.length, " บัญชี) · บัญชีเภสัชไม่เห็นรายชื่อผู้ป่วย ใช้หน้าห้อง TPN อย่างเดียว"))));
+}
+function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeArchived = false, onToggleArchived, loadUsage = null, staffWards = null }) {
   const today = D_A.useTodayLocal();
   const census = buildCensus(patients, log, today);
   const totalLogs = Object.values(log).reduce((a, l) => a + l.length, 0);
@@ -2756,7 +2853,7 @@ function AdminDashboard({ patients, log, lastSync, signInTiming = null, includeA
     ["Infants with alerts", withAlerts, census.total.crit ? "var(--crit-ink)" : withAlerts ? "var(--warn-ink)" : "var(--ink)"]
   ].map(
     ([l, v, c]) => /* @__PURE__ */ React.createElement("div", { key: l, className: "card", style: { padding: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: 0.06 } }, l), /* @__PURE__ */ React.createElement("div", { className: "num", style: { fontSize: 30, fontWeight: 500, color: c } }, v))
-  )), /* @__PURE__ */ React.createElement("div", { className: "card census-card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "dashboard", size: 14, color: "var(--brand)" }), " Census", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, fmtDate(today), " · เฉพาะผู้ป่วยที่ยังอยู่ใน unit")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement("div", { className: "census-grid" }, census.wards.map((w) => /* @__PURE__ */ React.createElement(CensusWard, { key: w.ward, w })), /* @__PURE__ */ React.createElement(CensusWard, { w: census.total })), /* @__PURE__ */ React.createElement("div", { className: "census-note census-movement" }, "ความเคลื่อนไหว ", census.windowDays, " วัน · รับใหม่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.admitted), " · ", "Discharged ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Discharged), " · ", "Transferred ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Transferred), " · ", "Expired ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Expired)), flags.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "census-flags", role: "note" }, /* @__PURE__ */ React.createElement("strong", null, "ต้องตรวจสอบ"), " · ", flags.join(" · "), " — ค้นหาเลขเตียงในหน้า Patients เพื่อแก้"), /* @__PURE__ */ React.createElement("div", { className: "census-note" }, "Critical / Caution นับเป็นจำนวนทารก ตามระดับที่รุนแรงที่สุดของแต่ละราย และไม่หักการ Acknowledge ของเครื่องใด"))), loadUsage && /* @__PURE__ */ React.createElement(UsageCard, { load: loadUsage }), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "log", size: 14, color: "var(--brand)" }), " Recent log entries", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, allEntries.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b admin-recent", style: { padding: 0 } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { background: "var(--bg-2)", textAlign: "left" } }, /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Session"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Bed"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "DOL"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Wt (g)"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "kcal"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Protein"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Route"))), /* @__PURE__ */ React.createElement("tbody", null, allEntries.slice(-20).reverse().map(
+  )), /* @__PURE__ */ React.createElement("div", { className: "card census-card", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "dashboard", size: 14, color: "var(--brand)" }), " Census", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, fmtDate(today), " · เฉพาะผู้ป่วยที่ยังอยู่ใน unit")), /* @__PURE__ */ React.createElement("div", { className: "card-b" }, /* @__PURE__ */ React.createElement("div", { className: "census-grid" }, census.wards.map((w) => /* @__PURE__ */ React.createElement(CensusWard, { key: w.ward, w })), /* @__PURE__ */ React.createElement(CensusWard, { w: census.total })), /* @__PURE__ */ React.createElement("div", { className: "census-note census-movement" }, "ความเคลื่อนไหว ", census.windowDays, " วัน · รับใหม่ ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.admitted), " · ", "Discharged ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Discharged), " · ", "Transferred ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Transferred), " · ", "Expired ", /* @__PURE__ */ React.createElement("span", { className: "num" }, m.Expired)), flags.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "census-flags", role: "note" }, /* @__PURE__ */ React.createElement("strong", null, "ต้องตรวจสอบ"), " · ", flags.join(" · "), " — ค้นหาเลขเตียงในหน้า Patients เพื่อแก้"), /* @__PURE__ */ React.createElement("div", { className: "census-note" }, "Critical / Caution นับเป็นจำนวนทารก ตามระดับที่รุนแรงที่สุดของแต่ละราย และไม่หักการ Acknowledge ของเครื่องใด"))), loadUsage && /* @__PURE__ */ React.createElement(UsageCard, { load: loadUsage }), staffWards && /* @__PURE__ */ React.createElement(StaffWardsCard, { api: staffWards }), /* @__PURE__ */ React.createElement("div", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "card-h" }, /* @__PURE__ */ React.createElement(Icon, { name: "log", size: 14, color: "var(--brand)" }), " Recent log entries", /* @__PURE__ */ React.createElement("span", { className: "h-meta" }, allEntries.length, " total")), /* @__PURE__ */ React.createElement("div", { className: "card-b admin-recent", style: { padding: 0 } }, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { style: { background: "var(--bg-2)", textAlign: "left" } }, /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Session"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Bed"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "DOL"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Wt (g)"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "kcal"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Protein"), /* @__PURE__ */ React.createElement("th", { style: { padding: "8px 12px", fontWeight: 500, color: "var(--ink-3)" } }, "Route"))), /* @__PURE__ */ React.createElement("tbody", null, allEntries.slice(-20).reverse().map(
     (e, i) => /* @__PURE__ */ React.createElement("tr", { key: i, style: { borderTop: "1px solid var(--line-2)" } }, /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, e.sid), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, e.bed), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, e.showDol), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, D_A.displayNum(e.weight, 2)), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, D_A.displayNum(e.kcal, 2)), /* @__PURE__ */ React.createElement("td", { className: "num", style: { padding: "8px 12px" } }, D_A.displayNum(e.pro, 2)), /* @__PURE__ */ React.createElement("td", { style: { padding: "8px 12px", color: "var(--ink-2)" } }, e.route))
   ))))));
 }
