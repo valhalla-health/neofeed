@@ -16,7 +16,8 @@
 //   § 5  orders: a stale tab that sends no set is newborn; a set that differs is refused; a stored
 //        set that differs is refused, for every order action and every role, before any sheet changes
 //   § 6  a stored set that differs: a doctor's edit is refused, an admin's rewrites it
-//   § 7  the Calculator sends its set with every save
+//   § 5b a registry read that fails: an order is refused, for an admin too
+//   § 7  the Calculator sends its set with every save, a nurse's I/O save too
 //
 // NEGATIVE CONTROL — red against main before group 3 (5363edb):
 //   git -C <repo> archive 5363edb | tar -x -C /tmp/main-5363edb
@@ -189,6 +190,22 @@ T.section('§ 5 orders', () => {
   T.ok('5.8 a stored "Newborn " (case, spaces) is the newborn set', caseOk.ok === true, caseOk);
 });
 
+T.section('§ 5b a registry read that fails: an order is refused, not let through (Vera, 2026-11-25)', () => {
+  const g = backend();
+  seed(g, 'NF-LEG30');
+  regRow(g, 'NF-LEG30')[V] = 'paediatric';
+  g.sb._bumpDataVersion();
+  const before = sheetsNow(g);
+  // The first registry read (the access check) fails; the action's own reads then succeed.
+  const reg = g.sheet('Patient_Registry');
+  let reads = 0;
+  reg.hooks.beforeRead = () => { if (reads++ === 0) throw new Error('Service Spreadsheets timed out while accessing document with id x.'); };
+  const r = g.as('admin', { action: 'logDailyNutrition', sessionId: 'NF-LEG30', entry: ORDER() });
+  reg.hooks.beforeRead = null;
+  T.ok('5b.1 an admin order whose rule set cannot be read is refused, retryable', !r.ok && r.code === 'ServiceUnavailable' && r.retryable === true, r);
+  T.ok('5b.2 …and no sheet changed', sheetsNow(g) === before);
+});
+
 T.section('§ 6 a stored set that differs, on a registry edit', () => {
   const g = backend();
   seed(g, 'NF-LEG20');
@@ -207,6 +224,12 @@ T.section('§ 6 a stored set that differs, on a registry edit', () => {
 T.section('§ 7 the Calculator sends its set', () => {
   T.ok('7.1 calculator.jsx puts ruleSet: D.ruleSetFor(patient) on every save', /\n\s*ruleSet: D\.ruleSetFor\(patient\),/.test(read('calculator.jsx')));
   T.ok('7.2 …and compiled/calculator.js carries it', /ruleSet:\s*D\.ruleSetFor\(patient\)/.test(read('compiled/calculator.js')));
+  const iof = /function storedOrderWithIo\([\s\S]*?\n}\n/.exec(read('calculator.jsx'));
+  T.ok('7.3 a nurse\'s I/O-only save (storedOrderWithIo) carries the set too (Vera, 2026-11-25)',
+    !!iof && /out\.ruleSet = e\.ruleSet;/.test(iof[0]));
+  T.ok('7.4 the trend chart and the dashboard read their bands from the patient\'s rule set',
+    /D_L\.ruleTablesFor\(patient\)/.test(read('log.jsx')) && !/D_L\.(TARGETS|TPN_TARGETS|ENTERAL_TARGETS)\b/.test(read('log.jsx'))
+    && /D_A\.ruleTablesFor\(patient\)/.test(read('app.jsx')));
 });
 
 T.done();

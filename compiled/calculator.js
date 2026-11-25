@@ -305,6 +305,7 @@ function storedOrderWithIo(saved, e) {
     orderAt: ci.orderAt
   };
   out.constantsVersion = saved?.calcInput?.constantsVersion || saved?.constantsVersion || "";
+  out.ruleSet = e.ruleSet;
   out.appVersion = saved?.appVersion || "";
   out.printJson = null;
   return out;

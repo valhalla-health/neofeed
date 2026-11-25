@@ -400,6 +400,9 @@ function storedOrderWithIo(saved, e) {
     ioUseTpnWt: ci.ioUseTpnWt === true ? true : undefined,
     savedAt: ci.savedAt, orderBy: ci.orderBy, orderRev: ci.orderRev, orderAt: ci.orderAt };
   out.constantsVersion = saved?.calcInput?.constantsVersion || saved?.constantsVersion || "";
+  // The patient's rule set, as every save sends it: the backend refuses an order
+  // whose set differs (Vera, 2026-11-25).
+  out.ruleSet = e.ruleSet;
   out.appVersion = saved?.appVersion || "";
   out.printJson = null;
   return out;

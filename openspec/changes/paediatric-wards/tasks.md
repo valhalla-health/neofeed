@@ -104,14 +104,21 @@ diff touches a dose file, auth or patient data, and the newborn no-move result (
       Verify with `verify-rule-set` cases at each range edge.
 - [ ] 4.3 Dosing weight, age in years and months, and newborn-only fields and flags hidden (design
       D6). Verify on dev local and by harness on the printed order, the sticker and "TPN ทั้งหอ".
-- [ ] 4.4 `PAED_*` tables and their grading, one signed `CR-P-` block at a time, each with its cases
+- [ ] 4.4 Route the readers that still grade on the newborn tables by name, without a patient:
+      data.js `girStatus`, the ward TPN page's flags (`wardTpnRow`) and their labels in `registry.jsx`,
+      `noTpnEnMinPerKg`, `fullEnNeeds`, and the Reference page in `app.jsx` (group 3 routed the
+      Calculator, the trend chart and the dashboard; Vera, 2026-11-25).
+- [ ] 4.4a `PAED_*` tables and their grading, one signed `CR-P-` block at a time, each with its cases
       in `verify-clinical-rules` and its figure in `verify-calc-sum`'s on-screen check. An unsigned
       parameter shows "ยังไม่มีเกณฑ์". Verify the check that fails on a value with no block.
 - [ ] 4.4b PN contexts from gate 0.5b: the context on the order form, stored and printed; each
       context's guards with cases in `verify-clinical-rules` showing the guard with and without the
       context, and that no context loosens a stop. Skipped if P8 says "none in this phase".
 - [ ] 4.5 Products by label age (Aminoplasmal, trace elements, vitamins) and the feeds list, from
-      gates 0.5 and 0.6. Verify with cases either side of each age line.
+      gates 0.5 and 0.6. Verify with cases either side of each age line. A set lists at least one
+      amino-acid product: `aaProductsFor` returns `[]` outside the newborn set today, and the
+      Calculator takes `aaChoices[0]`, so an empty list must be a named stop, never a crash (Vera,
+      2026-11-25).
 - [ ] 4.6 Printed order, sticker and TPN room page carry the ward and the paediatric age. Verify with
       the sticker and print harnesses and one printed sheet from dev local.
 - [ ] 4.7 Quick calc asks the age group; the Center Point entry refuses outside the newborn set.

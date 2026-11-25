@@ -1089,6 +1089,7 @@ function _storedRuleSet(row) {
 }
 var RULE_SET_STORED_MSG = "บันทึกไม่ได้ — ชุดเกณฑ์ที่เก็บไว้ของผู้ป่วยรายนี้ไม่ตรงกับอายุแรกรับ ให้ admin ตรวจวันเกิดกับวัน admit แล้วบันทึกข้อมูลผู้ป่วยใหม่";
 var RULE_SET_SENT_MSG = "แอปในแท็บนี้คำนวณด้วยชุดเกณฑ์ที่ไม่ตรงกับผู้ป่วยรายนี้ — รีเฟรชหน้าแล้วบันทึกใหม่";
+var RULE_SET_UNREADABLE_MSG = "ตรวจชุดเกณฑ์ของผู้ป่วยไม่ได้ชั่วคราว — ยังไม่ได้บันทึก ลองใหม่อีกครั้ง";
 var RULE_SET_EDIT_MSG = "บันทึกไม่ได้ — การแก้นี้เปลี่ยนชุดเกณฑ์ของผู้ป่วยรายนี้ ให้ admin เป็นผู้แก้ และบันทึกใบสั่งใหม่ทุกใบ";
 var RULE_SET_ACTIONS = { logDailyNutrition: true, updateDailyNutrition: true, publishLog: true };
 // The refusal for an order on `row`, or null. `entry` is the order sent
@@ -2000,7 +2001,7 @@ var WARD_SCOPED_ACTIONS = { logDailyNutrition: true, updateDailyNutrition: true,
   acquireLogLock: true, releaseLogLock: true };
 // One registry read for the three checks, before any sheet changes: the caller's wards
 // (WARD_SCOPED_ACTIONS), the H5 sync window (WARD_LIST_WRITES) and an order's rule
-// set (RULE_SET_ACTIONS; a failed read leaves that one to the action's own reads). An unknown
+// set (RULE_SET_ACTIONS). A failed read refuses the ward and the rule-set checks. An unknown
 // sessionId passes to the action, which answers it as before. When the read
 // fails, the ward check refuses (it guards what one ward may see of another);
 // the window check alone still lets it through, as before: the threat there is a
@@ -2017,6 +2018,12 @@ function _patientAccessRefusal(action, sessionId, scope, seesArchive, entry) {
     if (checkScope) {
       Logger.log("ward-scope check: the registry read failed, so the request was refused");
       return { error: WARD_SCOPE_UNREADABLE_MSG, code: "ServiceUnavailable", retryable: true };
+    }
+    // An order whose rule set cannot be read is refused too, an admin's included: no
+    // later read checks the set (Vera, 2026-11-25). Retryable, like the ward check.
+    if (checkSet) {
+      Logger.log("rule-set check: the registry read failed, so the order was refused");
+      return { error: RULE_SET_UNREADABLE_MSG, code: "ServiceUnavailable", retryable: true };
     }
     Logger.log("ward-list check skipped: the registry read failed");
     return null;

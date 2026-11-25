@@ -16,7 +16,8 @@ Ca:P band too; the save sends `ruleSet`; the dead-space hint), `compiled/` and t
 (§ Rule sets: `_ruleSetOf`, `_storedRuleSet`, `_ruleSetRefusal`, `_checkDobCredible`; `PAT_HEADERS` V `ruleSet`;
 `registerPatient`; `_patientAccessRefusal`; `ensurePatHeaderColumns`), `tools/ward-table.cjs` (a row needs
 `deadVolMl`), new `test/verify-rule-set.cjs`, `test/verify-ward-table.cjs`, `verify-ward-scope.cjs`,
-`verify-ward-requests-0918.cjs`, `verify-growth-gate-1122.cjs`, the `neofeed-clinical-rules` skill (`CR-U-DEAD-SPACE`,
+`verify-ward-requests-0918.cjs`, `verify-growth-gate-1122.cjs`, `verify-clinical-0924.cjs`,
+`verify-review-0917-backend-sync.cjs`, `verify-gas-registry-upsert.cjs` (the row is 22 wide), `log.jsx`, `app.jsx`, the `neofeed-clinical-rules` skill (`CR-U-DEAD-SPACE`,
 the amino-acid note in `CR-U-SALTS`, `CR-GROWTH-WEEKLY`, four anchors), `tools/reference-tabs.json`,
 `docs/CLINICAL_CONSTANTS.md` (two rows' notes), `REFERENCE.md` (§ Adding a ward, § Backend), `BACKLOG.md`,
 `app-walkthrough.md`, `test/README.md`, `openspec/changes/paediatric-wards/tasks.md` (3.1–3.4), `STATUS.md`.
@@ -47,10 +48,17 @@ the amino-acid note in `CR-U-SALTS`, `CR-GROWTH-WEEKLY`, four anchors), `tools/r
   refused. An edit that leaves both stored dates as they were passes, as `_checkAdmissionDate` lets an unchanged date
   through; an edit that moves the date of birth past admission is refused. The Register form derives the date of birth
   from the admit date and DOL แรกรับ (at least 1), so it always sends one, never after admission.
+- **Vera (NO BLOCK; one 🟠, four 🟡), fixed in this PR.** A failed registry read refused the ward check but let an
+  order through the rule-set check, an admin's with no other check: it is now refused too, `ServiceUnavailable`,
+  retryable (§ 5b, red before). A nurse's I/O-only save (`storedOrderWithIo`) dropped `ruleSet`; it carries it now
+  (§ 7.3). The trend chart (`log.jsx` `pickTarget`) and the dashboard alerts (`app.jsx`) read their bands from
+  `ruleTablesFor(patient)` (§ 7.4). Task 3.4's checks are in the PR (calc-compare, `verify-calc-sum`).
 - **Not in this change.** Per-set constants versions (4.1), the Quick calc heading naming its set (4.7), and the
-  helpers inside `data.js` that grade without a patient (`girStatus`, the ward TPN page's flags, `noTpnEnMinPerKg`)
-  still read the newborn tables by name; each moves when a second set exists.
-- **Tests.** `verify-rule-set.cjs` (new, 42 checks): red against `main` at `5363edb` (23 failed), green here. The
+  readers that grade without a patient (`girStatus`, the ward TPN page's flags and their labels in `registry.jsx`,
+  `noTpnEnMinPerKg`, the Reference page) still read the newborn tables by name; tasks 4.4 lists them. Outside the
+  newborn set `aaProductsFor` offers nothing, and the Calculator would fail on an empty list: unreachable today,
+  and tasks 4.5 makes it a stop before a second set exists.
+- **Tests.** `verify-rule-set.cjs` (new, 46 checks): red against `main` at `5363edb`, green here. The
   clinical-rules harness gains eight cases (dead space by ward and with no ward, Aminoven by set) and passes 1,243.
 
 ## Session 2026-11-24 (5) — Ward-scoped access: Vera's two findings
