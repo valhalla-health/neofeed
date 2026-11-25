@@ -115,7 +115,7 @@ if (EXTRA.length) console.log(`The table also holds ${EXTRA_KEYS.join(', ')}: it
 
 // The fixture ward: three beds, a sticker label no real ward has. Beds read "FIX 1"–"FIX 3", so
 // no real ward may use the key or the prefix FIX.
-const FIXTURE_ROW = '{ key: "FIX", label: "FIX", sub: "FIX 1–3", stickerLabel: "FIX(test)", beds: [{ prefix: "FIX", count: 3 }] },';
+const FIXTURE_ROW = '{ key: "FIX", label: "FIX", sub: "FIX 1–3", stickerLabel: "FIX(test)", beds: [{ prefix: "FIX", count: 3 }], deadVolMl: 30 },';
 function planted() {
   const T = tool();
   if (!T) throw new Error('tools/ward-table.cjs is missing');
@@ -159,23 +159,28 @@ const scenarios = {
         A.eq(`1.11 next free ${run} bed, ${name}`, D.nextFreeBed(ps, run), OLD.BED_OPTIONS.find(b => OLD.bedWard(b) === run && !occ.has(b)) || '');
       }
     }
-    sameFor(A, '1.12 every bed stays a newborn unit: Aminoven only, dead space 30 mL', CORPUS,
+    sameFor(A, '1.12 every bed stays on the newborn rule set: Aminoven only, dead space 30 mL', CORPUS,
       b => [D.isNewbornUnit(p(b)), D.aaProductsFor(p(b)), D.defaultDeadVolFor(p(b))], () => [true, ['aminoven10'], 30]);
-    A.eq('1.13 the dead-space hint names NICU/SCN', typeof D.newbornWardLabels === 'function'
-      ? D.newbornWardLabels().filter(l => !EXTRA_LABELS.includes(l)) : 'no newbornWardLabels', ['NICU', 'SCN']);
+    A.eq('1.13 the dead-space hint names NICU/SCN', typeof D.wardLabelsStartingAt === 'function'
+      ? D.wardLabelsStartingAt(30).filter(l => !EXTRA_LABELS.includes(l)) : 'no wardLabelsStartingAt', ['NICU', 'SCN']);
   },
 
   async 'dead-space-hint'(A) {
-    console.log('\n── § 1b the dead-space hint names only the newborn wards (Vera, 2026-11-22) ──');
+    console.log('\n── § 1b the dead-space hint names the wards that start at that dead space (Vera, 2026-11-22) ──');
+    // Since 2026-11-25 (tasks 3.2) each ward row carries its giving set (deadVolMl); the rule set no
+    // longer comes from the ward.
     const src = planted()['data.js'];
-    const OLDER = 'const OLDER_CHILD_WARDS = Object.freeze([]);';
-    A.ok('1b.1 data.js has the empty OLDER_CHILD_WARDS line this test rewrites', src.includes(OLDER));
-    const labels = (s) => { const D = loadData(s); return typeof D.newbornWardLabels === 'function' ? D.newbornWardLabels() : 'no newbornWardLabels'; };
-    const asNewborn = labels(src);
-    A.ok('1b.2 the planted ward FIX, a newborn ward, is named', Array.isArray(asNewborn) && asNewborn.includes('FIX'));
-    const asOlder = labels(src.replace(OLDER, 'const OLDER_CHILD_WARDS = Object.freeze(["FIX"]);'));
-    A.ok('1b.3 FIX in OLDER_CHILD_WARDS: not named, NICU and SCN still are',
-      Array.isArray(asOlder) && !asOlder.includes('FIX') && asOlder.includes('NICU') && asOlder.includes('SCN'));
+    const labels = (s) => { const D = loadData(s); return typeof D.wardLabelsStartingAt === 'function' ? D.wardLabelsStartingAt(30) : 'no wardLabelsStartingAt'; };
+    const at30 = labels(src);
+    A.ok('1b.1 the planted ward FIX, at 30 mL, is named', Array.isArray(at30) && at30.includes('FIX'), at30);
+    const FIX30 = 'beds: [{ prefix: "FIX", count: 3 }], deadVolMl: 30 },';
+    A.ok('1b.2 (the FIX row this test rewrites is in the planted data.js)', src.includes(FIX30));
+    const src0 = src.replace(FIX30, 'beds: [{ prefix: "FIX", count: 3 }], deadVolMl: 0 },');
+    const at0 = labels(src0);
+    A.ok('1b.3 FIX at 0 mL: not named, NICU and SCN still are',
+      Array.isArray(at0) && !at0.includes('FIX') && at0.includes('NICU') && at0.includes('SCN'), at0);
+    const D0 = loadData(src0);
+    A.eq('1b.4 …and a FIX bed starts at 0 mL, NICU at 30', [D0.defaultDeadVolFor({ currentBed: 'FIX 1' }), D0.defaultDeadVolFor({ currentBed: 'NICU 1' })], [0, 30]);
   },
 
   async 'today-backend'(A) {
@@ -230,12 +235,13 @@ const scenarios = {
     const msg = T.checkSources(gas)[0];
     A.ok('4.8 the failure says what to run', msg && /node tools\/ward-table\.cjs --write/.test(msg.why));
     const bad = (row) => which(T.checkSources({ ...files(), 'data.js': T.plantWard(read('data.js'), row) }));
-    A.eq('4.9 a second NICU is refused', bad('{ key: "NICU", label: "N2", sub: "x", stickerLabel: "x", beds: [{ prefix: "NN", count: 1 }] },'), ['data.js']);
-    A.eq('4.10 a ward keyed "other" is refused', bad('{ key: "other", label: "O", sub: "x", stickerLabel: "x", beds: [{ prefix: "OO", count: 1 }] },'), ['data.js']);
-    A.eq('4.11 a prefix another ward has (any case) is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "x", beds: [{ prefix: "scn", count: 2 }] },'), ['data.js']);
-    A.eq('4.12 a prefix that is not letters is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "x", beds: [{ prefix: "P-1", count: 2 }] },'), ['data.js']);
-    A.eq('4.13 a ward with no bed is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "x", beds: [] },'), ['data.js']);
-    A.eq('4.14 a ward with no sticker label is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "", beds: [{ prefix: "PICUX", count: 2 }] },'), ['data.js']);
+    A.eq('4.9 a second NICU is refused', bad('{ key: "NICU", label: "N2", sub: "x", stickerLabel: "x", beds: [{ prefix: "NN", count: 1 }], deadVolMl: 30 },'), ['data.js']);
+    A.eq('4.10 a ward keyed "other" is refused', bad('{ key: "other", label: "O", sub: "x", stickerLabel: "x", beds: [{ prefix: "OO", count: 1 }], deadVolMl: 30 },'), ['data.js']);
+    A.eq('4.11 a prefix another ward has (any case) is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "x", beds: [{ prefix: "scn", count: 2 }], deadVolMl: 30 },'), ['data.js']);
+    A.eq('4.12 a prefix that is not letters is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "x", beds: [{ prefix: "P-1", count: 2 }], deadVolMl: 30 },'), ['data.js']);
+    A.eq('4.13 a ward with no bed is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "x", beds: [], deadVolMl: 30 },'), ['data.js']);
+    A.eq('4.14 a ward with no sticker label is refused', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "", beds: [{ prefix: "PICUX", count: 2 }], deadVolMl: 30 },'), ['data.js']);
+    A.eq('4.14b a ward with no dead space is refused (openspec paediatric-wards, task 3.2)', bad('{ key: "PICUX", label: "PICUX", sub: "x", stickerLabel: "x", beds: [{ prefix: "PICUX", count: 2 }] },'), ['data.js']);
     const checks = JSON.parse(read('tools/checks.json')).checks;
     const c = checks.find(x => Array.isArray(x.cmd) && x.cmd.join(' ') === 'node tools/ward-table.cjs');
     A.ok('4.15 tools/checks.json runs it, blocking, at every level, in the pre phase',

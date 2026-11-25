@@ -774,10 +774,10 @@ clinical judgement. Everything else is engineering sequencing.
       - **A deliberate 0 dead space has to be chosen again each day.** A new day turns yesterday's 0 into 30,
         because a saved 0 cannot be told apart from the old default. Fine if 0 is rare; otherwise it needs its
         own "no dead space" flag in `calcInput`.
-      - **When an older-children ward is added** (`bedWard`, `BED_OPTIONS`, then `OLDER_CHILD_WARDS`),
-        Aminoplasmal 15% becomes selectable there, and its new orders start at 0 mL dead space until that
-        ward's own value is set in `defaultDeadVolFor`. Its label's line is **2 years**, not a ward, so an age
-        check may be wanted then. Center Point needs a packet version with a product slot before it
+      - **When an older-children ward is added** (since 2026-11-25: a `WARDS` row with its own `deadVolMl`, and
+        the products by rule set, `ruleSetFor`, not by ward; paediatric-wards tasks 3.2), Aminoplasmal 15%
+        becomes selectable under the paediatric set by its label's **2 years**, counted on the order's date
+        (tasks 4.5). Center Point needs a packet version with a product slot before it
         can offer it.
 - [ ] 🧱 **follow-ups · From the 2026-09-18 pre-deploy review** (`CHANGELOG.md` 2026-09-18 (2) §6) —
       engineering, low risk, not blocking.

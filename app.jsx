@@ -256,7 +256,8 @@ function computeAlerts(patient, allEntries) {
     // is both pickTarget's default and the safer of the two.
     // Full EN never counts a MEN feed (Pp, 2026-11-10; D_A.isFullEn).
     const isEN  = D_A.isFullEn(last);
-    const T     = isEN ? D_A.ENTERAL_TARGETS : D_A.TPN_TARGETS;
+    const RT    = D_A.ruleTablesFor(patient);   // the patient's rule set's bands (data.js ruleTablesFor)
+    const T     = isEN ? RT.ENTERAL_TARGETS : RT.TPN_TARGETS;
     const src   = isEN ? "ESPGHAN 2022" : "ESPGHAN 2018";
     const route = isEN ? "enteral" : "parenteral";
     // DOL re-derived from the row's own date, never read off the stored `dol`
@@ -267,7 +268,7 @@ function computeAlerts(patient, allEntries) {
     // (protein 1.5–2.5, kcal 45–55) for an infant a week into its admission —
     // so a genuinely under-fed baby read as on target and never alerted.
     const lastDol = D_A.entryDol(patient, last);
-    const tGir  = D_A.TARGETS.gir();
+    const tGir  = RT.TARGETS.gir();
     const tPro  = isEN ? T.protein() : T.protein(lastDol);
     const tKcal = isEN ? T.kcal()    : T.kcal(lastDol);
     // ── GIR: graded by D_A.girStatus, the same call the Calculator makes ──

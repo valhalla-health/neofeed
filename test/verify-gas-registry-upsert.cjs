@@ -102,16 +102,17 @@ sheet = makeSheet(PAT_HEADER.slice(0, 18), [EXISTING.slice(0, 18)], 18);
 let threw = null;
 try { sandbox.registerPatient(patient); } catch (e) { threw = e.message; }
 eq('editing an existing patient does not throw', threw, null);
-eq('grid widened 18 → 21',                       sheet.maxColumns, 21);
+eq('grid widened 18 → 22 (V ruleSet since 2026-11-25)', sheet.maxColumns, 22);
 eq('widened by inserting once',                  sheet.insertedColumns.length, 1);
 eq('wrote the row in place, not appended',       sheet.appended.length, 0);
-eq('wrote all 21 columns',                       sheet.writes[0]?.numCols, 21);
+eq('wrote all 22 columns',                       sheet.writes[0]?.numCols, 22);
 eq('wrote to the matching row',                  sheet.writes[0]?.row, 2);
 eq('multiplesCount lands in column R',           sheet.writes[0]?.values[0][17], 0);
 eq('currentBed lands in column K',               sheet.writes[0]?.values[0][10], 'NICU 11');
 eq('pnIndication lands in column S',             sheet.writes[0]?.values[0][18], 'NEC');
 eq('liverDysfunction lands in column T, a real boolean', sheet.writes[0]?.values[0][19], true);
 eq('renalDysfunction lands in column U, a real boolean', sheet.writes[0]?.values[0][20], false);
+eq('the rule set lands in column V',               sheet.writes[0]?.values[0][21], 'newborn');
 
 // ── 2. Wide-enough grid — the widen must be a no-op ───────────────────────
 console.log('\n── upsert onto an already-wide (26-column) tab ──');
@@ -119,7 +120,7 @@ sheet = makeSheet(PAT_HEADER, [EXISTING], 26);
 sandbox.registerPatient({ ...patient, currentBed: 'NICU 1', multiplesCount: 2 });
 eq('no columns inserted',                sheet.insertedColumns.length, 0);
 eq('grid untouched',                     sheet.maxColumns, 26);
-eq('still writes exactly 21 columns',    sheet.writes[0]?.numCols, 21);
+eq('still writes exactly 22 columns',    sheet.writes[0]?.numCols, 22);
 eq('normalized bed reaches the sheet',   sheet.writes[0]?.values[0][10], 'NICU 1');
 eq('multiplesCount reaches the sheet',   sheet.writes[0]?.values[0][17], 2);
 
@@ -130,7 +131,7 @@ sheet = makeSheet(PAT_HEADER.slice(0, 18), [EXISTING.slice(0, 18)], 18);
 // guard (section 6) would otherwise refuse this registration.
 sandbox.registerPatient({ ...patient, sessionId: 'NF-000001', currentBed: 'NICU 4' });
 eq('appended rather than written in place', sheet.appended.length, 1);
-eq('appended row is 21 wide',               sheet.appended[0]?.length, 21);
+eq('appended row is 22 wide',               sheet.appended[0]?.length, 22);
 eq('no in-place write',                     sheet.writes.length, 0);
 
 // ── 4. Formula-injection guard still applies on the widened path ──────────

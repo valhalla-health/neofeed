@@ -1060,6 +1060,71 @@ function _patientWardOf(currentBed, bedHistory) {
   return "";
 }
 
+// ── Rule sets (openspec/changes/paediatric-wards, design D3; tasks group 3) ──
+// A patient's rule set is the tables and limits their orders are computed under.
+// It follows the age on the admission date of the record, is fixed for that
+// admission, and never follows the bed or the ward. data.js ruleSetFor gives the
+// same answer; test/verify-rule-set.cjs compares the two. Only the newborn set
+// exists: until a paediatric set is signed (tasks group 4) every record is on it,
+// with or without a date of birth, so no NICU or SCN order moves.
+//
+// registerPatient writes the set into Patient_Registry V (ruleSet) on every save.
+// An order (RULE_SET_ACTIONS) is refused, before any sheet changes, when the
+// stored set differs from the derived one (a cell typed by hand, or dates changed
+// outside registerPatient), or when the set the tab computed under differs. A tab
+// that sends none computed the newborn rules, so it is read as newborn.
+var RULE_SETS_GS = ["newborn"];
+var RULE_SET_COL = 21;   // Patient_Registry V, 0-based (PAT_HEADERS "ruleSet")
+function _ruleSetOf(dob, admissionDate) {
+  return "newborn";
+}
+function _ruleSetOfRow(row) {
+  return _ruleSetOf(row ? row[6] : "", row ? row[7] : "");
+}
+// The set a row carries in V, lower case; "" for a row no save has written since V
+// was added, which reads as its derived set.
+function _storedRuleSet(row) {
+  var v = row ? row[RULE_SET_COL] : "";
+  return String(v == null ? "" : v).trim().toLowerCase();
+}
+var RULE_SET_STORED_MSG = "บันทึกไม่ได้ — ชุดเกณฑ์ที่เก็บไว้ของผู้ป่วยรายนี้ไม่ตรงกับอายุแรกรับ ให้ admin ตรวจวันเกิดกับวัน admit แล้วบันทึกข้อมูลผู้ป่วยใหม่";
+var RULE_SET_SENT_MSG = "แอปในแท็บนี้คำนวณด้วยชุดเกณฑ์ที่ไม่ตรงกับผู้ป่วยรายนี้ — รีเฟรชหน้าแล้วบันทึกใหม่";
+var RULE_SET_UNREADABLE_MSG = "ตรวจชุดเกณฑ์ของผู้ป่วยไม่ได้ชั่วคราว — ยังไม่ได้บันทึก ลองใหม่อีกครั้ง";
+var RULE_SET_EDIT_MSG = "บันทึกไม่ได้ — การแก้นี้เปลี่ยนชุดเกณฑ์ของผู้ป่วยรายนี้ ให้ admin เป็นผู้แก้ และบันทึกใบสั่งใหม่ทุกใบ";
+var RULE_SET_ACTIONS = { logDailyNutrition: true, updateDailyNutrition: true, publishLog: true };
+// The refusal for an order on `row`, or null. `entry` is the order sent
+// (logDailyNutrition, updateDailyNutrition); publishLog sends none and is checked
+// on the stored set alone.
+function _ruleSetRefusal(row, entry, checksEntry) {
+  var derived = _ruleSetOfRow(row);
+  var stored = _storedRuleSet(row);
+  if (stored && stored !== derived) return { error: RULE_SET_STORED_MSG, code: "RuleSet" };
+  if (checksEntry) {
+    var sentRaw = entry && typeof entry === "object" ? entry.ruleSet : undefined;
+    var sent = sentRaw == null || String(sentRaw).trim() === "" ? "newborn" : String(sentRaw).trim().toLowerCase();
+    if (sent !== derived) return { error: RULE_SET_SENT_MSG, code: "RuleSet" };
+  }
+  return null;
+}
+
+// A credible date of birth (design D3): a new record needs one, and no record may
+// be born after its admission. The future and Buddhist-era years are
+// _checkAdmissionDate's. An edit that leaves both dates as stored passes, by that
+// function's rule: refusing a pair the editor never touched would lock a legacy
+// record against every other correction.
+var DOB_REQUIRED_MSG = "ต้องระบุวันเกิด (Date of birth) ก่อนลงทะเบียน";
+function _checkDobCredible(m, stored) {
+  var dob = String(_fmtDate(m.dob || "")).trim();
+  var adm = String(_fmtDate(m.admissionDate || "")).trim();
+  if (!stored && !dob) throw new Error(DOB_REQUIRED_MSG);
+  var ymd = /^\d{4}-\d{2}-\d{2}$/;
+  if (!ymd.test(dob) || !ymd.test(adm)) return;
+  if (stored && dob === String(_fmtDate(stored[6])).trim() && adm === String(_fmtDate(stored[7])).trim()) return;
+  if (dob > adm) {
+    throw new Error("ค่า Date of birth (" + dob + ") อยู่หลัง Admit date (" + adm + ") — ตรวจสอบอีกครั้ง");
+  }
+}
+
 // ── Sheet accessors ───────────────────────────────────────────
 // The header rows are also what the column-drift guard (_assertSchema) checks
 // the live tabs against — one list, so the two cannot disagree.
@@ -1072,7 +1137,13 @@ var PAT_HEADERS = [
   // PN" and the Liver/Renal Dysfunction ticks next to Diagnosis. Blank on
   // every row until applyPatientRegistryHeaderColumns() is run — see its
   // comment — same as Daily_Log's AC–AE before applyLogHeaderColumns.
-  "pnIndication","liverDysfunction","renalDysfunction"
+  "pnIndication","liverDysfunction","renalDysfunction",
+  // V, added 2026-11-25 (paediatric-wards group 3): the rule set the record's
+  // orders are computed under (_ruleSetOf), written by registerPatient. Blank on
+  // a row no save has touched since; a blank cell reads as the derived set. The
+  // header is written by ensurePatHeaderColumns(true); a blank header passes
+  // the schema guard.
+  "ruleSet"
 ];
 var LOG_HEADERS = [
   "ts","sessionId","dol","weight","fluid","gir",
@@ -1651,7 +1722,7 @@ function doPost(e) {
     var canWriteOrder = user.role === "doctor" || user.role === "admin" || !_nursingEnabled();
     var ORDER_FORBIDDEN = { error: "พยาบาลใช้ Calculator ได้ แต่บันทึกหรือ Submit ใบสั่ง TPN ไม่ได้ — บันทึก I/O ที่ Dashboard", code: "Forbidden" };
 
-    var accessRefusal = _patientAccessRefusal(action, body.sessionId, scope, user.role === "admin");
+    var accessRefusal = _patientAccessRefusal(action, body.sessionId, scope, user.role === "admin", body.entry);
     if (accessRefusal) {
       // Audited without a patient identifier: the action and who asked.
       if (accessRefusal.code === "WardScope") logAudit("wardScopeRefused:" + action, "", user.email);
@@ -1928,22 +1999,31 @@ var WARD_LIST_WRITES = { logDailyNutrition: true, updateDailyNutrition: true, pu
 var WARD_SCOPED_ACTIONS = { logDailyNutrition: true, updateDailyNutrition: true, publishLog: true,
   updateWeights: true, deletePatient: true, logNursingEntry: true, updateNursingEntry: true,
   acquireLogLock: true, releaseLogLock: true };
-// One registry read for both checks, before any sheet changes: the caller's wards
-// (WARD_SCOPED_ACTIONS) and the H5 sync window (WARD_LIST_WRITES). An unknown
+// One registry read for the three checks, before any sheet changes: the caller's wards
+// (WARD_SCOPED_ACTIONS), the H5 sync window (WARD_LIST_WRITES) and an order's rule
+// set (RULE_SET_ACTIONS). A failed read refuses the ward and the rule-set checks. An unknown
 // sessionId passes to the action, which answers it as before. When the read
 // fails, the ward check refuses (it guards what one ward may see of another);
 // the window check alone still lets it through, as before: the threat there is a
 // hand-made request, and a Sheets hiccup must not stop an admin's save.
-function _patientAccessRefusal(action, sessionId, scope, seesArchive) {
+function _patientAccessRefusal(action, sessionId, scope, seesArchive, entry) {
   var checkScope = scope !== null && WARD_SCOPED_ACTIONS.hasOwnProperty(action);
   var checkWindow = seesArchive !== true && WARD_LIST_WRITES.hasOwnProperty(action);
-  if ((!checkScope && !checkWindow) || !_requiredString(sessionId)) return null;
+  // The order's rule set (_ruleSetRefusal), from the same read, for every role.
+  var checkSet = RULE_SET_ACTIONS.hasOwnProperty(action);
+  if ((!checkScope && !checkWindow && !checkSet) || !_requiredString(sessionId)) return null;
   var rows;
   try { rows = getSheetPat().getDataRange().getValues(); }
   catch (e) {
     if (checkScope) {
       Logger.log("ward-scope check: the registry read failed, so the request was refused");
       return { error: WARD_SCOPE_UNREADABLE_MSG, code: "ServiceUnavailable", retryable: true };
+    }
+    // An order whose rule set cannot be read is refused too, an admin's included: no
+    // later read checks the set (Vera, 2026-11-25). Retryable, like the ward check.
+    if (checkSet) {
+      Logger.log("rule-set check: the registry read failed, so the order was refused");
+      return { error: RULE_SET_UNREADABLE_MSG, code: "ServiceUnavailable", retryable: true };
     }
     Logger.log("ward-list check skipped: the registry read failed");
     return null;
@@ -1952,6 +2032,7 @@ function _patientAccessRefusal(action, sessionId, scope, seesArchive) {
     if (String(rows[i][0]) !== String(sessionId)) continue;
     if (checkScope && !_inScope(scope, _patientWardOfRow(rows[i]))) return { error: WARD_SCOPE_MSG, code: "WardScope" };
     if (checkWindow && _outsideWardList(rows[i], seesArchive)) return { error: OUTSIDE_WARD_LIST_MSG };
+    if (checkSet) return _ruleSetRefusal(rows[i], entry, action !== "publishLog");
     return null;
   }
   return null;
@@ -4437,7 +4518,7 @@ function applyLogHeaderColumns() {
 // writes the full header row when it creates Patient_Registry from scratch,
 // so a live tab predating multiplesCount (added 2026-08-14, R) never gained
 // that label, and the same now holds for S–U (pnIndication, liverDysfunction,
-// renalDysfunction, added 2026-11-05). It still widens the grid to 21 columns
+// renalDysfunction, added 2026-11-05), and V (ruleSet, 2026-11-25). It still widens the grid to 22 columns
 // before labelling, but that part is now belt-and-braces: registerPatient()
 // widens on demand itself (2026-08-17), so a too-narrow grid no longer makes
 // editing an existing patient throw and this helper is effectively cosmetic —
@@ -4448,7 +4529,8 @@ function applyLogHeaderColumns() {
 // already contains anything it reports and changes nothing, so it is safe
 // to re-run.
 function ensurePatHeaderColumns(apply) {
-  var WANT = { 18: "multiplesCount", 19: "pnIndication", 20: "liverDysfunction", 21: "renalDysfunction" };
+  var WANT = { 18: "multiplesCount", 19: "pnIndication", 20: "liverDysfunction", 21: "renalDysfunction",
+    22: "ruleSet" };
   var sh   = getSheetPat();
   var out  = {
     applied: apply === true,
@@ -4456,9 +4538,9 @@ function ensurePatHeaderColumns(apply) {
     changes: [], skipped: []
   };
 
-  var need = 21 - sh.getMaxColumns();
+  var need = 22 - sh.getMaxColumns();
   if (need > 0) {
-    out.changes.push("grid: " + sh.getMaxColumns() + " -> 21 columns (+" + need + ")");
+    out.changes.push("grid: " + sh.getMaxColumns() + " -> 22 columns (+" + need + ")");
     if (apply === true) sh.insertColumnsAfter(sh.getMaxColumns(), need);
   } else {
     out.skipped.push("grid: already " + sh.getMaxColumns() + " columns — wide enough");
@@ -4482,7 +4564,7 @@ function ensurePatHeaderColumns(apply) {
     out.skipped.push("headers: dry run on a too-narrow grid — re-run with apply to see them");
   }
 
-  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(21, sh.getLastColumn())).getValues()[0];
+  out.headerRowAfter = sh.getRange(1, 1, 1, Math.max(22, sh.getLastColumn())).getValues()[0];
   Logger.log(JSON.stringify(out, null, 2));
   return out;
 }
@@ -5064,6 +5146,13 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
     // the anchor DOL is now computed from, so it is held to the same rule.
     _checkAdmissionDate(m.admissionDate, stored ? stored[7] : null, "Admit date");
     _checkAdmissionDate(m.dob,           stored ? stored[6] : null, "Date of birth");
+    _checkDobCredible(m, stored);
+    // The rule set, from the merged dates. A doctor's or nurse's edit that would
+    // move a record onto another set is refused; an admin's goes through, and the
+    // record's orders are then re-saved under the new set (design D3).
+    var ruleSet = _ruleSetOf(m.dob, m.admissionDate);
+    var storedSet = stored ? _storedRuleSet(stored) : "";
+    if (storedSet && storedSet !== ruleSet && scope !== null) throw _codedError(RULE_SET_EDIT_MSG, "RuleSet", false);
     _checkPatientText(m, stored);
     // Two letters of each name part, as the client stores it (_shortPatientName),
     // after the length guard above, so an over-long name is still refused, not cut.
@@ -5093,7 +5182,7 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
       var lookalike = _possibleDuplicate(data, m, seesArchive === true, scope);
       if (lookalike) return { needsConfirm: true, code: "PossibleDuplicate", error: lookalike.message, matchedId: lookalike.matchedId };
     }
-    var row21 = [
+    var rowOut = [
       _sheetSafe(m.sessionId), _sheetSafe(m.name || ""), _sheetSafe(m.initials || ""),
       _numSafe(m.bw, 0), _numSafe(m.ga, 0), _sheetSafe(m.sex || "boys"),
       _sheetSafe(m.dob || ""), _sheetSafe(m.admissionDate || ""), _sheetSafe(m.twinSuffix || ""),
@@ -5107,9 +5196,11 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
       // S–U, 2026-11-05: no formula-injection risk (a fixed enum and two
       // booleans, never free text), so plain values rather than _sheetSafe.
       _sheetSafe(m.pnIndication || ""), m.liverDysfunction === true, m.renalDysfunction === true,
+      // V, 2026-11-25: the derived rule set (one of RULE_SETS_GS, never free text).
+      ruleSet,
     ];
     if (stored) {
-      // A Patient_Registry tab narrower than 21 columns would make this
+      // A Patient_Registry tab narrower than the row would make this
       // getRange() out of bounds and throw — surfacing at the bedside as a
       // failed save when EDITING an existing patient. Widen on demand so the
       // upsert can't depend on whether the one-off applyPatientRegistryHeaderColumns
@@ -5118,14 +5209,14 @@ function registerPatient(p, isNew, base, confirmOverwrite, confirmDuplicate, see
       // insertSheet() starts at Sheets' 26-column default, so in practice
       // this only fires on a tab whose columns were trimmed by hand).
       // Creating is fine either way — appendRow widens the sheet itself.
-      if (sheet.getMaxColumns() < row21.length) {
-        sheet.insertColumnsAfter(sheet.getMaxColumns(), row21.length - sheet.getMaxColumns());
+      if (sheet.getMaxColumns() < rowOut.length) {
+        sheet.insertColumnsAfter(sheet.getMaxColumns(), rowOut.length - sheet.getMaxColumns());
       }
       _assertRowStillHolds(sheet, rowIndex + 1, 1, p.sessionId);
-      sheet.getRange(rowIndex + 1, 1, 1, row21.length).setValues([row21]);
+      sheet.getRange(rowIndex + 1, 1, 1, rowOut.length).setValues([rowOut]);
       return;
     }
-    sheet.appendRow(row21);
+    sheet.appendRow(rowOut);
   } finally {
     _bumpDataVersion();
     lock.releaseLock();

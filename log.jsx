@@ -11,13 +11,15 @@ const n = (v, d = 1) => D_L.displayNum(v, d);
 // ============================================================
 // TrendGraph — single-metric trend with target zone + axis toggle
 // ============================================================
-// Metric configs: target zones derived from D_L.TARGETS / KCMH practice
+// Metric configs: target zones derived from the rule set's tables (D_L.ruleTablesFor) / KCMH practice
 // Score = entry[key]; x = DOL or DayAdmit (entry.dol - admitDol)
 // ============================================================
 // Target picker — switches between PN and EN regimes per entry.
 // Trigger: Full EN (D_L.isFullEn, MEN never counts) → ENTERAL_TARGETS, else TPN_TARGETS.
 // Returns [lo, hi] or null when no target band applies in that mode.
 function pickTarget(metricKey, entry, patient) {
+  // The bands of the patient's rule set (data.js ruleTablesFor), as the Calculator reads them.
+  const RT = D_L.ruleTablesFor(patient);
   if (!entry) return null;
   const isEN = D_L.isFullEn(entry);
   // Re-derived from the row's date, not the stored snapshot — a stale `dol`
@@ -25,25 +27,25 @@ function pickTarget(metricKey, entry, patient) {
   const dol = D_L.entryDol(patient, entry);
   const wt  = entry.weight || patient?.bw || 1000;
   if (isEN) {
-    if (metricKey === "kcal")  return D_L.ENTERAL_TARGETS.kcal();
-    if (metricKey === "pro")   return D_L.ENTERAL_TARGETS.protein();
+    if (metricKey === "kcal")  return RT.ENTERAL_TARGETS.kcal();
+    if (metricKey === "pro")   return RT.ENTERAL_TARGETS.protein();
     if (metricKey === "gir")   return null; // GIR n/a when fully enteral
-    if (metricKey === "fluid") return D_L.TARGETS.fluid(dol, wt, patient?.bw);
-    if (metricKey === "na")    return D_L.ENTERAL_TARGETS.na();
-    if (metricKey === "k")     return D_L.ENTERAL_TARGETS.k();
-    if (metricKey === "ca")    return D_L.ENTERAL_TARGETS.ca();
-    if (metricKey === "p")     return D_L.ENTERAL_TARGETS.p();
+    if (metricKey === "fluid") return RT.TARGETS.fluid(dol, wt, patient?.bw);
+    if (metricKey === "na")    return RT.ENTERAL_TARGETS.na();
+    if (metricKey === "k")     return RT.ENTERAL_TARGETS.k();
+    if (metricKey === "ca")    return RT.ENTERAL_TARGETS.ca();
+    if (metricKey === "p")     return RT.ENTERAL_TARGETS.p();
   } else {
-    if (metricKey === "kcal")  return D_L.TPN_TARGETS.kcal(dol);
-    if (metricKey === "pro")   return D_L.TPN_TARGETS.protein(dol);
-    if (metricKey === "gir")   return D_L.TARGETS.girTarget();
-    if (metricKey === "fluid") return D_L.TARGETS.fluid(dol, wt, patient?.bw);
+    if (metricKey === "kcal")  return RT.TPN_TARGETS.kcal(dol);
+    if (metricKey === "pro")   return RT.TPN_TARGETS.protein(dol);
+    if (metricKey === "gir")   return RT.TARGETS.girTarget();
+    if (metricKey === "fluid") return RT.TARGETS.fluid(dol, wt, patient?.bw);
     // Na and K also take the weight group (Jochum 2018 < 1500 g), on the
     // fluid tier's weight, as the Calculator's tiles do.
-    if (metricKey === "na")    return D_L.TPN_TARGETS.na(dol, wt, patient?.bw, patient?.ga);
-    if (metricKey === "k")     return D_L.TPN_TARGETS.k(dol, wt, patient?.bw, patient?.ga);
-    if (metricKey === "ca")    return D_L.TPN_TARGETS.ca(dol);
-    if (metricKey === "p")     return D_L.TPN_TARGETS.p(dol);
+    if (metricKey === "na")    return RT.TPN_TARGETS.na(dol, wt, patient?.bw, patient?.ga);
+    if (metricKey === "k")     return RT.TPN_TARGETS.k(dol, wt, patient?.bw, patient?.ga);
+    if (metricKey === "ca")    return RT.TPN_TARGETS.ca(dol);
+    if (metricKey === "p")     return RT.TPN_TARGETS.p(dol);
   }
   return null;
 }

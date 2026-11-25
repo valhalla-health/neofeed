@@ -88,8 +88,8 @@ shows what the feed provides; an unticked control proves the harness can see EN 
 order whose only P was the MEN feed now raises the no-P stop; and Praew's guard warns (never stops) when
 MEN is ticked above `MEN_MAX_ML_KG`. **Magnesium** — a Step 4 tile against `TARGETS.mg`, in mEq so the
 ESPGHAN bounds 0.2 / 0.4 read in range, with its own alert line citing the parenteral guideline even on
-full feeds. **Aminoplasmal 15%** — contraindicated under 2 years, so `aaProductsFor` offers it on no ward
-today (NICU, iso, SCN, blank and free-text beds all get Aminoven); a saved Aminoplasmal order reopened on
+full feeds. **Aminoplasmal 15%** — contraindicated under 2 years, so `aaProductsFor` offers it to no patient
+today (the newborn set, the only one, lists Aminoven alone; `verify-rule-set.cjs`) (NICU, iso, SCN, blank and free-text beds all get Aminoven); a saved Aminoplasmal order reopened on
 NICU recomputes as Aminoven and cannot print until saved again; and, with the ward gate stubbed, the
 future-ward path (product buttons, 0.15 g/mL, print, saved choice, "changes vs previous order") works
 end to end while the Center Point entry stays Aminoven only. **Dead space** (§10) — a new NICU/SCN order

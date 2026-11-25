@@ -159,16 +159,19 @@ runScenarios(__filename, 'GROWTH GATE ON THE TPN ORDER (2026-11-22)', {
     A.eq('held: a reason for another DOL given the Sunday before',
       D.sundayGrowthHolds(p({}), '2026-11-15', { reason: 'on HFOV', dol: 5, at: '2026-11-08T02:00:00.000Z' }, SUN), true);
     A.eq('held: a reason whose time cannot be read', D.sundayGrowthHolds(p({}), '2026-11-15', { reason: 'on HFOV', dol: 5, at: 'x' }, SUN), true);
-    // An older child's ward is not asked (isNewbornUnit). OLDER_CHILD_WARDS is empty
-    // today, so a ward is put on it in a copy of data.js for this case only.
-    const src = fs.readFileSync(DIR + 'data.js', 'utf8');
-    const anchor = 'const OLDER_CHILD_WARDS = Object.freeze([]);';
-    A.ok('(OLDER_CHILD_WARDS is empty in data.js)', src.includes(anchor));
+    // A child on another rule set is not asked (isNewbornUnit). Only the newborn set exists
+    // today (data.js ruleSetFor, tasks 3.2), so a copy of data.js puts one marked child on
+    // another set for this case only.
+    const src = fs.readFileSync(DIR + 'data.js', 'utf8').replace(/\r\n/g, '\n');
+    const anchor = 'function ruleSetFor(patient) {\n  return "newborn";\n}';
+    A.ok('(ruleSetFor has only the newborn branch in data.js)', src.includes(anchor));
     const sb2 = { window: {}, console, Intl, Date };
-    vm.runInNewContext(src.replace(anchor, 'const OLDER_CHILD_WARDS = Object.freeze(["SCN"]);'), sb2);
+    vm.runInNewContext(src.replace(anchor,
+      'function ruleSetFor(patient) {\n  return patient && patient.fixtureSet === "paediatric" ? "paediatric" : "newborn";\n}'), sb2);
     const D2 = sb2.window.NEOFEED_DATA;
-    A.eq('an older child\'s ward: nothing due, nothing held', [D2.weeklyGrowthMissing(p({ currentBed: 'SCN 1' }), SUN), D2.sundayGrowthHolds(p({ currentBed: 'SCN 1' }), '2026-11-15', null, SUN)], [null, false]);
-    A.eq('…a newborn ward in the same copy still is', D2.sundayGrowthHolds(p({}), '2026-11-15', null, SUN), true);
+    const older = p({ currentBed: 'SCN 1', fixtureSet: 'paediatric' });
+    A.eq('a child on another rule set: nothing due, nothing held', [D2.weeklyGrowthMissing(older, SUN), D2.sundayGrowthHolds(older, '2026-11-15', null, SUN)], [null, false]);
+    A.eq('…a newborn in the same bed in the same copy still is', D2.sundayGrowthHolds(p({ currentBed: 'SCN 1' }), '2026-11-15', null, SUN), true);
   },
 
   async 'print'(A) {

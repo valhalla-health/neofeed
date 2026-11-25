@@ -237,8 +237,9 @@ buttons, the census and usage cards, the backend's bed check and its usage and Q
 groups, bed sort and sticker label all read it. Until 2026-11-22 each wrote NICU and SCN out by hand. A ward added to
 the table is a data change: one row, two generated copies, and no other edit.
 
-**Not for a real ward yet.** Every ward in the table is a newborn unit until a rule set is chosen by age (tasks.md
-group 3): it is offered Aminoven only and starts at the newborn 30 mL dead space. Access is limited by ward since
+**Not for a real ward yet.** The rules an order follows come from the child's age (`ruleSetFor`, tasks.md group 3),
+never the ward, and only the newborn set exists: a child on a new ward's bed is offered Aminoven only and graded on the
+newborn bands, like every infant on NICU and SCN. Access is limited by ward since
 group 2 (§ Thai PDPA compliance posture, "Access by ward"): no clinician account holds a new ward until an admin gives it
 one. A paediatric ward's row lands with its rule set (group 5), on Pp's word. Until then, add a ward only
 to try the steps, on dev local or in a harness, and take it out again.
@@ -246,12 +247,15 @@ to try the steps, on dev local or in a harness, and take it out again.
 1. **The row.** Add one line to `WARDS`, in the place the ward should be listed (table order is screen order;
    ทดสอบระบบ always comes last):
    ```js
-   { key: "DEMO", label: "DEMO", sub: "DEMO 1–4", stickerLabel: "DEMO(ทดลอง)", beds: [{ prefix: "DEMO", count: 4 }] },
+   { key: "DEMO", label: "DEMO", sub: "DEMO 1–4", stickerLabel: "DEMO(ทดลอง)", beds: [{ prefix: "DEMO", count: 4 }], deadVolMl: 30 },
    ```
    - `key`: letters and digits, not `other`, `none`, `ALL` or `total`. It is written into `Usage_Log` and
      `QI_SubmitTimes`, so a ward keeps its key. `FIX` is the harnesses' own fixture ward; do not use it.
    - `label` names the tile, the tab and the census card; `sub` is the tile's second line, the bed range.
    - `stickerLabel` is the ward as the TPN room's bag sticker prints it. A real ward's comes from the TPN room (gate 0.6).
+   - `deadVolMl` is the dead space (ปริมาตรคาสาย) a new TPN order on the ward starts with, mL/day: its giving set
+     (`defaultDeadVolFor`). It moves printed bag amounts. A real ward's comes from the TPN room (gate 0.6);
+     `tools/ward-table.cjs` refuses a row without one.
    - `beds` is a list of runs, each `{ prefix, count }` (`DEMO 1` … `DEMO 4`) or `{ prefix, rooms }`, beds per
      room (`{ prefix: "iso", rooms: [2, 2, 4] }` is `iso 1-1` … `iso 3-4`). A prefix is letters only and no other
      run's, in any case. Before a real ward: a bed already in the sheet that the new prefix matches (a free-text
@@ -664,6 +668,15 @@ shows every ward, as before. **To roll back,** move the deployment to the previo
 and the older backend never reads it. A Staff row an admin adds later starts with no ward: give it one on the Admin
 page (`setStaffWards`), or type ward keys into its `wards` cell (comma separated, any case; seen within a minute).
 The sync cache key carries the ward set (`sync3_`), so no ward's cached reply reaches another.
+
+**The rule set (2026-11-25, `paediatric-wards` group 3) needs no migration.** `registerPatient` writes the record's
+rule set into Patient_Registry V (`ruleSet`) on its next save, and an order is checked against the set the backend
+derives (`_ruleSetOf`), with a blank V read as that set. Either half can go first: an older frontend sends no set,
+which is read as newborn, and an older backend ignores the one this frontend sends. To label column V, run
+`ensurePatHeaderColumns()` (dry run), then `ensurePatHeaderColumns(true)`; a blank header passes the schema guard,
+so this is cosmetic. From this backend on, a new registration needs a date of birth no later than the admission
+date (the Register form always sends one, derived from the admit date and DOL แรกรับ). **To roll back,** move the
+deployment to the previous version; column V stays and the older backend never reads it.
 
 Redeploys are live and NICU staff are on them: **always confirm before the redeploy step.**
 

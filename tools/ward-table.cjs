@@ -55,6 +55,11 @@ function validate(D) {
     for (const f of ['label', 'sub', 'stickerLabel']) {
       if (typeof w[f] !== 'string' || !w[f].trim()) out.push(`${at}: ${f} is blank`);
     }
+    // The dead space a new order starts with (defaultDeadVolFor): the ward's own
+    // giving set, from the TPN room. 0 is a real value (no overfill); a missing one is not.
+    if (typeof w.deadVolMl !== 'number' || !Number.isFinite(w.deadVolMl) || w.deadVolMl < 0) {
+      out.push(`${at}: deadVolMl must be a number of mL, 0 or more (the TPN room's value for the ward's giving set)`);
+    }
     if (!Array.isArray(w.beds) || !w.beds.length) { out.push(`${at}: no beds`); continue; }
     for (const r of w.beds) {
       const p = r && r.prefix;
