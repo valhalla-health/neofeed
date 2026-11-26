@@ -10,7 +10,8 @@
 //       A missing or plain-http URL, or a short secret, stops before any fetch.
 //   §2  Identity before status (spec §3 step 4): no registry row is `inactive`
 //       with not_in_registry; a DOB or admission date that differs is `mismatch`,
-//       even for an infant who has left; only then a status that is not Active
+//       even for an infant who has left, and so is a DOB NeoFeed does not trust
+//       (data.js dobCredible); only then a status that is not Active
 //       is `inactive`. Only `current` carries bed, multiple, weights and card.
 //   §3  Which order's card (§5.1): not superseded (AL) and not a draft (O, any
 //       case and spacing); an I/O-only revision and a row from before published
@@ -180,10 +181,16 @@ t.section('§2 identity before status', () => {
     t.ok('a DOB ' + name + ', copied exactly: mismatch, dob_mismatch, no data',
       e.status === 'mismatch' && JSON.stringify(e.checks) === '["dob_mismatch"]' && e.weights === null && e.feedCard === null, e);
   }
-  const sameDay = env(g, pat(g, 'S1', { 7: bkkMidnight(DOB) }), [], lk);
-  t.eq('a DOB on the admission date is trusted', sameDay.status, 'current');
-  const both2 = env(g, pat(g, 'S1', { 6: bkkMidnight('2026-11-22'), 7: bkkMidnight('2026-11-21') }), [], link('S1', { expectedDob: '2026-11-22' }));
-  t.eq('an untrusted and differing pair: each code once, in order', both2.checks, ['dob_mismatch', 'admission_mismatch']);
+  // Guards, not proof of the fix: these pass on the code before it too. They pin the
+  // boundaries dobCredible itself draws.
+  for (const [name, dob, adm] of [['on the admission date', DOB, DOB], ['exactly 2000-01-01', '2000-01-01', '2000-01-01'], ['today', TODAY, TODAY]]) {
+    const e = env(g, pat(g, 'S1', { 6: bkkMidnight(dob), 7: bkkMidnight(adm) }), [], link('S1', { expectedDob: dob, expectedAdmissionDate: adm }));
+    t.eq('a DOB ' + name + ' is trusted', e.status, 'current');
+  }
+  const both2 = env(g, pat(g, 'S1', { 6: bkkMidnight('2026-11-22'), 7: bkkMidnight('2026-11-21') }), [], link('S1', { expectedDob: '2026-11-23' }));
+  t.eq('an untrusted DOB that also differs: dob_mismatch once, then admission_mismatch', both2.checks, ['dob_mismatch', 'admission_mismatch']);
+  const noAdm = env(g, pat(g, 'S1', { 7: '' }), [], lk);
+  t.eq('a blank admission date: admission_mismatch only, as dobCredible trusts the DOB then', noAdm.checks, ['admission_mismatch']);
 
   for (const st of ['Discharged', 'Transferred', 'Expired', 'expired ']) {
     const e = env(g, pat(g, 'S1', { 9: st }), [order(g, 'S1', TODAY)], lk);
@@ -601,7 +608,9 @@ t.section('§10 logs and messages', () => {
   try { withNow(NOW, () => g3.sb.mybmPushRun()); } catch (e) { t3 = String(e.message); }
   t.ok('a chunk unreachable: throws, without the URL', /mybm push/.test(t3) && t3.indexOf('mybm.example.test') === -1, t3);
   t.ok('…and says MyBM could not be reached', /could not be reached/.test(t3), t3);
-  // A signing failure is not a network failure: nothing was sent, nothing is audited.
+  t.eq('…every envelope that may have left is audited', g3.audit().filter(a => a.action === 'mybmPush').length, 25);
+  t.ok('…and the counts line is still logged', g3.env.logs.some(l => /^mybm push: \{/.test(l) && /"accepted":20/.test(l)), g3.env.logs);
+  // A signing failure is not a network failure: nothing of that chunk is sent or audited.
   const g4 = freshBoot();
   const links4 = seedWard(g4, 3);
   const calls4 = fakeMybm(g4, { links: links4 });
@@ -611,8 +620,9 @@ t.section('§10 logs and messages', () => {
   try { withNow(NOW, () => g4.sb.mybmPushRun()); } catch (e) { t4 = String(e.message); }
   t.ok('a signing error is not reported as MyBM unreachable', t4 !== '' && !/could not be reached/.test(t4), t4);
   t.eq('…and audits nothing it did not send', [calls4.fetchAll.length, g4.audit().filter(a => a.action === 'mybmPush').length], [0, 0]);
-  t.eq('…every envelope that may have left is audited', g3.audit().filter(a => a.action === 'mybmPush').length, 25);
-  t.ok('…and the counts line is still logged', g3.env.logs.some(l => /^mybm push: \{/.test(l) && /"accepted":20/.test(l)), g3.env.logs);
+  t.ok('…says so in its own words, without the URL or the secret', /mybm push: an envelope could not be signed/.test(t4)
+    && t4.indexOf('mybm.example.test') === -1 && t4.indexOf(SECRET) === -1, t4);
+  t.ok('…and still logs the counts line', g4.env.logs.some(l => /^mybm push: \{/.test(l)), g4.env.logs);
 });
 
 t.done();

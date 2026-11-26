@@ -7304,8 +7304,9 @@ function _mybmFeed(type, vol, freq) {
 
 // The feed card of the patient's current order (§5.1), from their Daily_Log rows.
 // The card's DOL is worked out from the order's date and the DOB, which
-// wardFeedEnvelope has already found trusted, as data.js entryDol does: column C is the DOL when the row was saved and goes stale
-// (Vera, 2026-11-27). → { card: {orderDate, dol, feeds} | null, codes: [...] }
+// wardFeedEnvelope has already found trusted, as data.js entryDol does.
+// Column C is the DOL when the row was saved and goes stale (Vera, 2026-11-27).
+// → { card: {orderDate, dol, feeds} | null, codes: [...] }
 function _mybmFeedCard(orders, todayKey, dobKey) {
   var best = null, bestKey = "", bestRev = 0;
   for (var i = 0; i < orders.length; i++) {
@@ -7357,7 +7358,8 @@ function wardFeedEnvelope(row, orders, link, todayKey, stamp) {
   // otherwise from the admission date. Every date this envelope sends hangs on
   // the DOB, so one NeoFeed does not trust fails closed as dob_mismatch, and
   // staff correct it in NeoFeed (re-check, 2026-11-27).
-  var dobTrusted = _mybmIsDateKey(dobKey) && dobKey >= "2000-01-01" && dobKey <= todayKey && dobKey <= admKey;
+  var dobTrusted = _mybmIsDateKey(dobKey) && dobKey >= "2000-01-01" && dobKey <= todayKey
+    && (admKey === "" || dobKey <= admKey);
   if (dobKey !== link.expectedDob || !dobTrusted) codes.push("dob_mismatch");
   if (admKey !== link.expectedAdmissionDate) codes.push("admission_mismatch");
   if (codes.length) { env.status = "mismatch"; env.checks = codes; return env; }
@@ -7452,6 +7454,7 @@ function mybmPushRun() {
     throw new Error("mybm push: the Script Property MYBM_PUSH_SECRET is missing or shorter than " + MYBM_SECRET_MIN
       + " characters; nothing sent");
   }
+  var unsigned = false;
   var counts = { links: 0, skippedLinks: 0, current: 0, inactive: 0, mismatch: 0, tooLarge: 0, sent: 0,
     accepted: 0, duplicate: 0, superseded: 0, unlinked: 0, no_consent: 0, failed: 0 };
   var failedCodes = {};
@@ -7513,10 +7516,13 @@ function mybmPushRun() {
     });
 
     var refused = false, unreachable = false;
-    for (var c = 0; c < queue.length && !refused && !unreachable; c += MYBM_PUSH_CHUNK) {
+    for (var c = 0; c < queue.length && !refused && !unreachable && !unsigned; c += MYBM_PUSH_CHUNK) {
       var chunk = queue.slice(c, c + MYBM_PUSH_CHUNK);
-      // Signed before the try: a signing error is not a network failure and sends nothing.
-      var reqs = chunk.map(function (q) { return _mybmSigned(url, secret, q.payload); });
+      // Signed before the network call: a signing error is not a network failure,
+      // sends nothing of this chunk and audits nothing of it.
+      var reqs;
+      try { reqs = chunk.map(function (q) { return _mybmSigned(url, secret, q.payload); }); }
+      catch (e) { unsigned = true; break; }
       var resps = null;
       try { resps = UrlFetchApp.fetchAll(reqs); }
       catch (e) {
@@ -7547,6 +7553,10 @@ function mybmPushRun() {
   if (failedCodes["401"]) {
     throw new Error("mybm push: MyBM refused the signature (401) after " + counts.sent + " envelope(s); the run stopped. "
       + "Check MYBM_PUSH_SECRET against MyBM's NEOFEED_PUSH_SECRET.");
+  }
+  if (unsigned) {
+    throw new Error("mybm push: an envelope could not be signed after " + counts.sent + " envelope(s) were sent; "
+      + "the run stopped, the next run sends every link again");
   }
   if (failedCodes.unreachable) {
     throw new Error("mybm push: MyBM could not be reached after " + counts.sent + " envelope(s) were sent or attempted; "

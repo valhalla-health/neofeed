@@ -7,6 +7,21 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (4) — The MyBreastmilk push: the second re-check's points
+
+`gas-backend.gs` (§ MyBreastmilk push: `wardFeedEnvelope`, `mybmPushRun`, `_mybmFeedCard`'s comment),
+`test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`, `test/README.md`, `REFERENCE.md`.
+
+- **A correction to (3).** "Every new check failed on the code before this fix" is wrong for two of them: a DOB
+  on the admission date, and the "could not be reached" wording of a failed chunk. Both pass on the code before
+  it; they guard the fix against later edits.
+- **A blank admission date no longer adds a `dob_mismatch`.** `dobCredible` trusts the DOB then, and the blank
+  date is already an `admission_mismatch`.
+- **A signing error stops the run with its own message**, "an envelope could not be signed", and the counts
+  line is still logged.
+- **The boundaries are pinned**: a DOB of exactly 2000-01-01, or of today, is trusted.
+- **Tests.** `verify-mybm-push-1127.cjs`, 204 assertions. `mutate-mybm-push.cjs`, 38 mutations, all killed.
+
 ## Session 2026-11-27 (3) — The MyBreastmilk push: a re-check of Vera's fixes
 
 `gas-backend.gs` (§ MyBreastmilk push: `wardFeedEnvelope`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,
