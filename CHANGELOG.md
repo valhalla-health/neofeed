@@ -7,6 +7,24 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (3) — The MyBreastmilk push: a re-check of Vera's fixes
+
+`gas-backend.gs` (§ MyBreastmilk push: `wardFeedEnvelope`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `test/README.md`, `REFERENCE.md` (§ Thai PDPA compliance posture).
+
+- **A new reviewer read the lines (2) changed and found one error.** Deriving the card's DOL from the DOB matched
+  `data.js` only when NeoFeed trusts the DOB (`dobCredible`: a real date from 2000 on, not in the future, not after
+  the admission date). For a legacy row whose DOB is after its admission date, NeoFeed counts DOL from the
+  admission date, and the push would have sent a different DOL and weight dates off by the same days.
+- **The fix: a DOB NeoFeed does not trust is a `dob_mismatch`**, with no data, even when the nurse copied it
+  exactly. Staff see the DOB flagged and correct it in NeoFeed.
+- **A signing error is no longer reported as MyBM unreachable**: the chunk is signed before the network call, so a
+  failure there sends and audits nothing.
+- **REFERENCE.md § Thai PDPA compliance posture**: rotation reaches the copy at MyBM only while MyBM still lists the
+  link, and MyBM's link row keeps the sessionId and DOB the nurse typed.
+- **Tests.** `verify-mybm-push-1127.cjs`, 199 assertions; every new check failed on the code before this fix.
+  `mutate-mybm-push.cjs`, 34 mutations, 34 killed.
+
 ## Session 2026-11-27 (2) — The MyBreastmilk push: Vera's points
 
 `gas-backend.gs` (§ MyBreastmilk push: `_mybmLinks`, `_mybmFeedCard`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,

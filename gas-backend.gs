@@ -7303,8 +7303,8 @@ function _mybmFeed(type, vol, freq) {
 }
 
 // The feed card of the patient's current order (§5.1), from their Daily_Log rows.
-// The card's DOL is worked out from the order's date and the DOB, as data.js
-// entryDol does: column C is the DOL when the row was saved and goes stale
+// The card's DOL is worked out from the order's date and the DOB, which
+// wardFeedEnvelope has already found trusted, as data.js entryDol does: column C is the DOL when the row was saved and goes stale
 // (Vera, 2026-11-27). → { card: {orderDate, dol, feeds} | null, codes: [...] }
 function _mybmFeedCard(orders, todayKey, dobKey) {
   var best = null, bestKey = "", bestRev = 0;
@@ -7352,7 +7352,13 @@ function wardFeedEnvelope(row, orders, link, todayKey, stamp) {
   if (!row) { env.status = "inactive"; env.checks = ["not_in_registry"]; return env; }
   var dobKey = _fmtDate(row[6]), admKey = _fmtDate(row[7]);
   var codes = [];
-  if (dobKey !== link.expectedDob) codes.push("dob_mismatch");
+  // NeoFeed counts DOL from the DOB only when it trusts it (data.js dobCredible:
+  // a real date from 2000 on, not in the future, not after the admission date);
+  // otherwise from the admission date. Every date this envelope sends hangs on
+  // the DOB, so one NeoFeed does not trust fails closed as dob_mismatch, and
+  // staff correct it in NeoFeed (re-check, 2026-11-27).
+  var dobTrusted = _mybmIsDateKey(dobKey) && dobKey >= "2000-01-01" && dobKey <= todayKey && dobKey <= admKey;
+  if (dobKey !== link.expectedDob || !dobTrusted) codes.push("dob_mismatch");
   if (admKey !== link.expectedAdmissionDate) codes.push("admission_mismatch");
   if (codes.length) { env.status = "mismatch"; env.checks = codes; return env; }
   if (_readStatus(row[9]) !== "Active") { env.status = "inactive"; return env; }
@@ -7509,8 +7515,10 @@ function mybmPushRun() {
     var refused = false, unreachable = false;
     for (var c = 0; c < queue.length && !refused && !unreachable; c += MYBM_PUSH_CHUNK) {
       var chunk = queue.slice(c, c + MYBM_PUSH_CHUNK);
+      // Signed before the try: a signing error is not a network failure and sends nothing.
+      var reqs = chunk.map(function (q) { return _mybmSigned(url, secret, q.payload); });
       var resps = null;
-      try { resps = UrlFetchApp.fetchAll(chunk.map(function (q) { return _mybmSigned(url, secret, q.payload); })); }
+      try { resps = UrlFetchApp.fetchAll(reqs); }
       catch (e) {
         // Some of the chunk may have left: each is audited as sent, and the run stops.
         unreachable = true;

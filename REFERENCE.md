@@ -1132,8 +1132,11 @@ MyBM holds, for each infant its staff linked, the newest 7 envelopes: weights wi
 current order's feeds, a ward bed and the twin letter. No name, sessionId, HN, AN or DOB leaves, but the DOB can be
 worked out from a weight's date and DOL, so the copy is personal data. Erasure reaches it only by rotation:
 `pseudonymizePatient` blanks the DOB, every later envelope is a `mismatch` with no data, and the older envelopes
-leave MyBM as newer ones replace them, about 3.5 days at two runs a day. Nothing here deletes them at once. Whether
-that is enough, and the lawful basis for this copy, are for Pp and the DPO before the switch goes on.
+leave MyBM as newer ones replace them, about 3.5 days at two runs a day. That holds only while MyBM still lists the
+link: a link it stops listing (the mother's consent lapsed, say) gets no newer envelope, and its stored ones stay
+until MyBM deletes them on its own rules. MyBM's link row also keeps the sessionId and the DOB the nurse typed, which
+`pseudonymizePatient` cannot reach. Nothing here deletes any of it at once. Whether that is enough, and the lawful
+basis for this copy, are for Pp and the DPO before the switch goes on.
 
 **A store of names outside the Sheet (not live):** the TPN room's name file holds the name, AN and edit history on
 one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with the change request (tasks.md

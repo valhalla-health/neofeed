@@ -165,6 +165,25 @@ t.section('§2 identity before status', () => {
   t.eq('dates stored as text read the same', dobText.status, 'current');
   const blankDob = env(g, pat(g, 'S1', { 6: '' }), [], lk);
   t.eq('a blank DOB is a mismatch', blankDob.checks, ['dob_mismatch']);
+  // NeoFeed counts DOL from the DOB only when it trusts it (data.js dobCredible). Every
+  // date an envelope sends hangs on the DOB, so one it does not trust sends no data, even
+  // when the nurse copied it exactly (re-check, 2026-11-27).
+  const untrusted = [
+    ['after the admission date (a legacy row)', '2026-11-12', '2026-11-10'],
+    ['in the future', '2026-11-28', '2026-11-28'],
+    ['a Buddhist-era year', '2569-11-20', '2569-11-20'],
+    ['before 2000', '1999-12-31', '2000-01-02'],
+  ];
+  for (const [name, dob, adm] of untrusted) {
+    const e = env(g, pat(g, 'S1', { 6: bkkMidnight(dob), 7: bkkMidnight(adm) }), [order(g, 'S1', TODAY)],
+      link('S1', { expectedDob: dob, expectedAdmissionDate: adm }));
+    t.ok('a DOB ' + name + ', copied exactly: mismatch, dob_mismatch, no data',
+      e.status === 'mismatch' && JSON.stringify(e.checks) === '["dob_mismatch"]' && e.weights === null && e.feedCard === null, e);
+  }
+  const sameDay = env(g, pat(g, 'S1', { 7: bkkMidnight(DOB) }), [], lk);
+  t.eq('a DOB on the admission date is trusted', sameDay.status, 'current');
+  const both2 = env(g, pat(g, 'S1', { 6: bkkMidnight('2026-11-22'), 7: bkkMidnight('2026-11-21') }), [], link('S1', { expectedDob: '2026-11-22' }));
+  t.eq('an untrusted and differing pair: each code once, in order', both2.checks, ['dob_mismatch', 'admission_mismatch']);
 
   for (const st of ['Discharged', 'Transferred', 'Expired', 'expired ']) {
     const e = env(g, pat(g, 'S1', { 9: st }), [order(g, 'S1', TODAY)], lk);
@@ -581,6 +600,17 @@ t.section('§10 logs and messages', () => {
   let t3 = '';
   try { withNow(NOW, () => g3.sb.mybmPushRun()); } catch (e) { t3 = String(e.message); }
   t.ok('a chunk unreachable: throws, without the URL', /mybm push/.test(t3) && t3.indexOf('mybm.example.test') === -1, t3);
+  t.ok('…and says MyBM could not be reached', /could not be reached/.test(t3), t3);
+  // A signing failure is not a network failure: nothing was sent, nothing is audited.
+  const g4 = freshBoot();
+  const links4 = seedWard(g4, 3);
+  const calls4 = fakeMybm(g4, { links: links4 });
+  let hmacs = 0;
+  g4.env.hmacHook = () => { if (++hmacs === 2) throw new Error('Service error: Utilities'); };
+  let t4 = '';
+  try { withNow(NOW, () => g4.sb.mybmPushRun()); } catch (e) { t4 = String(e.message); }
+  t.ok('a signing error is not reported as MyBM unreachable', t4 !== '' && !/could not be reached/.test(t4), t4);
+  t.eq('…and audits nothing it did not send', [calls4.fetchAll.length, g4.audit().filter(a => a.action === 'mybmPush').length], [0, 0]);
   t.eq('…every envelope that may have left is audited', g3.audit().filter(a => a.action === 'mybmPush').length, 25);
   t.ok('…and the counts line is still logged', g3.env.logs.some(l => /^mybm push: \{/.test(l) && /"accepted":20/.test(l)), g3.env.logs);
 });
