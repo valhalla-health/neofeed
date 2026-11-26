@@ -2274,6 +2274,20 @@ has no clock, so Google's own copy and the lock's duration are proven only by th
 node test/verify-sheet-backup-1115.cjs
 ```
 
+**`verify-mybm-push-1127.cjs`** (no npm dependencies, through `gas-vm-sandbox.cjs`) — the MyBreastmilk
+push. Off unless `MYBM_PUSH_ENABLED` is exactly `true`; identity (DOB, admission date) before status; the current
+order is not superseded, not a draft and not dated after today; a feed counts when volume × feeds > 0, the
+Calculator's own `feed2Given` read from `calculator.jsx`; an NPO day written as 0 mL is no feed and no flag;
+weights fail closed on a future date or an impossible weight; a ward bed only; no sessionId, name or initials in
+an envelope; one links call, one read of each tab, chunks of 20, every request signed; a 401 stops the run.
+`node test/mutate-mybm-push.cjs` (by hand, not in CI) makes 25 small changes to the backend block and expects
+this harness to turn red each time. The sandbox's `fetchAll` is a fake, so MyBM's real answers are proven by the
+synthetic run on a test spreadsheet (`REFERENCE.md` § MyBreastmilk push).
+
+```
+node test/verify-mybm-push-1127.cjs
+```
+
 **`verify-fenton-birth-length-hc-1116.cjs`** (63 assertions; jsdom, the same dev-only dependencies as the
 other Fenton harnesses): a DOL-1 length or head circumference is read as a size at birth. §1: the fixture
 `fenton-official-birth-1116.json` is what fentongrowth.ca's Birth size evaluation returned. Its raw text

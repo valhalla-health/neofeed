@@ -977,6 +977,43 @@ day it has an order (no bed or a free-text bed, kept outside `ALL`). A day with 
 Another cut-off for one look: Run a one-line function `function qi13() { qiSubmitTimesRefresh("13:00"); }`. The
 next night's run writes 14:00 again; change `QI_SUBMIT_CUTOFF` by PR to change it for good.
 
+### MyBreastmilk push, `mybmPushRun` (2026-11-27, off)
+
+`mybmPushRun` sends MyBreastmilk (MyBM), the pumping app for the mothers of NICU and SCN infants, each linked
+infant's weights and the feeds on the current order. It is a time trigger's function only: doPost has no action
+for it, and it writes no tab but Audit_Log. The rules and the envelope are the MyBM repo's
+`docs/superpowers/specs/2026-11-27-neofeed-push-design.md`, signed by Pp on 2026-11-27; the comments in
+`gas-backend.gs` § MyBreastmilk push use its section numbers. Pinned by `test/verify-mybm-push-1127.cjs`.
+
+What leaves: MyBM's link id, the weights with their dates and DOL, the feeds of the current order (feed key, mL a
+feed, feeds a day), its date and DOL, a ward bed (never free text) and the twin letter. What never leaves: the
+sessionId, a name, initials, HN, AN, DOB, admission date, diagnosis, a TPN or IV figure, a staff email. The DOB
+can be worked out from a weight's date and DOL, and the DPO's scope has to say so.
+
+**Switching it on.** Each step is Pp's, in this order:
+
+1. The gates outside this repo: the DPO's written approval naming the bed, the twin letter and the weight dates;
+   KCMH IT's change request, if IT asks for one for an outbound flow; MyBM's side deployed with its secret
+   `NEOFEED_PUSH_SECRET`.
+2. Confirm that the Apps Script project's HEAD is the ward's deployed backend plus this change only, as before the
+   2026-11-18 QI push: a `clasp push` also changes what the backup and QI triggers run.
+3. `clasp push` from a clean checkout of a green `main`. With `MYBM_PUSH_ENABLED` unset the code sends nothing.
+4. Script Properties: `MYBM_PUSH_URL` (MyBM's `receive-neofeed` URL, https only) and `MYBM_PUSH_SECRET` (the
+   value of MyBM's `NEOFEED_PUSH_SECRET`, at least 32 characters). Never in source, chat or a log.
+5. Triggers ▸ Add trigger: function `mybmPushRun`, Time-driven, Day timer, 4pm to 5pm, failure notifications
+   "immediately"; a second trigger the same way at 7pm to 8pm, the catch-up run. A trigger runs under the
+   account that adds it.
+6. One synthetic infant end to end on a test spreadsheet before the ward's Sheet.
+7. Last, the Script Property `MYBM_PUSH_ENABLED` = `true`. Run ▸ `mybmPushRun` once and read its log line.
+
+**Stopping it.** Delete `MYBM_PUSH_ENABLED`: the next run sends nothing. MyBM can also unset its secret, and every
+request then gets 401.
+
+**What a run writes.** One Audit_Log row per envelope sent (`mybmPush`, the sessionId, actor
+`trigger:mybmPush`) and one execution-log line of counts. It throws, so the trigger's owner gets a mail, when MyBM
+refuses the signature (401) or any envelope was not recorded. The next run sends every link again, so a missed
+run costs a few hours, never data.
+
 ### The TPN room's page: `tpn-room.html`
 
 PR B of `openspec/changes/tpn-room-stickers`. Not live: `STATUS.md` says what holds it.

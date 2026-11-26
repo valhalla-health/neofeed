@@ -7,6 +7,34 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 — The MyBreastmilk push, off until Pp's gates
+
+`gas-backend.gs` (§ MyBreastmilk push: `mybmPushRun`, `wardFeedEnvelope`, `_mybmWeights`, `_mybmFeedCard`,
+`_mybmFeed`, `_mybmLinks`, `_mybmSigned`), new `test/verify-mybm-push-1127.cjs` and `test/mutate-mybm-push.cjs`,
+`test/README.md`, `REFERENCE.md` (§ MyBreastmilk push), `docs/MAINTAINER_SETUP.md`, `STATUS.md`.
+
+- **Why.** MyBreastmilk (MyBM), the pumping app for the mothers of NICU and SCN infants, showed an infant's
+  weight and feeds only when a nurse typed them in a second time, so in practice it showed nothing. On
+  2026-11-27 Pp chose that NeoFeed sends them itself ("NeoFeed ส่งออกเอง") and signed the design, MyBM's
+  `docs/superpowers/specs/2026-11-27-neofeed-push-design.md`, with its five choices ("ตามที่แนะนำ", "ใช้ได้").
+- **What it does.** A time trigger at 16:00, and a catch-up at 19:00, asks MyBM for the infants its staff linked,
+  reads Patient_Registry and Daily_Log once each, and posts one signed envelope per link: the weights with their
+  dates, and the feeds of the current order. The current order is the newest row not superseded (AL) and not a
+  draft (O), dated no later than today, as the TPN room finds it; an I/O-only revision counts. A feed counts when
+  volume × feeds a day is above 0, the Calculator's own test, so an NPO day written as 0 mL × 8 shows no feed.
+  The DOB and admission date are checked against what the nurse copied when linking, before the status, so a
+  link to the wrong infant reads as a mismatch, never as discharged.
+- **What never leaves.** The sessionId, a name, initials, HN, AN, DOB, admission date, diagnosis, any TPN or IV
+  figure, a staff email. A bed leaves only when it is a ward bed; the twin letter goes to MyBM's staff screen.
+- **Off.** Nothing runs until the Script Property `MYBM_PUSH_ENABLED` is exactly `true`, the last of the steps in
+  `REFERENCE.md` § MyBreastmilk push. No doPost action, no new tab or column, no frontend change, no figure
+  moves, and `CONSTANTS_VERSION` stays.
+- **One rule added while building.** `multiple` is also sent when `multiplesCount` is 2–4 and the twin letter is
+  blank, because the design's §0 item 3 has staff confirm any infant NeoFeed records as a multiple. The design's
+  §4.2 now says so.
+- **Tests.** `verify-mybm-push-1127.cjs`, 181 assertions. `mutate-mybm-push.cjs` makes 25 small changes to the
+  block, and the harness catches all 25.
+
 ## Session 2026-11-25 — The rule set, newborn branch only (paediatric-wards group 3)
 
 `data.js` (§ Rule sets: `RULE_SETS`, `ruleSetFor`, `RULE_SET_TABLES`, `ruleTablesFor`; `isNewbornUnit`,
