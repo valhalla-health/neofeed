@@ -7,6 +7,26 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (6) — The MyBreastmilk push: the mother sees NeoFeed's own weights
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`, new `_mybmDolOf`, `MYBM_CHECK_ORDER`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `test/README.md`, `REFERENCE.md` (§ MyBreastmilk push).
+
+- **Why.** Vera's point 1: the weights came from the growth chart alone, while every NeoFeed screen reads
+  `data.js` `weightSeries`, which adds each final order's weight. A weight typed only into the day's order reached
+  NeoFeed's strip and not MyBM. Pp chose on 2026-11-27: "แบบเดียวกับ NeoFeed".
+- **The rule, as `weightSeries`.** The growth chart's points and each final order's weight (`Daily_Log` D, not a
+  draft, not superseded), a measurement winning over an order on the same DOL. An order's DOL comes from its date
+  and the DOB; an order written for tomorrow waits for its day, as the ward's current weight does. A chart point at
+  DOL 0 reads as DOL 1 (`Number(m.dol) || 1`), so `dol0_skipped` is no longer sent.
+- **Where it differs, it withholds.** An order with a weight dated before the birth, or any weight outside
+  200–8000 g, sends `weights: null` with its code; `weightSeries` would place or show it.
+- **The mother's line** reads "(วันที่ …)", not "(ชั่งวันที่ …)": an order's weight may not be that day's
+  weighing. That line is MyBM's; the design records it.
+- **Tests.** `verify-mybm-push-1127.cjs`, 223 assertions. 11 of the new checks failed on the code before;
+  the others guard what must hold either way (a draft or superseded order adds nothing, a measurement wins). Four
+  fixtures match the real `weightSeries` loaded from `data.js`. `mutate-mybm-push.cjs`, 47 mutations, all killed.
+
 ## Session 2026-11-27 (5) — The MyBreastmilk push: the third re-check's points
 
 `gas-backend.gs` (§ MyBreastmilk push: `mybmPushRun`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,

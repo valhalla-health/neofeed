@@ -7213,7 +7213,7 @@ var MYBM_SECRET_MIN = 32;
 var MYBM_PUSH_ACTOR = "trigger:mybmPush";
 // The only check codes an envelope may carry, in the order it lists them (§4.2).
 var MYBM_CHECK_ORDER = ["not_in_registry", "dob_mismatch", "admission_mismatch", "weights_unreadable",
-  "weights_future_date", "weights_out_of_range", "dol0_skipped", "order_unreadable", "feed_out_of_range",
+  "weights_future_date", "weights_out_of_range", "order_unreadable", "feed_out_of_range",
   "feed_incomplete", "twin_suffix_unreadable"];
 // The receipts MyBM answers 200 with (§4.3). Each is counted, none is a failure.
 var MYBM_RECEIPTS = { accepted: true, duplicate: true, superseded: true, unlinked: true, no_consent: true };
@@ -7233,16 +7233,56 @@ function _mybmSortChecks(codes) {
   return MYBM_CHECK_ORDER.filter(function (c) { return codes.indexOf(c) !== -1; });
 }
 
-// The weights a mother may see (§5.2), from the registry's weights cell.
+// The DOL of a date, counted from a DOB wardFeedEnvelope has already found
+// trusted (data.js dolAtDate's first branch): DOL 1 is the day of birth.
+function _mybmDolOf(dobKey, dateKey) {
+  return Math.round((Date.parse(dateKey + "T00:00:00Z") - Date.parse(dobKey + "T00:00:00Z")) / 86400000) + 1;
+}
+
+// The weights a mother may see (§5.2): the one series every NeoFeed screen reads,
+// data.js weightSeries (Pp, 2026-11-27: "แบบเดียวกับ NeoFeed"). It joins the
+// growth chart's points (Patient_Registry M) and the weight of each final order
+// (Daily_Log D, not a draft, not superseded), and a measurement wins over an
+// order on the same DOL. An order's DOL comes from its date and the DOB, as
+// data.js entryDol counts it; an order already written for tomorrow waits for its
+// day, as the ward's current weight does.
 // → { weights: [{dol, date, grams, registration}] | null, codes: [...] }
 // A problem that could hide or misplace a reading fails closed (weights null)
 // rather than drop the reading. The registry's own read fallback for a blank
 // cell, [{dol: 1, w: bw}], is not used: that is a guess, not a weighing.
-function _mybmWeights(cell, dobKey, bw, todayKey) {
+function _mybmWeights(cell, dobKey, bw, todayKey, orders) {
   var unreadable = { weights: null, codes: ["weights_unreadable"] };
   var list = (cell === "" || cell == null) ? null : _parseJson(cell, null);
   if (!Array.isArray(list)) return unreadable;
-  var codes = [], fail = [], byDol = {}, dols = [];
+  var fail = [], byDol = {}, dols = [];
+  var bad = function (code) { if (fail.indexOf(code) === -1) fail.push(code); };
+  var put = function (point) {
+    if (!Object.prototype.hasOwnProperty.call(byDol, point.dol)) dols.push(point.dol);
+    byDol[point.dol] = point;
+  };
+  // The orders first, by date and in sheet order within a date, so the later row
+  // on a date wins (data.js normalizeLogEntries sorts by date, stably).
+  var final = [];
+  for (var j = 0; j < (orders || []).length; j++) {
+    var r = orders[j];
+    if (r[37]) continue;   // superseded (AL)
+    if (String(r[14] == null ? "" : r[14]).trim().toLowerCase() === "draft") continue;
+    if (r[0] === "" || r[0] == null) continue;
+    var key = _wardDateKey(r[0]);
+    if (!key) continue;
+    var ow = Number(r[3] || 0);
+    if (typeof r[3] === "boolean" || !isFinite(ow) || ow <= 0) continue;   // no weight on this order (weightSeries)
+    final.push({ key: key, w: ow, at: j });
+  }
+  final.sort(function (a, b) { return a.key < b.key ? -1 : (a.key > b.key ? 1 : a.at - b.at); });
+  for (var f = 0; f < final.length; f++) {
+    var o = final[f];
+    if (o.key > todayKey) continue;   // an order already written for tomorrow waits for its day
+    var odol = _mybmDolOf(dobKey, o.key);
+    if (odol < 1 || odol > 400) return unreadable;   // dated before the birth: it cannot be placed
+    if (o.w < 200 || o.w > 8000) { bad("weights_out_of_range"); continue; }
+    put({ dol: odol, date: o.key, grams: Math.round(o.w), first: false, w: o.w });
+  }
   for (var i = 0; i < list.length; i++) {
     var p = list[i];
     if (p === null || typeof p !== "object" || Array.isArray(p)) return unreadable;
@@ -7252,21 +7292,18 @@ function _mybmWeights(cell, dobKey, bw, todayKey) {
     if (p.w === null || p.w === undefined || p.w === "") continue;   // a length or HC only
     var w = Number(p.w);
     if (typeof p.w === "boolean" || !isFinite(w)) return unreadable;
-    if (w < 200 || w > 8000) { if (fail.indexOf("weights_out_of_range") === -1) fail.push("weights_out_of_range"); continue; }
-    // NeoFeed allows DOL 0 but has not written down what a weight there means:
-    // left out, never the registration weight (§5.2, §10).
-    if (dol === 0) { if (codes.indexOf("dol0_skipped") === -1) codes.push("dol0_skipped"); continue; }
+    if (w < 200 || w > 8000) { bad("weights_out_of_range"); continue; }
+    if (dol === 0) dol = 1;   // weightSeries reads a DOL 0 point as DOL 1 (Number(m.dol) || 1)
     var date = _mybmAddDays(dobKey, dol - 1);   // DOL 1 is the day of birth
-    if (date > todayKey) { if (fail.indexOf("weights_future_date") === -1) fail.push("weights_future_date"); continue; }
-    if (!Object.prototype.hasOwnProperty.call(byDol, dol)) dols.push(dol);
-    // Two points on one DOL: the later one in the stored list is kept.
-    byDol[dol] = { dol: dol, date: date, grams: Math.round(w), first: i === 0, w: w };
+    if (date > todayKey) { bad("weights_future_date"); continue; }
+    // A measurement wins over an order on its DOL; of two measurements, the later in the list.
+    put({ dol: dol, date: date, grams: Math.round(w), first: i === 0, w: w });
   }
-  if (fail.length) return { weights: null, codes: fail.concat(codes) };
+  if (fail.length) return { weights: null, codes: fail };
   dols.sort(function (a, b) { return a - b; });
   var points = dols.map(function (d) { return byDol[d]; });
-  // The registration weight: the DOL 1 point; with none, the first stored point
-  // when it equals bw (a legacy registration filed the birth weight on the
+  // The registration weight: the DOL 1 point; with none, the chart's first stored
+  // point when it equals bw (a legacy registration filed the birth weight on the
   // admission DOL). Nothing moves: the flag only stops MyBM reading it as a new
   // weighing.
   var reg = null;
@@ -7275,7 +7312,7 @@ function _mybmWeights(cell, dobKey, bw, todayKey) {
   points = points.slice(-MYBM_WEIGHTS_MAX);
   return {
     weights: points.map(function (q) { return { dol: q.dol, date: q.date, grams: q.grams, registration: q === reg }; }),
-    codes: codes
+    codes: []
   };
 }
 
@@ -7322,7 +7359,7 @@ function _mybmFeedCard(orders, todayKey, dobKey) {
   }
   if (!best) return { card: null, codes: [] };
   var ci = _parseJson(best[24], null);
-  var dol = Math.round((Date.parse(bestKey + "T00:00:00Z") - Date.parse(dobKey + "T00:00:00Z")) / 86400000) + 1;
+  var dol = _mybmDolOf(dobKey, bestKey);
   // An order dated before the birth cannot be shown against the DOB.
   if (!ci || typeof ci !== "object" || Array.isArray(ci) || !isFinite(dol) || dol < 1 || dol > 400) {
     return { card: null, codes: ["order_unreadable"] };
@@ -7378,7 +7415,7 @@ function wardFeedEnvelope(row, orders, link, todayKey, stamp) {
     if (twin && suffix === null) codes.push("twin_suffix_unreadable");
     env.multiple = { suffix: suffix, count: count };
   }
-  var w = _mybmWeights(row[12], dobKey, row[3], todayKey);
+  var w = _mybmWeights(row[12], dobKey, row[3], todayKey, orders || []);
   env.weights = w.weights;
   var fc = _mybmFeedCard(orders || [], todayKey, dobKey);
   env.feedCard = fc.card;

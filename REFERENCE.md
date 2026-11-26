@@ -985,7 +985,8 @@ for it, and it writes no tab but Audit_Log. The rules and the envelope are the M
 `docs/superpowers/specs/2026-11-27-neofeed-push-design.md`, signed by Pp on 2026-11-27; the comments in
 `gas-backend.gs` § MyBreastmilk push use its section numbers. Pinned by `test/verify-mybm-push-1127.cjs`.
 
-What leaves: MyBM's link id, the weights with their dates and DOL, the feeds of the current order (feed key, mL a
+What leaves: MyBM's link id, the weights with their dates and DOL (the series every NeoFeed screen reads, `data.js`
+`weightSeries`: the growth chart's points and each final order's weight), the feeds of the current order (feed key, mL a
 feed, feeds a day), its date and DOL, a ward bed (never free text) and the twin letter. What never leaves: the
 sessionId, a name, initials, HN, AN, DOB, admission date, diagnosis, a TPN or IV figure, a staff email. The DOB
 can be worked out from a weight's date and DOL, and the DPO's scope has to say so.

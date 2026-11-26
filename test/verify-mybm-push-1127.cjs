@@ -22,8 +22,12 @@
 //       written as 0 mL × 8 is no feed and no flag; a volume with 0 feeds is
 //       feed_incomplete and the card still goes; a bound broken, or an order
 //       that does not parse, sends no card.
-//   §5  Weights (§5.2): dates from DOB and DOL; DOL 0 left out with its code;
-//       two points on one DOL keep the later; a point with no weight left out;
+//   §5  Weights (§5.2): the series NeoFeed's own screens read (data.js
+//       weightSeries, Pp 2026-11-27 "แบบเดียวกับ NeoFeed"): the growth chart's
+//       points and each final order's weight, a measurement winning on the
+//       same DOL, checked against the real weightSeries; DOL 0 reads as DOL 1;
+//       dates from DOB and DOL; two points on one DOL keep the later; a point
+//       with no weight left out; an order after today waits for its day;
 //       a future date or a weight out of 200–8000 fails closed; a blank or broken
 //       cell is weights_unreadable; the registration flag; the newest 120 only.
 //   §6  Bed and multiple (§4.2): a ward bed only, canonical; a twin letter A–D;
@@ -343,9 +347,12 @@ t.section('§5 weights', () => {
     { dol: 8, date: '2026-11-27', grams: 1040, registration: false }]);
   t.eq('sorted by DOL', w([{ dol: 5, w: 1000 }, { dol: 1, w: 980 }]).weights.map(p => p.dol), [1, 5]);
   t.eq('grams whole', w([{ dol: 2, w: 1000.4 }]).weights[0].grams, 1000);
+  // NeoFeed reads a weight at DOL 0 as DOL 1 (weightSeries: Number(m.dol) || 1).
   const zero = w([{ dol: 0, w: 980 }, { dol: 3, w: 990 }]);
-  t.eq('DOL 0 left out, with dol0_skipped', [zero.weights.map(p => p.dol), zero.checks], [[3], ['dol0_skipped']]);
-  t.eq('DOL 0 is never the registration weight', zero.weights[0].registration, false);
+  t.eq('DOL 0 reads as DOL 1, dated the day of birth, no code', [zero.weights[0], zero.checks],
+    [{ dol: 1, date: '2026-11-20', grams: 980, registration: true }, []]);
+  t.eq('DOL 0 then DOL 1: the later in the list kept, as weightSeries does', w([{ dol: 0, w: 950 }, { dol: 1, w: 980 }]).weights,
+    [{ dol: 1, date: '2026-11-20', grams: 980, registration: true }]);
   t.eq('two points on one DOL: the later kept', w([{ dol: 4, w: 1000 }, { dol: 4, w: 1010 }]).weights, [{ dol: 4, date: '2026-11-23', grams: 1010, registration: false }]);
   t.eq('a point with no weight (length or HC only) left out', w([{ dol: 1, w: 980 }, { dol: 6, w: null, l: 36 }]).weights.map(p => p.dol), [1]);
   t.eq('no point with a weight: an empty list, no code', [w([{ dol: 6, w: null, hc: 26 }]).weights, w([]).checks], [[], []]);
@@ -373,6 +380,54 @@ t.section('§5 weights', () => {
     link('S1', { expectedDob: '2026-03-01', expectedAdmissionDate: '2026-03-01' }));
   t.eq('the newest 120 points only', [longStay.weights.length, longStay.weights[0].dol, longStay.weights[119].dol], [120, 81, 200]);
   t.ok('120 points stay under 16 KB', JSON.stringify(longStay).length < 16384, JSON.stringify(longStay).length);
+
+  // ── the orders' weights (Vera's point 1; Pp, 2026-11-27: "แบบเดียวกับ NeoFeed") ──
+  const reg = JSON.stringify([{ dol: 1, w: 980 }]);
+  const ow = (orders, cell) => env(g, pat(g, 'S1', { 12: cell === undefined ? reg : cell }), orders, lk);
+  const o = (key, wt, extra) => order(g, 'S1', key, Object.assign({ 3: wt }, extra || {}));
+  t.eq('today\'s submitted order weighs 1040: it is the newest point', ow([o(TODAY, 1040)]).weights,
+    [{ dol: 1, date: '2026-11-20', grams: 980, registration: true }, { dol: 8, date: '2026-11-27', grams: 1040, registration: false }]);
+  t.eq('a measurement wins over an order on the same DOL',
+    ow([o(TODAY, 1040)], JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: 1035 }])).weights.map(p => p.grams), [980, 1035]);
+  t.eq('a draft order\'s weight is left out', ow([o(TODAY, 1040, { 14: 'draft' })]).weights.map(p => p.dol), [1]);
+  t.eq('a superseded order\'s weight is left out', ow([o(TODAY, 1040, { 37: '2026-11-27T05:00:00.000Z' })]).weights.map(p => p.dol), [1]);
+  const tomorrow = ow([o(TODAY, 1040), o(addDays(TODAY, 1), 1050)]);
+  t.ok('an order written for tomorrow waits for its day: no future-date failure', tomorrow.weights && tomorrow.weights.length === 2
+    && tomorrow.weights[1].grams === 1040 && tomorrow.checks.length === 0, tomorrow);
+  t.eq('an order with no weight, or 0, adds no point', ow([o(TODAY, 0), o(addDays(TODAY, -1), '')]).weights.map(p => p.dol), [1]);
+  t.eq('orders on several days join the series by DOL', ow([o(addDays(TODAY, -1), 1020), o(addDays(TODAY, -3), 1000), o(TODAY, 1040)]).weights.map(p => [p.dol, p.grams]),
+    [[1, 980], [5, 1000], [7, 1020], [8, 1040]]);
+  t.eq('two final orders on one date: the later row wins', ow([o(TODAY, 1040), o(TODAY, 1045)]).weights.map(p => p.grams), [980, 1045]);
+  const heavy = ow([o(TODAY, 9000)]);
+  t.eq('an order weight of 9000 g: weights null, weights_out_of_range', [heavy.weights, heavy.checks], [null, ['weights_out_of_range']]);
+  const before = ow([o('2026-11-18', 1000)]);
+  t.ok('an order with a weight dated before the birth: weights null, weights_unreadable',
+    before.weights === null && before.checks.indexOf('weights_unreadable') !== -1, before);
+  t.eq('an order\'s DOL 1 weight is the registration point when the chart has none', ow([o(DOB, 990)], '[]').weights,
+    [{ dol: 1, date: '2026-11-20', grams: 990, registration: true }]);
+
+  // The same answer as data.js weightSeries, NeoFeed's own reader, as of today.
+  const ctx = { console, Intl, Date, Math, JSON, Number, String, Object, Array, isFinite, isNaN, parseFloat, parseInt, RegExp, Map, Set, Symbol, Error };
+  ctx.window = ctx;
+  require('vm').createContext(ctx);
+  require('vm').runInContext(fs.readFileSync(path.join(__dirname, '..', 'data.js'), 'utf8'), ctx);
+  const D = ctx.NEOFEED_DATA;
+  t.ok('data.js loads and exports weightSeries', !!D && typeof D.weightSeries === 'function' && typeof D.normalizeLogEntries === 'function');
+  const todayDol = 8;
+  const fixtures = [
+    [[{ dol: 1, w: 980 }, { dol: 4, w: 1000 }], [[TODAY, 1040], [addDays(TODAY, -2), 1015]]],
+    [[{ dol: 0, w: 950 }, { dol: 1, w: 980 }, { dol: 8, w: 1035 }], [[TODAY, 1040], [addDays(TODAY, -1), 1020, 'draft'], [addDays(TODAY, -2), 1010]]],
+    [[{ dol: 2, w: 990 }, { dol: 2, w: 995 }], [[addDays(TODAY, -6), 1000], [addDays(TODAY, -6), 1003], [addDays(TODAY, 1), 1060]]],
+    [[], [[TODAY, 1040], [addDays(TODAY, -4), 0]]],
+  ];
+  for (const [list, ords] of fixtures) {
+    const rows = ords.map(([k, wt, st]) => o(k, wt, st ? { 14: st } : {}));
+    const ours = ow(rows, JSON.stringify(list)).weights.map(p => [p.dol, p.grams]);
+    const entries = D.normalizeLogEntries(ords.map(([k, wt, st]) => ({ ts: k, weight: Number(wt || 0), status: st || 'submitted' })));
+    const theirs = D.weightSeries({ dob: DOB, admissionDate: ADM, weights: list }, entries)
+      .filter(p => p.dol <= todayDol).map(p => [p.dol, Math.round(p.w)]);
+    t.eq('as weightSeries: ' + JSON.stringify([list, ords]), ours, theirs);
+  }
 });
 
 t.section('§6 bed and multiple', () => {
