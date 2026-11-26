@@ -7303,8 +7303,10 @@ function _mybmFeed(type, vol, freq) {
 }
 
 // The feed card of the patient's current order (§5.1), from their Daily_Log rows.
-// → { card: {orderDate, dol, feeds} | null, codes: [...] }
-function _mybmFeedCard(orders, todayKey) {
+// The card's DOL is worked out from the order's date and the DOB, as data.js
+// entryDol does: column C is the DOL when the row was saved and goes stale
+// (Vera, 2026-11-27). → { card: {orderDate, dol, feeds} | null, codes: [...] }
+function _mybmFeedCard(orders, todayKey, dobKey) {
   var best = null, bestKey = "", bestRev = 0;
   for (var i = 0; i < orders.length; i++) {
     var r = orders[i];
@@ -7319,9 +7321,9 @@ function _mybmFeedCard(orders, todayKey) {
   }
   if (!best) return { card: null, codes: [] };
   var ci = _parseJson(best[24], null);
-  var dol = Number(best[2]);
-  if (!ci || typeof ci !== "object" || Array.isArray(ci) || best[2] === "" || typeof best[2] === "boolean"
-    || !isFinite(dol) || dol !== Math.floor(dol) || dol < 0 || dol > 400) {
+  var dol = Math.round((Date.parse(bestKey + "T00:00:00Z") - Date.parse(dobKey + "T00:00:00Z")) / 86400000) + 1;
+  // An order dated before the birth cannot be shown against the DOB.
+  if (!ci || typeof ci !== "object" || Array.isArray(ci) || !isFinite(dol) || dol < 1 || dol > 400) {
     return { card: null, codes: ["order_unreadable"] };
   }
   var feeds = [], codes = [];
@@ -7370,7 +7372,7 @@ function wardFeedEnvelope(row, orders, link, todayKey, stamp) {
   }
   var w = _mybmWeights(row[12], dobKey, row[3], todayKey);
   env.weights = w.weights;
-  var fc = _mybmFeedCard(orders || [], todayKey);
+  var fc = _mybmFeedCard(orders || [], todayKey, dobKey);
   env.feedCard = fc.card;
   env.checks = _mybmSortChecks(codes.concat(w.codes, fc.codes));
   return env;
@@ -7378,6 +7380,10 @@ function wardFeedEnvelope(row, orders, link, todayKey, stamp) {
 
 // The links answer (§4.1), checked key by key. A bad entry is skipped and
 // counted; an answer that is not the contract at all stops the run.
+// One MyBM baby maps to one sessionId by one link. A sessionId or a linkId listed
+// twice skips every entry that carries it: otherwise one answer could list an
+// infant with several guessed DOBs and the right guess would get the data
+// (Vera, 2026-11-27).
 function _mybmLinks(body) {
   if (!body || typeof body !== "object" || Array.isArray(body) || !Array.isArray(body.links)) {
     throw new Error("mybm push: MyBM's links answer is not { links: [...] }; nothing sent");
@@ -7385,18 +7391,25 @@ function _mybmLinks(body) {
   if (body.links.length > MYBM_LINKS_MAX) {
     throw new Error("mybm push: MyBM listed more than " + MYBM_LINKS_MAX + " links; nothing sent");
   }
-  var links = [], skipped = 0, seen = {};
+  var valid = [], skipped = 0, sidCount = {}, idCount = {};
   for (var i = 0; i < body.links.length; i++) {
     var l = body.links[i];
     var ok = !!l && typeof l === "object" && !Array.isArray(l)
       && Object.keys(l).sort().join(",") === MYBM_LINK_KEYS.join(",")
       && typeof l.linkId === "string" && PHARMACY_UUID.test(l.linkId)
       && typeof l.sessionId === "string" && l.sessionId.length >= 1 && l.sessionId.length <= MYBM_SESSION_ID_MAX
-      && _mybmIsDateKey(l.expectedDob) && _mybmIsDateKey(l.expectedAdmissionDate)
-      && !Object.prototype.hasOwnProperty.call(seen, l.linkId.toLowerCase());
+      && _mybmIsDateKey(l.expectedDob) && _mybmIsDateKey(l.expectedAdmissionDate);
     if (!ok) { skipped++; continue; }
-    seen[l.linkId.toLowerCase()] = true;
-    links.push({ linkId: l.linkId, sessionId: l.sessionId, expectedDob: l.expectedDob, expectedAdmissionDate: l.expectedAdmissionDate });
+    var sk = "s:" + l.sessionId, ik = "i:" + l.linkId.toLowerCase();
+    sidCount[sk] = (sidCount[sk] || 0) + 1;
+    idCount[ik] = (idCount[ik] || 0) + 1;
+    valid.push(l);
+  }
+  var links = [];
+  for (var j = 0; j < valid.length; j++) {
+    var v = valid[j];
+    if (sidCount["s:" + v.sessionId] > 1 || idCount["i:" + v.linkId.toLowerCase()] > 1) { skipped++; continue; }
+    links.push({ linkId: v.linkId, sessionId: v.sessionId, expectedDob: v.expectedDob, expectedAdmissionDate: v.expectedAdmissionDate });
   }
   return { links: links, skipped: skipped };
 }
@@ -7442,7 +7455,11 @@ function mybmPushRun() {
   }));
   var params = {};
   for (var name in linksReq) if (name !== "url") params[name] = linksReq[name];
-  var resp = UrlFetchApp.fetch(url, params);
+  // Apps Script's own network error names the URL, and a thrown message reaches
+  // the execution log and the trigger owner's mail (Vera, 2026-11-27).
+  var resp;
+  try { resp = UrlFetchApp.fetch(url, params); }
+  catch (e) { throw new Error("mybm push: MyBM could not be reached on the links request; nothing sent, the next run tries again"); }
   var code = resp.getResponseCode();
   if (code === 401) {
     throw new Error("mybm push: MyBM refused the signature (401) on the links request; nothing sent. "
@@ -7489,10 +7506,22 @@ function mybmPushRun() {
       queue.push({ sessionId: l.sessionId, payload: payload });
     });
 
-    var refused = false;
-    for (var c = 0; c < queue.length && !refused; c += MYBM_PUSH_CHUNK) {
+    var refused = false, unreachable = false;
+    for (var c = 0; c < queue.length && !refused && !unreachable; c += MYBM_PUSH_CHUNK) {
       var chunk = queue.slice(c, c + MYBM_PUSH_CHUNK);
-      var resps = UrlFetchApp.fetchAll(chunk.map(function (q) { return _mybmSigned(url, secret, q.payload); }));
+      var resps = null;
+      try { resps = UrlFetchApp.fetchAll(chunk.map(function (q) { return _mybmSigned(url, secret, q.payload); })); }
+      catch (e) {
+        // Some of the chunk may have left: each is audited as sent, and the run stops.
+        unreachable = true;
+        for (var u = 0; u < chunk.length; u++) {
+          counts.sent++;
+          counts.failed++;
+          logAudit("mybmPush", chunk[u].sessionId, MYBM_PUSH_ACTOR);
+        }
+        failedCodes.unreachable = true;
+        break;
+      }
       for (var k = 0; k < chunk.length; k++) {
         counts.sent++;
         logAudit("mybmPush", chunk[k].sessionId, MYBM_PUSH_ACTOR);
@@ -7510,6 +7539,10 @@ function mybmPushRun() {
   if (failedCodes["401"]) {
     throw new Error("mybm push: MyBM refused the signature (401) after " + counts.sent + " envelope(s); the run stopped. "
       + "Check MYBM_PUSH_SECRET against MyBM's NEOFEED_PUSH_SECRET.");
+  }
+  if (failedCodes.unreachable) {
+    throw new Error("mybm push: MyBM could not be reached after " + counts.sent + " envelope(s) were sent or attempted; "
+      + "the run stopped, the next run sends every link again");
   }
   if (counts.failed > 0 || counts.tooLarge > 0) {
     throw new Error("mybm push: " + counts.failed + " of " + counts.sent + " envelope(s) were not recorded (HTTP "

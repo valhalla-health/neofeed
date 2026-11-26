@@ -210,13 +210,15 @@ t.section('§3 which order\'s card', () => {
     t.eq('status ' + JSON.stringify(st) + ' is a draft, skipped: yesterday\'s card shows', card([
       order(g, 'S1', addDays(TODAY, -1), { 24: v(2) }),
       order(g, 'S1', TODAY, { 24: v(6), 14: st }),
-    ]), { orderDate: addDays(TODAY, -1), dol: 3, feeds: [{ feedKey: 'BM_20', mlPerFeed: 2, feedsPerDay: 8 }] });
+    ]), { orderDate: addDays(TODAY, -1), dol: 7, feeds: [{ feedKey: 'BM_20', mlPerFeed: 2, feedsPerDay: 8 }] });
   }
   t.eq('an I/O-only revision (published blank) counts', card([
     order(g, 'S1', TODAY, { 24: v(5), 33: '2026-11-27T02:00:00.000Z', 37: '2026-11-27T04:00:00.000Z' }),
     order(g, 'S1', TODAY, { 24: v(5), 33: '', 35: 2, 36: 'prev' }),
   ]).feeds[0].mlPerFeed, 5);
-  t.eq('a row from before published existed counts', card([order(g, 'S1', '2026-10-20', { 24: v(7) })]).orderDate, '2026-10-20');
+  const elder = pat(g, 'S1', { 6: bkkMidnight('2026-10-01'), 7: bkkMidnight('2026-10-01') });
+  const elderLink = link('S1', { expectedDob: '2026-10-01', expectedAdmissionDate: '2026-10-01' });
+  t.eq('a row from before published existed counts', env(g, elder, [order(g, 'S1', '2026-10-20', { 24: v(7) })], elderLink).feedCard.orderDate, '2026-10-20');
   t.eq('an order dated tomorrow is not today\'s', card([
     order(g, 'S1', TODAY, { 24: v(3) }),
     order(g, 'S1', addDays(TODAY, 1), { 24: v(9) }),
@@ -233,8 +235,8 @@ t.section('§3 which order\'s card', () => {
   t.eq('a no-TPN order counts as much as a TPN one', card([order(g, 'S1', TODAY, { 13: '', 24: v(8) })]).feeds[0].mlPerFeed, 8);
   t.eq('a date stored as text reads the same', card([order(g, 'S1', TODAY, { 0: TODAY })]).orderDate, TODAY);
   t.eq('a row with no date is skipped', card([order(g, 'S1', TODAY, { 0: '' })]), null);
-  const old = env(g, row, [order(g, 'S1', '2026-11-01', { 2: 12 })], lk);
-  t.ok('an old order still shows, with its own date (no age limit)', old.feedCard && old.feedCard.orderDate === '2026-11-01' && old.feedCard.dol === 12, old.feedCard);
+  const old = env(g, elder, [order(g, 'S1', '2026-11-01', { 2: 12 })], elderLink);
+  t.ok('an old order still shows, with its own date (no age limit)', old.feedCard && old.feedCard.orderDate === '2026-11-01' && old.feedCard.dol === 32, old.feedCard);
 });
 
 t.section('§4 feeds', () => {
@@ -296,8 +298,12 @@ t.section('§4 feeds', () => {
     const e = run(c);
     t.ok(name + ': no card, ' + code, e.feedCard === null && e.checks.indexOf(code) !== -1 && e.status === 'current', e);
   }
-  t.ok('an order DOL that is not a whole number: order_unreadable',
-    env(g, row, [order(g, 'S1', TODAY, { 2: 'x' })], lk).checks.indexOf('order_unreadable') !== -1);
+  t.eq('the card\'s DOL is worked out from the order date and the DOB, not the stale column C',
+    env(g, row, [order(g, 'S1', TODAY, { 2: 1 })], lk).feedCard.dol, 8);
+  t.eq('…so a blank or broken column C does not drop the card', [
+    env(g, row, [order(g, 'S1', TODAY, { 2: 'x' })], lk).feedCard.dol, env(g, row, [order(g, 'S1', TODAY, { 2: '' })], lk).feedCard.dol], [8, 8]);
+  const early = env(g, row, [order(g, 'S1', '2026-11-19')], lk);
+  t.ok('an order dated before birth: no card, order_unreadable', early.feedCard === null && early.checks.indexOf('order_unreadable') !== -1, early);
   t.ok('weights still go with an unreadable order', run('{not json').weights !== null);
 });
 
@@ -479,19 +485,37 @@ t.section('§9 answers', () => {
   {
     const g = freshBoot();
     const good = seedWard(g, 1);
-    const dup = Object.assign({}, good[0]);
     const badLinks = [
-      Object.assign(link('S000'), { linkId: 'not-a-uuid' }),
-      Object.assign(link('S000'), { sessionId: '' }),
-      Object.assign(link('S000'), { sessionId: 'x'.repeat(161) }),
-      Object.assign(link('S000'), { expectedDob: '2026-02-30' }),
-      Object.assign(link('S000'), { extra: 1 }),
-      { linkId: uuid(), sessionId: 'S000', expectedDob: DOB },
+      Object.assign(link('B1'), { linkId: 'not-a-uuid' }),
+      Object.assign(link('B2'), { sessionId: '' }),
+      Object.assign(link('B3'), { sessionId: 'x'.repeat(161) }),
+      Object.assign(link('B4'), { expectedDob: '2026-02-30' }),
+      Object.assign(link('B5'), { extra: 1 }),
+      { linkId: uuid(), sessionId: 'B6', expectedDob: DOB },
       null,
     ];
-    const calls = fakeMybm(g, { links: good.concat(badLinks, [dup]) });
+    const calls = fakeMybm(g, { links: good.concat(badLinks) });
     const out = withNow(NOW, () => g.sb.mybmPushRun());
-    t.eq('bad link entries and a repeated linkId are skipped', [out.counts.links, out.counts.skippedLinks, [].concat(...calls.fetchAll).length], [1, 8, 1]);
+    t.eq('bad link entries are skipped, the good one goes', [out.counts.links, out.counts.skippedLinks, [].concat(...calls.fetchAll).length], [1, 7, 1]);
+  }
+  // One infant, one link: a sessionId listed twice with different dates could guess the
+  // DOB until one entry matched (Vera, 2026-11-27, finding 2). Every entry of a repeated
+  // sessionId or linkId is skipped.
+  {
+    const g = freshBoot();
+    seedWard(g, 2);
+    const guesses = [link('S000', { expectedDob: '2026-11-19' }), link('S000'), link('S001')];
+    const calls = fakeMybm(g, { links: guesses });
+    const out = withNow(NOW, () => g.sb.mybmPushRun());
+    const bodies = [].concat(...calls.fetchAll).map(r => JSON.parse(r.payload));
+    t.eq('a sessionId listed twice: both entries skipped', [out.counts.links, out.counts.skippedLinks], [1, 2]);
+    t.ok('…and no envelope for it carries data', bodies.length === 1 && bodies[0].linkId === guesses[2].linkId, bodies.map(b => b.linkId));
+    const g2 = freshBoot();
+    seedWard(g2, 2);
+    const one = link('S000');
+    const calls2 = fakeMybm(g2, { links: [one, Object.assign(link('S001'), { linkId: one.linkId.toUpperCase() })] });
+    const out2 = withNow(NOW, () => g2.sb.mybmPushRun());
+    t.eq('a linkId listed twice (any case): both entries skipped', [out2.counts.links, out2.counts.skippedLinks, calls2.fetchAll.length], [0, 2, 0]);
   }
   // A 401 inside a chunk stops the run.
   {
@@ -542,6 +566,23 @@ t.section('§10 logs and messages', () => {
   t.ok('no URL', text.indexOf('mybm.example.test') === -1, text);
   t.ok('no secret', text.indexOf(SECRET) === -1, text);
   t.ok('a run logs one line', g.env.logs.filter(l => /^mybm push/.test(l)).length === 1, g.env.logs);
+
+  // Apps Script's own network error names the URL (Vera, 2026-11-27, finding 5).
+  const g2 = freshBoot();
+  g2.sb.UrlFetchApp = { fetch() { throw new Error('Address unavailable: ' + URL); }, fetchAll() { throw new Error('unused'); } };
+  let t2 = '';
+  try { withNow(NOW, () => g2.sb.mybmPushRun()); } catch (e) { t2 = String(e.message); }
+  t.ok('the links request unreachable: throws, without the URL', /mybm push/.test(t2) && t2.indexOf('mybm.example.test') === -1, t2);
+  const g3 = freshBoot();
+  const links3 = seedWard(g3, 25);
+  const calls3 = fakeMybm(g3, { links: links3 });
+  const realAll = g3.sb.UrlFetchApp.fetchAll;
+  g3.sb.UrlFetchApp.fetchAll = (reqs) => { if (calls3.fetchAll.length === 1) throw new Error('Timeout: ' + URL); return realAll(reqs); };
+  let t3 = '';
+  try { withNow(NOW, () => g3.sb.mybmPushRun()); } catch (e) { t3 = String(e.message); }
+  t.ok('a chunk unreachable: throws, without the URL', /mybm push/.test(t3) && t3.indexOf('mybm.example.test') === -1, t3);
+  t.eq('…every envelope that may have left is audited', g3.audit().filter(a => a.action === 'mybmPush').length, 25);
+  t.ok('…and the counts line is still logged', g3.env.logs.some(l => /^mybm push: \{/.test(l) && /"accepted":20/.test(l)), g3.env.logs);
 });
 
 t.done();

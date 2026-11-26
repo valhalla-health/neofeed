@@ -1127,6 +1127,14 @@ reaches k = 5, so the CSV stays personal data. The lawful basis above covers tre
 for a QI export is open with Pp and the DPO (`BACKLOG.md`). Small cells (≤ 7) are suppressed or rounded to 5 in
 the analysis, on aggregates; the export itself is row-level.
 
+**A copy at MyBreastmilk (2026-11-27, not live):** once Pp switches on `mybmPushRun` (§ MyBreastmilk push),
+MyBM holds, for each infant its staff linked, the newest 7 envelopes: weights with their dates and DOL, the
+current order's feeds, a ward bed and the twin letter. No name, sessionId, HN, AN or DOB leaves, but the DOB can be
+worked out from a weight's date and DOL, so the copy is personal data. Erasure reaches it only by rotation:
+`pseudonymizePatient` blanks the DOB, every later envelope is a `mismatch` with no data, and the older envelopes
+leave MyBM as newer ones replace them, about 3.5 days at two runs a day. Nothing here deletes them at once. Whether
+that is enough, and the lawful basis for this copy, are for Pp and the DPO before the switch goes on.
+
 **A store of names outside the Sheet (not live):** the TPN room's name file holds the name, AN and edit history on
 one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with the change request (tasks.md
 0.2):** `pseudonymizePatient()` cannot reach that PC, so an erasure leaves the name there until the 30-day purge, and

@@ -7,6 +7,29 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (2) — The MyBreastmilk push: Vera's points
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmLinks`, `_mybmFeedCard`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `REFERENCE.md` (§ Thai PDPA compliance posture).
+
+- **Vera, NO BLOCK, five points; four fixed here, one for Pp.**
+- **A sessionId or a linkId listed twice skips every entry that carries it** (her 2). One links answer could
+  otherwise list an infant with several guessed DOBs, and the right guess would get the data.
+- **The card's DOL is worked out from the order's date and the DOB** (her 4), as `data.js` `entryDol` does. Column C
+  is the DOL when the row was saved and goes stale; a blank C no longer drops the card. An order dated before the
+  birth sends no card (`order_unreadable`).
+- **A network failure is rethrown without the URL** (her 5): Apps Script's own message names it, and a thrown
+  message reaches the execution log and the trigger owner's mail. A chunk that fails that way is audited as sent,
+  since some of it may have left, and the run stops.
+- **REFERENCE.md § Thai PDPA compliance posture names the copy at MyBM** (her 3): erasure reaches it only by
+  rotation, about 3.5 days; that and the lawful basis are for Pp and the DPO before the switch goes on.
+- **Left for Pp** (her 1): the mother's weight comes from the growth chart (Patient_Registry M) alone. NeoFeed's own
+  current weight (`data.js` `currentWeight`) also reads each order's weight, a measurement winning on the same DOL,
+  so a weight typed only into the day's order reaches NeoFeed's strip and not MyBM.
+- **Tests.** `verify-mybm-push-1127.cjs`, 190 assertions; every new check of the four fixes
+  failed on the code before them.
+  `mutate-mybm-push.cjs`, 30 mutations, 30 killed.
+
 ## Session 2026-11-27 — The MyBreastmilk push, off until Pp's gates
 
 `gas-backend.gs` (§ MyBreastmilk push: `mybmPushRun`, `wardFeedEnvelope`, `_mybmWeights`, `_mybmFeedCard`,

@@ -44,7 +44,12 @@ const M = [
   ['switch reads truthy', 'if (props.getProperty("MYBM_PUSH_ENABLED") !== "true") {', 'if (!props.getProperty("MYBM_PUSH_ENABLED")) {'],
   ['http allowed', 'if (!/^https:\\/\\/\\S+$/.test(url)) {', 'if (!/^https?:\\/\\/\\S+$/.test(url)) {'],
   ['wrong signing string', 'computeHmacSha256Signature(stamp + "." + payload', 'computeHmacSha256Signature(stamp + payload'],
-  ['duplicate links kept', '&& !Object.prototype.hasOwnProperty.call(seen, l.linkId.toLowerCase());', ';'],
+  ['repeated sessionId kept', 'if (sidCount["s:" + v.sessionId] > 1 || idCount', 'if (idCount'],
+  ['repeated linkId kept', ' || idCount["i:" + v.linkId.toLowerCase()] > 1) { skipped++; continue; }', ') { skipped++; continue; }'],
+  ['card DOL from column C', 'var dol = Math.round((Date.parse(bestKey + "T00:00:00Z") - Date.parse(dobKey + "T00:00:00Z")) / 86400000) + 1;', 'var dol = Number(best[2]);'],
+  ['order before birth kept', '!isFinite(dol) || dol < 1 || dol > 400)', '!isFinite(dol) || dol > 400)'],
+  ['links network error passes through', 'catch (e) { throw new Error("mybm push: MyBM could not be reached on the links request', 'catch (e) { throw e; throw new Error("mybm push: MyBM could not be reached on the links request'],
+  ['chunk network error not audited', '          counts.failed++;\n          logAudit("mybmPush", chunk[u].sessionId, MYBM_PUSH_ACTOR);', '          counts.failed++;'],
   ['unknown 200 status counted', 'MYBM_RECEIPTS[receipt] === true) { counts[receipt]++; continue; }', 'true) { counts[receipt] = (counts[receipt] || 0) + 1; continue; }'],
   ['registration by equality off', 'if (!reg && points.length && points[0].first && Number(bw) === points[0].w) reg = points[0];', ''],
 ];
