@@ -7,6 +7,19 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (5) — The MyBreastmilk push: the third re-check's points
+
+`gas-backend.gs` (§ MyBreastmilk push: `mybmPushRun`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,
+`test/README.md`, `REFERENCE.md`.
+
+- **The third re-check found no error**; these are its smaller points.
+- **The links request's own signing** stops the run with its own message, "the links request could not be signed".
+- **A signing error in a later chunk** is tested: chunk 1's 20 envelopes stay sent and audited, chunk 2 is neither,
+  and the message counts the 20.
+- **A note on (4)**, which did not say it: REFERENCE.md now names the expected admission date too among what MyBM's
+  link row keeps, and the line is re-wrapped.
+- **Tests.** `verify-mybm-push-1127.cjs`, 207 assertions. `mutate-mybm-push.cjs`, 40 mutations, all killed.
+
 ## Session 2026-11-27 (4) — The MyBreastmilk push: the second re-check's points
 
 `gas-backend.gs` (§ MyBreastmilk push: `wardFeedEnvelope`, `mybmPushRun`, `_mybmFeedCard`'s comment),

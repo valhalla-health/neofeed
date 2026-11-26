@@ -1134,9 +1134,8 @@ worked out from a weight's date and DOL, so the copy is personal data. Erasure r
 `pseudonymizePatient` blanks the DOB, every later envelope is a `mismatch` with no data, and the older envelopes
 leave MyBM as newer ones replace them, about 3.5 days at two runs a day. That holds only while MyBM still lists the
 link: a link it stops listing (the mother's consent lapsed, say) gets no newer envelope, and its stored ones stay
-until MyBM deletes them on its own rules. MyBM's link row also keeps the sessionId, and the DOB and admission date the nurse
-typed, which
-`pseudonymizePatient` cannot reach. Nothing here deletes any of it at once. Whether that is enough, and the lawful
+until MyBM deletes them on its own rules. MyBM's link row also keeps the sessionId, and the DOB and admission
+date the nurse typed, which `pseudonymizePatient` cannot reach. Nothing here deletes any of it at once. Whether that is enough, and the lawful
 basis for this copy, are for Pp and the DPO before the switch goes on.
 
 **A store of names outside the Sheet (not live):** the TPN room's name file holds the name, AN and edit history on

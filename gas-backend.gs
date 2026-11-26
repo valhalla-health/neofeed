@@ -7459,9 +7459,12 @@ function mybmPushRun() {
     accepted: 0, duplicate: 0, superseded: 0, unlinked: 0, no_consent: 0, failed: 0 };
   var failedCodes = {};
 
-  var linksReq = _mybmSigned(url, secret, JSON.stringify({
-    schema: "ward-feed-links-v1", sender: "neofeed", requestId: Utilities.getUuid(), generatedAt: new Date().toISOString()
-  }));
+  var linksReq;
+  try {
+    linksReq = _mybmSigned(url, secret, JSON.stringify({
+      schema: "ward-feed-links-v1", sender: "neofeed", requestId: Utilities.getUuid(), generatedAt: new Date().toISOString()
+    }));
+  } catch (e) { throw new Error("mybm push: the links request could not be signed; nothing sent, the next run tries again"); }
   var params = {};
   for (var name in linksReq) if (name !== "url") params[name] = linksReq[name];
   // Apps Script's own network error names the URL, and a thrown message reaches

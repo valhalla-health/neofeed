@@ -50,6 +50,8 @@ const M = [
   ['DOB of today refused', '&& dobKey <= todayKey\n', '&& dobKey < todayKey\n'],
   ['blank admission distrusts the DOB', '    && (admKey === "" || dobKey <= admKey);', '    && dobKey <= admKey;'],
   ['signing error passes through', 'catch (e) { unsigned = true; break; }', 'catch (e) { throw e; }'],
+  ['links signing error passes through', '  } catch (e) { throw new Error("mybm push: the links request could not be signed', '  } catch (e) { throw e; throw new Error("mybm push: the links request could not be signed'],
+  ['whole queue signed up front', '    var refused = false, unreachable = false;\n', '    var refused = false, unreachable = false;\n    queue.forEach(function (q) { _mybmSigned(url, secret, q.payload); });\n'],
   ['unreachable throw dropped', '  if (failedCodes.unreachable) {\n    throw', '  if (false) {\n    throw'],
   ['signing inside the network try', '      try { reqs = chunk.map(function (q) { return _mybmSigned(url, secret, q.payload); }); }\n      catch (e) { unsigned = true; break; }\n      var resps = null;\n      try { resps = UrlFetchApp.fetchAll(reqs); }',
     '      var resps = null;\n      try { reqs = chunk.map(function (q) { return _mybmSigned(url, secret, q.payload); }); resps = UrlFetchApp.fetchAll(reqs); }'],

@@ -623,6 +623,24 @@ t.section('§10 logs and messages', () => {
   t.ok('…says so in its own words, without the URL or the secret', /mybm push: an envelope could not be signed/.test(t4)
     && t4.indexOf('mybm.example.test') === -1 && t4.indexOf(SECRET) === -1, t4);
   t.ok('…and still logs the counts line', g4.env.logs.some(l => /^mybm push: \{/.test(l)), g4.env.logs);
+  // Signing fails on chunk 2's first envelope (call 1 is the links request, 2–21 chunk 1).
+  const g5 = freshBoot();
+  const links5 = seedWard(g5, 25);
+  const calls5 = fakeMybm(g5, { links: links5 });
+  let hmacs5 = 0;
+  g5.env.hmacHook = () => { if (++hmacs5 === 22) throw new Error('Service error: Utilities'); };
+  let t5 = '';
+  try { withNow(NOW, () => g5.sb.mybmPushRun()); } catch (e) { t5 = String(e.message); }
+  t.eq('a signing error in chunk 2: chunk 1 sent and audited, chunk 2 neither',
+    [calls5.fetchAll.length, g5.audit().filter(a => a.action === 'mybmPush').length], [1, 20]);
+  t.ok('…and the message counts the 20 sent', /could not be signed after 20 envelope/.test(t5), t5);
+  const g6 = freshBoot();
+  const calls6 = fakeMybm(g6, { links: seedWard(g6, 1) });
+  g6.env.hmacHook = () => { throw new Error('Service error: Utilities'); };
+  let t6 = '';
+  try { withNow(NOW, () => g6.sb.mybmPushRun()); } catch (e) { t6 = String(e.message); }
+  t.ok('the links request cannot be signed: its own message, nothing sent',
+    /mybm push: the links request could not be signed/.test(t6) && calls6.fetch.length === 0 && calls6.fetchAll.length === 0, t6);
 });
 
 t.done();
