@@ -739,6 +739,7 @@ t.section('§9 answers', () => {
     let threwM = null;
     try { withNow(NOW, () => gm.sb.mybmPushRun()); } catch (e) { threwM = String(e.message); }
     t.ok('6 date mismatches are held too, the 7th link sent', [].concat(...callsM.fetchAll).length === 1 && /6 links did not match/.test(threwM || ''), threwM);
+    t.ok('…and one other envelope reads as one', /The other envelope was sent\./.test(threwM || ''), threwM);
     const gx = freshBoot();
     const lx = seedWard(gx, 3);
     for (let i = 0; i < 3; i++) lx[i] = Object.assign({}, lx[i], { expectedAdmissionDate: '2026-11-21' });
@@ -794,6 +795,44 @@ t.section('§9 answers', () => {
     t.eq('25 held: the mail names 20 of them and says 5 more', [named25, /and 5 more, all in the execution log/.test(t25)], [20, true]);
     const heldLine = g25.env.logs.find(l => /^mybm push: held MyBM link ids: /.test(l)) || '';
     t.ok('…and the execution log names all 25', l25.slice(1).every(l => heldLine.indexOf(l.linkId) !== -1), heldLine);
+    // Exactly 20 held: all named, no "more" (re-check 3).
+    const g20 = freshBoot();
+    const l20 = seedWard(g20, 1);
+    for (let i = 0; i < 20; i++) l20.push(link('NF-2' + String(i).padStart(5, '0')));
+    fakeMybm(g20, { links: l20 });
+    let t20 = '';
+    try { withNow(NOW, () => g20.sb.mybmPushRun()); } catch (e) { t20 = String(e.message); }
+    t.eq('20 held: the mail names all 20 and no more', [l20.slice(1).filter(l => t20.indexOf(l.linkId) !== -1).length, / and \d+ more/.test(t20)], [20, false]);
+    // The held ids reach the execution log before anything is sent (a run stopped by the platform keeps them).
+    const gL = freshBoot();
+    const lL = seedWard(gL, 2);
+    for (let i = 0; i < 6; i++) lL.push(link('NF-1' + String(i).padStart(5, '0')));
+    const callsL = fakeMybm(gL, { links: lL });
+    let loggedFirst = null;
+    const allL = gL.sb.UrlFetchApp.fetchAll;
+    gL.sb.UrlFetchApp.fetchAll = (reqs) => {
+      if (loggedFirst === null) loggedFirst = gL.env.logs.some(l => /^mybm push: held MyBM link ids: /.test(l));
+      return allL(reqs);
+    };
+    try { withNow(NOW, () => gL.sb.mybmPushRun()); } catch (e) { /* the alarm */ }
+    t.eq('…and the held ids are logged before the first envelope is sent', [callsL.fetchAll.length, loggedFirst], [1, true]);
+    // An envelope over the size limit inside a held run: the alarm's mail counts it (re-check 3).
+    const gT = freshBoot();
+    const small = link('NF-300000'), big = link('NF-300001');
+    gT.sheet('Patient_Registry').data.push(pat(gT, small.sessionId, { 12: JSON.stringify([{ dol: 1, w: 980 }]) }),
+      pat(gT, big.sessionId, { 12: JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8].map(d => ({ dol: d, w: 980 + d }))) }));
+    gT.sheet('Daily_Log').data.push(order(gT, small.sessionId, TODAY), order(gT, big.sessionId, TODAY));
+    const sizeOf = (lk) => JSON.stringify(env(gT, gT.sheet('Patient_Registry').data.find(r => r[0] === lk.sessionId),
+      gT.sheet('Daily_Log').data.filter(r => r[1] === lk.sessionId), lk)).length;
+    const lT = [small, big];
+    for (let i = 0; i < 6; i++) lT.push(link('NF-31' + String(i).padStart(4, '0')));
+    const callsT = fakeMybm(gT, { links: lT });
+    t.ok('(the larger envelope is larger by more than 300 characters)', sizeOf(big) - sizeOf(small) > 300, [sizeOf(small), sizeOf(big)]);
+    gT.sb.MYBM_BODY_MAX = Math.round((sizeOf(small) + sizeOf(big)) / 2);
+    let tT = '';
+    try { withNow(NOW, () => gT.sb.mybmPushRun()); } catch (e) { tT = String(e.message); }
+    t.ok('a held run with an envelope over the limit: the mail names the alarm and the size', /6 links did not match/.test(tT)
+      && /The other envelope was sent; 1 over 16 KB not sent\./.test(tT) && [].concat(...callsT.fetchAll).length === 1, tT.slice(-170));
     const g2 = freshBoot();
     const links2 = seedWard(g2, 1);
     for (let i = 0; i < 5; i++) links2.push(link('NF-8' + String(i).padStart(5, '0')));

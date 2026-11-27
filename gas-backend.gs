@@ -7220,10 +7220,11 @@ var MYBM_SECRET_MIN = 32;
 var MYBM_KEY_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 // More identity failures (mismatch, which includes a DOB NeoFeed does not trust, or
 // not_in_registry) than this in one run hold those envelopes unsent, and the run throws;
-// every failure message names the held MyBM link ids, whatever else stopped the run
-// (review 2026-11-27, A5). Matching links are sent as in any run, and up to this many
-// failures a run are sent with their codes, so staff can correct them. Those codes tell
-// MyBM, per link, whether the infant exists and which date differs; a MyBM that keeps to
+// every message it throws after the hold names the held MyBM link ids, and the execution
+// log names them as soon as they are held (review 2026-11-27, A5). Matching links are sent
+// as in any run, and up to this many failures a run are sent with their codes, so staff can
+// correct them. Those codes tell MyBM, per link, whether the infant exists and which date
+// differs or is not trusted; a MyBM that keeps to
 // this many a run is never alarmed, so the alarm limits how fast it can probe, not what
 // a probe learns.
 var MYBM_PROBE_MAX = 5;
@@ -7528,7 +7529,7 @@ function _mybmSigned(url, keyId, secret, payload) {
 // on Patient_Registry or Daily_Log that differs from NeoFeed's (_pharmacySchemaNow), or
 // a Sheets error while opening or reading them; an envelope that cannot be signed,
 // cannot reach MyBM, is not recorded, or is over 16 KB (not sent); and the probe alarm,
-// which every failure message names. The next run sends every link again.
+// which every message thrown after the hold names too. The next run sends every link again.
 function mybmPushRun() {
   var props = PropertiesService.getScriptProperties();
   if (props.getProperty("MYBM_PUSH_ENABLED") !== "true") {
@@ -7621,6 +7622,8 @@ function mybmPushRun() {
       counts.held = counts.probes;
       heldLinks = probes.map(function (q) { return q.linkId; });
       queue = queue.filter(function (q) { return !q.identity; });
+      // Logged at once: a run the platform stops later (the 6-minute limit) still leaves the ids.
+      Logger.log("mybm push: held MyBM link ids: " + heldLinks.join(", "));
     }
 
     var refused = false, unreachable = false;
@@ -7660,12 +7663,12 @@ function mybmPushRun() {
   }
 
   Logger.log("mybm push: " + JSON.stringify(counts));
-  // The probe alarm rides on every failure message, so the owner's mail names it whatever else
-  // stopped the run (re-check 2, 2026-11-27). MyBM's own link ids, not patient identifiers: the
-  // owner finds the babies in MyBM's neofeed_links. The mail names 20; the execution log all.
+  // The probe alarm rides on every message thrown after the hold, so the owner's mail names it
+  // even when a 401, MyBM unreachable or a signing error stopped the run (re-check 2, 2026-11-27).
+  // MyBM's own link ids, not patient identifiers: the owner finds the babies in MyBM's
+  // neofeed_links. The mail names 20; the execution log all.
   var alarm = "";
   if (counts.held > 0) {
-    Logger.log("mybm push: held MyBM link ids: " + heldLinks.join(", "));
     alarm = counts.held + " links did not match NeoFeed (a date that differs or NeoFeed does not trust, or no such "
       + "infant), more than " + MYBM_PROBE_MAX + " in one run, so their envelopes were not sent. MyBM link ids: "
       + heldLinks.slice(0, 20).join(", ")
@@ -7689,7 +7692,8 @@ function mybmPushRun() {
     var bad = [];
     if (counts.failed) bad.push(counts.failed + " not recorded (HTTP " + Object.keys(failedCodes).sort().join(", ") + ")");
     if (counts.tooLarge) bad.push(counts.tooLarge + " over 16 KB not sent");
-    throw new Error("mybm push: " + alarm + " " + (counts.sent ? "The other " + counts.sent + " were sent" : "No other envelope was sent")
+    throw new Error("mybm push: " + alarm + " " + (counts.sent === 1 ? "The other envelope was sent"
+      : counts.sent ? "The other " + counts.sent + " were sent" : "No other envelope was sent")
       + (bad.length ? "; " + bad.join(", ") : "") + ".");
   }
   if (counts.failed > 0 || counts.tooLarge > 0) {

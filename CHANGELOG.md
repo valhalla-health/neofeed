@@ -7,6 +7,22 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (15) — The MyBreastmilk push: the third re-check
+
+`gas-backend.gs` (§ MyBreastmilk push), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`, `REFERENCE.md`.
+
+- **The third re-check found no error.** Its smaller points are fixed here.
+- **Corrections to (14).** "Whatever else stopped the run" was broader than the code: the alarm rides on every message
+  the run throws after the hold, a 401, MyBM unreachable and a signing error included, not on a failure before the hold
+  or on Apps Script's own 6-minute stop. The held ids are now logged as soon as they are held, so a run the platform
+  stops still leaves them. "Which date differs" now reads "which date differs or is not trusted": `dob_mismatch` also
+  comes from a DOB NeoFeed does not trust. (14) said (13) had the order of the NF- check wrong; (13) was right: the NF-
+  check runs ahead of the date checks, and after the keys and linkId checks, where it catches an entry only once a
+  mutant removes the check before it.
+- **Smaller points.** One other envelope reads "The other envelope was sent".
+- **Tests.** `verify-mybm-push-1127.cjs`, 291 assertions: exactly 20 held; the held ids logged before the first send;
+  an envelope over the size limit inside a held run; one other envelope. `mutate-mybm-push.cjs`, 94 mutations, all killed.
+
 ## Session 2026-11-27 (14) — The MyBreastmilk push: the re-check of (13)
 
 `gas-backend.gs` (§ MyBreastmilk push; the `usageMetrics` comment), `test/verify-mybm-push-1127.cjs`,
