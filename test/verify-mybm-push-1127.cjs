@@ -36,8 +36,12 @@
 //   §7  What never leaves: no sessionId, name or initials in any envelope.
 //   §8  The run: one links call, the registry and Daily_Log read once, envelopes
 //       in chunks of 20 through fetchAll with muteHttpExceptions, each request
-//       signed (x-nf-timestamp, x-nf-signature = hex HMAC-SHA256 of
-//       timestamp + "." + body), one Audit_Log row per envelope sent.
+//       signed with signature v2 (x-nf-timestamp, x-nf-key-id, x-nf-signature =
+//       hex HMAC-SHA256 of "nf-sig-v2\n" + key id + "\n" + timestamp + "\n" +
+//       URL + "\n" + body), one Audit_Log row per envelope sent naming its
+//       deliveryId and receipt; only NF-dddddd sessionIds are sent; more than 5
+//       identity failures in one run hold them all (tech and security review,
+//       2026-11-27, A1, A3, A4, A5).
 //   §9  Answers: a 401 to the links call or inside a chunk stops the run and
 //       throws; any other non-200 inside a chunk leaves the other envelopes
 //       alone, and the run throws at the end with counts; an unreadable links
@@ -54,6 +58,7 @@ const { boot, recorder, withNow, addDays, bkkMidnight } = require('./gas-vm-sand
 const t = recorder('verify-mybm-push-1127');
 
 const SECRET = 'test-secret-'.padEnd(40, 'x');
+const KID = 'nf-2026-11';
 const URL = 'https://mybm.example.test/functions/v1/receive-neofeed';
 // 2026-11-27 16:12 Bangkok.
 const NOW = Date.parse('2026-11-27T09:12:03.120Z');
@@ -70,6 +75,7 @@ function freshBoot(opts) {
     g.props.set('MYBM_PUSH_ENABLED', 'true');
     g.props.set('MYBM_PUSH_URL', URL);
     g.props.set('MYBM_PUSH_SECRET', SECRET);
+    g.props.set('MYBM_PUSH_KEY_ID', KID);
   }
   return g;
 }
@@ -116,7 +122,8 @@ function countDataReads(g, tab) {
   return n;
 }
 function hmacHex(stamp, raw) {
-  return crypto.createHmac('sha256', Buffer.from(SECRET, 'utf8')).update(Buffer.from(stamp + '.' + raw, 'utf8')).digest('hex');
+  return crypto.createHmac('sha256', Buffer.from(SECRET, 'utf8'))
+    .update(Buffer.from('nf-sig-v2\n' + KID + '\n' + stamp + '\n' + URL + '\n' + raw, 'utf8')).digest('hex');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -136,6 +143,8 @@ t.section('§1 off unless MYBM_PUSH_ENABLED is exactly "true"', () => {
     ['URL plain http', (g) => g.props.set('MYBM_PUSH_URL', 'http://mybm.example.test/x')],
     ['secret missing', (g) => g.props.delete('MYBM_PUSH_SECRET')],
     ['secret of 31 characters', (g) => g.props.set('MYBM_PUSH_SECRET', 'x'.repeat(31))],
+    ['key id missing', (g) => g.props.delete('MYBM_PUSH_KEY_ID')],
+    ['key id with capitals and spaces', (g) => g.props.set('MYBM_PUSH_KEY_ID', 'Key 1')],
   ];
   for (const [name, set] of cases) {
     const g = freshBoot();
@@ -530,7 +539,7 @@ t.section('§7 what never leaves', () => {
 function seedWard(g, n) {
   const links = [];
   for (let i = 0; i < n; i++) {
-    const sid = 'S' + String(i).padStart(3, '0');
+    const sid = 'NF-' + String(i).padStart(6, '0');
     g.sheet('Patient_Registry').data.push(pat(g, sid));
     g.sheet('Daily_Log').data.push(order(g, sid, TODAY));
     links.push(link(sid));
@@ -541,7 +550,7 @@ function seedWard(g, n) {
 t.section('§8 the run', () => {
   const g = freshBoot();
   const links = seedWard(g, 60);
-  links.push(link('NOT-IN-NEOFEED'));
+  links.push(link('NF-999999'));
   const calls = fakeMybm(g, { links });
   const patReads = countDataReads(g, 'Patient_Registry');
   const logReads = countDataReads(g, 'Daily_Log');
@@ -552,7 +561,8 @@ t.section('§8 the run', () => {
   const lb = JSON.parse(lp.payload);
   t.eq('the links request body, exact keys', Object.keys(lb).sort(), ['generatedAt', 'requestId', 'schema', 'sender']);
   t.eq('…ward-feed-links-v1 from neofeed', [lb.schema, lb.sender], ['ward-feed-links-v1', 'neofeed']);
-  t.ok('…signed', lp.headers['x-nf-signature'] === hmacHex(lp.headers['x-nf-timestamp'], lp.payload), lp.headers);
+  t.ok('…signed with signature v2', lp.headers['x-nf-signature'] === hmacHex(lp.headers['x-nf-timestamp'], lp.payload), lp.headers);
+  t.eq('…naming the key id', lp.headers['x-nf-key-id'], KID);
   t.eq('…timestamp in ms', lp.headers['x-nf-timestamp'], String(NOW));
   t.ok('…post, JSON, muteHttpExceptions, no redirects', lp.method === 'post' && lp.contentType === 'application/json'
     && lp.muteHttpExceptions === true && lp.followRedirects === false, lp);
@@ -573,9 +583,11 @@ t.section('§8 the run', () => {
   t.eq('the others are current with today\'s card', bodies.slice(0, 60).every(b => b.status === 'current' && b.feedCard && b.feedCard.orderDate === TODAY), true);
   t.eq('deliveryIds are all different', new Set(bodies.map(b => b.deliveryId)).size, 61);
   t.ok('deliveryIds are uuids', bodies.every(b => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(b.deliveryId)));
-  const audit = g.audit().filter(a => a.action === 'mybmPush');
+  const audit = g.audit().filter(a => /^mybmPush /.test(a.action));
   t.eq('one Audit_Log row per envelope sent', audit.length, 61);
-  t.ok('…by trigger:mybmPush, naming the sessionId', audit.every(a => a.actor === 'trigger:mybmPush') && audit[0].sessionId === 'S000', audit[0]);
+  t.ok('…by trigger:mybmPush, naming the sessionId', audit.every(a => a.actor === 'trigger:mybmPush') && audit[0].sessionId === 'NF-000000', audit[0]);
+  t.eq('…and the deliveryId and the receipt, the key both apps\' logs share', audit.map(a => a.action),
+    bodies.map(b => 'mybmPush ' + b.deliveryId + ' accepted'));
   t.eq('counts', [out.counts.links, out.counts.sent, out.counts.accepted, out.counts.current, out.counts.inactive], [61, 61, 61, 60, 1]);
   t.eq('nothing written to Patient_Registry or Daily_Log', [g.rows('Patient_Registry').length, g.rows('Daily_Log').length], [60, 60]);
   t.ok('no script lock taken (a read-only run)', g.env.lockWaits === 0, g.env.lockWaits);
@@ -595,9 +607,9 @@ t.section('§8 the run', () => {
 
   // Two registry rows for one sessionId: NeoFeed's screens use the first (app.jsx patients.find).
   const g4 = freshBoot();
-  g4.sheet('Patient_Registry').data.push(pat(g4, 'D1', { 12: JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: 1040 }]) }));
-  g4.sheet('Patient_Registry').data.push(pat(g4, 'D1', { 12: JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: 1100 }]) }));
-  const calls4 = fakeMybm(g4, { links: [link('D1')] });
+  g4.sheet('Patient_Registry').data.push(pat(g4, 'NF-000777', { 12: JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: 1040 }]) }));
+  g4.sheet('Patient_Registry').data.push(pat(g4, 'NF-000777', { 12: JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: 1100 }]) }));
+  const calls4 = fakeMybm(g4, { links: [link('NF-000777')] });
   withNow(NOW, () => g4.sb.mybmPushRun());
   const b4 = JSON.parse(calls4.fetchAll[0][0].payload);
   t.eq('two registry rows for one sessionId: the first row\'s weights, as NeoFeed shows', b4.weights.map(p => p.grams), [980, 1040]);
@@ -653,7 +665,7 @@ t.section('§9 answers', () => {
   {
     const g = freshBoot();
     seedWard(g, 2);
-    const guesses = [link('S000', { expectedDob: '2026-11-19' }), link('S000'), link('S001')];
+    const guesses = [link('NF-000000', { expectedDob: '2026-11-19' }), link('NF-000000'), link('NF-000001')];
     const calls = fakeMybm(g, { links: guesses });
     const out = withNow(NOW, () => g.sb.mybmPushRun());
     const bodies = [].concat(...calls.fetchAll).map(r => JSON.parse(r.payload));
@@ -661,8 +673,8 @@ t.section('§9 answers', () => {
     t.ok('…and no envelope for it carries data', bodies.length === 1 && bodies[0].linkId === guesses[2].linkId, bodies.map(b => b.linkId));
     const g2 = freshBoot();
     seedWard(g2, 2);
-    const one = link('S000');
-    const calls2 = fakeMybm(g2, { links: [one, Object.assign(link('S001'), { linkId: one.linkId.toUpperCase() })] });
+    const one = link('NF-000000');
+    const calls2 = fakeMybm(g2, { links: [one, Object.assign(link('NF-000001'), { linkId: one.linkId.toUpperCase() })] });
     const out2 = withNow(NOW, () => g2.sb.mybmPushRun());
     t.eq('a linkId listed twice (any case): both entries skipped', [out2.counts.links, out2.counts.skippedLinks, calls2.fetchAll.length], [0, 2, 0]);
   }
@@ -675,7 +687,7 @@ t.section('§9 answers', () => {
     try { withNow(NOW, () => g.sb.mybmPushRun()); } catch (e) { threw = String(e.message); }
     t.ok('a 401 in chunk 2: throws', threw && /401/.test(threw), threw);
     t.eq('…and chunk 3 is not sent', calls.fetchAll.length, 2);
-    t.eq('…the 40 sent are audited', g.audit().filter(a => a.action === 'mybmPush').length, 40);
+    t.eq('…the 40 sent are audited', g.audit().filter(a => /^mybmPush /.test(a.action)).length, 40);
   }
   // Another non-200 inside a chunk leaves the rest alone, then throws with counts.
   {
@@ -686,9 +698,37 @@ t.section('§9 answers', () => {
     try { withNow(NOW, () => g.sb.mybmPushRun()); } catch (e) { threw = String(e.message); }
     t.eq('a 503 and a 400 in chunk 1: chunk 2 still sent', calls.fetchAll.map(c => c.length), [20, 5]);
     t.ok('…then the run throws, naming the counts and codes', threw && /2 of 25/.test(threw) && /400/.test(threw) && /503/.test(threw), threw);
-    t.ok('…its message names no sessionId', threw && threw.indexOf('S00') === -1, threw);
+    t.ok('…its message names no sessionId', threw && threw.indexOf('NF-0000') === -1, threw);
+    t.eq('…and the audit rows name each receipt', g.audit().filter(a => /^mybmPush /.test(a.action)).map(a => a.action.split(' ')[2]).filter(r => r !== 'accepted').sort(), ['http-400', 'http-503']);
     const line = g.env.logs.find(l => /^mybm push: /.test(l));
     t.ok('…and the log line holds the counts', line && /"accepted":23/.test(line) && /"failed":2/.test(line), line);
+  }
+  // Only NF-dddddd sessionIds leave (Pp, 2026-11-27): an older id holds initials and the birth weight.
+  {
+    const g = freshBoot();
+    const good = seedWard(g, 1);
+    g.sheet('Patient_Registry').data.push(pat(g, 'TN1200A'));
+    const calls = fakeMybm(g, { links: good.concat([link('TN1200A'), link('NF-12345'), link('nf-123456')]) });
+    const out = withNow(NOW, () => g.sb.mybmPushRun());
+    t.eq('an old-format, a short and a lower-case sessionId are skipped', [out.counts.links, out.counts.skippedLinks, [].concat(...calls.fetchAll).length], [1, 3, 1]);
+  }
+  // More than 5 identity failures in one run hold them all (review A5).
+  {
+    const g = freshBoot();
+    const links = seedWard(g, 2);
+    for (let i = 0; i < 6; i++) links.push(link('NF-9' + String(i).padStart(5, '0')));
+    const calls = fakeMybm(g, { links });
+    let threw = null;
+    try { withNow(NOW, () => g.sb.mybmPushRun()); } catch (e) { threw = String(e.message); }
+    const bodies = [].concat(...calls.fetchAll).map(r => JSON.parse(r.payload));
+    t.eq('6 links not in NeoFeed: none of their envelopes sent, the 2 good ones go', bodies.map(b => b.status), ['current', 'current']);
+    t.ok('…and the run throws, naming the count and no sessionId', threw && /6 links did not match/.test(threw) && threw.indexOf('NF-9') === -1, threw);
+    const g2 = freshBoot();
+    const links2 = seedWard(g2, 1);
+    for (let i = 0; i < 5; i++) links2.push(link('NF-8' + String(i).padStart(5, '0')));
+    const calls2 = fakeMybm(g2, { links: links2 });
+    const out2 = withNow(NOW, () => g2.sb.mybmPushRun());
+    t.eq('5 links not in NeoFeed: all sent, so staff see which ones', [[].concat(...calls2.fetchAll).length, out2.counts.held], [6, 0]);
   }
   // A 200 with a status MyBM does not send is a failure.
   {
@@ -703,7 +743,7 @@ t.section('§9 answers', () => {
 
 t.section('§10 logs and messages', () => {
   const g = freshBoot();
-  const sid = 'PT-2026-LOGCHECK';
+  const sid = 'NF-535353';
   g.sheet('Patient_Registry').data.push(pat(g, sid, { 1: 'ด.ช. ลองดู นามสมมุติ' }));
   g.sheet('Daily_Log').data.push(order(g, sid, TODAY));
   fakeMybm(g, { links: [link(sid)], answer: () => ({ code: 503, body: '' }) });
@@ -731,7 +771,8 @@ t.section('§10 logs and messages', () => {
   try { withNow(NOW, () => g3.sb.mybmPushRun()); } catch (e) { t3 = String(e.message); }
   t.ok('a chunk unreachable: throws, without the URL', /mybm push/.test(t3) && t3.indexOf('mybm.example.test') === -1, t3);
   t.ok('…and says MyBM could not be reached', /could not be reached/.test(t3), t3);
-  t.eq('…every envelope that may have left is audited', g3.audit().filter(a => a.action === 'mybmPush').length, 25);
+  t.eq('…every envelope that may have left is audited', g3.audit().filter(a => /^mybmPush /.test(a.action)).length, 25);
+  t.eq('…the unreachable ones as unreachable', g3.audit().filter(a => / unreachable$/.test(a.action)).length, 5);
   t.ok('…and the counts line is still logged', g3.env.logs.some(l => /^mybm push: \{/.test(l) && /"accepted":20/.test(l)), g3.env.logs);
   // A signing failure is not a network failure: nothing of that chunk is sent or audited.
   const g4 = freshBoot();
@@ -742,7 +783,7 @@ t.section('§10 logs and messages', () => {
   let t4 = '';
   try { withNow(NOW, () => g4.sb.mybmPushRun()); } catch (e) { t4 = String(e.message); }
   t.ok('a signing error is not reported as MyBM unreachable', t4 !== '' && !/could not be reached/.test(t4), t4);
-  t.eq('…and audits nothing it did not send', [calls4.fetchAll.length, g4.audit().filter(a => a.action === 'mybmPush').length], [0, 0]);
+  t.eq('…and audits nothing it did not send', [calls4.fetchAll.length, g4.audit().filter(a => /^mybmPush /.test(a.action)).length], [0, 0]);
   t.ok('…says so in its own words, without the URL or the secret', /mybm push: an envelope could not be signed/.test(t4)
     && t4.indexOf('mybm.example.test') === -1 && t4.indexOf(SECRET) === -1, t4);
   t.ok('…and still logs the counts line', g4.env.logs.some(l => /^mybm push: \{/.test(l)), g4.env.logs);
@@ -755,7 +796,7 @@ t.section('§10 logs and messages', () => {
   let t5 = '';
   try { withNow(NOW, () => g5.sb.mybmPushRun()); } catch (e) { t5 = String(e.message); }
   t.eq('a signing error in chunk 2: chunk 1 sent and audited, chunk 2 neither',
-    [calls5.fetchAll.length, g5.audit().filter(a => a.action === 'mybmPush').length], [1, 20]);
+    [calls5.fetchAll.length, g5.audit().filter(a => /^mybmPush /.test(a.action)).length], [1, 20]);
   t.ok('…and the message counts the 20 sent', /could not be signed after 20 envelope/.test(t5), t5);
   const g6 = freshBoot();
   const calls6 = fakeMybm(g6, { links: seedWard(g6, 1) });

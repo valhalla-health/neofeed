@@ -989,29 +989,45 @@ What leaves: MyBM's link id, the weights with their dates and DOL (the series ev
 `weightSeries`: the growth chart's points and each final order's weight), the feeds of the current order (feed key, mL a
 feed, feeds a day), its date and DOL, a ward bed (never free text) and the twin letter. What never leaves: the
 sessionId, a name, initials, HN, AN, DOB, admission date, diagnosis, a TPN or IV figure, a staff email. The DOB
-can be worked out from a weight's date and DOL, and the DPO's scope has to say so.
+can be worked out from a weight's date and DOL, and the DPO's scope has to say so. Only infants with a sessionId of
+the form `NF-` and six digits are sent: an id issued before 2026-09-27 holds initials and the birth weight
+(Pp, 2026-11-27).
+
+**Signature v2** (a tech and security review, 2026-11-27, `Desktop\PraewPP\NICU Center Point\Product\`, items
+A1, A3, A4, A5; Pp: "แก้ก่อนเปิด"). Each request carries `x-nf-timestamp` (ms), `x-nf-key-id` and `x-nf-signature`,
+the hex HMAC-SHA256 under `MYBM_PUSH_SECRET` of `nf-sig-v2`, the key id, the timestamp, `MYBM_PUSH_URL` and the body,
+joined by line breaks. The key id lets MyBM hold two keys while one is rotated; the URL makes a request good at one
+receiver only. More than 5 links in one run that fail identity (a differing date, or no such infant) hold all of
+them unsent and throw: a MyBM that lists guessed sessionIds learns nothing.
 
 **Switching it on.** Each step is Pp's, in this order:
 
 1. The gates outside this repo: the DPO's written approval naming the bed, the twin letter and the weight dates;
-   KCMH IT's change request, if IT asks for one for an outbound flow; MyBM's side deployed with its secret
-   `NEOFEED_PUSH_SECRET`.
+   KCMH IT's change request, if IT asks for one for an outbound flow; MyBM's side deployed with its key set
+   `NEOFEED_PUSH_KEYS` and `NEOFEED_PUSH_AUDIENCE`.
 2. Confirm that the Apps Script project's HEAD is the ward's deployed backend plus this change only, as before the
    2026-11-18 QI push: a `clasp push` also changes what the backup and QI triggers run.
 3. `clasp push` from a clean checkout of a green `main`. With `MYBM_PUSH_ENABLED` unset the code sends nothing.
-4. Script Properties: `MYBM_PUSH_URL` (MyBM's `receive-neofeed` URL, https only) and `MYBM_PUSH_SECRET` (the
-   value of MyBM's `NEOFEED_PUSH_SECRET`, at least 32 characters). Never in source, chat or a log.
+4. Script Properties: `MYBM_PUSH_URL` (MyBM's `receive-neofeed` URL, https only, exactly MyBM's
+   `NEOFEED_PUSH_AUDIENCE`), `MYBM_PUSH_KEY_ID` (lowercase letters, digits and hyphens, e.g. `nf-2026-11`) and
+   `MYBM_PUSH_SECRET` (that key's value in MyBM's `NEOFEED_PUSH_KEYS`, at least 32 characters). Never in source,
+   chat or a log. Limit the project's editors to Pp and one named backup: every editor can read Script Properties.
 5. Triggers ▸ Add trigger: function `mybmPushRun`, Time-driven, Day timer, 4pm to 5pm, failure notifications
    "immediately"; a second trigger the same way at 7pm to 8pm, the catch-up run. A trigger runs under the
    account that adds it.
 6. One synthetic infant end to end on a test spreadsheet before the ward's Sheet.
 7. Last, the Script Property `MYBM_PUSH_ENABLED` = `true`. Run ▸ `mybmPushRun` once and read its log line.
 
-**Stopping it.** Delete `MYBM_PUSH_ENABLED`: the next run sends nothing. MyBM can also unset its secret, and every
+**Stopping it.** Delete `MYBM_PUSH_ENABLED`: the next run sends nothing. MyBM can also empty its key set, and every
 request then gets 401.
 
-**What a run writes.** One Audit_Log row per envelope sent (`mybmPush`, the sessionId, actor
-`trigger:mybmPush`) and one execution-log line of counts. It throws, so the trigger's owner gets a mail, when MyBM
+**Rotating the key** (every 12 months, on a staff change, or on suspicion): add the new key id and secret to MyBM's
+`NEOFEED_PUSH_KEYS` beside the old one; set `MYBM_PUSH_KEY_ID` and `MYBM_PUSH_SECRET` here to the new pair; after
+48 hours, remove the old key from MyBM. Rehearse it once before switching on.
+
+**What a run writes.** One Audit_Log row per envelope sent (action `mybmPush <deliveryId> <receipt>`, the
+sessionId, actor `trigger:mybmPush`; the receipt is MyBM's answer, `http-<code>` or `unreachable`), so a row here
+and MyBM's stored envelope share the deliveryId, and one execution-log line of counts. It throws, so the trigger's owner gets a mail, when MyBM
 refuses the signature (401) or any envelope was not recorded. The next run sends every link again, so a missed
 run costs a few hours, never data.
 

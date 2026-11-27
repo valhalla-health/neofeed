@@ -7196,8 +7196,11 @@ function sheetBackupStatus() {
 // An envelope carries MyBM's link id, never the sessionId, a name, initials,
 // HN, AN, DOB, admission date, diagnosis, a TPN or IV figure, or a staff email.
 // The DOB can be worked out from a weight's date and DOL; the DPO scope says so.
-// Each request is signed: x-nf-timestamp (ms) and x-nf-signature, the hex
-// HMAC-SHA256 of timestamp + "." + body under MYBM_PUSH_SECRET.
+// Each request is signed (signature v2, tech and security review 2026-11-27, A1):
+// x-nf-timestamp (ms), x-nf-key-id (MYBM_PUSH_KEY_ID) and x-nf-signature, the hex
+// HMAC-SHA256 under MYBM_PUSH_SECRET of "nf-sig-v2\n" + key id + "\n" + timestamp
+// + "\n" + MYBM_PUSH_URL + "\n" + body. The key id lets MyBM hold two keys while
+// one is rotated; the URL makes a request good at one receiver only.
 //
 // Inert until the Script Property MYBM_PUSH_ENABLED is exactly "true"; deleting
 // it stops the push at the next run. Every rule below is the signed design in
@@ -7210,6 +7213,10 @@ var MYBM_WEIGHTS_MAX = 120;
 var MYBM_VALID_MS = 26 * 60 * 60 * 1000;
 var MYBM_BODY_MAX = 16384;
 var MYBM_SECRET_MIN = 32;
+var MYBM_KEY_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
+// More identity failures (mismatch, not_in_registry) than this in one run holds all of
+// them: a MyBM listing many guessed sessionIds learns nothing (review 2026-11-27, A5).
+var MYBM_PROBE_MAX = 5;
 var MYBM_PUSH_ACTOR = "trigger:mybmPush";
 // The only check codes an envelope may carry, in the order it lists them (§4.2).
 var MYBM_CHECK_ORDER = ["not_in_registry", "dob_mismatch", "admission_mismatch", "weights_unreadable",
@@ -7469,6 +7476,9 @@ function _mybmLinks(body) {
       && Object.keys(l).sort().join(",") === MYBM_LINK_KEYS.join(",")
       && typeof l.linkId === "string" && PHARMACY_UUID.test(l.linkId)
       && typeof l.sessionId === "string" && l.sessionId.length >= 1 && l.sessionId.length <= MYBM_SESSION_ID_MAX
+      // NF- and six digits only: an id issued before 2026-09-27 holds initials and the
+      // birth weight and never leaves for MyBM (Pp, 2026-11-27; review A4).
+      && NEW_SESSION_ID_RE.test(l.sessionId)
       && _mybmIsDateKey(l.expectedDob) && _mybmIsDateKey(l.expectedAdmissionDate);
     if (!ok) { skipped++; continue; }
     var sk = "s:" + l.sessionId, ik = "i:" + l.linkId.toLowerCase();
@@ -7487,13 +7497,14 @@ function _mybmLinks(body) {
 
 // A signed POST, as UrlFetchApp.fetchAll takes it. The stamp is taken here,
 // just before the request goes, so a long run cannot send a stale one.
-function _mybmSigned(url, secret, payload) {
+function _mybmSigned(url, keyId, secret, payload) {
   var stamp = String(Date.now());
-  var sig = Utilities.computeHmacSha256Signature(stamp + "." + payload, secret, Utilities.Charset.UTF_8)
+  var signed = "nf-sig-v2\n" + keyId + "\n" + stamp + "\n" + url + "\n" + payload;
+  var sig = Utilities.computeHmacSha256Signature(signed, secret, Utilities.Charset.UTF_8)
     .map(function (b) { return ("0" + (b & 0xff).toString(16)).slice(-2); }).join("");
   return {
     url: url, method: "post", contentType: "application/json", payload: payload,
-    headers: { "x-nf-timestamp": stamp, "x-nf-signature": sig },
+    headers: { "x-nf-timestamp": stamp, "x-nf-key-id": keyId, "x-nf-signature": sig },
     muteHttpExceptions: true, followRedirects: false
   };
 }
@@ -7510,6 +7521,7 @@ function mybmPushRun() {
   }
   var url = String(props.getProperty("MYBM_PUSH_URL") || "");
   var secret = String(props.getProperty("MYBM_PUSH_SECRET") || "");
+  var keyId = String(props.getProperty("MYBM_PUSH_KEY_ID") || "");
   if (!/^https:\/\/\S+$/.test(url)) {
     throw new Error("mybm push: the Script Property MYBM_PUSH_URL is missing or not https; nothing sent");
   }
@@ -7517,14 +7529,17 @@ function mybmPushRun() {
     throw new Error("mybm push: the Script Property MYBM_PUSH_SECRET is missing or shorter than " + MYBM_SECRET_MIN
       + " characters; nothing sent");
   }
+  if (!MYBM_KEY_ID.test(keyId)) {
+    throw new Error("mybm push: the Script Property MYBM_PUSH_KEY_ID is missing or not lowercase letters, digits and hyphens; nothing sent");
+  }
   var unsigned = false;
   var counts = { links: 0, skippedLinks: 0, current: 0, inactive: 0, mismatch: 0, tooLarge: 0, sent: 0,
-    accepted: 0, duplicate: 0, superseded: 0, unlinked: 0, no_consent: 0, failed: 0 };
+    accepted: 0, duplicate: 0, superseded: 0, unlinked: 0, no_consent: 0, failed: 0, held: 0 };
   var failedCodes = {};
 
   var linksReq;
   try {
-    linksReq = _mybmSigned(url, secret, JSON.stringify({
+    linksReq = _mybmSigned(url, keyId, secret, JSON.stringify({
       schema: "ward-feed-links-v1", sender: "neofeed", requestId: Utilities.getUuid(), generatedAt: new Date().toISOString()
     }));
   } catch (e) { throw new Error("mybm push: the links request could not be signed; nothing sent, the next run tries again"); }
@@ -7538,7 +7553,7 @@ function mybmPushRun() {
   var code = resp.getResponseCode();
   if (code === 401) {
     throw new Error("mybm push: MyBM refused the signature (401) on the links request; nothing sent. "
-      + "Check MYBM_PUSH_SECRET against MyBM's NEOFEED_PUSH_SECRET.");
+      + "Check MYBM_PUSH_KEY_ID and MYBM_PUSH_SECRET against MyBM's NEOFEED_PUSH_KEYS.");
   }
   if (code !== 200) throw new Error("mybm push: the links request answered HTTP " + code + "; nothing sent, the next run tries again");
   var parsed = _mybmLinks(_parseJson(resp.getContentText(), null));
@@ -7579,8 +7594,14 @@ function mybmPushRun() {
       var payload = JSON.stringify(env);
       if (payload.length > MYBM_BODY_MAX) { counts.tooLarge++; return; }
       counts[env.status]++;
-      queue.push({ sessionId: l.sessionId, payload: payload });
+      queue.push({ sessionId: l.sessionId, payload: payload, deliveryId: env.deliveryId,
+        identity: env.status === "mismatch" || env.checks.indexOf("not_in_registry") !== -1 });
     });
+    var probes = queue.filter(function (q) { return q.identity; }).length;
+    if (probes > MYBM_PROBE_MAX) {
+      counts.held = probes;
+      queue = queue.filter(function (q) { return !q.identity; });
+    }
 
     var refused = false, unreachable = false;
     for (var c = 0; c < queue.length && !refused && !unreachable && !unsigned; c += MYBM_PUSH_CHUNK) {
@@ -7588,7 +7609,7 @@ function mybmPushRun() {
       // Signed before the network call: a signing error is not a network failure,
       // sends nothing of this chunk and audits nothing of it.
       var reqs;
-      try { reqs = chunk.map(function (q) { return _mybmSigned(url, secret, q.payload); }); }
+      try { reqs = chunk.map(function (q) { return _mybmSigned(url, keyId, secret, q.payload); }); }
       catch (e) { unsigned = true; break; }
       var resps = null;
       try { resps = UrlFetchApp.fetchAll(reqs); }
@@ -7598,17 +7619,19 @@ function mybmPushRun() {
         for (var u = 0; u < chunk.length; u++) {
           counts.sent++;
           counts.failed++;
-          logAudit("mybmPush", chunk[u].sessionId, MYBM_PUSH_ACTOR);
+          logAudit("mybmPush " + chunk[u].deliveryId + " unreachable", chunk[u].sessionId, MYBM_PUSH_ACTOR);
         }
         failedCodes.unreachable = true;
         break;
       }
       for (var k = 0; k < chunk.length; k++) {
         counts.sent++;
-        logAudit("mybmPush", chunk[k].sessionId, MYBM_PUSH_ACTOR);
         var rc = resps[k].getResponseCode();
         var receipt = rc === 200 ? (_parseJson(resps[k].getContentText(), null) || {}).status : null;
-        if (rc === 200 && typeof receipt === "string" && MYBM_RECEIPTS[receipt] === true) { counts[receipt]++; continue; }
+        var known = rc === 200 && typeof receipt === "string" && MYBM_RECEIPTS[receipt] === true;
+        // The deliveryId is the one key the two apps' logs share (review 2026-11-27, A3).
+        logAudit("mybmPush " + chunk[k].deliveryId + " " + (known ? receipt : "http-" + rc), chunk[k].sessionId, MYBM_PUSH_ACTOR);
+        if (known) { counts[receipt]++; continue; }
         counts.failed++;
         failedCodes[String(rc)] = true;
         if (rc === 401) refused = true;
@@ -7619,7 +7642,7 @@ function mybmPushRun() {
   Logger.log("mybm push: " + JSON.stringify(counts));
   if (failedCodes["401"]) {
     throw new Error("mybm push: MyBM refused the signature (401) after " + counts.sent + " envelope(s); the run stopped. "
-      + "Check MYBM_PUSH_SECRET against MyBM's NEOFEED_PUSH_SECRET.");
+      + "Check MYBM_PUSH_KEY_ID and MYBM_PUSH_SECRET against MyBM's NEOFEED_PUSH_KEYS.");
   }
   if (unsigned) {
     throw new Error("mybm push: an envelope could not be signed after " + counts.sent + " envelope(s) were sent; "
@@ -7633,6 +7656,11 @@ function mybmPushRun() {
     throw new Error("mybm push: " + counts.failed + " of " + counts.sent + " envelope(s) were not recorded (HTTP "
       + Object.keys(failedCodes).sort().join(", ") + ")" + (counts.tooLarge ? ", " + counts.tooLarge + " over 16 KB not sent" : "")
       + "; the next run sends every link again");
+  }
+  if (counts.held > 0) {
+    throw new Error("mybm push: " + counts.held + " links did not match NeoFeed (a date that differs, or no such infant), "
+      + "more than " + MYBM_PROBE_MAX + " in one run, so none of their envelopes was sent. Check the links in MyBM; "
+      + "the others went as usual");
   }
   return { ok: true, enabled: true, counts: counts };
 }

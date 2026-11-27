@@ -7,6 +7,24 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (11) — The MyBreastmilk push: signature v2 and three guards, before it is switched on
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmSigned`, `_mybmLinks`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `test/README.md`, `REFERENCE.md` (§ MyBreastmilk push).
+
+- **Why.** Pp asked a new agent to review the apps' links as if NICU Center Point became the hub for every app
+  (tech and security, 2026-11-27; the report is in her private Center Point product folder). It found the push
+  safe to switch on but pair-by-pair, and listed seven cheap changes before it goes live. Pp: "แก้ก่อนเปิด", and
+  only `NF-` sessionIds.
+- **Signature v2 (A1).** A new header `x-nf-key-id` and Script Property `MYBM_PUSH_KEY_ID`; the HMAC covers
+  `nf-sig-v2`, the key id, the timestamp, the receiver's URL and the body. A key can now be rotated without an
+  outage, and a request is good at one receiver only.
+- **The audit row joins the two logs (A3).** Action `mybmPush <deliveryId> <receipt>`; no new column.
+- **Only `NF-dddddd` sessionIds leave (A4).** An id issued before 2026-09-27 holds initials and the birth weight.
+- **Probe alarm (A5).** More than 5 identity failures in one run hold all of them unsent and throw, naming the count.
+- **Tests.** `verify-mybm-push-1127.cjs`, 262 assertions; 18 new checks fail on the code before. `mutate-mybm-push.cjs`,
+  71 mutations, all killed. MyBM's side of A1 and its own items (A2, A6, A7) are in the MyBM PR.
+
 ## Session 2026-11-27 (10) — The MyBreastmilk weights: the third re-check
 
 `gas-backend.gs` (comments in § MyBreastmilk push only), `test/verify-mybm-push-1127.cjs`.
