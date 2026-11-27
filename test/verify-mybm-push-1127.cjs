@@ -729,6 +729,8 @@ t.section('§9 answers', () => {
     t.eq('6 links not in NeoFeed: their envelopes held, the 2 good ones sent', bodies.map(b => b.status), ['current', 'current']);
     t.ok('…and the run throws, naming the count and the held MyBM link ids, no sessionId', threw && /6 links did not match/.test(threw)
       && links.slice(2).every(l => threw.indexOf(l.linkId) !== -1) && threw.indexOf('NF-9') === -1, threw);
+    t.ok('…and names none of the links that matched', links.slice(0, 2).every(l => threw.indexOf(l.linkId) === -1), threw);
+    t.ok('…and says the other 2 were sent', /The other 2 were sent\./.test(threw), threw);
     t.eq('…and only what was sent is audited', g.audit().filter(a => /^mybmPush /.test(a.action)).length, 2);
     const gm = freshBoot();
     const lm = seedWard(gm, 7);
@@ -745,6 +747,8 @@ t.section('§9 answers', () => {
     let threwX = null;
     try { withNow(NOW, () => gx.sb.mybmPushRun()); } catch (e) { threwX = String(e.message); }
     t.ok('3 mismatches and 3 not in NeoFeed are held', callsX.fetchAll.length === 0 && /6 links did not match/.test(threwX || ''), threwX);
+    t.ok('…and with every link held the mail says no other envelope was sent', /No other envelope was sent\./.test(threwX || '')
+      && !/The other/.test(threwX || ''), threwX);
     const gh = freshBoot();
     const lh = seedWard(gh, 2);
     for (let i = 0; i < 6; i++) lh.push(link('NF-6' + String(i).padStart(5, '0')));
@@ -752,6 +756,44 @@ t.section('§9 answers', () => {
     let threwH = null;
     try { withNow(NOW, () => gh.sb.mybmPushRun()); } catch (e) { threwH = String(e.message); }
     t.ok('a held run with a 503 too: the mail names the alarm and the failure', /6 links did not match/.test(threwH || '') && /1 not recorded/.test(threwH || ''), threwH);
+    t.ok('…with its HTTP code', /1 not recorded \(HTTP 503\)/.test(threwH || ''), threwH);
+    // The alarm is named whatever else stops the run (re-check 2): a 401, MyBM unreachable, a signing error.
+    const heldRun = (seed, setup) => {
+      const gq = freshBoot();
+      const lq = seedWard(gq, seed);
+      for (let i = 0; i < 6; i++) lq.push(link('NF-5' + String(i).padStart(5, '0')));
+      const callsQ = fakeMybm(gq, { links: lq });
+      setup(gq, callsQ);
+      let m = '';
+      try { withNow(NOW, () => gq.sb.mybmPushRun()); } catch (e) { m = String(e.message); }
+      return { m, held: lq.slice(seed) };
+    };
+    const namesAlarm = (r) => /6 links did not match/.test(r.m) && r.held.every(l => r.m.indexOf(l.linkId) !== -1);
+    const q401 = (() => {
+      const gq = freshBoot();
+      const lq = seedWard(gq, 2);
+      for (let i = 0; i < 6; i++) lq.push(link('NF-5' + String(i).padStart(5, '0')));
+      fakeMybm(gq, { links: lq, answer: (b, c, i) => (i === 0 ? { code: 401, body: '' } : { code: 200, body: { status: 'accepted' } }) });
+      let m = '';
+      try { withNow(NOW, () => gq.sb.mybmPushRun()); } catch (e) { m = String(e.message); }
+      return { m, held: lq.slice(2) };
+    })();
+    t.ok('a held run that also gets a 401: the mail names the 401 and the alarm', /refused the signature \(401\)/.test(q401.m) && namesAlarm(q401), q401.m);
+    const qOff = heldRun(2, (gq) => { gq.sb.UrlFetchApp.fetchAll = () => { throw new Error('Timeout: ' + URL); }; });
+    t.ok('a held run with MyBM unreachable: the mail names both', /could not be reached/.test(qOff.m) && namesAlarm(qOff), qOff.m);
+    const qSig = heldRun(2, (gq) => { let n = 0; gq.env.hmacHook = () => { if (++n === 2) throw new Error('Service error: Utilities'); }; });
+    t.ok('a held run with a signing error: the mail names both', /could not be signed/.test(qSig.m) && namesAlarm(qSig), qSig.m);
+    // More than 20 held: the mail names 20 and counts the rest; the execution log names all.
+    const g25 = freshBoot();
+    const l25 = seedWard(g25, 1);
+    for (let i = 0; i < 25; i++) l25.push(link('NF-4' + String(i).padStart(5, '0')));
+    fakeMybm(g25, { links: l25 });
+    let t25 = '';
+    try { withNow(NOW, () => g25.sb.mybmPushRun()); } catch (e) { t25 = String(e.message); }
+    const named25 = l25.slice(1).filter(l => t25.indexOf(l.linkId) !== -1).length;
+    t.eq('25 held: the mail names 20 of them and says 5 more', [named25, /and 5 more, all in the execution log/.test(t25)], [20, true]);
+    const heldLine = g25.env.logs.find(l => /^mybm push: held MyBM link ids: /.test(l)) || '';
+    t.ok('…and the execution log names all 25', l25.slice(1).every(l => heldLine.indexOf(l.linkId) !== -1), heldLine);
     const g2 = freshBoot();
     const links2 = seedWard(g2, 1);
     for (let i = 0; i < 5; i++) links2.push(link('NF-8' + String(i).padStart(5, '0')));
@@ -778,8 +820,10 @@ t.section('§10 logs and messages', () => {
   withNow(NOW, () => gu.sb.mybmPushRun());
   const auditRows = gu.sheet('Audit_Log').data.slice();
   auditRows.push([new Date(NOW).toISOString(), 'login', '', 'nurse@kcmh.test']);
+  auditRows.push([new Date(NOW).toISOString(), 'mybmPush x accepted', '', ' Trigger:mybmPush ']);
   const usage = gu.sb.usageMetrics(auditRows);
-  t.eq('usage counts the nurse, not the push trigger, which has its own count', [usage.totalDistinctUsers, usage.rowsSkipped, usage.triggerRows], [1, 0, 2]);
+  t.eq('usage counts the nurse, not the push trigger (spaces and case aside), which has its own count',
+    [usage.totalDistinctUsers, usage.rowsSkipped, usage.triggerRows], [1, 0, 3]);
   const g = freshBoot();
   const sid = 'NF-535353';
   g.sheet('Patient_Registry').data.push(pat(g, sid, { 1: 'ด.ช. ลองดู นามสมมุติ' }));
@@ -813,6 +857,10 @@ t.section('§10 logs and messages', () => {
   t.eq('…every envelope that may have left is audited', g3.audit().filter(a => /^mybmPush /.test(a.action)).length, 25);
   t.eq('…the unreachable ones as unreachable, each naming its own deliveryId', g3.audit().filter(a => / unreachable$/.test(a.action)).map(a => a.action.split(' ')[1]).sort(),
     lostChunk.map(r => JSON.parse(r.payload).deliveryId).sort());
+  const sidOfLink = {};
+  links3.forEach(l => { sidOfLink[l.linkId] = l.sessionId; });
+  t.eq('…each row pairing that deliveryId with its own infant', g3.audit().filter(a => / unreachable$/.test(a.action)).map(a => a.action.split(' ')[1] + ' ' + a.sessionId).sort(),
+    lostChunk.map(r => { const p = JSON.parse(r.payload); return p.deliveryId + ' ' + sidOfLink[p.linkId]; }).sort());
   t.eq('…which were 5', lostChunk.length, 5);
   t.ok('…and the counts line is still logged', g3.env.logs.some(l => /^mybm push: \{/.test(l) && /"accepted":20/.test(l)), g3.env.logs);
   // A signing failure is not a network failure: nothing of that chunk is sent or audited.

@@ -6125,8 +6125,9 @@ function usageMetrics(rows) {
     var r = rows[i] || [];
     out.rowsScanned++;
     if (NON_USAGE_AUDIT_ACTIONS[String(r[1] == null ? "" : r[1]).trim()] === true) { out.rowsSkipped++; continue; }
-    // A time trigger (actor "trigger:...", e.g. the MyBreastmilk push) is not a user, and has
-    // its own count so rowsSkipped still means a row that went wrong.
+    // A time trigger (actor "trigger:...", e.g. the MyBreastmilk push) is not a user. It has its
+    // own count, triggerRows, apart from rowsSkipped (the non-usage actions above, and rows with
+    // no actor or no usable timestamp).
     if (String(r[3] == null ? "" : r[3]).trim().toLowerCase().indexOf("trigger:") === 0) { out.triggerRows++; continue; }
     var email = String(r[3] == null ? "" : r[3]).trim().toLowerCase();
     var wk = _isoWeekKeyLocal_(r[0]);
@@ -7218,10 +7219,13 @@ var MYBM_BODY_MAX = 16384;
 var MYBM_SECRET_MIN = 32;
 var MYBM_KEY_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 // More identity failures (mismatch, which includes a DOB NeoFeed does not trust, or
-// not_in_registry) than this in one run hold those envelopes unsent and mail the owner
-// with their MyBM link ids (review 2026-11-27, A5). MyBM then learns that those links
-// failed, not which date was wrong; matching links are sent as in any run, and up to
-// this many failures a run are sent with their codes, so staff can correct them.
+// not_in_registry) than this in one run hold those envelopes unsent, and the run throws;
+// every failure message names the held MyBM link ids, whatever else stopped the run
+// (review 2026-11-27, A5). Matching links are sent as in any run, and up to this many
+// failures a run are sent with their codes, so staff can correct them. Those codes tell
+// MyBM, per link, whether the infant exists and which date differs; a MyBM that keeps to
+// this many a run is never alarmed, so the alarm limits how fast it can probe, not what
+// a probe learns.
 var MYBM_PROBE_MAX = 5;
 var MYBM_PUSH_ACTOR = "trigger:mybmPush";
 // The only check codes an envelope may carry, in the order it lists them (§4.2).
@@ -7520,9 +7524,11 @@ function _mybmSigned(url, keyId, secret, payload) {
 // hand in the editor). Reads only; writes one Audit_Log row per envelope sent.
 // Throws, so the trigger's owner gets a mail: on a Script Property that is missing
 // or malformed; a links request that cannot be signed, cannot reach MyBM, is refused
-// (401) or answered otherwise than 200 with { links: [...] } of at most 500; an
-// envelope that cannot be signed, cannot reach MyBM or is not recorded; and the probe
-// alarm. The next run sends every link again.
+// (401) or answered otherwise than 200 with { links: [...] } of at most 500; a header
+// on Patient_Registry or Daily_Log that differs from NeoFeed's (_pharmacySchemaNow), or
+// a Sheets error while opening or reading them; an envelope that cannot be signed,
+// cannot reach MyBM, is not recorded, or is over 16 KB (not sent); and the probe alarm,
+// which every failure message names. The next run sends every link again.
 function mybmPushRun() {
   var props = PropertiesService.getScriptProperties();
   if (props.getProperty("MYBM_PUSH_ENABLED") !== "true") {
@@ -7654,31 +7660,42 @@ function mybmPushRun() {
   }
 
   Logger.log("mybm push: " + JSON.stringify(counts));
+  // The probe alarm rides on every failure message, so the owner's mail names it whatever else
+  // stopped the run (re-check 2, 2026-11-27). MyBM's own link ids, not patient identifiers: the
+  // owner finds the babies in MyBM's neofeed_links. The mail names 20; the execution log all.
+  var alarm = "";
+  if (counts.held > 0) {
+    Logger.log("mybm push: held MyBM link ids: " + heldLinks.join(", "));
+    alarm = counts.held + " links did not match NeoFeed (a date that differs or NeoFeed does not trust, or no such "
+      + "infant), more than " + MYBM_PROBE_MAX + " in one run, so their envelopes were not sent. MyBM link ids: "
+      + heldLinks.slice(0, 20).join(", ")
+      + (heldLinks.length > 20 ? " and " + (heldLinks.length - 20) + " more, all in the execution log" : "")
+      + ". Correct the dates in NeoFeed or the links in MyBM.";
+  }
+  var also = alarm ? " Also: " + alarm : "";
   if (failedCodes["401"]) {
     throw new Error("mybm push: MyBM refused the signature (401) after " + counts.sent + " envelope(s); the run stopped. "
-      + "Check MYBM_PUSH_KEY_ID and MYBM_PUSH_SECRET against MyBM's NEOFEED_PUSH_KEYS.");
+      + "Check MYBM_PUSH_KEY_ID and MYBM_PUSH_SECRET against MyBM's NEOFEED_PUSH_KEYS." + also);
   }
   if (unsigned) {
     throw new Error("mybm push: an envelope could not be signed after " + counts.sent + " envelope(s) were sent; "
-      + "the run stopped, the next run sends every link again");
+      + "the run stopped, the next run sends every link again." + also);
   }
   if (failedCodes.unreachable) {
     throw new Error("mybm push: MyBM could not be reached after " + counts.sent + " envelope(s) were sent or attempted; "
-      + "the run stopped, the next run sends every link again");
+      + "the run stopped, the next run sends every link again." + also);
   }
   if (counts.held > 0) {
-    // MyBM's own link ids, not patient identifiers: the owner finds the babies in MyBM's neofeed_links.
-    throw new Error("mybm push: " + counts.held + " links did not match NeoFeed (a date that differs or NeoFeed does not "
-      + "trust, or no such infant), more than " + MYBM_PROBE_MAX + " in one run, so their envelopes were not sent; the "
-      + "others were" + (counts.failed || counts.tooLarge ? " (and " + counts.failed + " not recorded, " + counts.tooLarge
-      + " over 16 KB)" : "") + ". MyBM link ids: " + heldLinks.slice(0, 20).join(", ")
-      + (heldLinks.length > 20 ? " and " + (heldLinks.length - 20) + " more" : "")
-      + ". Correct the dates in NeoFeed or the links in MyBM.");
+    var bad = [];
+    if (counts.failed) bad.push(counts.failed + " not recorded (HTTP " + Object.keys(failedCodes).sort().join(", ") + ")");
+    if (counts.tooLarge) bad.push(counts.tooLarge + " over 16 KB not sent");
+    throw new Error("mybm push: " + alarm + " " + (counts.sent ? "The other " + counts.sent + " were sent" : "No other envelope was sent")
+      + (bad.length ? "; " + bad.join(", ") : "") + ".");
   }
   if (counts.failed > 0 || counts.tooLarge > 0) {
     throw new Error("mybm push: " + counts.failed + " of " + counts.sent + " envelope(s) were not recorded (HTTP "
       + Object.keys(failedCodes).sort().join(", ") + ")" + (counts.tooLarge ? ", " + counts.tooLarge + " over 16 KB not sent" : "")
-      + "; the next run sends every link again");
+      + "; the next run sends every link again.");
   }
   return { ok: true, enabled: true, counts: counts };
 }

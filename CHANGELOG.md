@@ -7,6 +7,29 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (14) — The MyBreastmilk push: the re-check of (13)
+
+`gas-backend.gs` (§ MyBreastmilk push; the `usageMetrics` comment), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `REFERENCE.md`.
+
+- **Corrections to (13).** "Four were missing; they are listed now" was wrong: six were missing, and two were still
+  left out (an envelope over 16 KB; a header on Patient_Registry or Daily_Log that differs from NeoFeed's, or a
+  Sheets error reading them). REFERENCE and the run's header comment list them now. "It names the alarm even when an
+  envelope also failed" held only for an HTTP code other than 401 or an unknown receipt: a 401, MyBM unreachable or a
+  signing error threw first, without the alarm. "So `rowsSkipped` still means a row that went wrong" was wrong:
+  `rowsSkipped` also counts the non-usage actions (loginFail, lockout, the qi* rows); the comment now says what it
+  counts. "Holding the whole run still told MyBM that every guess was wrong" overstated it: it told MyBM that more
+  than 5 of its links failed, which is all of them only when exactly 6 were listed. "The link checks the NF- rule now
+  runs ahead of" had the order wrong: the NF- check runs after the keys and linkId checks; the old test was vacuous
+  because the NF- rule caught every entry first.
+- **Every failure message names the probe alarm** (code), with up to 20 held MyBM link ids and a count of the rest;
+  one execution-log line names them all. The alarm's own message gives the HTTP codes of envelopes not recorded, and
+  says no other envelope was sent when every link was held. The docs say what the codes of up to 5 failures tell
+  MyBM.
+- **Tests.** `verify-mybm-push-1127.cjs`, 286 assertions: the alarm with a 401, with MyBM unreachable and with a
+  signing error; 25 held; the matching links' ids absent from the mail; each unreachable audit row paired with its
+  own infant; an actor with spaces and capitals. `mutate-mybm-push.cjs`, 91 mutations, all killed.
+
 ## Session 2026-11-27 (13) — The MyBreastmilk push: the re-check of (12)
 
 `gas-backend.gs` (§ MyBreastmilk push; `usageMetrics`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,
