@@ -998,8 +998,9 @@ A1, A3, A4, A5; Pp: "แก้ก่อนเปิด"). Each request carries `
 the hex HMAC-SHA256 under `MYBM_PUSH_SECRET` of `nf-sig-v2`, the key id, the timestamp, `MYBM_PUSH_URL` and the body,
 joined by line breaks. The key id lets MyBM hold two keys while one is rotated; the URL makes a request good at one
 receiver only. More than 5 links in one run that fail identity (a differing date, a DOB NeoFeed does not trust, or
-no such infant) hold every envelope of that run unsent and throw: a MyBM that lists guessed sessionIds learns
-nothing from that run, not even which guess was right.
+no such infant) hold those envelopes unsent and throw, naming their MyBM link ids. MyBM then learns that those links
+failed, not which date was wrong; matching links are sent as in any run, and up to 5 failures a run are sent with
+their codes, without an alarm, so staff can correct them.
 
 **Switching it on.** Each step is Pp's, in this order:
 
@@ -1026,14 +1027,17 @@ request then gets 401.
 **Rotating the key** (every 12 months, or on a staff change): add the new key id and secret to MyBM's
 `NEOFEED_PUSH_KEYS` beside the old one; set `MYBM_PUSH_KEY_ID` and `MYBM_PUSH_SECRET` here to the new pair; remove the
 old key from MyBM once the next run has gone through. **On suspicion of a leak**, remove the old key from MyBM at
-once: NeoFeed signs at send time and never resends an old request, so nothing waits on the old key. Rehearse a
-rotation once before switching on.
+once: NeoFeed signs at send time and never resends an old request. A run already under way keeps signing with the
+key it read at its start, so it may end with a 401 and throw; the next run uses the new key. Rehearse a rotation once
+before switching on. **After a probe-alarm mail**, find the named link ids in MyBM's `neofeed_links`, then correct the
+dates in NeoFeed or remap the links in MyBM.
 
 **What a run writes.** One Audit_Log row per envelope sent (action `mybmPush <deliveryId> <receipt>`, the
 sessionId, actor `trigger:mybmPush`; the receipt is MyBM's answer, `http-<code>` or `unreachable`), so a row here
-and MyBM's stored envelope share the deliveryId, and one execution-log line of counts. It throws, so the trigger's owner gets a mail, when MyBM
-refuses the signature (401), MyBM cannot be reached, an envelope cannot be signed, any envelope was not recorded, or
-the probe alarm held the run. The next run sends every link again, so a missed
+and MyBM's stored envelope share the deliveryId, and one execution-log line of counts. It throws, so the trigger's owner gets a mail, on a Script
+Property that is missing or malformed; a links request that cannot be signed, cannot reach MyBM, is refused (401), or
+is answered otherwise than 200 with a list of at most 500 links; an envelope that cannot be signed, cannot reach MyBM
+or is not recorded; and the probe alarm. The next run sends every link again, so a missed
 run costs a few hours, never data.
 
 ### The TPN room's page: `tpn-room.html`

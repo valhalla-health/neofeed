@@ -7,6 +7,24 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (13) — The MyBreastmilk push: the re-check of (12)
+
+`gas-backend.gs` (§ MyBreastmilk push; `usageMetrics`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,
+`test/README.md`, `REFERENCE.md`.
+
+- **Corrections to (12).** Its "none in its code paths" was wrong: the probe alarm's code had the error, and (12)
+  changed it. Its "REFERENCE lists every reason a run throws" was wrong too: four were missing; they are listed now.
+- **The probe alarm holds only the failing envelopes again, as Pp approved it** (A5). Holding the whole run still told
+  MyBM that every guess was wrong, and it stopped every mother's update on ordinary slips (a date mistyped, a date
+  corrected in NeoFeed after linking). The mail now names the held links by MyBM's own link ids, so the owner can act;
+  it names the alarm even when an envelope also failed. The docs say what MyBM still learns.
+- **A test that checked nothing.** The check that each unreachable audit row names its own deliveryId compared a list
+  with itself; it now compares with the chunk that failed, and its count.
+- **Smaller points.** `usageMetrics` reads the trimmed actor and counts trigger rows on their own (`triggerRows`), so
+  `rowsSkipped` still means a row that went wrong; mutants for the link checks the NF- rule now runs ahead of; stale
+  header lines.
+- **Tests.** `verify-mybm-push-1127.cjs`, 276 assertions. `mutate-mybm-push.cjs`, 79 mutations, all killed.
+
 ## Session 2026-11-27 (12) — The MyBreastmilk push: the check of (11)
 
 `gas-backend.gs` (§ MyBreastmilk push; `usageMetrics`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,

@@ -1,7 +1,7 @@
 // mutate-mybm-push.cjs — does verify-mybm-push-1127.cjs notice wrong code?
 //
-// Each entry below makes one small change to gas-backend.gs § MyBreastmilk push in
-// a temp copy and runs the harness against it (NEOFEED_GAS_SRC). A mutation is
+// Each entry below makes one small change to gas-backend.gs (§ MyBreastmilk push, and
+// usageMetrics for the trigger rows) in a temp copy and runs the harness against it (NEOFEED_GAS_SRC). A mutation is
 // KILLED when the harness fails or does not finish in 60 s, and SURVIVED when it
 // still passes: a survivor is a behaviour no assertion pins. Not a harness: CI
 // runs test/verify-*.cjs only. Run it by hand after changing that block or its
@@ -85,11 +85,15 @@ const M = [
   ['signing inside the network try', '      try { reqs = chunk.map(function (q) { return _mybmSigned(url, keyId, secret, q.payload); }); }\n      catch (e) { unsigned = true; break; }\n      var resps = null;\n      try { resps = UrlFetchApp.fetchAll(reqs); }', '      var resps = null;\n      try { reqs = chunk.map(function (q) { return _mybmSigned(url, keyId, secret, q.payload); }); resps = UrlFetchApp.fetchAll(reqs); }'],
   ['chunk network error not audited', '          counts.failed++;\n          logAudit("mybmPush " + chunk[u].deliveryId + " unreachable", chunk[u].sessionId, MYBM_PUSH_ACTOR);', '          counts.failed++;'],
   ['unknown 200 status counted', 'var known = rc === 200 && typeof receipt === "string" && MYBM_RECEIPTS[receipt] === true;', 'var known = rc === 200 && typeof receipt === "string";'],
-  ['probe alarm holds only the failures', '      counts.held = queue.length;\n      queue = [];\n', '      counts.held = counts.probes;\n      queue = queue.filter(function (q) { return !q.identity; });\n'],
   ['mismatch not counted as a probe', 'identity: env.status === "mismatch" || env.checks.indexOf("not_in_registry") !== -1 });', 'identity: env.checks.indexOf("not_in_registry") !== -1 });'],
   ['unreachable audit without the deliveryId', 'logAudit("mybmPush " + chunk[u].deliveryId + " unreachable"', 'logAudit("mybmPush unreachable"'],
-  ['usage counts triggers', '      || /^trigger:/.test(String(r[3] == null ? "" : r[3]))) { out.rowsSkipped++; continue; }\n', ') { out.rowsSkipped++; continue; }\n'],
   ['probe alarm off', '    if (counts.probes > MYBM_PROBE_MAX) {\n', '    if (false) {\n'],
+  ['probe alarm holds the whole run', '      queue = queue.filter(function (q) { return !q.identity; });\n    }\n', '      queue = [];\n    }\n'],
+  ['held link ids not named', '. MyBM link ids: " + heldLinks.slice(0, 20).join(", ")', '. MyBM link ids: "'],
+  ['usage counts triggers', '    if (String(r[3] == null ? "" : r[3]).trim().toLowerCase().indexOf("trigger:") === 0) { out.triggerRows++; continue; }\n', ''],
+  ['link id not checked as a uuid', '      && typeof l.linkId === "string" && PHARMACY_UUID.test(l.linkId)\n', '      && typeof l.linkId === "string"\n'],
+  ['link keys not checked', '      && Object.keys(l).sort().join(",") === MYBM_LINK_KEYS.join(",")\n', ''],
+  ['link dates not checked', '      && _mybmIsDateKey(l.expectedDob) && _mybmIsDateKey(l.expectedAdmissionDate);\n', ';\n'],
   ['links signing error passes through', '  } catch (e) { throw new Error("mybm push: the links request could not be signed', '  } catch (e) { throw e; throw new Error("mybm push: the links request could not be signed'],
   ['whole queue signed up front', '    var refused = false, unreachable = false;\n', '    var refused = false, unreachable = false;\n    queue.forEach(function (q) { _mybmSigned(url, keyId, secret, q.payload); });\n'],
   ['unreachable throw dropped', '  if (failedCodes.unreachable) {\n    throw', '  if (false) {\n    throw'],

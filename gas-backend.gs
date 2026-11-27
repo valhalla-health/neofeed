@@ -6115,7 +6115,7 @@ function _sheetInstant_(value) {
 var NON_USAGE_AUDIT_ACTIONS = { loginFail: true, lockout: true,
   qiKeyCreated: true, qiExport: true, qiReidentify: true, qiReidentifyMiss: true };
 function usageMetrics(rows) {
-  var out = { weeks: [], totalDistinctUsers: 0, rowsScanned: 0, rowsSkipped: 0 };
+  var out = { weeks: [], totalDistinctUsers: 0, rowsScanned: 0, rowsSkipped: 0, triggerRows: 0 };
   if (!rows || !rows.length) return out;
 
   var byWeek = {};      // weekKey -> { emails: {}, events: n }
@@ -6124,9 +6124,10 @@ function usageMetrics(rows) {
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i] || [];
     out.rowsScanned++;
-    // A time trigger (actor "trigger:...", e.g. the MyBreastmilk push) is not a user.
-    if (NON_USAGE_AUDIT_ACTIONS[String(r[1] == null ? "" : r[1]).trim()] === true
-      || /^trigger:/.test(String(r[3] == null ? "" : r[3]))) { out.rowsSkipped++; continue; }
+    if (NON_USAGE_AUDIT_ACTIONS[String(r[1] == null ? "" : r[1]).trim()] === true) { out.rowsSkipped++; continue; }
+    // A time trigger (actor "trigger:...", e.g. the MyBreastmilk push) is not a user, and has
+    // its own count so rowsSkipped still means a row that went wrong.
+    if (String(r[3] == null ? "" : r[3]).trim().toLowerCase().indexOf("trigger:") === 0) { out.triggerRows++; continue; }
     var email = String(r[3] == null ? "" : r[3]).trim().toLowerCase();
     var wk = _isoWeekKeyLocal_(r[0]);
     // A row with no actor cannot be attributed, and a row with no usable
@@ -7217,9 +7218,10 @@ var MYBM_BODY_MAX = 16384;
 var MYBM_SECRET_MIN = 32;
 var MYBM_KEY_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 // More identity failures (mismatch, which includes a DOB NeoFeed does not trust, or
-// not_in_registry) than this in one run hold every envelope of the run: a MyBM listing
-// guessed sessionIds learns nothing from that run, not even which guess was right
-// (review 2026-11-27, A5; the whole run since its re-check).
+// not_in_registry) than this in one run hold those envelopes unsent and mail the owner
+// with their MyBM link ids (review 2026-11-27, A5). MyBM then learns that those links
+// failed, not which date was wrong; matching links are sent as in any run, and up to
+// this many failures a run are sent with their codes, so staff can correct them.
 var MYBM_PROBE_MAX = 5;
 var MYBM_PUSH_ACTOR = "trigger:mybmPush";
 // The only check codes an envelope may carry, in the order it lists them (§4.2).
@@ -7481,7 +7483,8 @@ function _mybmLinks(body) {
       && typeof l.linkId === "string" && PHARMACY_UUID.test(l.linkId)
       && typeof l.sessionId === "string" && l.sessionId.length >= 1 && l.sessionId.length <= MYBM_SESSION_ID_MAX
       // NF- and six digits only: an id issued before 2026-09-27 holds initials and the
-      // birth weight and never leaves for MyBM (Pp, 2026-11-27; review A4).
+      // birth weight and never leaves for MyBM (Pp, 2026-11-27; review A4). This makes
+      // the length bound above redundant; it stays as a second guard.
       && NEW_SESSION_ID_RE.test(l.sessionId)
       && _mybmIsDateKey(l.expectedDob) && _mybmIsDateKey(l.expectedAdmissionDate);
     if (!ok) { skipped++; continue; }
@@ -7515,8 +7518,11 @@ function _mybmSigned(url, keyId, secret, payload) {
 
 // The time trigger's function (§3 step 3: hour 16 and hour 19, each added by
 // hand in the editor). Reads only; writes one Audit_Log row per envelope sent.
-// Throws, so the trigger's owner gets a mail, when MyBM refuses the signature
-// or any envelope was not recorded; the next run sends every link again.
+// Throws, so the trigger's owner gets a mail: on a Script Property that is missing
+// or malformed; a links request that cannot be signed, cannot reach MyBM, is refused
+// (401) or answered otherwise than 200 with { links: [...] } of at most 500; an
+// envelope that cannot be signed, cannot reach MyBM or is not recorded; and the probe
+// alarm. The next run sends every link again.
 function mybmPushRun() {
   var props = PropertiesService.getScriptProperties();
   if (props.getProperty("MYBM_PUSH_ENABLED") !== "true") {
@@ -7538,6 +7544,7 @@ function mybmPushRun() {
       + "and hyphens starting with a letter or digit; nothing sent");
   }
   var unsigned = false;
+  var heldLinks = [];
   var counts = { links: 0, skippedLinks: 0, current: 0, inactive: 0, mismatch: 0, tooLarge: 0, sent: 0,
     accepted: 0, duplicate: 0, superseded: 0, unlinked: 0, no_consent: 0, failed: 0, probes: 0, held: 0 };
   var failedCodes = {};
@@ -7599,13 +7606,15 @@ function mybmPushRun() {
       var payload = JSON.stringify(env);
       if (payload.length > MYBM_BODY_MAX) { counts.tooLarge++; return; }
       counts[env.status]++;
-      queue.push({ sessionId: l.sessionId, payload: payload, deliveryId: env.deliveryId,
+      queue.push({ sessionId: l.sessionId, linkId: l.linkId, payload: payload, deliveryId: env.deliveryId,
         identity: env.status === "mismatch" || env.checks.indexOf("not_in_registry") !== -1 });
     });
-    counts.probes = queue.filter(function (q) { return q.identity; }).length;
+    var probes = queue.filter(function (q) { return q.identity; });
+    counts.probes = probes.length;
     if (counts.probes > MYBM_PROBE_MAX) {
-      counts.held = queue.length;
-      queue = [];
+      counts.held = counts.probes;
+      heldLinks = probes.map(function (q) { return q.linkId; });
+      queue = queue.filter(function (q) { return !q.identity; });
     }
 
     var refused = false, unreachable = false;
@@ -7657,15 +7666,19 @@ function mybmPushRun() {
     throw new Error("mybm push: MyBM could not be reached after " + counts.sent + " envelope(s) were sent or attempted; "
       + "the run stopped, the next run sends every link again");
   }
+  if (counts.held > 0) {
+    // MyBM's own link ids, not patient identifiers: the owner finds the babies in MyBM's neofeed_links.
+    throw new Error("mybm push: " + counts.held + " links did not match NeoFeed (a date that differs or NeoFeed does not "
+      + "trust, or no such infant), more than " + MYBM_PROBE_MAX + " in one run, so their envelopes were not sent; the "
+      + "others were" + (counts.failed || counts.tooLarge ? " (and " + counts.failed + " not recorded, " + counts.tooLarge
+      + " over 16 KB)" : "") + ". MyBM link ids: " + heldLinks.slice(0, 20).join(", ")
+      + (heldLinks.length > 20 ? " and " + (heldLinks.length - 20) + " more" : "")
+      + ". Correct the dates in NeoFeed or the links in MyBM.");
+  }
   if (counts.failed > 0 || counts.tooLarge > 0) {
     throw new Error("mybm push: " + counts.failed + " of " + counts.sent + " envelope(s) were not recorded (HTTP "
       + Object.keys(failedCodes).sort().join(", ") + ")" + (counts.tooLarge ? ", " + counts.tooLarge + " over 16 KB not sent" : "")
       + "; the next run sends every link again");
-  }
-  if (counts.held > 0) {
-    throw new Error("mybm push: " + counts.probes + " links did not match NeoFeed (a date that differs, or no such infant), "
-      + "more than " + MYBM_PROBE_MAX + " in one run, so none of the run's " + counts.held + " envelopes was sent. "
-      + "Check the links in MyBM; the next run sends again once they match");
   }
   return { ok: true, enabled: true, counts: counts };
 }

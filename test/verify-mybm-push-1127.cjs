@@ -40,8 +40,8 @@
 //       hex HMAC-SHA256 of "nf-sig-v2\n" + key id + "\n" + timestamp + "\n" +
 //       URL + "\n" + body), one Audit_Log row per envelope sent naming its
 //       deliveryId and receipt; only NF-dddddd sessionIds are sent; more than 5
-//       identity failures in one run hold them all (tech and security review,
-//       2026-11-27, A1, A3, A4, A5).
+//       identity failures in one run hold those envelopes and name their link ids
+//       in the mail (tech and security review, 2026-11-27, A1, A3, A4, A5).
 //   §9  Answers: a 401 to the links call or inside a chunk stops the run and
 //       throws; any other non-200 inside a chunk leaves the other envelopes
 //       alone, and the run throws at the end with counts; an unreadable links
@@ -726,16 +726,17 @@ t.section('§9 answers', () => {
     let threw = null;
     try { withNow(NOW, () => g.sb.mybmPushRun()); } catch (e) { threw = String(e.message); }
     const bodies = [].concat(...calls.fetchAll).map(r => JSON.parse(r.payload));
-    t.eq('6 links not in NeoFeed: no envelope of the run is sent, the good ones neither', bodies.length, 0);
-    t.ok('…and the run throws, naming the counts and no sessionId', threw && /6 links did not match/.test(threw) && /8 envelopes/.test(threw) && threw.indexOf('NF-9') === -1, threw);
-    t.eq('…and nothing held is audited', g.audit().filter(a => /^mybmPush /.test(a.action)).length, 0);
+    t.eq('6 links not in NeoFeed: their envelopes held, the 2 good ones sent', bodies.map(b => b.status), ['current', 'current']);
+    t.ok('…and the run throws, naming the count and the held MyBM link ids, no sessionId', threw && /6 links did not match/.test(threw)
+      && links.slice(2).every(l => threw.indexOf(l.linkId) !== -1) && threw.indexOf('NF-9') === -1, threw);
+    t.eq('…and only what was sent is audited', g.audit().filter(a => /^mybmPush /.test(a.action)).length, 2);
     const gm = freshBoot();
     const lm = seedWard(gm, 7);
     for (let i = 0; i < 6; i++) lm[i] = Object.assign({}, lm[i], { expectedDob: '2026-11-19' });
     const callsM = fakeMybm(gm, { links: lm });
     let threwM = null;
     try { withNow(NOW, () => gm.sb.mybmPushRun()); } catch (e) { threwM = String(e.message); }
-    t.ok('6 date mismatches hold the run too', callsM.fetchAll.length === 0 && /6 links did not match/.test(threwM || ''), threwM);
+    t.ok('6 date mismatches are held too, the 7th link sent', [].concat(...callsM.fetchAll).length === 1 && /6 links did not match/.test(threwM || ''), threwM);
     const gx = freshBoot();
     const lx = seedWard(gx, 3);
     for (let i = 0; i < 3; i++) lx[i] = Object.assign({}, lx[i], { expectedAdmissionDate: '2026-11-21' });
@@ -743,7 +744,14 @@ t.section('§9 answers', () => {
     const callsX = fakeMybm(gx, { links: lx });
     let threwX = null;
     try { withNow(NOW, () => gx.sb.mybmPushRun()); } catch (e) { threwX = String(e.message); }
-    t.ok('3 mismatches and 3 not in NeoFeed hold the run', callsX.fetchAll.length === 0 && /6 links did not match/.test(threwX || ''), threwX);
+    t.ok('3 mismatches and 3 not in NeoFeed are held', callsX.fetchAll.length === 0 && /6 links did not match/.test(threwX || ''), threwX);
+    const gh = freshBoot();
+    const lh = seedWard(gh, 2);
+    for (let i = 0; i < 6; i++) lh.push(link('NF-6' + String(i).padStart(5, '0')));
+    fakeMybm(gh, { links: lh, answer: (b, c, i) => (i === 0 ? { code: 503, body: '' } : { code: 200, body: { status: 'accepted' } }) });
+    let threwH = null;
+    try { withNow(NOW, () => gh.sb.mybmPushRun()); } catch (e) { threwH = String(e.message); }
+    t.ok('a held run with a 503 too: the mail names the alarm and the failure', /6 links did not match/.test(threwH || '') && /1 not recorded/.test(threwH || ''), threwH);
     const g2 = freshBoot();
     const links2 = seedWard(g2, 1);
     for (let i = 0; i < 5; i++) links2.push(link('NF-8' + String(i).padStart(5, '0')));
@@ -771,7 +779,7 @@ t.section('§10 logs and messages', () => {
   const auditRows = gu.sheet('Audit_Log').data.slice();
   auditRows.push([new Date(NOW).toISOString(), 'login', '', 'nurse@kcmh.test']);
   const usage = gu.sb.usageMetrics(auditRows);
-  t.eq('usage counts the nurse, not the push trigger', [usage.totalDistinctUsers, usage.rowsSkipped], [1, 2]);
+  t.eq('usage counts the nurse, not the push trigger, which has its own count', [usage.totalDistinctUsers, usage.rowsSkipped, usage.triggerRows], [1, 0, 2]);
   const g = freshBoot();
   const sid = 'NF-535353';
   g.sheet('Patient_Registry').data.push(pat(g, sid, { 1: 'ด.ช. ลองดู นามสมมุติ' }));
@@ -796,14 +804,16 @@ t.section('§10 logs and messages', () => {
   const links3 = seedWard(g3, 25);
   const calls3 = fakeMybm(g3, { links: links3 });
   const realAll = g3.sb.UrlFetchApp.fetchAll;
-  g3.sb.UrlFetchApp.fetchAll = (reqs) => { if (calls3.fetchAll.length === 1) throw new Error('Timeout: ' + URL); return realAll(reqs); };
+  let lostChunk = [];
+  g3.sb.UrlFetchApp.fetchAll = (reqs) => { if (calls3.fetchAll.length === 1) { lostChunk = reqs; throw new Error('Timeout: ' + URL); } return realAll(reqs); };
   let t3 = '';
   try { withNow(NOW, () => g3.sb.mybmPushRun()); } catch (e) { t3 = String(e.message); }
   t.ok('a chunk unreachable: throws, without the URL', /mybm push/.test(t3) && t3.indexOf('mybm.example.test') === -1, t3);
   t.ok('…and says MyBM could not be reached', /could not be reached/.test(t3), t3);
   t.eq('…every envelope that may have left is audited', g3.audit().filter(a => /^mybmPush /.test(a.action)).length, 25);
   t.eq('…the unreachable ones as unreachable, each naming its own deliveryId', g3.audit().filter(a => / unreachable$/.test(a.action)).map(a => a.action.split(' ')[1]).sort(),
-    links3.slice(20).map(l => l.linkId).length === 5 ? g3.audit().filter(a => / unreachable$/.test(a.action)).map(a => a.action.split(' ')[1]).filter(id => /^[0-9a-f-]{36}$/.test(id)).sort() : null);
+    lostChunk.map(r => JSON.parse(r.payload).deliveryId).sort());
+  t.eq('…which were 5', lostChunk.length, 5);
   t.ok('…and the counts line is still logged', g3.env.logs.some(l => /^mybm push: \{/.test(l) && /"accepted":20/.test(l)), g3.env.logs);
   // A signing failure is not a network failure: nothing of that chunk is sent or audited.
   const g4 = freshBoot();

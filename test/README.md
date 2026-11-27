@@ -2276,7 +2276,7 @@ node test/verify-sheet-backup-1115.cjs
 
 **`verify-mybm-push-1127.cjs`** (no npm dependencies, through `gas-vm-sandbox.cjs`) — the MyBreastmilk
 push. Off unless `MYBM_PUSH_ENABLED` is exactly `true`; signature v2 with a key id and the receiver's URL; only
-`NF-dddddd` sessionIds; more than 5 identity failures in one run held; the audit row names the deliveryId and receipt; identity (DOB, admission date) before status, and a DOB NeoFeed
+`NF-dddddd` sessionIds; more than 5 identity failures in one run held and named by link id; the audit row names the deliveryId and receipt; identity (DOB, admission date) before status, and a DOB NeoFeed
 does not trust (`dobCredible`) is a mismatch; the current
 order is not superseded, not a draft and not dated after today; a feed counts when volume × feeds > 0, the
 Calculator's own `feed2Given` read from `calculator.jsx`; an NPO day written as 0 mL is no feed and no flag;
@@ -2285,7 +2285,7 @@ real ward sync (`getActivePatients`) sends for the same rows, and
 fail closed on a future date or an impossible weight; a ward bed only; no sessionId, name or initials in
 an envelope; a sessionId or linkId listed twice is skipped; the card's DOL comes from its date; one links call, one
 read of each tab, chunks of 20, every request signed; a 401 stops the run; a network error is rethrown without the URL.
-`node test/mutate-mybm-push.cjs` (by hand, not in CI) makes 75 small changes to the backend block and expects
+`node test/mutate-mybm-push.cjs` (by hand, not in CI) makes 79 small changes to the backend block and expects
 this harness to turn red each time. The sandbox's `fetchAll` is a fake, so MyBM's real answers are proven by the
 synthetic run on a test spreadsheet (`REFERENCE.md` § MyBreastmilk push).
 
