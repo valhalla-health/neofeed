@@ -7,6 +7,18 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (10) — The MyBreastmilk weights: the third re-check
+
+`gas-backend.gs` (comments in § MyBreastmilk push only), `test/verify-mybm-push-1127.cjs`.
+
+- **The third re-check found no error**; these are its smaller points.
+- **An order dated the day of birth also hides an earlier order on DOL 1**, as a chart point does, and is then the
+  birth weight. The comments and the design now say so; three new checks pin it, with several orders before the
+  birth, with and without a point on DOL 1 to hide them.
+- **A correction to (9).** It added three checks, not two: two fail on (8)'s code, and the third, a bad chart
+  weight overwritten on its DOL, guards.
+- **Tests.** `verify-mybm-push-1127.cjs`, 250 assertions. `mutate-mybm-push.cjs`, 61 mutations, all killed.
+
 ## Session 2026-11-27 (9) — The MyBreastmilk weights: the second re-check
 
 `gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,

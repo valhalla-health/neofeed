@@ -406,9 +406,16 @@ t.section('§5 weights', () => {
   // Re-check 2, 2026-11-27: NeoFeed shows such a point under the order's own date, which the envelope cannot carry.
   const bb = ow([o('2026-11-18', 1000)], '[]');
   t.ok('…and with no chart point on DOL 1 to hide it: weights null, weights_unreadable', bb.weights === null && bb.checks.indexOf('weights_unreadable') !== -1, bb.checks);
+  t.eq('…an order dated the day of birth hides it too, and is the birth weight',
+    ow([o(addDays(DOB, -1), 1000), o(DOB, 990)], '[]').weights, [{ dol: 1, date: DOB, grams: 990, registration: true }]);
+  t.eq('several orders before the birth under a chart point on DOL 1 withhold nothing',
+    (ow([o('2026-11-17', 1000), o('2026-11-18', 1005)]).weights || []).map(p => [p.dol, p.grams]), [[1, 980]]);
+  const several = ow([o('2026-11-17', 1000), o('2026-11-18', 1005)], '[]');
+  t.ok('…and with nothing on DOL 1 to hide them: weights null, weights_unreadable',
+    several.weights === null && several.checks.indexOf('weights_unreadable') !== -1, several.checks);
+  const overwritten = ow([], JSON.stringify([{ dol: 0, w: '' }, { dol: 1, w: 980 }]));
   t.eq('a bad chart weight overwritten later on its DOL withholds nothing',
-    [(ow([], JSON.stringify([{ dol: 0, w: '' }, { dol: 1, w: 980 }])).weights || []).map(p => [p.dol, p.grams]), ow([], JSON.stringify([{ dol: 0, w: '' }, { dol: 1, w: 980 }])).checks],
-    [[[1, 980]], []]);
+    [(overwritten.weights || []).map(p => [p.dol, p.grams]), overwritten.checks], [[[1, 980]], []]);
   // Review of the weights change, 2026-11-27: build the series first, check only what survives.
   const blankW = ow([o(TODAY, 1040)], JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: '', l: 36 }]));
   t.eq('a chart weight of "" on today\'s DOL reads as 0 g, as weightSeries reads it: weights null, never the order\'s 1040',
@@ -478,7 +485,7 @@ t.section('§5 weights', () => {
     const theirs = D.weightSeries(patient, entries).filter(p => p.dol <= todayDol).map(p => [p.dol, Math.round(p.w)]);
     t.eq('as the ward sync and weightSeries: ' + JSON.stringify([list, ords.map(x => x.slice(0, 2))]), ours, theirs);
   }
-  t.ok('…nine fixtures less the one now withheld; one holds an order for tomorrow, so the as-of-today filter works',
+  t.ok('…one fixture holds an order for tomorrow, so the as-of-today filter works',
     fixtures.some(([, ords]) => ords.some(([k]) => k > TODAY)));
 });
 

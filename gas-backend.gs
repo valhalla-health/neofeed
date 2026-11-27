@@ -7258,7 +7258,9 @@ function _mybmDolOf(dobKey, dateKey) {
 //     chart element that is null, not an object, or a list; a chart DOL that is
 //     blank, not a whole number or outside 0–400, even on a length-only point;
 //     a chart weight that is not a number; an order dated before the birth
-//     that no chart point on DOL 1 hides (NeoFeed shows it under its own date);
+//     that no later point on DOL 1 hides, a chart point or an order dated the
+//     day of birth (NeoFeed shows it under its own date). These checks run on
+//     the whole series, before the newest-120 cut;
 //   • the newest 120 points only (NeoFeed keeps the whole series);
 //   • grams are whole (NeoFeed shows a decimal weight as stored).
 // → { weights: [{dol, date, grams, registration}] | null, codes: [...] }
@@ -7296,8 +7298,9 @@ function _mybmWeights(cell, dobKey, bw, todayKey, orders) {
     var o = final[f];
     if (o.key > todayKey) continue;   // an order already written for tomorrow waits for its day
     // dolAtDate never goes below DOL 1, so an order dated before the birth sits on
-    // DOL 1, where a chart point hides it. If none does, NeoFeed shows it under the
-    // order's own date and the envelope cannot: withheld below.
+    // DOL 1, where a later point hides it: a chart point, or an order dated the day
+    // of birth. If none does, NeoFeed shows it under the order's own date and the
+    // envelope cannot: withheld below.
     var odol = _mybmDolOf(dobKey, o.key);
     put({ dol: Math.max(1, odol), w: o.w, first: false, beforeBirth: odol < 1 });
   }
