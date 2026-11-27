@@ -7257,7 +7257,8 @@ function _mybmDolOf(dobKey, dateKey) {
 //     "draft", on an order with a weight; a chart cell that is not a list; a
 //     chart element that is null, not an object, or a list; a chart DOL that is
 //     blank, not a whole number or outside 0–400, even on a length-only point;
-//     a chart weight that is not a number;
+//     a chart weight that is not a number; an order dated before the birth
+//     that no chart point on DOL 1 hides (NeoFeed shows it under its own date);
 //   • the newest 120 points only (NeoFeed keeps the whole series);
 //   • grams are whole (NeoFeed shows a decimal weight as stored).
 // → { weights: [{dol, date, grams, registration}] | null, codes: [...] }
@@ -7294,8 +7295,11 @@ function _mybmWeights(cell, dobKey, bw, todayKey, orders) {
   for (var f = 0; f < final.length; f++) {
     var o = final[f];
     if (o.key > todayKey) continue;   // an order already written for tomorrow waits for its day
-    // dolAtDate never goes below DOL 1, so an order dated before the birth sits on DOL 1.
-    put({ dol: Math.max(1, _mybmDolOf(dobKey, o.key)), w: o.w, first: false });
+    // dolAtDate never goes below DOL 1, so an order dated before the birth sits on
+    // DOL 1, where a chart point hides it. If none does, NeoFeed shows it under the
+    // order's own date and the envelope cannot: withheld below.
+    var odol = _mybmDolOf(dobKey, o.key);
+    put({ dol: Math.max(1, odol), w: o.w, first: false, beforeBirth: odol < 1 });
   }
   for (var i = 0; i < list.length; i++) {
     var p = list[i];
@@ -7316,7 +7320,7 @@ function _mybmWeights(cell, dobKey, bw, todayKey, orders) {
   var bad = function (code) { if (fail.indexOf(code) === -1) fail.push(code); };
   for (var k = 0; k < points.length; k++) {
     var q = points[k];
-    if (q.dol > 400) return unreadable;
+    if (q.dol > 400 || q.beforeBirth) return unreadable;
     q.date = _mybmAddDays(dobKey, q.dol - 1);   // DOL 1 is the day of birth
     if (q.w < 200 || q.w > 8000) bad("weights_out_of_range");
     if (q.date > todayKey) bad("weights_future_date");
@@ -7550,7 +7554,8 @@ function mybmPushRun() {
     var pat = patSheet.getDataRange().getValues();
     for (var i = 1; i < pat.length; i++) {
       var sid = "s:" + String(pat[i][0] == null ? "" : pat[i][0]);
-      if (want[sid] === true) rowOf[sid] = pat[i];
+      // The first row for a sessionId, as NeoFeed's screens find it (patients.find).
+      if (want[sid] === true && !Object.prototype.hasOwnProperty.call(rowOf, sid)) rowOf[sid] = pat[i];
     }
     // One read of A–AL, as the ward sync reads it: one call cannot see half an edit.
     var last = logSheet.getLastRow();

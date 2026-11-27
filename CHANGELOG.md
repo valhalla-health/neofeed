@@ -7,6 +7,22 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (9) — The MyBreastmilk weights: the second re-check
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `test/README.md`.
+
+- **The " draft " fix holds; the reviewer found one older error.** An order dated before the birth sat on DOL 1
+  and, with no chart point there, reached the mother as the birth weight, dated the day of birth. NeoFeed shows that
+  point under the order's own date, which the envelope cannot carry. Such a point now sends `weights: null`
+  (`weights_unreadable`); under a chart point on DOL 1, where NeoFeed hides it too, it withholds nothing.
+- **A correction to (8).** Its "It does now" was wrong for that case; the comment on `_mybmWeights` lists it now.
+- **Two registry rows for one `sessionId`**: the push now uses the first, as NeoFeed's screens find it
+  (`patients.find`); it used the last.
+- **Tests.** `verify-mybm-push-1127.cjs`, 247 assertions; the two new checks fail on (8)'s code. One comparison
+  fixture, an order before the birth with no chart point, now withholds and leaves the comparison.
+  `mutate-mybm-push.cjs`, 61 mutations, all killed.
+
 ## Session 2026-11-27 (8) — The MyBreastmilk weights: the re-check of (7)
 
 `gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,

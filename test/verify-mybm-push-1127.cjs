@@ -403,8 +403,12 @@ t.section('§5 weights', () => {
   // dolAtDate never goes below DOL 1, so NeoFeed puts an order dated before the birth on DOL 1.
   t.eq('an order dated before the birth sits on DOL 1, where the chart\'s birth weight wins',
     (ow([o('2026-11-18', 1000)]).weights || []).map(p => [p.dol, p.grams]), [[1, 980]]);
-  t.eq('…and with no chart point there it shows on DOL 1, dated the day of birth', ow([o('2026-11-18', 1000)], '[]').weights,
-    [{ dol: 1, date: DOB, grams: 1000, registration: true }]);
+  // Re-check 2, 2026-11-27: NeoFeed shows such a point under the order's own date, which the envelope cannot carry.
+  const bb = ow([o('2026-11-18', 1000)], '[]');
+  t.ok('…and with no chart point on DOL 1 to hide it: weights null, weights_unreadable', bb.weights === null && bb.checks.indexOf('weights_unreadable') !== -1, bb.checks);
+  t.eq('a bad chart weight overwritten later on its DOL withholds nothing',
+    [(ow([], JSON.stringify([{ dol: 0, w: '' }, { dol: 1, w: 980 }])).weights || []).map(p => [p.dol, p.grams]), ow([], JSON.stringify([{ dol: 0, w: '' }, { dol: 1, w: 980 }])).checks],
+    [[[1, 980]], []]);
   // Review of the weights change, 2026-11-27: build the series first, check only what survives.
   const blankW = ow([o(TODAY, 1040)], JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: '', l: 36 }]));
   t.eq('a chart weight of "" on today\'s DOL reads as 0 g, as weightSeries reads it: weights null, never the order\'s 1040',
@@ -459,7 +463,6 @@ t.section('§5 weights', () => {
     [[{ dol: 1, w: 980 }], [[TODAY, 1040.6], [addDays(TODAY, -1), 1020, SUP], [addDays(TODAY, -5), -3]]],
     [[{ dol: 1, w: 980 }], [[addDays(TODAY, -1), 1030], [addDays(TODAY, 1), 1060]]],
     [[{ dol: 1, w: 980 }], [['2026-11-18', 1000], [addDays(TODAY, -3), 1010]]],
-    [[], [['2026-11-18', 1000]]],
     [[{ dol: 1, w: 980 }, { dol: 8, w: 1035 }], [[TODAY, 9000]]],
   ];
   for (const [list, ords] of fixtures) {
@@ -475,7 +478,7 @@ t.section('§5 weights', () => {
     const theirs = D.weightSeries(patient, entries).filter(p => p.dol <= todayDol).map(p => [p.dol, Math.round(p.w)]);
     t.eq('as the ward sync and weightSeries: ' + JSON.stringify([list, ords.map(x => x.slice(0, 2))]), ours, theirs);
   }
-  t.ok('…a fixture holds an order for tomorrow, so the as-of-today filter does work',
+  t.ok('…nine fixtures less the one now withheld; one holds an order for tomorrow, so the as-of-today filter works',
     fixtures.some(([, ords]) => ords.some(([k]) => k > TODAY)));
 });
 
@@ -582,6 +585,15 @@ t.section('§8 the run', () => {
   const out3 = withNow(NOW, () => g3.sb.mybmPushRun());
   t.eq('duplicate, unlinked and no_consent are counted, not failures', [out3.counts.duplicate, out3.counts.unlinked, out3.counts.no_consent, out3.counts.failed], [1, 1, 1, 0]);
   t.ok('a later run signs with its own clock', calls3.fetchAll[0][0].headers['x-nf-timestamp'] === String(NOW));
+
+  // Two registry rows for one sessionId: NeoFeed's screens use the first (app.jsx patients.find).
+  const g4 = freshBoot();
+  g4.sheet('Patient_Registry').data.push(pat(g4, 'D1', { 12: JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: 1040 }]) }));
+  g4.sheet('Patient_Registry').data.push(pat(g4, 'D1', { 12: JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: 1100 }]) }));
+  const calls4 = fakeMybm(g4, { links: [link('D1')] });
+  withNow(NOW, () => g4.sb.mybmPushRun());
+  const b4 = JSON.parse(calls4.fetchAll[0][0].payload);
+  t.eq('two registry rows for one sessionId: the first row\'s weights, as NeoFeed shows', b4.weights.map(p => p.grams), [980, 1040]);
 });
 
 t.section('§9 answers', () => {
