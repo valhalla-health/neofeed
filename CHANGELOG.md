@@ -7,6 +7,284 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (15) — The MyBreastmilk push: the third re-check
+
+`gas-backend.gs` (§ MyBreastmilk push), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`, `REFERENCE.md`.
+
+- **The third re-check found no error.** Its smaller points are fixed here.
+- **Corrections to (14).** "Whatever else stopped the run" was broader than the code: the alarm rides on every message
+  the run throws after the hold, a 401, MyBM unreachable and a signing error included, not on a failure before the hold
+  or on Apps Script's own 6-minute stop. The held ids are now logged as soon as they are held, so a run the platform
+  stops still leaves them. "Which date differs" now reads "which date differs or is not trusted": `dob_mismatch` also
+  comes from a DOB NeoFeed does not trust. (14) said (13) had the order of the NF- check wrong; (13) was right: the NF-
+  check runs ahead of the date checks, and after the keys and linkId checks, where it catches an entry only once a
+  mutant removes the check before it.
+- **Smaller points.** One other envelope reads "The other envelope was sent".
+- **Tests.** `verify-mybm-push-1127.cjs`, 291 assertions: exactly 20 held; the held ids logged before the first send;
+  an envelope over the size limit inside a held run; one other envelope. `mutate-mybm-push.cjs`, 94 mutations, all killed.
+
+## Session 2026-11-27 (14) — The MyBreastmilk push: the re-check of (13)
+
+`gas-backend.gs` (§ MyBreastmilk push; the `usageMetrics` comment), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `REFERENCE.md`.
+
+- **Corrections to (13).** "Four were missing; they are listed now" was wrong: six were missing, and two were still
+  left out (an envelope over 16 KB; a header on Patient_Registry or Daily_Log that differs from NeoFeed's, or a
+  Sheets error reading them). REFERENCE and the run's header comment list them now. "It names the alarm even when an
+  envelope also failed" held only for an HTTP code other than 401 or an unknown receipt: a 401, MyBM unreachable or a
+  signing error threw first, without the alarm. "So `rowsSkipped` still means a row that went wrong" was wrong:
+  `rowsSkipped` also counts the non-usage actions (loginFail, lockout, the qi* rows); the comment now says what it
+  counts. "Holding the whole run still told MyBM that every guess was wrong" overstated it: it told MyBM that more
+  than 5 of its links failed, which is all of them only when exactly 6 were listed. "The link checks the NF- rule now
+  runs ahead of" had the order wrong: the NF- check runs after the keys and linkId checks; the old test was vacuous
+  because the NF- rule caught every entry first.
+- **Every failure message names the probe alarm** (code), with up to 20 held MyBM link ids and a count of the rest;
+  one execution-log line names them all. The alarm's own message gives the HTTP codes of envelopes not recorded, and
+  says no other envelope was sent when every link was held. The docs say what the codes of up to 5 failures tell
+  MyBM.
+- **Tests.** `verify-mybm-push-1127.cjs`, 286 assertions: the alarm with a 401, with MyBM unreachable and with a
+  signing error; 25 held; the matching links' ids absent from the mail; each unreachable audit row paired with its
+  own infant; an actor with spaces and capitals. `mutate-mybm-push.cjs`, 91 mutations, all killed.
+
+## Session 2026-11-27 (13) — The MyBreastmilk push: the re-check of (12)
+
+`gas-backend.gs` (§ MyBreastmilk push; `usageMetrics`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,
+`test/README.md`, `REFERENCE.md`.
+
+- **Corrections to (12).** Its "none in its code paths" was wrong: the probe alarm's code had the error, and (12)
+  changed it. Its "REFERENCE lists every reason a run throws" was wrong too: four were missing; they are listed now.
+- **The probe alarm holds only the failing envelopes again, as Pp approved it** (A5). Holding the whole run still told
+  MyBM that every guess was wrong, and it stopped every mother's update on ordinary slips (a date mistyped, a date
+  corrected in NeoFeed after linking). The mail now names the held links by MyBM's own link ids, so the owner can act;
+  it names the alarm even when an envelope also failed. The docs say what MyBM still learns.
+- **A test that checked nothing.** The check that each unreachable audit row names its own deliveryId compared a list
+  with itself; it now compares with the chunk that failed, and its count.
+- **Smaller points.** `usageMetrics` reads the trimmed actor and counts trigger rows on their own (`triggerRows`), so
+  `rowsSkipped` still means a row that went wrong; mutants for the link checks the NF- rule now runs ahead of; stale
+  header lines.
+- **Tests.** `verify-mybm-push-1127.cjs`, 276 assertions. `mutate-mybm-push.cjs`, 79 mutations, all killed.
+
+## Session 2026-11-27 (12) — The MyBreastmilk push: the check of (11)
+
+`gas-backend.gs` (§ MyBreastmilk push; `usageMetrics`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,
+`REFERENCE.md`.
+
+- **A new reviewer found two errors in (11), none in its code paths.** "Learns nothing" was false: with 6 wrong
+  guesses and 1 right one, the right one's envelope still went, which confirmed it. The probe alarm now holds every
+  envelope of the run. And the bad-link-entries test had become vacuous, because the new NF- rule caught every entry
+  first; each entry now carries an NF- id and fails for its own reason.
+- **Smaller points.** A5 tests for date mismatches and a mixed run, and that held envelopes are not audited; the
+  unreachable audit row's deliveryId is pinned; the key id rule is written out in full, with cases for a line break
+  in the key id or the URL; on suspicion of a leak the old key goes at once; REFERENCE lists every reason a run
+  throws. `usageMetrics` no longer counts a `trigger:` actor as a weekly user, which it did for the push from the
+  start.
+- **Tests.** `verify-mybm-push-1127.cjs`, 274 assertions. `mutate-mybm-push.cjs`, 75 mutations, all killed.
+
+## Session 2026-11-27 (11) — The MyBreastmilk push: signature v2 and three guards, before it is switched on
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmSigned`, `_mybmLinks`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `test/README.md`, `REFERENCE.md` (§ MyBreastmilk push).
+
+- **Why.** Pp asked a new agent to review the apps' links as if NICU Center Point became the hub for every app
+  (tech and security, 2026-11-27; the report is in her private Center Point product folder). It found the push
+  safe to switch on but pair-by-pair, and listed seven cheap changes before it goes live. Pp: "แก้ก่อนเปิด", and
+  only `NF-` sessionIds.
+- **Signature v2 (A1).** A new header `x-nf-key-id` and Script Property `MYBM_PUSH_KEY_ID`; the HMAC covers
+  `nf-sig-v2`, the key id, the timestamp, the receiver's URL and the body. A key can now be rotated without an
+  outage, and a request is good at one receiver only.
+- **The audit row joins the two logs (A3).** Action `mybmPush <deliveryId> <receipt>`; no new column.
+- **Only `NF-dddddd` sessionIds leave (A4).** An id issued before 2026-09-27 holds initials and the birth weight.
+- **Probe alarm (A5).** More than 5 identity failures in one run hold all of them unsent and throw, naming the count.
+- **Tests.** `verify-mybm-push-1127.cjs`, 262 assertions; 18 new checks fail on the code before. `mutate-mybm-push.cjs`,
+  71 mutations, all killed. MyBM's side of A1 and its own items (A2, A6, A7) are in the MyBM PR.
+
+## Session 2026-11-27 (10) — The MyBreastmilk weights: the third re-check
+
+`gas-backend.gs` (comments in § MyBreastmilk push only), `test/verify-mybm-push-1127.cjs`.
+
+- **The third re-check found no error**; these are its smaller points.
+- **An order dated the day of birth also hides an earlier order on DOL 1**, as a chart point does, and is then the
+  birth weight. The comments and the design now say so; three new checks pin it, with several orders before the
+  birth, with and without a point on DOL 1 to hide them.
+- **A correction to (9).** It added three checks, not two: two fail on (8)'s code, and the third, a bad chart
+  weight overwritten on its DOL, guards.
+- **Tests.** `verify-mybm-push-1127.cjs`, 250 assertions. `mutate-mybm-push.cjs`, 61 mutations, all killed.
+
+## Session 2026-11-27 (9) — The MyBreastmilk weights: the second re-check
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `test/README.md`.
+
+- **The " draft " fix holds; the reviewer found one older error.** An order dated before the birth sat on DOL 1
+  and, with no chart point there, reached the mother as the birth weight, dated the day of birth. NeoFeed shows that
+  point under the order's own date, which the envelope cannot carry. Such a point now sends `weights: null`
+  (`weights_unreadable`); under a chart point on DOL 1, where NeoFeed hides it too, it withholds nothing.
+- **A correction to (8).** Its "It does now" was wrong for that case; the comment on `_mybmWeights` lists it now.
+- **Two registry rows for one `sessionId`**: the push now uses the first, as NeoFeed's screens find it
+  (`patients.find`); it used the last.
+- **Tests.** `verify-mybm-push-1127.cjs`, 247 assertions; the two new checks fail on (8)'s code. One comparison
+  fixture, an order before the birth with no chart point, now withholds and leaves the comparison.
+  `mutate-mybm-push.cjs`, 61 mutations, all killed.
+
+## Session 2026-11-27 (8) — The MyBreastmilk weights: the re-check of (7)
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,
+`test/README.md`.
+
+- **A new reviewer read the lines (7) changed and found one error.** A status hand-typed as `" draft "` was a draft
+  to the push but a final order to NeoFeed, which does not trim it (`isDraftEntry`). With a second order on the same
+  date, NeoFeed showed the `" draft "` row's weight and the push sent the other's: a different number, not a
+  withhold. Such a row with a weight now sends `weights: null` (`weights_unreadable`); a plain draft, in any case, is
+  a draft to both.
+- **A correction to (7).** Its comment did not list every place the envelope differs from NeoFeed, though (7)
+  said it did. It does now: the chart cells and elements that fail closed, the newest-120 cap, and the
+  `" draft "` row.
+- **The comparison with the real `weightSeries`** now takes NeoFeed's side from the real ward sync
+  (`getActivePatients`) over the same sheet rows, then `normalizeLogMap`. It covers nine fixtures, including an
+  order for tomorrow, an order before the birth, and a 9000 g order under a measurement.
+- **Pinned besides.** The filters come before the date check, so an undated draft, superseded or weightless row
+  withholds nothing. Dates are read with `_fmtDate` in the weights and the card.
+- **Tests.** `verify-mybm-push-1127.cjs`, 246 assertions. On (7)'s code the new `" draft "` check fails and the
+  others pass; they guard. `mutate-mybm-push.cjs`, 59 mutations, all killed.
+
+## Session 2026-11-27 (7) — The MyBreastmilk weights: a review against `weightSeries`
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`, `_mybmFeedCard`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `test/README.md`.
+
+- **A new reviewer read (6) against `data.js` and found one error.** A chart weight stored as `""` was skipped, so
+  an order's weight on that DOL reached the mother. `weightSeries` reads `""` as a 0 g measurement, which wins
+  over the order, so no NeoFeed screen shows that order's weight. It now reads as 0 g too, and fails closed.
+- **The series is built first, as `weightSeries` builds it, and only the surviving points are checked.** A bad
+  order under a measurement no longer blanks the series. An order dated before the birth sits on DOL 1, as
+  `dolAtDate` puts it; a negative order weight adds no point; `TRUE` reads as 1 g and fails closed.
+- **A final order with a weight but no readable date** sends `weights: null` (`weights_unreadable`): NeoFeed would
+  place it at column C's DOL. Dates are read as the ward sync sends them (`_fmtDate`), in the card too.
+- **The legacy registration flag** goes to the chart's first stored point wherever it sorts, and never to an order.
+- **A correction to (6).** "As the ward's current weight does" is wrong for an order written for tomorrow: NeoFeed's
+  strip shows that order's weight today. The envelope holds it back until its day, a withhold. The comment in
+  `_mybmWeights` now lists every place the envelope differs from NeoFeed, each a withhold, and whole grams.
+- **Tests.** `verify-mybm-push-1127.cjs`, 233 assertions. 7 of the new checks fail on (6)'s code, the `""` case
+  among them; the rest guard. The comparison with the real `weightSeries` now runs sheet rows through the sync's
+  entry shape and `normalizeLogMap`, with superseded and draft rows. `mutate-mybm-push.cjs`, 54 mutations, all killed.
+
+## Session 2026-11-27 (6) — The MyBreastmilk push: the mother sees NeoFeed's own weights
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`, new `_mybmDolOf`, `MYBM_CHECK_ORDER`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `test/README.md`, `REFERENCE.md` (§ MyBreastmilk push).
+
+- **Why.** Vera's point 1: the weights came from the growth chart alone, while every NeoFeed screen reads
+  `data.js` `weightSeries`, which adds each final order's weight. A weight typed only into the day's order reached
+  NeoFeed's strip and not MyBM. Pp chose on 2026-11-27: "แบบเดียวกับ NeoFeed".
+- **The rule, as `weightSeries`.** The growth chart's points and each final order's weight (`Daily_Log` D, not a
+  draft, not superseded), a measurement winning over an order on the same DOL. An order's DOL comes from its date
+  and the DOB; an order written for tomorrow waits for its day, as the ward's current weight does. A chart point at
+  DOL 0 reads as DOL 1 (`Number(m.dol) || 1`), so `dol0_skipped` is no longer sent.
+- **Where it differs, it withholds.** An order with a weight dated before the birth, or any weight outside
+  200–8000 g, sends `weights: null` with its code; `weightSeries` would place or show it.
+- **The mother's line** reads "(วันที่ …)", not "(ชั่งวันที่ …)": an order's weight may not be that day's
+  weighing. That line is MyBM's; the design records it.
+- **Tests.** `verify-mybm-push-1127.cjs`, 223 assertions. 11 of the new checks failed on the code before;
+  the others guard what must hold either way (a draft or superseded order adds nothing, a measurement wins). Four
+  fixtures match the real `weightSeries` loaded from `data.js`. `mutate-mybm-push.cjs`, 47 mutations, all killed.
+
+## Session 2026-11-27 (5) — The MyBreastmilk push: the third re-check's points
+
+`gas-backend.gs` (§ MyBreastmilk push: `mybmPushRun`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,
+`test/README.md`, `REFERENCE.md`.
+
+- **The third re-check found no error**; these are its smaller points.
+- **The links request's own signing** stops the run with its own message, "the links request could not be signed".
+- **A signing error in a later chunk** is tested: chunk 1's 20 envelopes stay sent and audited, chunk 2 is neither,
+  and the message counts the 20.
+- **A note on (4)**, which did not say it: REFERENCE.md now names the expected admission date too among what MyBM's
+  link row keeps, and the line is re-wrapped.
+- **Tests.** `verify-mybm-push-1127.cjs`, 207 assertions. `mutate-mybm-push.cjs`, 40 mutations, all killed.
+
+## Session 2026-11-27 (4) — The MyBreastmilk push: the second re-check's points
+
+`gas-backend.gs` (§ MyBreastmilk push: `wardFeedEnvelope`, `mybmPushRun`, `_mybmFeedCard`'s comment),
+`test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`, `test/README.md`, `REFERENCE.md`.
+
+- **A correction to (3).** "Every new check failed on the code before this fix" is wrong for two of them: a DOB
+  on the admission date, and the "could not be reached" wording of a failed chunk. Both pass on the code before
+  it; they guard the fix against later edits.
+- **A blank admission date no longer adds a `dob_mismatch`.** `dobCredible` trusts the DOB then, and the blank
+  date is already an `admission_mismatch`.
+- **A signing error stops the run with its own message**, "an envelope could not be signed", and the counts
+  line is still logged.
+- **The boundaries are pinned**: a DOB of exactly 2000-01-01, or of today, is trusted.
+- **Tests.** `verify-mybm-push-1127.cjs`, 204 assertions. `mutate-mybm-push.cjs`, 38 mutations, all killed.
+
+## Session 2026-11-27 (3) — The MyBreastmilk push: a re-check of Vera's fixes
+
+`gas-backend.gs` (§ MyBreastmilk push: `wardFeedEnvelope`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `test/README.md`, `REFERENCE.md` (§ Thai PDPA compliance posture).
+
+- **A new reviewer read the lines (2) changed and found one error.** Deriving the card's DOL from the DOB matched
+  `data.js` only when NeoFeed trusts the DOB (`dobCredible`: a real date from 2000 on, not in the future, not after
+  the admission date). For a legacy row whose DOB is after its admission date, NeoFeed counts DOL from the
+  admission date, and the push would have sent a different DOL and weight dates off by the same days.
+- **The fix: a DOB NeoFeed does not trust is a `dob_mismatch`**, with no data, even when the nurse copied it
+  exactly. Staff see the DOB flagged and correct it in NeoFeed.
+- **A signing error is no longer reported as MyBM unreachable**: the chunk is signed before the network call, so a
+  failure there sends and audits nothing.
+- **REFERENCE.md § Thai PDPA compliance posture**: rotation reaches the copy at MyBM only while MyBM still lists the
+  link, and MyBM's link row keeps the sessionId and DOB the nurse typed.
+- **Tests.** `verify-mybm-push-1127.cjs`, 199 assertions; every new check failed on the code before this fix.
+  `mutate-mybm-push.cjs`, 34 mutations, 34 killed.
+
+## Session 2026-11-27 (2) — The MyBreastmilk push: Vera's points
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmLinks`, `_mybmFeedCard`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `REFERENCE.md` (§ Thai PDPA compliance posture).
+
+- **Vera, NO BLOCK, five points; four fixed here, one for Pp.**
+- **A sessionId or a linkId listed twice skips every entry that carries it** (her 2). One links answer could
+  otherwise list an infant with several guessed DOBs, and the right guess would get the data.
+- **The card's DOL is worked out from the order's date and the DOB** (her 4), as `data.js` `entryDol` does. Column C
+  is the DOL when the row was saved and goes stale; a blank C no longer drops the card. An order dated before the
+  birth sends no card (`order_unreadable`).
+- **A network failure is rethrown without the URL** (her 5): Apps Script's own message names it, and a thrown
+  message reaches the execution log and the trigger owner's mail. A chunk that fails that way is audited as sent,
+  since some of it may have left, and the run stops.
+- **REFERENCE.md § Thai PDPA compliance posture names the copy at MyBM** (her 3): erasure reaches it only by
+  rotation, about 3.5 days; that and the lawful basis are for Pp and the DPO before the switch goes on.
+- **Left for Pp** (her 1): the mother's weight comes from the growth chart (Patient_Registry M) alone. NeoFeed's own
+  current weight (`data.js` `currentWeight`) also reads each order's weight, a measurement winning on the same DOL,
+  so a weight typed only into the day's order reaches NeoFeed's strip and not MyBM.
+- **Tests.** `verify-mybm-push-1127.cjs`, 190 assertions; every new check of the four fixes
+  failed on the code before them.
+  `mutate-mybm-push.cjs`, 30 mutations, 30 killed.
+
+## Session 2026-11-27 — The MyBreastmilk push, off until Pp's gates
+
+`gas-backend.gs` (§ MyBreastmilk push: `mybmPushRun`, `wardFeedEnvelope`, `_mybmWeights`, `_mybmFeedCard`,
+`_mybmFeed`, `_mybmLinks`, `_mybmSigned`), new `test/verify-mybm-push-1127.cjs` and `test/mutate-mybm-push.cjs`,
+`test/README.md`, `REFERENCE.md` (§ MyBreastmilk push), `docs/MAINTAINER_SETUP.md`, `STATUS.md`.
+
+- **Why.** MyBreastmilk (MyBM), the pumping app for the mothers of NICU and SCN infants, showed an infant's
+  weight and feeds only when a nurse typed them in a second time, so in practice it showed nothing. On
+  2026-11-27 Pp chose that NeoFeed sends them itself ("NeoFeed ส่งออกเอง") and signed the design, MyBM's
+  `docs/superpowers/specs/2026-11-27-neofeed-push-design.md`, with its five choices ("ตามที่แนะนำ", "ใช้ได้").
+- **What it does.** A time trigger at 16:00, and a catch-up at 19:00, asks MyBM for the infants its staff linked,
+  reads Patient_Registry and Daily_Log once each, and posts one signed envelope per link: the weights with their
+  dates, and the feeds of the current order. The current order is the newest row not superseded (AL) and not a
+  draft (O), dated no later than today, as the TPN room finds it; an I/O-only revision counts. A feed counts when
+  volume × feeds a day is above 0, the Calculator's own test, so an NPO day written as 0 mL × 8 shows no feed.
+  The DOB and admission date are checked against what the nurse copied when linking, before the status, so a
+  link to the wrong infant reads as a mismatch, never as discharged.
+- **What never leaves.** The sessionId, a name, initials, HN, AN, DOB, admission date, diagnosis, any TPN or IV
+  figure, a staff email. A bed leaves only when it is a ward bed; the twin letter goes to MyBM's staff screen.
+- **Off.** Nothing runs until the Script Property `MYBM_PUSH_ENABLED` is exactly `true`, the last of the steps in
+  `REFERENCE.md` § MyBreastmilk push. No doPost action, no new tab or column, no frontend change, no figure
+  moves, and `CONSTANTS_VERSION` stays.
+- **One rule added while building.** `multiple` is also sent when `multiplesCount` is 2–4 and the twin letter is
+  blank, because the design's §0 item 3 has staff confirm any infant NeoFeed records as a multiple. The design's
+  §4.2 now says so.
+- **Tests.** `verify-mybm-push-1127.cjs`, 181 assertions. `mutate-mybm-push.cjs` makes 25 small changes to the
+  block, and the harness catches all 25.
+
 ## Session 2026-11-25 — The rule set, newborn branch only (paediatric-wards group 3)
 
 `data.js` (§ Rule sets: `RULE_SETS`, `ruleSetFor`, `RULE_SET_TABLES`, `ruleTablesFor`; `isNewbornUnit`,

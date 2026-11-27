@@ -6115,7 +6115,7 @@ function _sheetInstant_(value) {
 var NON_USAGE_AUDIT_ACTIONS = { loginFail: true, lockout: true,
   qiKeyCreated: true, qiExport: true, qiReidentify: true, qiReidentifyMiss: true };
 function usageMetrics(rows) {
-  var out = { weeks: [], totalDistinctUsers: 0, rowsScanned: 0, rowsSkipped: 0 };
+  var out = { weeks: [], totalDistinctUsers: 0, rowsScanned: 0, rowsSkipped: 0, triggerRows: 0 };
   if (!rows || !rows.length) return out;
 
   var byWeek = {};      // weekKey -> { emails: {}, events: n }
@@ -6125,6 +6125,10 @@ function usageMetrics(rows) {
     var r = rows[i] || [];
     out.rowsScanned++;
     if (NON_USAGE_AUDIT_ACTIONS[String(r[1] == null ? "" : r[1]).trim()] === true) { out.rowsSkipped++; continue; }
+    // A time trigger (actor "trigger:...", e.g. the MyBreastmilk push) is not a user. It has its
+    // own count, triggerRows, apart from rowsSkipped (the non-usage actions above, and rows with
+    // no actor or no usable timestamp).
+    if (String(r[3] == null ? "" : r[3]).trim().toLowerCase().indexOf("trigger:") === 0) { out.triggerRows++; continue; }
     var email = String(r[3] == null ? "" : r[3]).trim().toLowerCase();
     var wk = _isoWeekKeyLocal_(r[0]);
     // A row with no actor cannot be attributed, and a row with no usable
@@ -7179,4 +7183,523 @@ function sheetBackupStatus() {
       slots: slots
     };
   });
+}
+
+// ── MyBreastmilk push (2026-11-27) ──────────────────────────────
+// MyBreastmilk (MyBM) is the pumping app that the mothers of NICU and SCN
+// infants use. On 2026-11-27 Pp chose that NeoFeed itself sends MyBM the two
+// facts a mother asks for: how much the infant weighs, and what milk the
+// current order plans. MyBM never calls NeoFeed, and doPost gains no action.
+// A time trigger runs mybmPushRun(), which
+//   1. asks MyBM which infants its ward staff have linked (ward-feed-links-v1):
+//      a MyBM link id, the sessionId, and the DOB and admission date the nurse
+//      copied from NeoFeed when linking;
+//   2. reads Patient_Registry and Daily_Log once each, and holds no lock;
+//   3. builds one envelope per link with wardFeedEnvelope(), which is pure;
+//   4. posts them (ward-feed-v1) MYBM_PUSH_CHUNK at a time through fetchAll.
+// An envelope carries MyBM's link id, never the sessionId, a name, initials,
+// HN, AN, DOB, admission date, diagnosis, a TPN or IV figure, or a staff email.
+// The DOB can be worked out from a weight's date and DOL; the DPO scope says so.
+// Each request is signed (signature v2, tech and security review 2026-11-27, A1):
+// x-nf-timestamp (ms), x-nf-key-id (MYBM_PUSH_KEY_ID) and x-nf-signature, the hex
+// HMAC-SHA256 under MYBM_PUSH_SECRET of "nf-sig-v2\n" + key id + "\n" + timestamp
+// + "\n" + MYBM_PUSH_URL + "\n" + body. The key id lets MyBM hold two keys while
+// one is rotated; the URL makes a request good at one receiver only.
+//
+// Inert until the Script Property MYBM_PUSH_ENABLED is exactly "true"; deleting
+// it stops the push at the next run. Every rule below is the signed design in
+// the MyBM repo, docs/superpowers/specs/2026-11-27-neofeed-push-design.md, whose
+// section numbers the comments use. Pinned by test/verify-mybm-push-1127.cjs.
+var MYBM_PUSH_CHUNK = 20;
+var MYBM_LINKS_MAX = 500;
+var MYBM_SESSION_ID_MAX = 160;
+var MYBM_WEIGHTS_MAX = 120;
+var MYBM_VALID_MS = 26 * 60 * 60 * 1000;
+var MYBM_BODY_MAX = 16384;
+var MYBM_SECRET_MIN = 32;
+var MYBM_KEY_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
+// More identity failures (mismatch, which includes a DOB NeoFeed does not trust, or
+// not_in_registry) than this in one run hold those envelopes unsent, and the run throws;
+// every message it throws after the hold names the held MyBM link ids, and the execution
+// log names them as soon as they are held (review 2026-11-27, A5). Matching links are sent
+// as in any run, and up to this many failures a run are sent with their codes, so staff can
+// correct them. Those codes tell MyBM, per link, whether the infant exists and which date
+// differs or is not trusted; a MyBM that keeps to
+// this many a run is never alarmed, so the alarm limits how fast it can probe, not what
+// a probe learns.
+var MYBM_PROBE_MAX = 5;
+var MYBM_PUSH_ACTOR = "trigger:mybmPush";
+// The only check codes an envelope may carry, in the order it lists them (§4.2).
+var MYBM_CHECK_ORDER = ["not_in_registry", "dob_mismatch", "admission_mismatch", "weights_unreadable",
+  "weights_future_date", "weights_out_of_range", "order_unreadable", "feed_out_of_range",
+  "feed_incomplete", "twin_suffix_unreadable"];
+// The receipts MyBM answers 200 with (§4.3). Each is counted, none is a failure.
+var MYBM_RECEIPTS = { accepted: true, duplicate: true, superseded: true, unlinked: true, no_consent: true };
+var MYBM_FEED_KEY = /^[A-Z][A-Z0-9_]{0,39}$/;
+var MYBM_DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+var MYBM_LINK_KEYS = ["expectedAdmissionDate", "expectedDob", "linkId", "sessionId"];
+
+function _mybmIsDateKey(s) {
+  if (typeof s !== "string" || !MYBM_DATE_KEY.test(s)) return false;
+  var at = Date.parse(s + "T00:00:00Z");
+  return isFinite(at) && new Date(at).toISOString().slice(0, 10) === s;
+}
+function _mybmAddDays(key, n) {
+  return new Date(Date.parse(key + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
+}
+function _mybmSortChecks(codes) {
+  return MYBM_CHECK_ORDER.filter(function (c) { return codes.indexOf(c) !== -1; });
+}
+
+// The DOL of a date, counted from a DOB wardFeedEnvelope has already found
+// trusted (data.js dolAtDate's first branch): DOL 1 is the day of birth.
+function _mybmDolOf(dobKey, dateKey) {
+  return Math.round((Date.parse(dateKey + "T00:00:00Z") - Date.parse(dobKey + "T00:00:00Z")) / 86400000) + 1;
+}
+
+// The weights a mother may see (§5.2): the one series every NeoFeed screen reads,
+// data.js weightSeries (Pp, 2026-11-27: "แบบเดียวกับ NeoFeed"). It joins the
+// growth chart's points (Patient_Registry M) and the weight of each final order
+// (Daily_Log D, not a draft, not superseded), and a measurement wins over an
+// order on the same DOL. The series is built first, exactly as weightSeries
+// builds it; only the points that survive are then checked, so a bad order
+// under a measurement, which no NeoFeed screen shows, withholds nothing.
+// Where this differs from NeoFeed it only withholds, never shows more:
+//   • an order dated after today waits for its day (NeoFeed's strip would
+//     already show it, at tomorrow's DOL);
+//   • weights null, with the code, for: a surviving weight outside 200–8000 g
+//     (a "" or TRUE cell reads as 0 or 1 g, as weightSeries reads it); a chart
+//     point dated after today; a point past DOL 400; a final order with a
+//     weight but no readable date (NeoFeed would place it by column C, or at
+//     the chart's last DOL); a status that trims to "draft" but is not
+//     "draft", on an order with a weight; a chart cell that is not a list; a
+//     chart element that is null, not an object, or a list; a chart DOL that is
+//     blank, not a whole number or outside 0–400, even on a length-only point;
+//     a chart weight that is not a number; an order dated before the birth
+//     that no later point on DOL 1 hides, a chart point or an order dated the
+//     day of birth (NeoFeed shows it under its own date). These checks run on
+//     the whole series, before the newest-120 cut;
+//   • the newest 120 points only (NeoFeed keeps the whole series);
+//   • grams are whole (NeoFeed shows a decimal weight as stored).
+// → { weights: [{dol, date, grams, registration}] | null, codes: [...] }
+// The registry's own read fallback for a blank cell, [{dol: 1, w: bw}], is not
+// used: that is a guess, not a weighing.
+function _mybmWeights(cell, dobKey, bw, todayKey, orders) {
+  var unreadable = { weights: null, codes: ["weights_unreadable"] };
+  var list = (cell === "" || cell == null) ? null : _parseJson(cell, null);
+  if (!Array.isArray(list)) return unreadable;
+  var byDol = {}, dols = [];
+  var put = function (point) {
+    if (!Object.prototype.hasOwnProperty.call(byDol, point.dol)) dols.push(point.dol);
+    byDol[point.dol] = point;
+  };
+  // The orders first, by date and in sheet order within a date, so the later row
+  // on a date wins (data.js normalizeLogEntries sorts by date, stably). Dates are
+  // read as the ward sync sends them (_fmtDate).
+  var final = [];
+  for (var j = 0; j < (orders || []).length; j++) {
+    var r = orders[j];
+    if (r[37]) continue;   // superseded (AL)
+    var status = String(r[14] == null ? "" : r[14]);
+    if (status.toLowerCase() === "draft") continue;   // a draft, as data.js isDraftEntry reads it
+    var ow = Number(r[3] || 0);
+    if (!isFinite(ow) || ow <= 0) continue;   // no weight on this order (weightSeries: w <= 0 or not a number)
+    // A hand-typed " draft ": NeoFeed reads it as a final order and shows its
+    // weight, the card here reads it as a draft. Neither reading is safe to send.
+    if (status.trim().toLowerCase() === "draft") return unreadable;
+    var key = _fmtDate(r[0]);
+    if (!_mybmIsDateKey(key)) return unreadable;   // a weight NeoFeed would place by column C
+    final.push({ key: key, w: ow, at: j });
+  }
+  final.sort(function (a, b) { return a.key < b.key ? -1 : (a.key > b.key ? 1 : a.at - b.at); });
+  for (var f = 0; f < final.length; f++) {
+    var o = final[f];
+    if (o.key > todayKey) continue;   // an order already written for tomorrow waits for its day
+    // dolAtDate never goes below DOL 1, so an order dated before the birth sits on
+    // DOL 1, where a later point hides it: a chart point, or an order dated the day
+    // of birth. If none does, NeoFeed shows it under the order's own date and the
+    // envelope cannot: withheld below.
+    var odol = _mybmDolOf(dobKey, o.key);
+    put({ dol: Math.max(1, odol), w: o.w, first: false, beforeBirth: odol < 1 });
+  }
+  for (var i = 0; i < list.length; i++) {
+    var p = list[i];
+    if (p === null || typeof p !== "object" || Array.isArray(p)) return unreadable;
+    var dol = Number(p.dol);
+    if (p.dol === "" || p.dol == null || typeof p.dol === "boolean" || !isFinite(dol) || dol !== Math.floor(dol)
+      || dol < 0 || dol > 400) return unreadable;
+    if (p.w == null) continue;   // a length or HC only (weightSeries: m.w == null)
+    var w = Number(p.w);   // "" reads as 0 g, as weightSeries reads it; the bound below refuses it
+    if (!isFinite(w)) return unreadable;
+    if (dol === 0) dol = 1;   // weightSeries reads a DOL 0 point as DOL 1 (Number(m.dol) || 1)
+    // A measurement wins over an order on its DOL; of two measurements, the later in the list.
+    put({ dol: dol, w: w, first: i === 0 });
+  }
+  dols.sort(function (a, b) { return a - b; });
+  var points = dols.map(function (d) { return byDol[d]; });
+  var fail = [];
+  var bad = function (code) { if (fail.indexOf(code) === -1) fail.push(code); };
+  for (var k = 0; k < points.length; k++) {
+    var q = points[k];
+    if (q.dol > 400 || q.beforeBirth) return unreadable;
+    q.date = _mybmAddDays(dobKey, q.dol - 1);   // DOL 1 is the day of birth
+    if (q.w < 200 || q.w > 8000) bad("weights_out_of_range");
+    if (q.date > todayKey) bad("weights_future_date");
+  }
+  if (fail.length) return { weights: null, codes: fail };
+  // The registration weight: the DOL 1 point; with none, the chart's first stored
+  // point (weights[0], wherever it sorts) when it equals bw, the legacy filing of
+  // the birth weight on the admission DOL. Nothing moves: the flag only stops MyBM
+  // reading it as a new weighing.
+  var reg = null;
+  for (var m = 0; m < points.length; m++) if (points[m].dol === 1) reg = points[m];
+  if (!reg) for (var n = 0; n < points.length; n++) if (points[n].first && Number(bw) === points[n].w) reg = points[n];
+  points = points.slice(-MYBM_WEIGHTS_MAX);
+  return {
+    weights: points.map(function (x) { return { dol: x.dol, date: x.date, grams: Math.round(x.w), registration: x === reg }; }),
+    codes: []
+  };
+}
+
+// One feed of the order's enteral card, read as the Calculator reads it: given
+// when volume × feeds a day is above 0 (calculator.jsx feed2Given, applied to
+// both feeds). → { feed } | { none[, code] } | { code }
+function _mybmFeed(type, vol, freq) {
+  var v = (vol === undefined || vol === null || vol === "") ? 0 : Number(vol);
+  var f = (freq === undefined || freq === null || freq === "") ? 0 : Number(freq);
+  if (typeof vol === "boolean" || typeof freq === "boolean" || !isFinite(v) || !isFinite(f) || v < 0 || f < 0) {
+    return { code: "feed_out_of_range" };
+  }
+  if (!(v * f > 0)) {
+    // 0 mL × 8 is how an NPO day is often written: no feed, no flag. A volume
+    // with no feeds a day is a slip staff should see.
+    return v > 0 && f === 0 ? { none: true, code: "feed_incomplete" } : { none: true };
+  }
+  // calcInput's own default for a feed saved without a type (normalizeCalcInput).
+  var key = (type === undefined || type === null) ? "BM_20" : type;
+  if (typeof key !== "string" || !MYBM_FEED_KEY.test(key)) return { code: "order_unreadable" };
+  var cents = Math.round(v * 100);
+  if (v > 300 || Math.abs(v * 100 - cents) > 1e-6) return { code: "feed_out_of_range" };
+  if (f !== Math.floor(f) || f < 1 || f > 24) return { code: "feed_out_of_range" };
+  return { feed: { feedKey: key, mlPerFeed: cents / 100, feedsPerDay: f } };
+}
+
+// The feed card of the patient's current order (§5.1), from their Daily_Log rows.
+// The card's DOL is worked out from the order's date and the DOB, which
+// wardFeedEnvelope has already found trusted, as data.js entryDol does.
+// Column C is the DOL when the row was saved and goes stale (Vera, 2026-11-27).
+// → { card: {orderDate, dol, feeds} | null, codes: [...] }
+function _mybmFeedCard(orders, todayKey, dobKey) {
+  var best = null, bestKey = "", bestRev = 0;
+  for (var i = 0; i < orders.length; i++) {
+    var r = orders[i];
+    if (r[37]) continue;   // superseded (AL), as pharmacyOrders skips it
+    if (String(r[14] == null ? "" : r[14]).trim().toLowerCase() === "draft") continue;
+    var key = _fmtDate(r[0]);   // as the ward sync sends the date
+    if (!_mybmIsDateKey(key) || key > todayKey) continue;   // an order already written for tomorrow is not today's
+    var rev = _numSafe(r[35], 0);
+    // The newest date; on a tie the highest revisionNumber, then the later row.
+    if (!best || key > bestKey || (key === bestKey && rev >= bestRev)) { best = r; bestKey = key; bestRev = rev; }
+  }
+  if (!best) return { card: null, codes: [] };
+  var ci = _parseJson(best[24], null);
+  var dol = _mybmDolOf(dobKey, bestKey);
+  // An order dated before the birth cannot be shown against the DOB.
+  if (!ci || typeof ci !== "object" || Array.isArray(ci) || !isFinite(dol) || dol < 1 || dol > 400) {
+    return { card: null, codes: ["order_unreadable"] };
+  }
+  var feeds = [], codes = [];
+  var parts = [_mybmFeed(ci.enType, ci.enVol, ci.enFreq), _mybmFeed(ci.enType2, ci.enVol2, ci.enFreq2)];
+  for (var p = 0; p < parts.length; p++) {
+    if (parts[p].feed) { feeds.push(parts[p].feed); continue; }
+    if (parts[p].none) { if (parts[p].code) codes.push(parts[p].code); continue; }
+    return { card: null, codes: [parts[p].code] };
+  }
+  return { card: { orderDate: bestKey, dol: dol, feeds: feeds }, codes: codes };
+}
+
+// One envelope (§4.2) for one link. Pure: no Sheets, no network, no clock but
+// stamp's. `row` is the Patient_Registry row (sheet shape) or null, `orders` that
+// patient's Daily_Log rows (A–AL), `link` one entry of the links answer,
+// `todayKey` the ward's date, `stamp` { nowMs, deliveryId }.
+// Identity comes before status (§3 step 4): a link to the wrong infant who has
+// left shows staff a mismatch, not "not Active". Only `current` carries data.
+function wardFeedEnvelope(row, orders, link, todayKey, stamp) {
+  var env = {
+    schema: "ward-feed-v1", sender: "neofeed", deliveryId: stamp.deliveryId, linkId: link.linkId,
+    sequence: stamp.nowMs, generatedAt: new Date(stamp.nowMs).toISOString(),
+    validUntil: new Date(stamp.nowMs + MYBM_VALID_MS).toISOString(),
+    status: "current", sourceBed: null, multiple: null, weights: null, feedCard: null, checks: []
+  };
+  if (!row) { env.status = "inactive"; env.checks = ["not_in_registry"]; return env; }
+  var dobKey = _fmtDate(row[6]), admKey = _fmtDate(row[7]);
+  var codes = [];
+  // NeoFeed counts DOL from the DOB only when it trusts it (data.js dobCredible:
+  // a real date from 2000 on, not in the future, not after the admission date);
+  // otherwise from the admission date. Every date this envelope sends hangs on
+  // the DOB, so one NeoFeed does not trust fails closed as dob_mismatch, and
+  // staff correct it in NeoFeed (re-check, 2026-11-27).
+  var dobTrusted = _mybmIsDateKey(dobKey) && dobKey >= "2000-01-01" && dobKey <= todayKey
+    && (admKey === "" || dobKey <= admKey);
+  if (dobKey !== link.expectedDob || !dobTrusted) codes.push("dob_mismatch");
+  if (admKey !== link.expectedAdmissionDate) codes.push("admission_mismatch");
+  if (codes.length) { env.status = "mismatch"; env.checks = codes; return env; }
+  if (_readStatus(row[9]) !== "Active") { env.status = "inactive"; return env; }
+
+  // A ward bed only, canonical, as the TPN room reads it: free text never leaves.
+  var bed = _normBed(row[10]);
+  env.sourceBed = PHARMACY_WARD_BED.test(bed) ? bed : null;
+  // A multiple: a twin letter, or a multiplesCount of 2–4 (§0 item 3: staff
+  // confirm any infant NeoFeed records as a multiple before the mother sees data).
+  var twin = String(row[8] == null ? "" : row[8]).trim().toUpperCase();
+  var n = Number(row[17]);
+  var count = (row[17] !== "" && (n === 2 || n === 3 || n === 4)) ? n : null;
+  if (twin || count !== null) {
+    var suffix = /^[A-D]$/.test(twin) ? twin : null;
+    if (twin && suffix === null) codes.push("twin_suffix_unreadable");
+    env.multiple = { suffix: suffix, count: count };
+  }
+  var w = _mybmWeights(row[12], dobKey, row[3], todayKey, orders || []);
+  env.weights = w.weights;
+  var fc = _mybmFeedCard(orders || [], todayKey, dobKey);
+  env.feedCard = fc.card;
+  env.checks = _mybmSortChecks(codes.concat(w.codes, fc.codes));
+  return env;
+}
+
+// The links answer (§4.1), checked key by key. A bad entry is skipped and
+// counted; an answer that is not the contract at all stops the run.
+// One MyBM baby maps to one sessionId by one link. A sessionId or a linkId listed
+// twice skips every entry that carries it: otherwise one answer could list an
+// infant with several guessed DOBs and the right guess would get the data
+// (Vera, 2026-11-27).
+function _mybmLinks(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body) || !Array.isArray(body.links)) {
+    throw new Error("mybm push: MyBM's links answer is not { links: [...] }; nothing sent");
+  }
+  if (body.links.length > MYBM_LINKS_MAX) {
+    throw new Error("mybm push: MyBM listed more than " + MYBM_LINKS_MAX + " links; nothing sent");
+  }
+  var valid = [], skipped = 0, sidCount = {}, idCount = {};
+  for (var i = 0; i < body.links.length; i++) {
+    var l = body.links[i];
+    var ok = !!l && typeof l === "object" && !Array.isArray(l)
+      && Object.keys(l).sort().join(",") === MYBM_LINK_KEYS.join(",")
+      && typeof l.linkId === "string" && PHARMACY_UUID.test(l.linkId)
+      && typeof l.sessionId === "string" && l.sessionId.length >= 1 && l.sessionId.length <= MYBM_SESSION_ID_MAX
+      // NF- and six digits only: an id issued before 2026-09-27 holds initials and the
+      // birth weight and never leaves for MyBM (Pp, 2026-11-27; review A4). This makes
+      // the length bound above redundant; it stays as a second guard.
+      && NEW_SESSION_ID_RE.test(l.sessionId)
+      && _mybmIsDateKey(l.expectedDob) && _mybmIsDateKey(l.expectedAdmissionDate);
+    if (!ok) { skipped++; continue; }
+    var sk = "s:" + l.sessionId, ik = "i:" + l.linkId.toLowerCase();
+    sidCount[sk] = (sidCount[sk] || 0) + 1;
+    idCount[ik] = (idCount[ik] || 0) + 1;
+    valid.push(l);
+  }
+  var links = [];
+  for (var j = 0; j < valid.length; j++) {
+    var v = valid[j];
+    if (sidCount["s:" + v.sessionId] > 1 || idCount["i:" + v.linkId.toLowerCase()] > 1) { skipped++; continue; }
+    links.push({ linkId: v.linkId, sessionId: v.sessionId, expectedDob: v.expectedDob, expectedAdmissionDate: v.expectedAdmissionDate });
+  }
+  return { links: links, skipped: skipped };
+}
+
+// A signed POST, as UrlFetchApp.fetchAll takes it. The stamp is taken here,
+// just before the request goes, so a long run cannot send a stale one.
+function _mybmSigned(url, keyId, secret, payload) {
+  var stamp = String(Date.now());
+  var signed = "nf-sig-v2\n" + keyId + "\n" + stamp + "\n" + url + "\n" + payload;
+  var sig = Utilities.computeHmacSha256Signature(signed, secret, Utilities.Charset.UTF_8)
+    .map(function (b) { return ("0" + (b & 0xff).toString(16)).slice(-2); }).join("");
+  return {
+    url: url, method: "post", contentType: "application/json", payload: payload,
+    headers: { "x-nf-timestamp": stamp, "x-nf-key-id": keyId, "x-nf-signature": sig },
+    muteHttpExceptions: true, followRedirects: false
+  };
+}
+
+// The time trigger's function (§3 step 3: hour 16 and hour 19, each added by
+// hand in the editor). Reads only; writes one Audit_Log row per envelope sent.
+// Throws, so the trigger's owner gets a mail: on a Script Property that is missing
+// or malformed; a links request that cannot be signed, cannot reach MyBM, is refused
+// (401) or answered otherwise than 200 with { links: [...] } of at most 500; a header
+// on Patient_Registry or Daily_Log that differs from NeoFeed's (_pharmacySchemaNow), or
+// a Sheets error while opening or reading them; an envelope that cannot be signed,
+// cannot reach MyBM, is not recorded, or is over 16 KB (not sent); and the probe alarm,
+// which every message thrown after the hold names too. The next run sends every link again.
+function mybmPushRun() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty("MYBM_PUSH_ENABLED") !== "true") {
+    Logger.log("mybm push: off, nothing sent");
+    return { ok: true, enabled: false };
+  }
+  var url = String(props.getProperty("MYBM_PUSH_URL") || "");
+  var secret = String(props.getProperty("MYBM_PUSH_SECRET") || "");
+  var keyId = String(props.getProperty("MYBM_PUSH_KEY_ID") || "");
+  if (!/^https:\/\/\S+$/.test(url)) {
+    throw new Error("mybm push: the Script Property MYBM_PUSH_URL is missing or not https; nothing sent");
+  }
+  if (secret.length < MYBM_SECRET_MIN) {
+    throw new Error("mybm push: the Script Property MYBM_PUSH_SECRET is missing or shorter than " + MYBM_SECRET_MIN
+      + " characters; nothing sent");
+  }
+  if (!MYBM_KEY_ID.test(keyId)) {
+    throw new Error("mybm push: the Script Property MYBM_PUSH_KEY_ID is missing, or not 1 to 32 lowercase letters, digits "
+      + "and hyphens starting with a letter or digit; nothing sent");
+  }
+  var unsigned = false;
+  var heldLinks = [];
+  var counts = { links: 0, skippedLinks: 0, current: 0, inactive: 0, mismatch: 0, tooLarge: 0, sent: 0,
+    accepted: 0, duplicate: 0, superseded: 0, unlinked: 0, no_consent: 0, failed: 0, probes: 0, held: 0 };
+  var failedCodes = {};
+
+  var linksReq;
+  try {
+    linksReq = _mybmSigned(url, keyId, secret, JSON.stringify({
+      schema: "ward-feed-links-v1", sender: "neofeed", requestId: Utilities.getUuid(), generatedAt: new Date().toISOString()
+    }));
+  } catch (e) { throw new Error("mybm push: the links request could not be signed; nothing sent, the next run tries again"); }
+  var params = {};
+  for (var name in linksReq) if (name !== "url") params[name] = linksReq[name];
+  // Apps Script's own network error names the URL, and a thrown message reaches
+  // the execution log and the trigger owner's mail (Vera, 2026-11-27).
+  var resp;
+  try { resp = UrlFetchApp.fetch(url, params); }
+  catch (e) { throw new Error("mybm push: MyBM could not be reached on the links request; nothing sent, the next run tries again"); }
+  var code = resp.getResponseCode();
+  if (code === 401) {
+    throw new Error("mybm push: MyBM refused the signature (401) on the links request; nothing sent. "
+      + "Check MYBM_PUSH_KEY_ID and MYBM_PUSH_SECRET against MyBM's NEOFEED_PUSH_KEYS.");
+  }
+  if (code !== 200) throw new Error("mybm push: the links request answered HTTP " + code + "; nothing sent, the next run tries again");
+  var parsed = _mybmLinks(_parseJson(resp.getContentText(), null));
+  counts.links = parsed.links.length;
+  counts.skippedLinks = parsed.skipped;
+
+  if (parsed.links.length) {
+    // Keys carry a prefix, so a sessionId of "__proto__" is an ordinary key.
+    var want = {};
+    parsed.links.forEach(function (l) { want["s:" + l.sessionId] = true; });
+    var ss = _book();
+    var patSheet = getSheetPat(ss), logSheet = getSheetLog(ss);
+    _pharmacySchemaNow(patSheet, "Patient_Registry");
+    _pharmacySchemaNow(logSheet, "Daily_Log");
+    var rowOf = {}, ordersOf = {};
+    var pat = patSheet.getDataRange().getValues();
+    for (var i = 1; i < pat.length; i++) {
+      var sid = "s:" + String(pat[i][0] == null ? "" : pat[i][0]);
+      // The first row for a sessionId, as NeoFeed's screens find it (patients.find).
+      if (want[sid] === true && !Object.prototype.hasOwnProperty.call(rowOf, sid)) rowOf[sid] = pat[i];
+    }
+    // One read of A–AL, as the ward sync reads it: one call cannot see half an edit.
+    var last = logSheet.getLastRow();
+    var width = Math.min(LOG_SYNC_WIDTH, logSheet.getMaxColumns());
+    var logRows = last < 2 ? [] : logSheet.getRange(2, 1, last - 1, width).getValues();
+    for (var r = 0; r < logRows.length; r++) {
+      var lsid = "s:" + String(logRows[r][1] == null ? "" : logRows[r][1]);
+      if (want[lsid] !== true) continue;
+      (ordersOf[lsid] = ordersOf[lsid] || []).push(logRows[r]);
+    }
+
+    var today = _wardDateKey();
+    var nowMs = Date.now();
+    var queue = [];
+    parsed.links.forEach(function (l) {
+      var env = wardFeedEnvelope(rowOf["s:" + l.sessionId] || null, ordersOf["s:" + l.sessionId] || [], l, today,
+        { nowMs: nowMs, deliveryId: Utilities.getUuid() });
+      var payload = JSON.stringify(env);
+      if (payload.length > MYBM_BODY_MAX) { counts.tooLarge++; return; }
+      counts[env.status]++;
+      queue.push({ sessionId: l.sessionId, linkId: l.linkId, payload: payload, deliveryId: env.deliveryId,
+        identity: env.status === "mismatch" || env.checks.indexOf("not_in_registry") !== -1 });
+    });
+    var probes = queue.filter(function (q) { return q.identity; });
+    counts.probes = probes.length;
+    if (counts.probes > MYBM_PROBE_MAX) {
+      counts.held = counts.probes;
+      heldLinks = probes.map(function (q) { return q.linkId; });
+      queue = queue.filter(function (q) { return !q.identity; });
+      // Logged at once: a run the platform stops later (the 6-minute limit) still leaves the ids.
+      Logger.log("mybm push: held MyBM link ids: " + heldLinks.join(", "));
+    }
+
+    var refused = false, unreachable = false;
+    for (var c = 0; c < queue.length && !refused && !unreachable && !unsigned; c += MYBM_PUSH_CHUNK) {
+      var chunk = queue.slice(c, c + MYBM_PUSH_CHUNK);
+      // Signed before the network call: a signing error is not a network failure,
+      // sends nothing of this chunk and audits nothing of it.
+      var reqs;
+      try { reqs = chunk.map(function (q) { return _mybmSigned(url, keyId, secret, q.payload); }); }
+      catch (e) { unsigned = true; break; }
+      var resps = null;
+      try { resps = UrlFetchApp.fetchAll(reqs); }
+      catch (e) {
+        // Some of the chunk may have left: each is audited as sent, and the run stops.
+        unreachable = true;
+        for (var u = 0; u < chunk.length; u++) {
+          counts.sent++;
+          counts.failed++;
+          logAudit("mybmPush " + chunk[u].deliveryId + " unreachable", chunk[u].sessionId, MYBM_PUSH_ACTOR);
+        }
+        failedCodes.unreachable = true;
+        break;
+      }
+      for (var k = 0; k < chunk.length; k++) {
+        counts.sent++;
+        var rc = resps[k].getResponseCode();
+        var receipt = rc === 200 ? (_parseJson(resps[k].getContentText(), null) || {}).status : null;
+        var known = rc === 200 && typeof receipt === "string" && MYBM_RECEIPTS[receipt] === true;
+        // The deliveryId is the one key the two apps' logs share (review 2026-11-27, A3).
+        logAudit("mybmPush " + chunk[k].deliveryId + " " + (known ? receipt : "http-" + rc), chunk[k].sessionId, MYBM_PUSH_ACTOR);
+        if (known) { counts[receipt]++; continue; }
+        counts.failed++;
+        failedCodes[String(rc)] = true;
+        if (rc === 401) refused = true;
+      }
+    }
+  }
+
+  Logger.log("mybm push: " + JSON.stringify(counts));
+  // The probe alarm rides on every message thrown after the hold, so the owner's mail names it
+  // even when a 401, MyBM unreachable or a signing error stopped the run (re-check 2, 2026-11-27).
+  // MyBM's own link ids, not patient identifiers: the owner finds the babies in MyBM's
+  // neofeed_links. The mail names 20; the execution log all.
+  var alarm = "";
+  if (counts.held > 0) {
+    alarm = counts.held + " links did not match NeoFeed (a date that differs or NeoFeed does not trust, or no such "
+      + "infant), more than " + MYBM_PROBE_MAX + " in one run, so their envelopes were not sent. MyBM link ids: "
+      + heldLinks.slice(0, 20).join(", ")
+      + (heldLinks.length > 20 ? " and " + (heldLinks.length - 20) + " more, all in the execution log" : "")
+      + ". Correct the dates in NeoFeed or the links in MyBM.";
+  }
+  var also = alarm ? " Also: " + alarm : "";
+  if (failedCodes["401"]) {
+    throw new Error("mybm push: MyBM refused the signature (401) after " + counts.sent + " envelope(s); the run stopped. "
+      + "Check MYBM_PUSH_KEY_ID and MYBM_PUSH_SECRET against MyBM's NEOFEED_PUSH_KEYS." + also);
+  }
+  if (unsigned) {
+    throw new Error("mybm push: an envelope could not be signed after " + counts.sent + " envelope(s) were sent; "
+      + "the run stopped, the next run sends every link again." + also);
+  }
+  if (failedCodes.unreachable) {
+    throw new Error("mybm push: MyBM could not be reached after " + counts.sent + " envelope(s) were sent or attempted; "
+      + "the run stopped, the next run sends every link again." + also);
+  }
+  if (counts.held > 0) {
+    var bad = [];
+    if (counts.failed) bad.push(counts.failed + " not recorded (HTTP " + Object.keys(failedCodes).sort().join(", ") + ")");
+    if (counts.tooLarge) bad.push(counts.tooLarge + " over 16 KB not sent");
+    throw new Error("mybm push: " + alarm + " " + (counts.sent === 1 ? "The other envelope was sent"
+      : counts.sent ? "The other " + counts.sent + " were sent" : "No other envelope was sent")
+      + (bad.length ? "; " + bad.join(", ") : "") + ".");
+  }
+  if (counts.failed > 0 || counts.tooLarge > 0) {
+    throw new Error("mybm push: " + counts.failed + " of " + counts.sent + " envelope(s) were not recorded (HTTP "
+      + Object.keys(failedCodes).sort().join(", ") + ")" + (counts.tooLarge ? ", " + counts.tooLarge + " over 16 KB not sent" : "")
+      + "; the next run sends every link again.");
+  }
+  return { ok: true, enabled: true, counts: counts };
 }
