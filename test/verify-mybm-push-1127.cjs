@@ -414,6 +414,22 @@ t.section('§5 weights', () => {
   t.eq('a 9000 g order under a measurement on its DOL withholds nothing',
     (ow([o(TODAY, 9000)], JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: 1035 }])).weights || []).map(p => p.grams), [980, 1035]);
   t.eq('a negative order weight adds no point, as weightSeries skips it', (ow([o(TODAY, -5)]).weights || []).map(p => p.dol), [1]);
+  // Re-check of the weights fix, 2026-11-27: a hand-typed " draft " is final to NeoFeed.
+  const oddDraft = ow([o(TODAY, 1040), o(TODAY, 1045, { 14: ' draft ' })]);
+  t.eq('a status of " draft " on an order with a weight: weights null, weights_unreadable', [oddDraft.weights, oddDraft.checks],
+    [null, ['weights_unreadable']]);
+  t.eq('…but "Draft" is a draft to NeoFeed too, and adds no point', (ow([o(TODAY, 1045, { 14: 'Draft' })]).weights || []).map(p => p.dol), [1]);
+  t.eq('…and " draft " with no weight changes nothing', (ow([o(TODAY, 0, { 14: ' draft ' })]).weights || []).map(p => p.dol), [1]);
+  // The filters come before the date check: an undated row NeoFeed ignores withholds nothing.
+  for (const [name, extra] of [['a draft', { 14: 'draft' }], ['a superseded row', { 37: '2026-11-27T05:00:00.000Z' }], ['a row with no weight', { 3: 0 }]]) {
+    const e = ow([o(TODAY, extra[3] === 0 ? 0 : 1040, Object.assign({ 0: '' }, extra))]);
+    t.eq('an undated ' + name + ' withholds nothing', [(e.weights || []).map(p => p.dol), e.checks], [[1], []]);
+  }
+  // Dates are read as the ward sync sends them (_fmtDate): a text timestamp keeps its written date.
+  const stamp = ow([o(TODAY, 1040, { 0: '2026-11-26T18:00:00.000Z' })]);
+  t.eq('an order dated by a text timestamp: the date as written, as the ward sync reads it', (stamp.weights || []).map(p => [p.dol, p.date]),
+    [[1, DOB], [7, '2026-11-26']]);
+  t.eq('…and the card reads the same date', stamp.feedCard && stamp.feedCard.orderDate, '2026-11-26');
   const noDate = ow([o(TODAY, 1040, { 0: '' })]);
   t.eq('a final order with a weight but no date: weights null, weights_unreadable', [noDate.weights, noDate.checks], [null, ['weights_unreadable']]);
   const longRow = pat(g, 'S1', { 6: bkkMidnight('2025-10-01'), 7: bkkMidnight('2025-10-01'), 12: reg });
@@ -441,18 +457,26 @@ t.section('§5 weights', () => {
     [[{ dol: 2, w: 990 }, { dol: 2, w: 995 }], [[addDays(TODAY, -3), 1000], [addDays(TODAY, -3), 1003], [addDays(TODAY, -6), 1001]]],
     [[], [[TODAY, 1040], [addDays(TODAY, -4), 0], [addDays(TODAY, -2), 1030, SUP], [addDays(TODAY, -2), 1025]]],
     [[{ dol: 1, w: 980 }], [[TODAY, 1040.6], [addDays(TODAY, -1), 1020, SUP], [addDays(TODAY, -5), -3]]],
+    [[{ dol: 1, w: 980 }], [[addDays(TODAY, -1), 1030], [addDays(TODAY, 1), 1060]]],
+    [[{ dol: 1, w: 980 }], [['2026-11-18', 1000], [addDays(TODAY, -3), 1010]]],
+    [[], [['2026-11-18', 1000]]],
+    [[{ dol: 1, w: 980 }, { dol: 8, w: 1035 }], [[TODAY, 9000]]],
   ];
   for (const [list, ords] of fixtures) {
-    const rows = ords.map(([k, wt, extra]) => o(k, wt, extra || {}));
-    const ours = (ow(rows, JSON.stringify(list)).weights || []).map(p => [p.dol, p.grams]);
-    // The entries as getActivePatients sends them, superseded rows dropped there, then data.js's own normalising.
-    const sent = rows.filter(r => !String(r[37] || '')).map(r => ({ ts: g.sb._fmtDate(r[0]), weight: Number(r[3] || 0),
-      status: String(r[14] || 'submitted'), supersededAt: String(r[37] || '') }));
-    const entries = D.normalizeLogMap({ S1: sent }).S1;
-    const theirs = D.weightSeries({ dob: DOB, admissionDate: ADM, weights: list }, entries)
-      .filter(p => p.dol <= todayDol).map(p => [p.dol, Math.round(p.w)]);
-    t.eq('as weightSeries: ' + JSON.stringify([list, ords.map(x => x.slice(0, 2))]), ours, theirs);
+    // One sandbox per fixture: the real ward sync (getActivePatients) reads the same rows.
+    const gs = freshBoot();
+    gs.sheet('Patient_Registry').data.push(pat(gs, 'S1', { 12: JSON.stringify(list) }));
+    const rows = ords.map(([k, wt, extra]) => order(gs, 'S1', k, Object.assign({ 3: wt }, extra || {})));
+    rows.forEach(r => gs.sheet('Daily_Log').data.push(r));
+    const ours = (env(gs, gs.rows('Patient_Registry')[0], rows, lk).weights || []).map(p => [p.dol, p.grams]);
+    const sync = withNow(NOW, () => gs.sb.getActivePatients({}));
+    const patient = sync.patients.find(p => p.sessionId === 'S1');
+    const entries = D.normalizeLogMap(sync.log).S1 || [];
+    const theirs = D.weightSeries(patient, entries).filter(p => p.dol <= todayDol).map(p => [p.dol, Math.round(p.w)]);
+    t.eq('as the ward sync and weightSeries: ' + JSON.stringify([list, ords.map(x => x.slice(0, 2))]), ours, theirs);
   }
+  t.ok('…a fixture holds an order for tomorrow, so the as-of-today filter does work',
+    fixtures.some(([, ords]) => ords.some(([k]) => k > TODAY)));
 });
 
 t.section('§6 bed and multiple', () => {

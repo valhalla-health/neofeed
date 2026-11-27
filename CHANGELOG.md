@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (8) — The MyBreastmilk weights: the re-check of (7)
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,
+`test/README.md`.
+
+- **A new reviewer read the lines (7) changed and found one error.** A status hand-typed as `" draft "` was a draft
+  to the push but a final order to NeoFeed, which does not trim it (`isDraftEntry`). With a second order on the same
+  date, NeoFeed showed the `" draft "` row's weight and the push sent the other's: a different number, not a
+  withhold. Such a row with a weight now sends `weights: null` (`weights_unreadable`); a plain draft, in any case, is
+  a draft to both.
+- **A correction to (7).** Its comment did not list every place the envelope differs from NeoFeed, though (7)
+  said it did. It does now: the chart cells and elements that fail closed, the newest-120 cap, and the
+  `" draft "` row.
+- **The comparison with the real `weightSeries`** now takes NeoFeed's side from the real ward sync
+  (`getActivePatients`) over the same sheet rows, then `normalizeLogMap`. It covers nine fixtures, including an
+  order for tomorrow, an order before the birth, and a 9000 g order under a measurement.
+- **Pinned besides.** The filters come before the date check, so an undated draft, superseded or weightless row
+  withholds nothing. Dates are read with `_fmtDate` in the weights and the card.
+- **Tests.** `verify-mybm-push-1127.cjs`, 246 assertions. On (7)'s code the new `" draft "` check fails and the
+  others pass; they guard. `mutate-mybm-push.cjs`, 59 mutations, all killed.
+
 ## Session 2026-11-27 (7) — The MyBreastmilk weights: a review against `weightSeries`
 
 `gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`, `_mybmFeedCard`), `test/verify-mybm-push-1127.cjs`,

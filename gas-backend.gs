@@ -7249,12 +7249,16 @@ function _mybmDolOf(dobKey, dateKey) {
 // Where this differs from NeoFeed it only withholds, never shows more:
 //   • an order dated after today waits for its day (NeoFeed's strip would
 //     already show it, at tomorrow's DOL);
-//   • a surviving weight outside 200–8000 g (a "" or TRUE cell reads as 0 or
-//     1 g, as weightSeries reads it), a chart point dated after today, a point
-//     past DOL 400, a final order with a weight but no readable date (NeoFeed
-//     would place it at column C's DOL), or a chart cell that is not a list of
-//     points: weights null, with the code;
-//   • a status of " draft " is a draft here (NeoFeed reads it untrimmed);
+//   • weights null, with the code, for: a surviving weight outside 200–8000 g
+//     (a "" or TRUE cell reads as 0 or 1 g, as weightSeries reads it); a chart
+//     point dated after today; a point past DOL 400; a final order with a
+//     weight but no readable date (NeoFeed would place it by column C, or at
+//     the chart's last DOL); a status that trims to "draft" but is not
+//     "draft", on an order with a weight; a chart cell that is not a list; a
+//     chart element that is null, not an object, or a list; a chart DOL that is
+//     blank, not a whole number or outside 0–400, even on a length-only point;
+//     a chart weight that is not a number;
+//   • the newest 120 points only (NeoFeed keeps the whole series);
 //   • grams are whole (NeoFeed shows a decimal weight as stored).
 // → { weights: [{dol, date, grams, registration}] | null, codes: [...] }
 // The registry's own read fallback for a blank cell, [{dol: 1, w: bw}], is not
@@ -7275,9 +7279,13 @@ function _mybmWeights(cell, dobKey, bw, todayKey, orders) {
   for (var j = 0; j < (orders || []).length; j++) {
     var r = orders[j];
     if (r[37]) continue;   // superseded (AL)
-    if (String(r[14] == null ? "" : r[14]).trim().toLowerCase() === "draft") continue;
+    var status = String(r[14] == null ? "" : r[14]);
+    if (status.toLowerCase() === "draft") continue;   // a draft, as data.js isDraftEntry reads it
     var ow = Number(r[3] || 0);
     if (!isFinite(ow) || ow <= 0) continue;   // no weight on this order (weightSeries: w <= 0 or not a number)
+    // A hand-typed " draft ": NeoFeed reads it as a final order and shows its
+    // weight, the card here reads it as a draft. Neither reading is safe to send.
+    if (status.trim().toLowerCase() === "draft") return unreadable;
     var key = _fmtDate(r[0]);
     if (!_mybmIsDateKey(key)) return unreadable;   // a weight NeoFeed would place by column C
     final.push({ key: key, w: ow, at: j });
