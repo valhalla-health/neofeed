@@ -7243,45 +7243,51 @@ function _mybmDolOf(dobKey, dateKey) {
 // data.js weightSeries (Pp, 2026-11-27: "แบบเดียวกับ NeoFeed"). It joins the
 // growth chart's points (Patient_Registry M) and the weight of each final order
 // (Daily_Log D, not a draft, not superseded), and a measurement wins over an
-// order on the same DOL. An order's DOL comes from its date and the DOB, as
-// data.js entryDol counts it; an order already written for tomorrow waits for its
-// day, as the ward's current weight does.
+// order on the same DOL. The series is built first, exactly as weightSeries
+// builds it; only the points that survive are then checked, so a bad order
+// under a measurement, which no NeoFeed screen shows, withholds nothing.
+// Where this differs from NeoFeed it only withholds, never shows more:
+//   • an order dated after today waits for its day (NeoFeed's strip would
+//     already show it, at tomorrow's DOL);
+//   • a surviving weight outside 200–8000 g (a "" or TRUE cell reads as 0 or
+//     1 g, as weightSeries reads it), a chart point dated after today, a point
+//     past DOL 400, a final order with a weight but no readable date (NeoFeed
+//     would place it at column C's DOL), or a chart cell that is not a list of
+//     points: weights null, with the code;
+//   • a status of " draft " is a draft here (NeoFeed reads it untrimmed);
+//   • grams are whole (NeoFeed shows a decimal weight as stored).
 // → { weights: [{dol, date, grams, registration}] | null, codes: [...] }
-// A problem that could hide or misplace a reading fails closed (weights null)
-// rather than drop the reading. The registry's own read fallback for a blank
-// cell, [{dol: 1, w: bw}], is not used: that is a guess, not a weighing.
+// The registry's own read fallback for a blank cell, [{dol: 1, w: bw}], is not
+// used: that is a guess, not a weighing.
 function _mybmWeights(cell, dobKey, bw, todayKey, orders) {
   var unreadable = { weights: null, codes: ["weights_unreadable"] };
   var list = (cell === "" || cell == null) ? null : _parseJson(cell, null);
   if (!Array.isArray(list)) return unreadable;
-  var fail = [], byDol = {}, dols = [];
-  var bad = function (code) { if (fail.indexOf(code) === -1) fail.push(code); };
+  var byDol = {}, dols = [];
   var put = function (point) {
     if (!Object.prototype.hasOwnProperty.call(byDol, point.dol)) dols.push(point.dol);
     byDol[point.dol] = point;
   };
   // The orders first, by date and in sheet order within a date, so the later row
-  // on a date wins (data.js normalizeLogEntries sorts by date, stably).
+  // on a date wins (data.js normalizeLogEntries sorts by date, stably). Dates are
+  // read as the ward sync sends them (_fmtDate).
   var final = [];
   for (var j = 0; j < (orders || []).length; j++) {
     var r = orders[j];
     if (r[37]) continue;   // superseded (AL)
     if (String(r[14] == null ? "" : r[14]).trim().toLowerCase() === "draft") continue;
-    if (r[0] === "" || r[0] == null) continue;
-    var key = _wardDateKey(r[0]);
-    if (!key) continue;
     var ow = Number(r[3] || 0);
-    if (typeof r[3] === "boolean" || !isFinite(ow) || ow <= 0) continue;   // no weight on this order (weightSeries)
+    if (!isFinite(ow) || ow <= 0) continue;   // no weight on this order (weightSeries: w <= 0 or not a number)
+    var key = _fmtDate(r[0]);
+    if (!_mybmIsDateKey(key)) return unreadable;   // a weight NeoFeed would place by column C
     final.push({ key: key, w: ow, at: j });
   }
   final.sort(function (a, b) { return a.key < b.key ? -1 : (a.key > b.key ? 1 : a.at - b.at); });
   for (var f = 0; f < final.length; f++) {
     var o = final[f];
     if (o.key > todayKey) continue;   // an order already written for tomorrow waits for its day
-    var odol = _mybmDolOf(dobKey, o.key);
-    if (odol < 1 || odol > 400) return unreadable;   // dated before the birth: it cannot be placed
-    if (o.w < 200 || o.w > 8000) { bad("weights_out_of_range"); continue; }
-    put({ dol: odol, date: o.key, grams: Math.round(o.w), first: false, w: o.w });
+    // dolAtDate never goes below DOL 1, so an order dated before the birth sits on DOL 1.
+    put({ dol: Math.max(1, _mybmDolOf(dobKey, o.key)), w: o.w, first: false });
   }
   for (var i = 0; i < list.length; i++) {
     var p = list[i];
@@ -7289,29 +7295,35 @@ function _mybmWeights(cell, dobKey, bw, todayKey, orders) {
     var dol = Number(p.dol);
     if (p.dol === "" || p.dol == null || typeof p.dol === "boolean" || !isFinite(dol) || dol !== Math.floor(dol)
       || dol < 0 || dol > 400) return unreadable;
-    if (p.w === null || p.w === undefined || p.w === "") continue;   // a length or HC only
-    var w = Number(p.w);
-    if (typeof p.w === "boolean" || !isFinite(w)) return unreadable;
-    if (w < 200 || w > 8000) { bad("weights_out_of_range"); continue; }
+    if (p.w == null) continue;   // a length or HC only (weightSeries: m.w == null)
+    var w = Number(p.w);   // "" reads as 0 g, as weightSeries reads it; the bound below refuses it
+    if (!isFinite(w)) return unreadable;
     if (dol === 0) dol = 1;   // weightSeries reads a DOL 0 point as DOL 1 (Number(m.dol) || 1)
-    var date = _mybmAddDays(dobKey, dol - 1);   // DOL 1 is the day of birth
-    if (date > todayKey) { bad("weights_future_date"); continue; }
     // A measurement wins over an order on its DOL; of two measurements, the later in the list.
-    put({ dol: dol, date: date, grams: Math.round(w), first: i === 0, w: w });
+    put({ dol: dol, w: w, first: i === 0 });
   }
-  if (fail.length) return { weights: null, codes: fail };
   dols.sort(function (a, b) { return a - b; });
   var points = dols.map(function (d) { return byDol[d]; });
+  var fail = [];
+  var bad = function (code) { if (fail.indexOf(code) === -1) fail.push(code); };
+  for (var k = 0; k < points.length; k++) {
+    var q = points[k];
+    if (q.dol > 400) return unreadable;
+    q.date = _mybmAddDays(dobKey, q.dol - 1);   // DOL 1 is the day of birth
+    if (q.w < 200 || q.w > 8000) bad("weights_out_of_range");
+    if (q.date > todayKey) bad("weights_future_date");
+  }
+  if (fail.length) return { weights: null, codes: fail };
   // The registration weight: the DOL 1 point; with none, the chart's first stored
-  // point when it equals bw (a legacy registration filed the birth weight on the
-  // admission DOL). Nothing moves: the flag only stops MyBM reading it as a new
-  // weighing.
+  // point (weights[0], wherever it sorts) when it equals bw, the legacy filing of
+  // the birth weight on the admission DOL. Nothing moves: the flag only stops MyBM
+  // reading it as a new weighing.
   var reg = null;
-  for (var k = 0; k < points.length; k++) if (points[k].dol === 1) reg = points[k];
-  if (!reg && points.length && points[0].first && Number(bw) === points[0].w) reg = points[0];
+  for (var m = 0; m < points.length; m++) if (points[m].dol === 1) reg = points[m];
+  if (!reg) for (var n = 0; n < points.length; n++) if (points[n].first && Number(bw) === points[n].w) reg = points[n];
   points = points.slice(-MYBM_WEIGHTS_MAX);
   return {
-    weights: points.map(function (q) { return { dol: q.dol, date: q.date, grams: q.grams, registration: q === reg }; }),
+    weights: points.map(function (x) { return { dol: x.dol, date: x.date, grams: Math.round(x.w), registration: x === reg }; }),
     codes: []
   };
 }
@@ -7350,9 +7362,8 @@ function _mybmFeedCard(orders, todayKey, dobKey) {
     var r = orders[i];
     if (r[37]) continue;   // superseded (AL), as pharmacyOrders skips it
     if (String(r[14] == null ? "" : r[14]).trim().toLowerCase() === "draft") continue;
-    if (r[0] === "" || r[0] == null) continue;
-    var key = _wardDateKey(r[0]);
-    if (!key || key > todayKey) continue;   // an order already written for tomorrow is not today's
+    var key = _fmtDate(r[0]);   // as the ward sync sends the date
+    if (!_mybmIsDateKey(key) || key > todayKey) continue;   // an order already written for tomorrow is not today's
     var rev = _numSafe(r[35], 0);
     // The newest date; on a tie the highest revisionNumber, then the later row.
     if (!best || key > bestKey || (key === bestKey && rev >= bestRev)) { best = r; bestKey = key; bestRev = rev; }

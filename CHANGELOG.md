@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (7) — The MyBreastmilk weights: a review against `weightSeries`
+
+`gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`, `_mybmFeedCard`), `test/verify-mybm-push-1127.cjs`,
+`test/mutate-mybm-push.cjs`, `test/README.md`.
+
+- **A new reviewer read (6) against `data.js` and found one error.** A chart weight stored as `""` was skipped, so
+  an order's weight on that DOL reached the mother. `weightSeries` reads `""` as a 0 g measurement, which wins
+  over the order, so no NeoFeed screen shows that order's weight. It now reads as 0 g too, and fails closed.
+- **The series is built first, as `weightSeries` builds it, and only the surviving points are checked.** A bad
+  order under a measurement no longer blanks the series. An order dated before the birth sits on DOL 1, as
+  `dolAtDate` puts it; a negative order weight adds no point; `TRUE` reads as 1 g and fails closed.
+- **A final order with a weight but no readable date** sends `weights: null` (`weights_unreadable`): NeoFeed would
+  place it at column C's DOL. Dates are read as the ward sync sends them (`_fmtDate`), in the card too.
+- **The legacy registration flag** goes to the chart's first stored point wherever it sorts, and never to an order.
+- **A correction to (6).** "As the ward's current weight does" is wrong for an order written for tomorrow: NeoFeed's
+  strip shows that order's weight today. The envelope holds it back until its day, a withhold. The comment in
+  `_mybmWeights` now lists every place the envelope differs from NeoFeed, each a withhold, and whole grams.
+- **Tests.** `verify-mybm-push-1127.cjs`, 233 assertions. 7 of the new checks fail on (6)'s code, the `""` case
+  among them; the rest guard. The comparison with the real `weightSeries` now runs sheet rows through the sync's
+  entry shape and `normalizeLogMap`, with superseded and draft rows. `mutate-mybm-push.cjs`, 54 mutations, all killed.
+
 ## Session 2026-11-27 (6) — The MyBreastmilk push: the mother sees NeoFeed's own weights
 
 `gas-backend.gs` (§ MyBreastmilk push: `_mybmWeights`, new `_mybmDolOf`, `MYBM_CHECK_ORDER`), `test/verify-mybm-push-1127.cjs`,

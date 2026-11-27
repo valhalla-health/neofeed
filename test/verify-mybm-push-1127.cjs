@@ -400,9 +400,29 @@ t.section('§5 weights', () => {
   t.eq('two final orders on one date: the later row wins', ow([o(TODAY, 1040), o(TODAY, 1045)]).weights.map(p => p.grams), [980, 1045]);
   const heavy = ow([o(TODAY, 9000)]);
   t.eq('an order weight of 9000 g: weights null, weights_out_of_range', [heavy.weights, heavy.checks], [null, ['weights_out_of_range']]);
-  const before = ow([o('2026-11-18', 1000)]);
-  t.ok('an order with a weight dated before the birth: weights null, weights_unreadable',
-    before.weights === null && before.checks.indexOf('weights_unreadable') !== -1, before);
+  // dolAtDate never goes below DOL 1, so NeoFeed puts an order dated before the birth on DOL 1.
+  t.eq('an order dated before the birth sits on DOL 1, where the chart\'s birth weight wins',
+    (ow([o('2026-11-18', 1000)]).weights || []).map(p => [p.dol, p.grams]), [[1, 980]]);
+  t.eq('…and with no chart point there it shows on DOL 1, dated the day of birth', ow([o('2026-11-18', 1000)], '[]').weights,
+    [{ dol: 1, date: DOB, grams: 1000, registration: true }]);
+  // Review of the weights change, 2026-11-27: build the series first, check only what survives.
+  const blankW = ow([o(TODAY, 1040)], JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: '', l: 36 }]));
+  t.eq('a chart weight of "" on today\'s DOL reads as 0 g, as weightSeries reads it: weights null, never the order\'s 1040',
+    [blankW.weights, blankW.checks], [null, ['weights_out_of_range']]);
+  const yes = ow([o(TODAY, true)]);
+  t.eq('TRUE in an order\'s weight reads as 1 g: weights null', [yes.weights, yes.checks], [null, ['weights_out_of_range']]);
+  t.eq('a 9000 g order under a measurement on its DOL withholds nothing',
+    (ow([o(TODAY, 9000)], JSON.stringify([{ dol: 1, w: 980 }, { dol: 8, w: 1035 }])).weights || []).map(p => p.grams), [980, 1035]);
+  t.eq('a negative order weight adds no point, as weightSeries skips it', (ow([o(TODAY, -5)]).weights || []).map(p => p.dol), [1]);
+  const noDate = ow([o(TODAY, 1040, { 0: '' })]);
+  t.eq('a final order with a weight but no date: weights null, weights_unreadable', [noDate.weights, noDate.checks], [null, ['weights_unreadable']]);
+  const longRow = pat(g, 'S1', { 6: bkkMidnight('2025-10-01'), 7: bkkMidnight('2025-10-01'), 12: reg });
+  const longE = env(g, longRow, [o(TODAY, 4000)], link('S1', { expectedDob: '2025-10-01', expectedAdmissionDate: '2025-10-01' }));
+  t.ok('an order past DOL 400: weights null, weights_unreadable', longE.weights === null && longE.checks.indexOf('weights_unreadable') !== -1, longE.checks);
+  t.eq('an order\'s point never takes the legacy registration flag', ow([o(addDays(DOB, 2), 980)], '[]').weights,
+    [{ dol: 3, date: addDays(DOB, 2), grams: 980, registration: false }]);
+  t.eq('the chart\'s first point keeps its legacy flag when an order sorts before it',
+    (ow([o(addDays(DOB, 1), 1000)], JSON.stringify([{ dol: 3, w: 980 }])).weights || []).map(p => [p.dol, p.registration]), [[2, false], [3, true]]);
   t.eq('an order\'s DOL 1 weight is the registration point when the chart has none', ow([o(DOB, 990)], '[]').weights,
     [{ dol: 1, date: '2026-11-20', grams: 990, registration: true }]);
 
@@ -414,19 +434,24 @@ t.section('§5 weights', () => {
   const D = ctx.NEOFEED_DATA;
   t.ok('data.js loads and exports weightSeries', !!D && typeof D.weightSeries === 'function' && typeof D.normalizeLogEntries === 'function');
   const todayDol = 8;
+  const SUP = { 37: '2026-11-27T05:00:00.000Z' };
   const fixtures = [
     [[{ dol: 1, w: 980 }, { dol: 4, w: 1000 }], [[TODAY, 1040], [addDays(TODAY, -2), 1015]]],
-    [[{ dol: 0, w: 950 }, { dol: 1, w: 980 }, { dol: 8, w: 1035 }], [[TODAY, 1040], [addDays(TODAY, -1), 1020, 'draft'], [addDays(TODAY, -2), 1010]]],
-    [[{ dol: 2, w: 990 }, { dol: 2, w: 995 }], [[addDays(TODAY, -6), 1000], [addDays(TODAY, -6), 1003], [addDays(TODAY, 1), 1060]]],
-    [[], [[TODAY, 1040], [addDays(TODAY, -4), 0]]],
+    [[{ dol: 0, w: 950 }, { dol: 1, w: 980 }, { dol: 8, w: 1035 }], [[TODAY, 1040], [addDays(TODAY, -1), 1020, { 14: 'draft' }], [addDays(TODAY, -2), 1010]]],
+    [[{ dol: 2, w: 990 }, { dol: 2, w: 995 }], [[addDays(TODAY, -3), 1000], [addDays(TODAY, -3), 1003], [addDays(TODAY, -6), 1001]]],
+    [[], [[TODAY, 1040], [addDays(TODAY, -4), 0], [addDays(TODAY, -2), 1030, SUP], [addDays(TODAY, -2), 1025]]],
+    [[{ dol: 1, w: 980 }], [[TODAY, 1040.6], [addDays(TODAY, -1), 1020, SUP], [addDays(TODAY, -5), -3]]],
   ];
   for (const [list, ords] of fixtures) {
-    const rows = ords.map(([k, wt, st]) => o(k, wt, st ? { 14: st } : {}));
-    const ours = ow(rows, JSON.stringify(list)).weights.map(p => [p.dol, p.grams]);
-    const entries = D.normalizeLogEntries(ords.map(([k, wt, st]) => ({ ts: k, weight: Number(wt || 0), status: st || 'submitted' })));
+    const rows = ords.map(([k, wt, extra]) => o(k, wt, extra || {}));
+    const ours = (ow(rows, JSON.stringify(list)).weights || []).map(p => [p.dol, p.grams]);
+    // The entries as getActivePatients sends them, superseded rows dropped there, then data.js's own normalising.
+    const sent = rows.filter(r => !String(r[37] || '')).map(r => ({ ts: g.sb._fmtDate(r[0]), weight: Number(r[3] || 0),
+      status: String(r[14] || 'submitted'), supersededAt: String(r[37] || '') }));
+    const entries = D.normalizeLogMap({ S1: sent }).S1;
     const theirs = D.weightSeries({ dob: DOB, admissionDate: ADM, weights: list }, entries)
       .filter(p => p.dol <= todayDol).map(p => [p.dol, Math.round(p.w)]);
-    t.eq('as weightSeries: ' + JSON.stringify([list, ords]), ours, theirs);
+    t.eq('as weightSeries: ' + JSON.stringify([list, ords.map(x => x.slice(0, 2))]), ours, theirs);
   }
 });
 
