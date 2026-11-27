@@ -6124,7 +6124,9 @@ function usageMetrics(rows) {
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i] || [];
     out.rowsScanned++;
-    if (NON_USAGE_AUDIT_ACTIONS[String(r[1] == null ? "" : r[1]).trim()] === true) { out.rowsSkipped++; continue; }
+    // A time trigger (actor "trigger:...", e.g. the MyBreastmilk push) is not a user.
+    if (NON_USAGE_AUDIT_ACTIONS[String(r[1] == null ? "" : r[1]).trim()] === true
+      || /^trigger:/.test(String(r[3] == null ? "" : r[3]))) { out.rowsSkipped++; continue; }
     var email = String(r[3] == null ? "" : r[3]).trim().toLowerCase();
     var wk = _isoWeekKeyLocal_(r[0]);
     // A row with no actor cannot be attributed, and a row with no usable
@@ -7214,8 +7216,10 @@ var MYBM_VALID_MS = 26 * 60 * 60 * 1000;
 var MYBM_BODY_MAX = 16384;
 var MYBM_SECRET_MIN = 32;
 var MYBM_KEY_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
-// More identity failures (mismatch, not_in_registry) than this in one run holds all of
-// them: a MyBM listing many guessed sessionIds learns nothing (review 2026-11-27, A5).
+// More identity failures (mismatch, which includes a DOB NeoFeed does not trust, or
+// not_in_registry) than this in one run hold every envelope of the run: a MyBM listing
+// guessed sessionIds learns nothing from that run, not even which guess was right
+// (review 2026-11-27, A5; the whole run since its re-check).
 var MYBM_PROBE_MAX = 5;
 var MYBM_PUSH_ACTOR = "trigger:mybmPush";
 // The only check codes an envelope may carry, in the order it lists them (§4.2).
@@ -7530,11 +7534,12 @@ function mybmPushRun() {
       + " characters; nothing sent");
   }
   if (!MYBM_KEY_ID.test(keyId)) {
-    throw new Error("mybm push: the Script Property MYBM_PUSH_KEY_ID is missing or not lowercase letters, digits and hyphens; nothing sent");
+    throw new Error("mybm push: the Script Property MYBM_PUSH_KEY_ID is missing, or not 1 to 32 lowercase letters, digits "
+      + "and hyphens starting with a letter or digit; nothing sent");
   }
   var unsigned = false;
   var counts = { links: 0, skippedLinks: 0, current: 0, inactive: 0, mismatch: 0, tooLarge: 0, sent: 0,
-    accepted: 0, duplicate: 0, superseded: 0, unlinked: 0, no_consent: 0, failed: 0, held: 0 };
+    accepted: 0, duplicate: 0, superseded: 0, unlinked: 0, no_consent: 0, failed: 0, probes: 0, held: 0 };
   var failedCodes = {};
 
   var linksReq;
@@ -7597,10 +7602,10 @@ function mybmPushRun() {
       queue.push({ sessionId: l.sessionId, payload: payload, deliveryId: env.deliveryId,
         identity: env.status === "mismatch" || env.checks.indexOf("not_in_registry") !== -1 });
     });
-    var probes = queue.filter(function (q) { return q.identity; }).length;
-    if (probes > MYBM_PROBE_MAX) {
-      counts.held = probes;
-      queue = queue.filter(function (q) { return !q.identity; });
+    counts.probes = queue.filter(function (q) { return q.identity; }).length;
+    if (counts.probes > MYBM_PROBE_MAX) {
+      counts.held = queue.length;
+      queue = [];
     }
 
     var refused = false, unreachable = false;
@@ -7658,9 +7663,9 @@ function mybmPushRun() {
       + "; the next run sends every link again");
   }
   if (counts.held > 0) {
-    throw new Error("mybm push: " + counts.held + " links did not match NeoFeed (a date that differs, or no such infant), "
-      + "more than " + MYBM_PROBE_MAX + " in one run, so none of their envelopes was sent. Check the links in MyBM; "
-      + "the others went as usual");
+    throw new Error("mybm push: " + counts.probes + " links did not match NeoFeed (a date that differs, or no such infant), "
+      + "more than " + MYBM_PROBE_MAX + " in one run, so none of the run's " + counts.held + " envelopes was sent. "
+      + "Check the links in MyBM; the next run sends again once they match");
   }
   return { ok: true, enabled: true, counts: counts };
 }

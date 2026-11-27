@@ -2285,7 +2285,7 @@ real ward sync (`getActivePatients`) sends for the same rows, and
 fail closed on a future date or an impossible weight; a ward bed only; no sessionId, name or initials in
 an envelope; a sessionId or linkId listed twice is skipped; the card's DOL comes from its date; one links call, one
 read of each tab, chunks of 20, every request signed; a 401 stops the run; a network error is rethrown without the URL.
-`node test/mutate-mybm-push.cjs` (by hand, not in CI) makes 71 small changes to the backend block and expects
+`node test/mutate-mybm-push.cjs` (by hand, not in CI) makes 75 small changes to the backend block and expects
 this harness to turn red each time. The sandbox's `fetchAll` is a fake, so MyBM's real answers are proven by the
 synthetic run on a test spreadsheet (`REFERENCE.md` § MyBreastmilk push).
 

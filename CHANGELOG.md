@@ -7,6 +7,22 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-27 (12) — The MyBreastmilk push: the check of (11)
+
+`gas-backend.gs` (§ MyBreastmilk push; `usageMetrics`), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`,
+`REFERENCE.md`.
+
+- **A new reviewer found two errors in (11), none in its code paths.** "Learns nothing" was false: with 6 wrong
+  guesses and 1 right one, the right one's envelope still went, which confirmed it. The probe alarm now holds every
+  envelope of the run. And the bad-link-entries test had become vacuous, because the new NF- rule caught every entry
+  first; each entry now carries an NF- id and fails for its own reason.
+- **Smaller points.** A5 tests for date mismatches and a mixed run, and that held envelopes are not audited; the
+  unreachable audit row's deliveryId is pinned; the key id rule is written out in full, with cases for a line break
+  in the key id or the URL; on suspicion of a leak the old key goes at once; REFERENCE lists every reason a run
+  throws. `usageMetrics` no longer counts a `trigger:` actor as a weekly user, which it did for the push from the
+  start.
+- **Tests.** `verify-mybm-push-1127.cjs`, 274 assertions. `mutate-mybm-push.cjs`, 75 mutations, all killed.
+
 ## Session 2026-11-27 (11) — The MyBreastmilk push: signature v2 and three guards, before it is switched on
 
 `gas-backend.gs` (§ MyBreastmilk push: `_mybmSigned`, `_mybmLinks`, `mybmPushRun`), `test/verify-mybm-push-1127.cjs`,

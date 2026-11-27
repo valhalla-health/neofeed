@@ -997,8 +997,9 @@ the form `NF-` and six digits are sent: an id issued before 2026-09-27 holds ini
 A1, A3, A4, A5; Pp: "แก้ก่อนเปิด"). Each request carries `x-nf-timestamp` (ms), `x-nf-key-id` and `x-nf-signature`,
 the hex HMAC-SHA256 under `MYBM_PUSH_SECRET` of `nf-sig-v2`, the key id, the timestamp, `MYBM_PUSH_URL` and the body,
 joined by line breaks. The key id lets MyBM hold two keys while one is rotated; the URL makes a request good at one
-receiver only. More than 5 links in one run that fail identity (a differing date, or no such infant) hold all of
-them unsent and throw: a MyBM that lists guessed sessionIds learns nothing.
+receiver only. More than 5 links in one run that fail identity (a differing date, a DOB NeoFeed does not trust, or
+no such infant) hold every envelope of that run unsent and throw: a MyBM that lists guessed sessionIds learns
+nothing from that run, not even which guess was right.
 
 **Switching it on.** Each step is Pp's, in this order:
 
@@ -1009,7 +1010,8 @@ them unsent and throw: a MyBM that lists guessed sessionIds learns nothing.
    2026-11-18 QI push: a `clasp push` also changes what the backup and QI triggers run.
 3. `clasp push` from a clean checkout of a green `main`. With `MYBM_PUSH_ENABLED` unset the code sends nothing.
 4. Script Properties: `MYBM_PUSH_URL` (MyBM's `receive-neofeed` URL, https only, exactly MyBM's
-   `NEOFEED_PUSH_AUDIENCE`), `MYBM_PUSH_KEY_ID` (lowercase letters, digits and hyphens, e.g. `nf-2026-11`) and
+   `NEOFEED_PUSH_AUDIENCE`), `MYBM_PUSH_KEY_ID` (1 to 32 lowercase letters, digits and hyphens, starting with a
+   letter or digit, e.g. `nf-2026-11`) and
    `MYBM_PUSH_SECRET` (that key's value in MyBM's `NEOFEED_PUSH_KEYS`, at least 32 characters). Never in source,
    chat or a log. Limit the project's editors to Pp and one named backup: every editor can read Script Properties.
 5. Triggers ▸ Add trigger: function `mybmPushRun`, Time-driven, Day timer, 4pm to 5pm, failure notifications
@@ -1021,14 +1023,17 @@ them unsent and throw: a MyBM that lists guessed sessionIds learns nothing.
 **Stopping it.** Delete `MYBM_PUSH_ENABLED`: the next run sends nothing. MyBM can also empty its key set, and every
 request then gets 401.
 
-**Rotating the key** (every 12 months, on a staff change, or on suspicion): add the new key id and secret to MyBM's
-`NEOFEED_PUSH_KEYS` beside the old one; set `MYBM_PUSH_KEY_ID` and `MYBM_PUSH_SECRET` here to the new pair; after
-48 hours, remove the old key from MyBM. Rehearse it once before switching on.
+**Rotating the key** (every 12 months, or on a staff change): add the new key id and secret to MyBM's
+`NEOFEED_PUSH_KEYS` beside the old one; set `MYBM_PUSH_KEY_ID` and `MYBM_PUSH_SECRET` here to the new pair; remove the
+old key from MyBM once the next run has gone through. **On suspicion of a leak**, remove the old key from MyBM at
+once: NeoFeed signs at send time and never resends an old request, so nothing waits on the old key. Rehearse a
+rotation once before switching on.
 
 **What a run writes.** One Audit_Log row per envelope sent (action `mybmPush <deliveryId> <receipt>`, the
 sessionId, actor `trigger:mybmPush`; the receipt is MyBM's answer, `http-<code>` or `unreachable`), so a row here
 and MyBM's stored envelope share the deliveryId, and one execution-log line of counts. It throws, so the trigger's owner gets a mail, when MyBM
-refuses the signature (401) or any envelope was not recorded. The next run sends every link again, so a missed
+refuses the signature (401), MyBM cannot be reached, an envelope cannot be signed, any envelope was not recorded, or
+the probe alarm held the run. The next run sends every link again, so a missed
 run costs a few hours, never data.
 
 ### The TPN room's page: `tpn-room.html`
