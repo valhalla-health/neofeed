@@ -403,7 +403,7 @@ function screenshotOrder({ men = true, vol = 5, freq = 8, tpnMl = 180 } = {}) {
       eq(`bed "${bed}" → Aminoven only`, D.aaProductsFor({ currentBed: bed }), ['aminoven10']);
     }
     eq('no patient → Aminoven only', D.aaProductsFor(null), ['aminoven10']);
-    eq('no ward is an older-children ward yet', D.OLDER_CHILD_WARDS, []);
+    eq('every patient is on the newborn rule set, whatever the bed (tasks 3.2)', ['NICU 5', 'SCN 12', ''].map(b => D.ruleSetFor({ currentBed: b })), ['newborn', 'newborn', 'newborn']);
   });
 
   await section('§8 NICU: no product choice, Aminoven arithmetic, print and saved order unchanged', async () => {

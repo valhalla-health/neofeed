@@ -176,11 +176,12 @@ function computeAlerts(patient, allEntries) {
   const last = entries[entries.length - 1];
   if (last) {
     const isEN = D_A.isFullEn(last);
-    const T = isEN ? D_A.ENTERAL_TARGETS : D_A.TPN_TARGETS;
+    const RT = D_A.ruleTablesFor(patient);
+    const T = isEN ? RT.ENTERAL_TARGETS : RT.TPN_TARGETS;
     const src = isEN ? "ESPGHAN 2022" : "ESPGHAN 2018";
     const route = isEN ? "enteral" : "parenteral";
     const lastDol = D_A.entryDol(patient, last);
-    const tGir = D_A.TARGETS.gir();
+    const tGir = RT.TARGETS.gir();
     const tPro = isEN ? T.protein() : T.protein(lastDol);
     const tKcal = isEN ? T.kcal() : T.kcal(lastDol);
     const nA = (v, d = 1) => D_A.displayNum(v, d);

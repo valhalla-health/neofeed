@@ -35,7 +35,7 @@ const read = (f) => fs.readFileSync(path.join(TREE, f), 'utf8');
 const T = recorder('WARD-SCOPED ACCESS');
 
 // ── The fixture ward, planted the way REFERENCE.md § Adding a ward plants one ──
-const PED_ROW = '{ key: "PED", label: "PED", sub: "PED 1–4", stickerLabel: "PED(test)", beds: [{ prefix: "PED", count: 4 }] },';
+const PED_ROW = '{ key: "PED", label: "PED", sub: "PED 1–4", stickerLabel: "PED(test)", beds: [{ prefix: "PED", count: 4 }], deadVolMl: 30 },';
 const WT = require(path.join(TREE, 'tools', 'ward-table.cjs'));
 const planted = WT.write({ 'data.js': WT.plantWard(read('data.js'), PED_ROW),
   'gas-backend.gs': read('gas-backend.gs'), 'tpn-room-core.js': read('tpn-room-core.js') });

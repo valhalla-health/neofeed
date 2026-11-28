@@ -74,19 +74,19 @@ diff touches a dose file, auth or patient data, and the newborn no-move result (
 
 ## 3. Rule-set selection, newborn branch only
 
-- [ ] 3.1 Add cases to `test/verify-clinical-rules.cjs` and a new `test/verify-rule-set.cjs`: the
+- [x] 3.1 Add cases to `test/verify-clinical-rules.cjs` and a new `test/verify-rule-set.cjs`: the
       rule set is "newborn" for every record the backend accepts today whatever the bed, with or
       without a date of birth; a new registration with a date of birth after admission is refused;
       a stored set that differs is refused; a stale tab that sends no set is treated as newborn.
       Red against `main`.
-- [ ] 3.2 Add `ruleSetFor` and route `isNewbornUnit`, `aaProductsFor` and the target-table lookups
+- [x] 3.2 Add `ruleSetFor` and route `isNewbornUnit`, `aaProductsFor` and the target-table lookups
       through it; remove `OLDER_CHILD_WARDS`; `defaultDeadVolFor` reads the ward table. Verify 3.1
       passes.
-- [ ] 3.3 Backend stores the rule set on the registry record, derives it from date of birth and
+- [x] 3.3 Backend stores the rule set on the registry record, derives it from date of birth and
       admission date, refuses a mismatch, and requires a credible date of birth on new
       registrations. Verify with the sandbox cases in 3.1, including an existing record with no date
       of birth that still saves.
-- [ ] 3.4 Update `CR-U-DEAD-SPACE` (by ward table) and the amino-acid product note (by rule set and
+- [x] 3.4 Update `CR-U-DEAD-SPACE` (by ward table) and the amino-acid product note (by rule set and
       label age) in the clinical-rules skill, in the same commit as 3.2. `CONSTANTS_VERSION` does not
       move; verify with `calc-compare` at zero differences, `test/verify-calc-sum.cjs` green, and a
       no-move case on the saved-order key and an I/O-only revision.
@@ -104,14 +104,21 @@ diff touches a dose file, auth or patient data, and the newborn no-move result (
       Verify with `verify-rule-set` cases at each range edge.
 - [ ] 4.3 Dosing weight, age in years and months, and newborn-only fields and flags hidden (design
       D6). Verify on dev local and by harness on the printed order, the sticker and "TPN ทั้งหอ".
-- [ ] 4.4 `PAED_*` tables and their grading, one signed `CR-P-` block at a time, each with its cases
+- [ ] 4.4 Route the readers that still grade on the newborn tables by name, without a patient:
+      data.js `girStatus`, the ward TPN page's flags (`wardTpnRow`) and their labels in `registry.jsx`,
+      `noTpnEnMinPerKg`, `fullEnNeeds`, and the Reference page in `app.jsx` (group 3 routed the
+      Calculator, the trend chart and the dashboard; Vera, 2026-11-25).
+- [ ] 4.4a `PAED_*` tables and their grading, one signed `CR-P-` block at a time, each with its cases
       in `verify-clinical-rules` and its figure in `verify-calc-sum`'s on-screen check. An unsigned
       parameter shows "ยังไม่มีเกณฑ์". Verify the check that fails on a value with no block.
 - [ ] 4.4b PN contexts from gate 0.5b: the context on the order form, stored and printed; each
       context's guards with cases in `verify-clinical-rules` showing the guard with and without the
       context, and that no context loosens a stop. Skipped if P8 says "none in this phase".
 - [ ] 4.5 Products by label age (Aminoplasmal, trace elements, vitamins) and the feeds list, from
-      gates 0.5 and 0.6. Verify with cases either side of each age line.
+      gates 0.5 and 0.6. Verify with cases either side of each age line. A set lists at least one
+      amino-acid product: `aaProductsFor` returns `[]` outside the newborn set today, and the
+      Calculator takes `aaChoices[0]`, so an empty list must be a named stop, never a crash (Vera,
+      2026-11-25).
 - [ ] 4.6 Printed order, sticker and TPN room page carry the ward and the paediatric age. Verify with
       the sticker and print harnesses and one printed sheet from dev local.
 - [ ] 4.7 Quick calc asks the age group; the Center Point entry refuses outside the newborn set.

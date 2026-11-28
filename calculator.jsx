@@ -400,6 +400,9 @@ function storedOrderWithIo(saved, e) {
     ioUseTpnWt: ci.ioUseTpnWt === true ? true : undefined,
     savedAt: ci.savedAt, orderBy: ci.orderBy, orderRev: ci.orderRev, orderAt: ci.orderAt };
   out.constantsVersion = saved?.calcInput?.constantsVersion || saved?.constantsVersion || "";
+  // The patient's rule set, as every save sends it: the backend refuses an order
+  // whose set differs (Vera, 2026-11-25).
+  out.ruleSet = e.ruleSet;
   out.appVersion = saved?.appVersion || "";
   out.printJson = null;
   return out;
@@ -859,6 +862,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // App's `dol` is live (it ticks at midnight); the order's DOL is the one on
   // its own date — the same dolAtDate a back-filled order is given.
   const dol = orderDayRolledOver ? D.dolAtDate(patient, newOrderDate) : dolProp;
+  // The target tables of this patient's rule set (data.js ruleTablesFor; by
+  // age at admission, never by ward). Every band below reads them, not
+  // D.TARGETS by name. Quick calc and Center Point have no patient: newborn.
+  const RT = D.ruleTablesFor(patient);
   // Tell the page which day this order is for, so its header names the order's
   // own DOL and date, and looks up the previous order from it, instead of
   // moving to the next day at midnight while this order stays on its own.
@@ -1286,6 +1293,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // infant could not be measured, and one typed in this visit whose save did not go.
   const [savedGrowthSkip, setSavedGrowthSkip] = useState(editEntry?.calcInput?.growthSkip || null);
   const [growthSkipTyped, setGrowthSkipTyped] = useState(null);
+  // The two reasons typed in the page, above Submit (2026-11-28): iPhone Safari on the
+  // ward opened no window.prompt at all, so a red line or Sunday's gate could not be
+  // confirmed and the order could not go. A reason typed here is used as it stands;
+  // with the box empty, Submit still asks with window.prompt, as before.
+  const [critReasonTyped, setCritReasonTyped] = useState("");
+  const [growthReasonTyped, setGrowthReasonTyped] = useState("");
   const [draftOffer, setDraftOffer] = useState(null); // this user's unsaved draft for this order
   // Dosing weight the saved row was calculated with — see savedDosingWeightOf.
   // null = nothing saved from this form, or a legacy row with no evidence.
@@ -1310,7 +1323,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // 2026-11-20, of the options "ขอบล่างของช่วง"). Until then the midpoint of
   // Jochum's band. The name is kept for its callers.
   const fluidMidpoint = (weightG) => {
-    const r = D.TARGETS.fluid(dol, weightG || patient?.bw || 1000, patient?.bw);
+    const r = RT.TARGETS.fluid(dol, weightG || patient?.bw || 1000, patient?.bw);
     return r[0];
   };
   const applyCalcInput = (src, fallbackWeight, ioTouched = true, fallbackFluid) => {
@@ -1495,6 +1508,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setCritOverride(editEntry?.calcInput?.critOverride || null);
     setSavedGrowthSkip(editEntry?.calcInput?.growthSkip || null);
     setGrowthSkipTyped(null);
+    setCritReasonTyped(""); setGrowthReasonTyped("");
     // The order's own save (orderAt, orderRev), not a nurse's I/O save after it.
     setSavedMeta(editEntry ? {
       by: savedByOf(editEntry),
@@ -2141,9 +2155,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
 
   // Target switching
   const useEN = calc.useEnteralTargets;
-  const T = useEN ? D.ENTERAL_TARGETS : D.TPN_TARGETS;
-  const tFluid = D.TARGETS.fluid(dol, wtG, patient?.bw);   // wtG already floors at bw; pass bw so the tier does too (Fanaroff Table 96.1, by weight only)
-  const tGir   = D.TARGETS.gir();                         // [2.5, 12] display range
+  const T = useEN ? RT.ENTERAL_TARGETS : RT.TPN_TARGETS;
+  const tFluid = RT.TARGETS.fluid(dol, wtG, patient?.bw);   // wtG already floors at bw; pass bw so the tier does too (Fanaroff Table 96.1, by weight only)
+  const tGir   = RT.TARGETS.gir();                         // [2.5, 12] display range
   const tPro   = T.protein(dol);
   const tKcal  = T.kcal(dol);
   const tLip   = T.lipid(dol);
@@ -2157,7 +2171,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Ca:P mass ratio (TARGETS.caP, CR-TGT-CAP): DOL 1–7 1.0–1.3, Mihatsch 2018
   // R 8.12's molar 0.8–1.0 × 1.294; from DOL 8 the unit's 1.0–1.7. This comment
   // said "ESPGHAN 2018 molar 0.8–1.3" until 2026-11-20 (Q7); the guideline does not.
-  const tCaP = D.TARGETS.caP(dol);         // mass ratio: DOL 1–7 [1.0, 1.3], then [1.0, 1.7] (Q7)
+  const tCaP = RT.TARGETS.caP(dol);         // mass ratio: DOL 1–7 [1.0, 1.3], then [1.0, 1.7] (Q7)
   // Mg is typed, graded and printed in elemental mg/kg/d (TPN team, 2026-09-28
   // and 2026-10-28; Pp chose mg entry and ESPGHAN's mg figures on 2026-10-28):
   // 2.5–5 in the first days (DOL 1–7, D.FIRST_DAYS_LAST_DOL), 5–7.5 growing.
@@ -2169,17 +2183,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // Typed mg → stored mEq, to 10 decimals: 4.861 mg is 0.4 mEq, not
   // 0.4000000000000001, so retyping a saved dose leaves the order unchanged.
   const setMgFromMg = (mg) => setMgPerKg(Number((mg / D.MG_MG_PER_MEQ).toFixed(10)));
-  const tMg = D.TARGETS.mg(dol);
+  const tMg = RT.TARGETS.mg(dol);
 
   // Non-protein energy per g amino acid — classic NPC:N 150:1 ÷ 6.25 g AA/g N = at least 24 kcal/g AA
   // (was briefly [30, 40] — that "correction" was unverified; reverted per clinical review 2026-08-11)
   // Soft-alert 20–<24 (AA start being burned as fuel) · caution IV < 20 ·
   // critical IV < 12. No upper end since 2026-10-27 (TPN team: "เอาเพดานออก").
-  const tNPE = D.TARGETS.npePerGAA();     // [24, Infinity]
+  const tNPE = RT.TARGETS.npePerGAA();     // [24, Infinity]
 
   // Protein:Energy ratio — ESPGHAN 2022: 2.8–3.6 g protein/100 kcal
   // (was [2.5, 3.5] — updated to 2022 lean mass accretion target)
-  const tPE  = D.TARGETS.peRatio();       // [2.8, 3.6]
+  const tPE  = RT.TARGETS.peRatio();       // [2.8, 3.6]
 
   const sFluid = D.rangeStatus(calc.totalFluidPerKg, tFluid); // no hardHi — attending discretion, may go >200
   // Step 1's Remaining / Over-target box (see FLUID_TONE).
@@ -2833,6 +2847,30 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // confirmed, no sticker figures yet). Not with the nursing log on, where a
   // nurse has no Submit at all (ordersReadOnly).
   const nurseIoOnly = nurseAccount && !ordersReadOnly && !scratch && !centerPoint;
+  // The red lines a Submit asks a reason for, worked out once here so the reason box
+  // above Submit shows exactly the lines handleSave confirms (Vera on PR #314: a revised
+  // order asked again while the box, built from uncoveredCritical, was hidden).
+  // A doctor's save that changes only I/O on a submitted order keeps its number
+  // and its author too (Pp, 2026-11-15; gas-backend.gs writes it from the
+  // stored row): the same order, on the same constants. Its critical values
+  // were confirmed when it was ordered, so the stored confirmation stands, as
+  // on a nurse's I/O save; asking again would make it a new version (Vera).
+  const sameOrderByDoctorNow = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published)
+    && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
+    // The dosing weight moved after the save (a corrected birth weight): every per-kg figure is
+    // re-dosed while the inputs stay the same, so it is a new order and its critical values are
+    // asked again (code review, 2026-11-19: the old reason went out beside a GIR nobody confirmed).
+    && !dosingWeightChanged
+    && uncoveredCritical.length === 0;
+  const criticalToConfirm = nurseIoOnly || sameOrderByDoctorNow ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+  // A reason typed for some red lines does not confirm a line that appears after it:
+  // the box empties when a new line joins (Vera on PR #314).
+  const critTitlesSeen = React.useRef([]);
+  const critTitlesNow = criticalToConfirm.map(a => a.title);
+  React.useEffect(() => {
+    if (critTitlesNow.some(t => !critTitlesSeen.current.includes(t))) setCritReasonTyped("");
+    critTitlesSeen.current = critTitlesNow;
+  }, [critTitlesNow.join("\u0001")]);
   const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted"
     || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
   // An order held for a doctor (the calculation or dosing weight moved, a
@@ -2996,6 +3034,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     showToast(RELEASE_BEHIND_TEXT, "error");
   };
 
+  // A reason Submit could not get: point at the box above Submit, where it can be typed.
+  const focusReasonBox = (id) => {
+    const el = typeof document !== "undefined" ? document.getElementById(id) : null;
+    if (!el) return;
+    if (typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" });
+    el.focus();
+  };
+
   const handleSave = async (asDraft = false) => {
     asDraft = asDraft === true;
     if (saving) return;
@@ -3018,22 +3064,32 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A Submit decided while the form's first read is still in flight goes unchecked; the
     // read is followed up once the save lands (warnIfSentBehind, Vera 2026-11-17).
     const releaseInFlight = !asDraft && !centerPoint && !!releaseRead.current.pending;
-    if (!asDraft && !centerPoint) {
-      let behind = releaseBehindForSubmit(setSaving);
-      if (behind !== true && behind !== false) behind = await behind;
-      if (behind) { refuseBehindRelease(); return; }
-    }
+    // The release is checked after the reason prompts below, never before them
+    // (2026-11-28, ward photo: a Submit with "TPN calc. weight far from automatic"
+    // showed only "ต้องระบุเหตุผลก่อน"). A read over a minute old is awaited, and
+    // iPhone Safari drops the tap's user gesture across that await: window.prompt
+    // then returns null without opening, which reads as a blank reason. Every
+    // prompt runs in the tap itself; the read comes just before the network call.
+    // A fresh or in-flight read answers at once (a boolean, no await), so the save call
+    // stays in the tap's tick; only an older read gives a promise to wait on.
+    const releaseRefuses = () => {
+      if (asDraft || centerPoint) return false;
+      const refuse = (behind) => { if (behind) refuseBehindRelease(); return !!behind; };
+      const behind = releaseBehindForSubmit(setSaving);
+      return behind === true || behind === false ? refuse(behind) : behind.then(refuse);
+    };
     // -- Sunday's length and HC (Pp, 2026-11-22), see growthStop --
     // Asked before anything is saved, a draft excepted. The reason is kept for
     // this visit, so a Submit a stop below refuses does not ask for it again.
     let growthSkipNew = null;
     if (!asDraft && growthStop) {
-      const reason = window.prompt(
+      const reason = growthReasonTyped.trim() || window.prompt(
         `วันอาทิตย์: ยังไม่มี ${growthMissingText}\n\n` +
         `ไปวัดแล้วกรอกที่หน้า Growth chart ก่อน (กด Cancel) หรือถ้าวันนี้วัดไม่ได้ ให้ระบุเหตุผล เช่น ไม่ stable, on HFOV, กำลังทำหัตถการ ` +
         `(เก็บไว้กับคำสั่งนี้ ไม่พิมพ์ลงใบสั่ง · ห้ามใส่ชื่อหรือ HN):`, "");
       if (reason == null || !String(reason).trim()) {
-        showToast(`ยังไม่ได้ Submit — วันอาทิตย์ต้องมี ${growthMissingText} หรือเหตุผลที่วัดไม่ได้`, "error");
+        showToast(`ยังไม่ได้ Submit — วันอาทิตย์ต้องมี ${growthMissingText} หรือเหตุผลที่วัดไม่ได้ (พิมพ์ในช่องเหตุผลเหนือปุ่ม Submit)`, "error");
+        focusReasonBox("growth-reason-input");
         return;
       }
       growthSkipNew = { reason: String(reason).trim().slice(0, 200), dol: growthNeed.dol, at: new Date().toISOString() };
@@ -3055,6 +3111,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A nurse locks nothing (gas-backend.gs publishDailyLog refuses her, N1).
     const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing && !growthSkipUnsaved) {
+      let stop = releaseRefuses();
+      if (stop !== true && stop !== false) stop = await stop;
+      if (stop) return;
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -3162,23 +3221,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A nurse never answers the critical-value prompt: her I/O save keeps the
     // doctor's confirmation as saved, and nurseSubmitRefused holds an order
     // with a critical value nobody confirmed (N1).
-    // A doctor's save that changes only I/O on a submitted order keeps its number
-    // and its author too (Pp, 2026-11-15; gas-backend.gs writes it from the
-    // stored row): the same order, on the same constants. Its critical values
-    // were confirmed when it was ordered, so the stored confirmation stands, as
-    // on a nurse's I/O save; asking again would make it a new version (Vera).
-    const sameOrderByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
-      && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
-      // The dosing weight moved after the save (a corrected birth weight): every per-kg figure is
-      // re-dosed while the inputs stay the same, so it is a new order and its critical values are
-      // asked again (code review, 2026-11-19: the old reason went out beside a GIR nobody confirmed).
-      && !dosingWeightChanged
-      && uncoveredCritical.length === 0;
+    // See sameOrderByDoctorNow and criticalToConfirm, worked out with the render.
+    const sameOrderByDoctor = !asDraft && sameOrderByDoctorNow;
     // A reason for Sunday's length and HC is part of the order (not IO_FREE_CALC_KEYS), so
     // giving one makes a revision; its figures are the ones confirmed, so the stored
     // confirmation stands and nothing is asked again (Vera, 2026-11-22).
     const ioOnlyByDoctor = sameOrderByDoctor && !growthSkipUnsaved;
-    const critical = asDraft || nurseIoOnly || sameOrderByDoctor ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+    const critical = asDraft ? [] : criticalToConfirm;
     let override = (nurseIoOnly || sameOrderByDoctor) && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
@@ -3186,14 +3235,21 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // prompts say to keep names and HNs out of it (SEC-F7). It asks
       // "ยืนยันการสั่งหรือไม่?" in the TPN team's words (2026-09-22); a reason is
       // still what confirms, so the stop cannot be cleared with one tap.
-      const reason = window.prompt(
+      const reason = critReasonTyped.trim() || window.prompt(
         `มีค่าวิกฤต ${critical.length} รายการ:\n• ${critical.map(a => a.title).join("\n• ")}\n\n` +
         `ยืนยันการสั่งหรือไม่? — แพทย์ยืนยันคำสั่งโดยระบุเหตุผลทางคลินิก (จะพิมพ์ลงใบสั่ง TPN · ห้ามใส่ชื่อหรือ HN):`, "");
       if (reason == null || !String(reason).trim()) {
-        showToast("ยังไม่ได้บันทึก — มีค่าวิกฤต ต้องระบุเหตุผลก่อน", "error");
+        showToast("ยังไม่ได้บันทึก — มีค่าวิกฤต ต้องระบุเหตุผลก่อน (พิมพ์ในช่องเหตุผลเหนือปุ่ม Submit)", "error");
+        focusReasonBox("crit-reason-input");
         return;
       }
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map(a => a.title), at: new Date().toISOString() };
+    }
+    // Every prompt has been answered in the tap; only now may the release read be awaited.
+    {
+      let stop = releaseRefuses();
+      if (stop !== true && stop !== false) stop = await stop;
+      if (stop) return;
     }
     const keyAtSave = formKey;
     // A nurse's save on an order another account owns: by now it is I/O only.
@@ -3311,6 +3367,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // it affected. Sent on every save, including edits: an edit recomputes
       // the figures with today's constants, so the stamp must move with them.
       constantsVersion: D.CONSTANTS_VERSION,
+      // ruleSet: the rule set these numbers were computed under (data.js
+      // ruleSetFor). gas-backend.gs refuses the save when it differs from the
+      // set it derives for the patient; a tab that sends none is newborn.
+      ruleSet: D.ruleSetFor(patient),
       appVersion: D.appVersion(),
       // Editing must keep the entry's original calendar date; a brand-new entry
       // is stamped with the back-date the user picked (logDate) or else the
@@ -3362,6 +3422,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!ioOnlyOnOthers) {
       setCritOverride(override);
       setSavedGrowthSkip(growthSkipSent);
+      setCritReasonTyped(""); setGrowthReasonTyped("");
       setSavedDosingWt({ g: dosingWtAtSave, exact: true });
       setSavedCalcVersion(D.CONSTANTS_VERSION);
       setSavedFiguresV(figures ? figures.v : null);
@@ -3991,12 +4052,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   and nurses use (Pp, 2026-11-06).                            */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, alignItems:"start" }}>
                 <div>
-                  {/* "NICU/SCN": the labels of the wards that start at the newborn dead
-                      space (data.js newbornWardLabels), so a ward for older children is
-                      not named here (openspec/changes/paediatric-wards, task 3.2). */}
+                  {/* "NICU/SCN": the labels of the wards that start at this patient's
+                      default dead space (data.js wardLabelsStartingAt, from the ward
+                      table's deadVolMl), so a ward with another giving set is not
+                      named here (openspec/changes/paediatric-wards, task 3.2). */}
                   <NumField label="ปริมาตรคาสาย (dead space)" unit="mL/day"
                     value={deadVol_mL} onChange={setDeadVol_mL} step={1}
-                    hint={`${deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"}${D.defaultDeadVolFor(patient) > 0 ? ` · ${D.newbornWardLabels().join("/")} starts at ${D.defaultDeadVolFor(patient)}` : ""}`} />
+                    hint={`${deadVol_mL > 0 ? "stays in the line" : "0 = no overfill"}${D.defaultDeadVolFor(patient) > 0 ? ` · ${D.wardLabelsStartingAt(D.defaultDeadVolFor(patient)).join("/")} starts at ${D.defaultDeadVolFor(patient)}` : ""}`} />
                   {/* The TPN room's line volumes (TPN team, 2026-09-28); 0 or any
                       other value is typed in the box above. */}
                   <PresetChips values={[30, 50, 100]} current={deadVol_mL} onSelect={setDeadVol_mL} />
@@ -4049,8 +4111,8 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                         readout's edge, 2026-09-25 phone sweep). */}
                     {fmt(calc.gir,1)}<wbr /><span style={{ fontSize:11, color:"var(--ink-3)", marginLeft:4, fontWeight:400 }}>mg/kg/min</span>
                   </div>
-                  <Meter value={calc.gir||0} target={tGir} max={16} optimal={D.TARGETS.girTarget()} statusAt={girStatusAt} />
-                  <div style={{ fontSize:10, color:"var(--ink-3)", marginTop:2 }}>target {D.TARGETS.girTarget().join("–")} · max {D.GIR_HARD_HI}</div>
+                  <Meter value={calc.gir||0} target={tGir} max={16} optimal={RT.TARGETS.girTarget()} statusAt={girStatusAt} />
+                  <div style={{ fontSize:10, color:"var(--ink-3)", marginTop:2 }}>target {RT.TARGETS.girTarget().join("–")} · max {D.GIR_HARD_HI}</div>
                 </div>
               </div>
 
@@ -4367,7 +4429,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <Tile label="Magnesium" value={mgMgPerKg} unit=" mg/kg/d" target={tMg} status={sMg} statusAt={mgStatusAt} decimals={2} max={12} />
               {mgPerKg > 0 && (
                 <div className="mg-mgkg" style={{ marginTop:-4, fontSize:10.5, textAlign:"right", color:"var(--ink-3)" }}
-                  title={`ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch): preterm, first days ${D.ESPGHAN_TARGETS.pn.electrolytes.mg.dol1.join("–")} mmol (${D.TPN_TARGETS.mg(1).map(v => fmt(v, 1)).join("–")} mg)/kg/d; growing ${D.ESPGHAN_TARGETS.pn.electrolytes.mg.growing.join("–")} mmol (${D.TPN_TARGETS.mg(D.FIRST_DAYS_LAST_DOL + 1).map(v => fmt(v, 1)).join("–")} mg)/kg/d · 1 mmol Mg = 2 mEq`}>
+                  title={`ESPGHAN/ESPEN/ESPR/CSPEN 2018 (Mihatsch): preterm, first days ${D.ESPGHAN_TARGETS.pn.electrolytes.mg.dol1.join("–")} mmol (${RT.TPN_TARGETS.mg(1).map(v => fmt(v, 1)).join("–")} mg)/kg/d; growing ${D.ESPGHAN_TARGETS.pn.electrolytes.mg.growing.join("–")} mmol (${RT.TPN_TARGETS.mg(D.FIRST_DAYS_LAST_DOL + 1).map(v => fmt(v, 1)).join("–")} mg)/kg/d · 1 mmol Mg = 2 mEq`}>
                   = {fmt(mgPerKg, 2)} mEq/kg/d · TPN only
                 </div>
               )}
@@ -4531,7 +4593,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                   const tabs = prod && totalMg > 0 ? totalMg / prod.ca_mg_per_unit : 0;
                   return suppCa > 0 && wtKg > 0
                     ? `= ${fmt(totalMg, 0)} mg/day · ${fmt(tabs, 2)} tab/day (${prod?.label})`
-                    : `ESPGHAN 2022 target: ${D.ENTERAL_TARGETS.ca().join("–")} mg/kg/day · ${D.SUPP_DB[suppCaType]?.note || ""}`;
+                    : `ESPGHAN 2022 target: ${RT.ENTERAL_TARGETS.ca().join("–")} mg/kg/day · ${D.SUPP_DB[suppCaType]?.note || ""}`;
                 })()} />
               <PresetChips values={[50, 80, 100, 120]} current={suppCa} onSelect={setSuppCa} />
 
@@ -4996,6 +5058,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="growth-gate" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 วันอาทิตย์ยังไม่มี {growthMissingText} — {nurseAccount ? "พิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart"
                   : "Submit และพิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart หรือระบุเหตุผลที่วัดไม่ได้ตอนกด Submit"}
+                {!nurseAccount && !ordersReadOnly && (
+                  <div style={{ marginTop: 4 }}>
+                    <label htmlFor="growth-reason-input" style={{ display: "block", fontWeight: 600, marginBottom: 2 }}>
+                      เหตุผลที่วันนี้วัดไม่ได้ (เก็บไว้กับคำสั่ง ไม่พิมพ์ลงใบสั่ง · ห้ามใส่ชื่อหรือ HN)
+                    </label>
+                    <textarea id="growth-reason-input" className="growth-reason-input" rows={2} maxLength={200}
+                      value={growthReasonTyped} onChange={(e) => setGrowthReasonTyped(e.target.value)}
+                      placeholder="เช่น ไม่ stable, on HFOV, กำลังทำหัตถการ"
+                      style={{ width: "100%", boxSizing: "border-box", fontSize: 16, fontWeight: 400, color: "var(--ink, #000)" }} />
+                  </div>
+                )}
                 {onOpenGrowth && (
                   <div style={{ marginTop: 4 }}>
                     <button type="button" className="btn" style={{ minHeight: 36 }} onClick={onOpenGrowth}>ไปกรอก Length / HC</button>
@@ -5050,6 +5123,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             {isDraftSaved && !dirty && (
               <div className="draft-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
                 ● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit
+              </div>
+            )}
+            {/* The critical-value reason, typed in the page (2026-11-28): Submit uses it
+                instead of window.prompt, which iPhone Safari on the ward did not open. */}
+            {!scratch && !ordersReadOnly && !nurseAccount && criticalToConfirm.length > 0 && (
+              <div className="crit-reason-box" style={{ border: "1px solid var(--crit-line)", borderRadius: 6, padding: "6px 8px", marginBottom: 8 }}>
+                <label htmlFor="crit-reason-input" style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--crit)", marginBottom: 4, lineHeight: 1.4 }}>
+                  เหตุผลยืนยันค่าวิกฤต: {critTitlesNow.join(" · ")}
+                  <span style={{ display: "block", fontWeight: 400 }}>พิมพ์ลงใบสั่ง TPN · ห้ามใส่ชื่อหรือ HN</span>
+                </label>
+                <textarea id="crit-reason-input" className="crit-reason-input" rows={2} maxLength={300}
+                  value={critReasonTyped} onChange={(e) => setCritReasonTyped(e.target.value)}
+                  placeholder="เหตุผลทางคลินิก เช่น hydrops ใช้ dry weight"
+                  style={{ width: "100%", boxSizing: "border-box", fontSize: 16 }} />
               </div>
             )}
             {/* Save draft: keep an incomplete order (Praew, 2026-09-23). Not on
@@ -5523,6 +5610,8 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
   // the calculator after the 2026-09-05 phosphorus correction (review F4).
   // Kept on the paper-form front too (Praew, 2026-09-22).
   const rng = (r) => (r ? `${r[0]}–${r[1]}` : "—");
+  // The Ca:P band the sheet prints, from the patient's rule set (data.js ruleTablesFor).
+  const caPBand = D.ruleTablesFor(patient).TARGETS.caP(dol);
   const tgtNote = targets ? `NeoFeed target DOL ${dol} · ${targets.source}` : "";
   const savedAtLabel = savedAtLabelOf(savedMeta?.at);
 
@@ -5823,7 +5912,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
             <td style={tdRx(caPerKg > 0)}>4. Ca⁺⁺ &nbsp;{chk(caPerKg > 0)} Ca Gluconate</td>
             <td style={tdr}>{caPerKg > 0 ? <><strong>{caPerKg}</strong> mg</> : "—"}</td>
             <td style={tdr}>{caPerKg > 0 ? <><strong>{f0(caPerKg*(calc.factor||0))}</strong> mg = <strong>{f(calc.solVol?.ca,1)}</strong> mL</> : "—"}</td>
-            <td style={td}>Ca {rng(targets?.ca)} mg/kg/day (Ca:P {D.TARGETS.caP(dol)[0]}–{D.TARGETS.caP(dol)[1]}:1 mass)</td>
+            <td style={td}>Ca {rng(targets?.ca)} mg/kg/day (Ca:P {caPBand[0]}–{caPBand[1]}:1 mass)</td>
           </tr>
           {/* 5. Multivitamin */}
           <tr>
@@ -6023,7 +6112,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
               <td style={td}>TPN (IV)</td>
               <td style={tdr}>Ca <strong>{f0(mineral.tpnCa)}</strong></td>
               <td style={tdr}>PO₄ <strong>{f0(mineral.tpnP)}</strong></td>
-              <td style={td}>Ca:P {isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0 ? `${fmt(mineral.tpnCaP, 2)}:1` : mineral.tpnCaP > 0 ? "!! (Ca, no P)" : "—"}{dol <= D.FIRST_DAYS_LAST_DOL ? ` (target ${D.TARGETS.caP(dol)[0]}–${D.TARGETS.caP(dol)[1]}:1, DOL 1–${D.FIRST_DAYS_LAST_DOL} TPN only)` : ""}</td>
+              <td style={td}>Ca:P {isFinite(mineral.tpnCaP) && mineral.tpnCaP > 0 ? `${fmt(mineral.tpnCaP, 2)}:1` : mineral.tpnCaP > 0 ? "!! (Ca, no P)" : "—"}{dol <= D.FIRST_DAYS_LAST_DOL ? ` (target ${caPBand[0]}–${caPBand[1]}:1, DOL 1–${D.FIRST_DAYS_LAST_DOL} TPN only)` : ""}</td>
             </tr>
             {(mineral.enCa > 0 || mineral.enP > 0) && <tr>
               <td style={td}>EN (นม)</td>
@@ -6041,7 +6130,7 @@ function PrintOrderForm({ patient, dol, wtG, wtKg, curWtG, usingBirthWeight, tpn
               <td style={{...td, fontWeight:700}}>รวมทั้งหมด</td>
               <td style={tdr}>Ca <strong>{f0(mineral.totCa)}</strong></td>
               <td style={tdr}>PO₄ <strong>{f0(mineral.totP)}</strong></td>
-              <td style={{...td, fontWeight:700}}>Ca:P {isFinite(mineral.totCaP) && mineral.totCaP > 0 ? `${fmt(mineral.totCaP, 2)}:1` : mineral.totCaP > 0 ? "!! (Ca, no P)" : "—"} {dol > D.FIRST_DAYS_LAST_DOL ? ` (target ${D.TARGETS.caP(dol)[0]}–${D.TARGETS.caP(dol)[1]}:1)` : ""}</td>
+              <td style={{...td, fontWeight:700}}>Ca:P {isFinite(mineral.totCaP) && mineral.totCaP > 0 ? `${fmt(mineral.totCaP, 2)}:1` : mineral.totCaP > 0 ? "!! (Ca, no P)" : "—"} {dol > D.FIRST_DAYS_LAST_DOL ? ` (target ${caPBand[0]}–${caPBand[1]}:1)` : ""}</td>
             </tr>
           </tbody></table>
         )}

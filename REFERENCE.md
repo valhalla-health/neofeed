@@ -237,8 +237,9 @@ buttons, the census and usage cards, the backend's bed check and its usage and Q
 groups, bed sort and sticker label all read it. Until 2026-11-22 each wrote NICU and SCN out by hand. A ward added to
 the table is a data change: one row, two generated copies, and no other edit.
 
-**Not for a real ward yet.** Every ward in the table is a newborn unit until a rule set is chosen by age (tasks.md
-group 3): it is offered Aminoven only and starts at the newborn 30 mL dead space. Access is limited by ward since
+**Not for a real ward yet.** The rules an order follows come from the child's age (`ruleSetFor`, tasks.md group 3),
+never the ward, and only the newborn set exists: a child on a new ward's bed is offered Aminoven only and graded on the
+newborn bands, like every infant on NICU and SCN. Access is limited by ward since
 group 2 (§ Thai PDPA compliance posture, "Access by ward"): no clinician account holds a new ward until an admin gives it
 one. A paediatric ward's row lands with its rule set (group 5), on Pp's word. Until then, add a ward only
 to try the steps, on dev local or in a harness, and take it out again.
@@ -246,12 +247,15 @@ to try the steps, on dev local or in a harness, and take it out again.
 1. **The row.** Add one line to `WARDS`, in the place the ward should be listed (table order is screen order;
    ทดสอบระบบ always comes last):
    ```js
-   { key: "DEMO", label: "DEMO", sub: "DEMO 1–4", stickerLabel: "DEMO(ทดลอง)", beds: [{ prefix: "DEMO", count: 4 }] },
+   { key: "DEMO", label: "DEMO", sub: "DEMO 1–4", stickerLabel: "DEMO(ทดลอง)", beds: [{ prefix: "DEMO", count: 4 }], deadVolMl: 30 },
    ```
    - `key`: letters and digits, not `other`, `none`, `ALL` or `total`. It is written into `Usage_Log` and
      `QI_SubmitTimes`, so a ward keeps its key. `FIX` is the harnesses' own fixture ward; do not use it.
    - `label` names the tile, the tab and the census card; `sub` is the tile's second line, the bed range.
    - `stickerLabel` is the ward as the TPN room's bag sticker prints it. A real ward's comes from the TPN room (gate 0.6).
+   - `deadVolMl` is the dead space (ปริมาตรคาสาย) a new TPN order on the ward starts with, mL/day: its giving set
+     (`defaultDeadVolFor`). It moves printed bag amounts. A real ward's comes from the TPN room (gate 0.6);
+     `tools/ward-table.cjs` refuses a row without one.
    - `beds` is a list of runs, each `{ prefix, count }` (`DEMO 1` … `DEMO 4`) or `{ prefix, rooms }`, beds per
      room (`{ prefix: "iso", rooms: [2, 2, 4] }` is `iso 1-1` … `iso 3-4`). A prefix is letters only and no other
      run's, in any case. Before a real ward: a bed already in the sheet that the new prefix matches (a free-text
@@ -665,6 +669,15 @@ and the older backend never reads it. A Staff row an admin adds later starts wit
 page (`setStaffWards`), or type ward keys into its `wards` cell (comma separated, any case; seen within a minute).
 The sync cache key carries the ward set (`sync3_`), so no ward's cached reply reaches another.
 
+**The rule set (2026-11-25, `paediatric-wards` group 3) needs no migration.** `registerPatient` writes the record's
+rule set into Patient_Registry V (`ruleSet`) on its next save, and an order is checked against the set the backend
+derives (`_ruleSetOf`), with a blank V read as that set. Either half can go first: an older frontend sends no set,
+which is read as newborn, and an older backend ignores the one this frontend sends. To label column V, run
+`ensurePatHeaderColumns()` (dry run), then `ensurePatHeaderColumns(true)`; a blank header passes the schema guard,
+so this is cosmetic. From this backend on, a new registration needs a date of birth no later than the admission
+date (the Register form always sends one, derived from the admit date and DOL แรกรับ). **To roll back,** move the
+deployment to the previous version; column V stays and the older backend never reads it.
+
 Redeploys are live and NICU staff are on them: **always confirm before the redeploy step.**
 
 **The backend holds no reference table (NF-28).** The Sheet has no clinical reference tab, and the
@@ -964,6 +977,75 @@ day it has an order (no bed or a free-text bed, kept outside `ALL`). A day with 
 Another cut-off for one look: Run a one-line function `function qi13() { qiSubmitTimesRefresh("13:00"); }`. The
 next night's run writes 14:00 again; change `QI_SUBMIT_CUTOFF` by PR to change it for good.
 
+### MyBreastmilk push, `mybmPushRun` (2026-11-27, off)
+
+`mybmPushRun` sends MyBreastmilk (MyBM), the pumping app for the mothers of NICU and SCN infants, each linked
+infant's weights and the feeds on the current order. It is a time trigger's function only: doPost has no action
+for it, and it writes no tab but Audit_Log. The rules and the envelope are the MyBM repo's
+`docs/superpowers/specs/2026-11-27-neofeed-push-design.md`, signed by Pp on 2026-11-27; the comments in
+`gas-backend.gs` § MyBreastmilk push use its section numbers. Pinned by `test/verify-mybm-push-1127.cjs`.
+
+What leaves: MyBM's link id, the weights with their dates and DOL (the series every NeoFeed screen reads, `data.js`
+`weightSeries`: the growth chart's points and each final order's weight), the feeds of the current order (feed key, mL a
+feed, feeds a day), its date and DOL, a ward bed (never free text) and the twin letter. What never leaves: the
+sessionId, a name, initials, HN, AN, DOB, admission date, diagnosis, a TPN or IV figure, a staff email. The DOB
+can be worked out from a weight's date and DOL, and the DPO's scope has to say so. Only infants with a sessionId of
+the form `NF-` and six digits are sent: an id issued before 2026-09-27 holds initials and the birth weight
+(Pp, 2026-11-27).
+
+**Signature v2** (a tech and security review, 2026-11-27, `Desktop\PraewPP\NICU Center Point\Product\`, items
+A1, A3, A4, A5; Pp: "แก้ก่อนเปิด"). Each request carries `x-nf-timestamp` (ms), `x-nf-key-id` and `x-nf-signature`,
+the hex HMAC-SHA256 under `MYBM_PUSH_SECRET` of `nf-sig-v2`, the key id, the timestamp, `MYBM_PUSH_URL` and the body,
+joined by line breaks. The key id lets MyBM hold two keys while one is rotated; the URL makes a request good at one
+receiver only. More than 5 links in one run that fail identity (a differing date, a DOB NeoFeed does not trust, or
+no such infant) hold those envelopes unsent, and the run throws (the probe alarm). Every message the run throws
+after the hold names the alarm, a 401, MyBM unreachable or a signing error included, with up to 20 of the held MyBM
+link ids and a count of the rest; one execution-log line, written as soon as they are held, names them all. For a
+held link MyBM receives nothing. Matching links are sent as in any run, and up to 5 failures a run are sent with their
+codes, without an alarm, so staff can correct them. Those codes tell MyBM, per link, whether the infant exists and
+which date differs or is not trusted: a MyBM that keeps to 5 a run is never alarmed, so the alarm limits how fast it
+can probe, not what one probe learns.
+
+**Switching it on.** Each step is Pp's, in this order:
+
+1. The gates outside this repo: the DPO's written approval naming the bed, the twin letter and the weight dates;
+   KCMH IT's change request, if IT asks for one for an outbound flow; MyBM's side deployed with its key set
+   `NEOFEED_PUSH_KEYS` and `NEOFEED_PUSH_AUDIENCE`.
+2. Confirm that the Apps Script project's HEAD is the ward's deployed backend plus this change only, as before the
+   2026-11-18 QI push: a `clasp push` also changes what the backup and QI triggers run.
+3. `clasp push` from a clean checkout of a green `main`. With `MYBM_PUSH_ENABLED` unset the code sends nothing.
+4. Script Properties: `MYBM_PUSH_URL` (MyBM's `receive-neofeed` URL, https only, exactly MyBM's
+   `NEOFEED_PUSH_AUDIENCE`), `MYBM_PUSH_KEY_ID` (1 to 32 lowercase letters, digits and hyphens, starting with a
+   letter or digit, e.g. `nf-2026-11`) and
+   `MYBM_PUSH_SECRET` (that key's value in MyBM's `NEOFEED_PUSH_KEYS`, at least 32 characters). Never in source,
+   chat or a log. Limit the project's editors to Pp and one named backup: every editor can read Script Properties.
+5. Triggers ▸ Add trigger: function `mybmPushRun`, Time-driven, Day timer, 4pm to 5pm, failure notifications
+   "immediately"; a second trigger the same way at 7pm to 8pm, the catch-up run. A trigger runs under the
+   account that adds it.
+6. One synthetic infant end to end on a test spreadsheet before the ward's Sheet.
+7. Last, the Script Property `MYBM_PUSH_ENABLED` = `true`. Run ▸ `mybmPushRun` once and read its log line.
+
+**Stopping it.** Delete `MYBM_PUSH_ENABLED`: the next run sends nothing. MyBM can also empty its key set, and every
+request then gets 401.
+
+**Rotating the key** (every 12 months, or on a staff change): add the new key id and secret to MyBM's
+`NEOFEED_PUSH_KEYS` beside the old one; set `MYBM_PUSH_KEY_ID` and `MYBM_PUSH_SECRET` here to the new pair; remove the
+old key from MyBM once the next run has gone through. **On suspicion of a leak**, remove the old key from MyBM at
+once: NeoFeed signs at send time and never resends an old request. A run already under way keeps signing with the
+key it read at its start, so it may end with a 401 and throw; the next run uses the new key. Rehearse a rotation once
+before switching on. **After a probe-alarm mail**, find the named link ids in MyBM's `neofeed_links`, then correct the
+dates in NeoFeed or remap the links in MyBM.
+
+**What a run writes.** One Audit_Log row per envelope sent (action `mybmPush <deliveryId> <receipt>`, the
+sessionId, actor `trigger:mybmPush`; the receipt is MyBM's answer, `http-<code>` or `unreachable`), so a row here
+and MyBM's stored envelope share the deliveryId, and one execution-log line of counts (after a probe alarm, also a
+line naming every held MyBM link id, written as soon as they are held). It throws, so the trigger's owner gets a mail, on a Script Property that is
+missing or malformed; a links request that cannot be signed, cannot reach MyBM, is refused (401), or is answered
+otherwise than 200 with a list of at most 500 links; a header on Patient_Registry or Daily_Log that differs from
+NeoFeed's, or a Sheets error while opening or reading them; an envelope that cannot be signed, cannot reach MyBM, is
+not recorded, or is over 16 KB (not sent); and the probe alarm, which every message thrown after the hold names too. The next run
+sends every link again, so a missed run costs a few hours, never data.
+
 ### The TPN room's page: `tpn-room.html`
 
 PR B of `openspec/changes/tpn-room-stickers`. Not live: `STATUS.md` says what holds it.
@@ -1076,6 +1158,17 @@ nowhere; `lookupResearchId` re-identifies, and every key, export and lookup is i
 reaches k = 5, so the CSV stays personal data. The lawful basis above covers treatment, not this, so the basis
 for a QI export is open with Pp and the DPO (`BACKLOG.md`). Small cells (≤ 7) are suppressed or rounded to 5 in
 the analysis, on aggregates; the export itself is row-level.
+
+**A copy at MyBreastmilk (2026-11-27, not live):** once Pp switches on `mybmPushRun` (§ MyBreastmilk push),
+MyBM holds, for each infant its staff linked, the newest 7 envelopes: weights with their dates and DOL, the
+current order's feeds, a ward bed and the twin letter. No name, sessionId, HN, AN or DOB leaves, but the DOB can be
+worked out from a weight's date and DOL, so the copy is personal data. Erasure reaches it only by rotation:
+`pseudonymizePatient` blanks the DOB, every later envelope is a `mismatch` with no data, and the older envelopes
+leave MyBM as newer ones replace them, about 3.5 days at two runs a day. That holds only while MyBM still lists the
+link: a link it stops listing (the mother's consent lapsed, say) gets no newer envelope, and its stored ones stay
+until MyBM deletes them on its own rules. MyBM's link row also keeps the sessionId, and the DOB and admission
+date the nurse typed, which `pseudonymizePatient` cannot reach. Nothing here deletes any of it at once. Whether that is enough, and the lawful
+basis for this copy, are for Pp and the DPO before the switch goes on.
 
 **A store of names outside the Sheet (not live):** the TPN room's name file holds the name, AN and edit history on
 one PC, encrypted (§ The TPN room's page). **Two gaps for Pp and the DPO, with the change request (tasks.md

@@ -380,7 +380,7 @@ T.section('A2 · every write path bumps DATA_VERSION — behaviour and source', 
   bumps('a REFUSED logDailyNutrition (finally, not just success)', () => g.sb.logDailyNutrition('AA-1', E({ ts: '2026-09-10' }), 'doc@kcmh.test'));
   bumps('updateDailyNutrition', () => g.sb.updateDailyNutrition('AA-1', c.entryId, c.lastModified, E(), 'doc@kcmh.test'));
   bumps('publishDailyLog', () => g.sb.publishDailyLog('AA-1', c.entryId, 'doc@kcmh.test', g.rows('Daily_Log')[0][26]));
-  bumps('registerPatient', () => g.sb.registerPatient({ sessionId: 'NF-000012', bw: 1000, ga: 29, sex: 'boys', status: 'Active' }, true));
+  bumps('registerPatient', () => g.sb.registerPatient({ sessionId: 'NF-000012', bw: 1000, ga: 29, sex: 'boys', status: 'Active', dob: '2026-09-01', admissionDate: '2026-09-01' }, true));
   bumps('updateWeights', () => g.sb.updateWeights('NF-000012', [{ dol: 1, w: 1000 }]));
   bumps('pseudonymizePatient', () => g.sb.pseudonymizePatient('NF-000012', 'adm@kcmh.test'));
   bumps('deleteDailyNutrition', () => g.sb.deleteDailyNutrition('AA-1', 'no-such', 'adm@kcmh.test'));

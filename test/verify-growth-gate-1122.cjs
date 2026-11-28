@@ -159,16 +159,19 @@ runScenarios(__filename, 'GROWTH GATE ON THE TPN ORDER (2026-11-22)', {
     A.eq('held: a reason for another DOL given the Sunday before',
       D.sundayGrowthHolds(p({}), '2026-11-15', { reason: 'on HFOV', dol: 5, at: '2026-11-08T02:00:00.000Z' }, SUN), true);
     A.eq('held: a reason whose time cannot be read', D.sundayGrowthHolds(p({}), '2026-11-15', { reason: 'on HFOV', dol: 5, at: 'x' }, SUN), true);
-    // An older child's ward is not asked (isNewbornUnit). OLDER_CHILD_WARDS is empty
-    // today, so a ward is put on it in a copy of data.js for this case only.
-    const src = fs.readFileSync(DIR + 'data.js', 'utf8');
-    const anchor = 'const OLDER_CHILD_WARDS = Object.freeze([]);';
-    A.ok('(OLDER_CHILD_WARDS is empty in data.js)', src.includes(anchor));
+    // A child on another rule set is not asked (isNewbornUnit). Only the newborn set exists
+    // today (data.js ruleSetFor, tasks 3.2), so a copy of data.js puts one marked child on
+    // another set for this case only.
+    const src = fs.readFileSync(DIR + 'data.js', 'utf8').replace(/\r\n/g, '\n');
+    const anchor = 'function ruleSetFor(patient) {\n  return "newborn";\n}';
+    A.ok('(ruleSetFor has only the newborn branch in data.js)', src.includes(anchor));
     const sb2 = { window: {}, console, Intl, Date };
-    vm.runInNewContext(src.replace(anchor, 'const OLDER_CHILD_WARDS = Object.freeze(["SCN"]);'), sb2);
+    vm.runInNewContext(src.replace(anchor,
+      'function ruleSetFor(patient) {\n  return patient && patient.fixtureSet === "paediatric" ? "paediatric" : "newborn";\n}'), sb2);
     const D2 = sb2.window.NEOFEED_DATA;
-    A.eq('an older child\'s ward: nothing due, nothing held', [D2.weeklyGrowthMissing(p({ currentBed: 'SCN 1' }), SUN), D2.sundayGrowthHolds(p({ currentBed: 'SCN 1' }), '2026-11-15', null, SUN)], [null, false]);
-    A.eq('…a newborn ward in the same copy still is', D2.sundayGrowthHolds(p({}), '2026-11-15', null, SUN), true);
+    const older = p({ currentBed: 'SCN 1', fixtureSet: 'paediatric' });
+    A.eq('a child on another rule set: nothing due, nothing held', [D2.weeklyGrowthMissing(older, SUN), D2.sundayGrowthHolds(older, '2026-11-15', null, SUN)], [null, false]);
+    A.eq('…a newborn in the same bed in the same copy still is', D2.sundayGrowthHolds(p({ currentBed: 'SCN 1' }), '2026-11-15', null, SUN), true);
   },
 
   async 'print'(A) {
@@ -228,6 +231,47 @@ runScenarios(__filename, 'GROWTH GATE ON THE TPN ORDER (2026-11-22)', {
     const asked = t.asked.length;
     A.eq('Print order prints too', await t.pressPrint(), 1);
     A.eq('…and nothing asks again', t.asked.length, asked);
+  },
+
+  async 'safari'(A) {
+    // 2026-11-28 (ward photo): iPhone Safari drops the tap's user gesture across an await, and
+    // window.prompt then returns null without opening. Submit used to await the release read
+    // (when the last one was over a minute old) before this prompt. This stub behaves like
+    // Safari: asked after the version file was read in the same tap, it returns null.
+    console.log('\n── a Sunday on iPhone Safari: the reason is asked before the release read ──');
+    let reads = 0, readsAtTap = 0;
+    const t = await setup({ prompt: () => (reads > readsAtTap ? null : 'on HFOV') });
+    const appFetch = global.fetch;
+    t.window.fetch = global.fetch = (url, opts) => {
+      if (/tpn-room-version/.test(String(url))) { reads++; return Promise.reject(new TypeError('Failed to fetch')); }
+      return appFetch(url, opts);
+    };
+    try {
+      await t.openFromList('AA');
+      t.clock.advance(61 * 1000);   // the form's first read is now over a minute old
+      readsAtTap = reads;
+      await t.submit();
+      A.eq('Submit asks once', t.asked.length, 1);
+      A.ok('…and the release is read again, after the prompt', reads > readsAtTap, { reads, readsAtTap });
+      A.eq('the save went with the reason', t.updates()[0]?.entry?.calcInput?.growthSkip?.reason, 'on HFOV');
+      A.ok('…and no "วันอาทิตย์ต้องมี" toast', !t.toasts().some(m => /ยังไม่ได้ Submit — วันอาทิตย์ต้องมี/.test(m)));
+    } finally { t.window.fetch = global.fetch = appFetch; }
+  },
+
+  async 'reason box'(A) {
+    // The ward's iPhone opened no window.prompt at all (2026-11-28): the reason goes in the page.
+    console.log('\n── a Sunday: the reason typed in the box above Submit, no prompt ──');
+    const t = await setup({ prompt: () => null });
+    await t.openFromList('AA');
+    const box = () => t.window.document.querySelector('textarea.growth-reason-input');
+    A.ok('the held line offers a box for the reason', !!box());
+    const taSetter = Object.getOwnPropertyDescriptor(t.window.HTMLTextAreaElement.prototype, 'value').set;
+    taSetter.call(box(), 'on HFOV');
+    box().dispatchEvent(new t.window.Event('input', { bubbles: true }));
+    await t.settle();
+    await t.submit();
+    A.eq('no prompt', t.asked.length, 0);
+    A.eq('the save went with the reason', t.updates()[0]?.entry?.calcInput?.growthSkip?.reason, 'on HFOV');
   },
 
   async 'values'(A) {
