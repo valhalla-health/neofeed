@@ -1973,14 +1973,15 @@ function Calculator({
       return;
     }
     const releaseInFlight = !asDraft && !centerPoint && !!releaseRead.current.pending;
-    if (!asDraft && !centerPoint) {
-      let behind = releaseBehindForSubmit(setSaving);
-      if (behind !== true && behind !== false) behind = await behind;
-      if (behind) {
-        refuseBehindRelease();
-        return;
-      }
-    }
+    const releaseRefuses = () => {
+      if (asDraft || centerPoint) return false;
+      const refuse = (behind2) => {
+        if (behind2) refuseBehindRelease();
+        return !!behind2;
+      };
+      const behind = releaseBehindForSubmit(setSaving);
+      return behind === true || behind === false ? refuse(behind) : behind.then(refuse);
+    };
     let growthSkipNew = null;
     if (!asDraft && growthStop) {
       const reason = window.prompt(
@@ -2000,6 +2001,9 @@ function Calculator({
     const growthSkipUnsaved = growthSkipSent !== savedGrowthSkip;
     const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing && !growthSkipUnsaved) {
+      let stop = releaseRefuses();
+      if (stop !== true && stop !== false) stop = await stop;
+      if (stop) return;
       setSaving(true);
       const res2 = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -2098,6 +2102,11 @@ function Calculator({
         return;
       }
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map((a) => a.title), at: (/* @__PURE__ */ new Date()).toISOString() };
+    }
+    {
+      let stop = releaseRefuses();
+      if (stop !== true && stop !== false) stop = await stop;
+      if (stop) return;
     }
     const keyAtSave = formKey;
     const ioOnlyOnOthers = nurseIoOnly && !!savedEntryId && !!savedSaver && savedSaver !== draftOwner;

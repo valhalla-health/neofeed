@@ -360,6 +360,50 @@ section('§4 the real calculator: the form reads the served release when it open
       await tick(); await tick();
     } finally { undoLater(); }
     eq('two presses while the file is read again send one save', logged.length, 1);
+
+    // §5 (2026-11-28, ward photo) — the critical-value reason is asked in the tap, before the
+    // release read is awaited. iPhone Safari drops the tap's user gesture across that await, and
+    // window.prompt then returns null without opening: the doctor saw only "ต้องระบุเหตุผลก่อน".
+    // This prompt behaves like Safari: asked after a read went out in the same tap, it returns null.
+    // A TPN calc. weight 24 % under the automatic one (hydrops, an ELBW swing) raises the red line.
+    console.log('\n── §5 the reason is asked before the release read (iPhone Safari) ──');
+    const realPrompt = window.prompt;
+    const asked = [];
+    let callsAtTap = 0;
+    window.prompt = (msg) => {
+      const afterRead = served.calls.length > callsAtTap;
+      asked.push({ msg: String(msg), afterRead });
+      return afterRead ? null : 'harness: hydrops, dry weight';
+    };
+    try {
+      served.mode = 'same';
+      mountFilled(); logged.length = 0;
+      setField('TPN calc. weight', 950);
+      await tick();
+      ok('the form shows "TPN calc. weight far from automatic"', /TPN calc\. weight far from automatic/.test(container.textContent));
+      served.calls.length = 0; callsAtTap = 0; toasts.length = 0;
+      later();
+      try { await clickAsync(submitBtn()); } finally { undoLater(); }
+      eq('the reason is asked once', asked.length, 1);
+      ok('…and it names the weight line', asked.length === 1 && /TPN calc\. weight far from automatic/.test(asked[0].msg), asked);
+      ok('…before the release read went out, so Safari opens it', asked.length === 1 && asked[0].afterRead === false, asked);
+      eq('the release is still read before the save', served.calls.length, 1);
+      eq('the order is submitted', logged.map((e) => e.status), ['submitted']);
+      eq('…with the reason, which prints', logged[0] && logged[0].calcInput && logged[0].calcInput.critOverride
+        && logged[0].calcInput.critOverride.reason, 'harness: hydrops, dry weight');
+      ok('…and no "ต้องระบุเหตุผลก่อน" toast', !toasts.some((t) => /ต้องระบุเหตุผลก่อน/.test(t.msg)), toasts);
+
+      // Another release landed since: the reason was asked, and the release still stops the order.
+      mountFilled(); logged.length = 0; asked.length = 0;
+      setField('TPN calc. weight', 950);
+      await tick();
+      served.mode = 'other'; served.calls.length = 0; callsAtTap = 0;
+      later();
+      try { await clickAsync(submitBtn()); } finally { undoLater(); }
+      ok('another release since: the reason is asked in the tap', asked.length === 1 && asked[0].afterRead === false, asked);
+      eq('…and the release read still stops the Submit', logged.length, 0);
+      ok('…with the banner', !!banner() && /ยังไม่ถึงห้อง TPN/.test(banner().textContent), banner() && banner().textContent);
+    } finally { window.prompt = realPrompt; served.mode = 'same'; }
   } catch (e) {
     ok('§4 ran without throwing', false, String(e && e.stack || e));
   }

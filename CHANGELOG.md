@@ -7,6 +7,27 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-28 — The critical-value reason is asked before the release read (iPhone)
+
+`calculator.jsx` (`handleSave`), `test/verify-stale-tab-1117.cjs` § 5.
+
+- **What the ward saw (photo, 2026-11-28 09:38).** A doctor on iPhone Safari typed a TPN calc. weight of
+  1800 g against an automatic 2435 g (−26 %). Submit showed only the toast "ยังไม่ได้บันทึก — มีค่าวิกฤต
+  ต้องระบุเหตุผลก่อน"; the box for the reason never opened, so the order could not be submitted.
+- **Why.** Since the stale-tab check (2026-11-17), Submit reads `compiled/tpn-room-version.js` again when the
+  last read is over a minute old, and it awaited that read at the top of `handleSave`, before the Sunday
+  growth prompt and the critical-value prompt. iPhone Safari drops the tap's user gesture across the
+  await, and `window.prompt` then returns `null` without opening, which the code reads as a blank reason.
+  Any form filled in for more than a minute hit it, with any red line that needs a reason. A second
+  Submit within the minute worked, because the read was fresh by then.
+- **The fix.** Both prompts run in the tap itself; the release read comes after them, just before the save
+  (and before the lock on a settled order). A fresh or in-flight read still answers without an await, so
+  the save call stays in the tap's tick (`verify-bed-dol-io`). A tab behind the release is still refused,
+  after the reason is typed. No figure, rule or printed line moves; `CONSTANTS_VERSION` stays.
+- **Tests.** `verify-stale-tab-1117.cjs` § 5 stands in for Safari: a prompt asked after a read went out in
+  the same tap returns `null`. On `main` `59d17ad` it fails 5 checks (the reason asked after the read, no
+  order, the toast); with the fix, 78 passed, 0 failed.
+
 ## Session 2026-11-27 (15) — The MyBreastmilk push: the third re-check
 
 `gas-backend.gs` (§ MyBreastmilk push), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`, `REFERENCE.md`.

@@ -3025,11 +3025,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A Submit decided while the form's first read is still in flight goes unchecked; the
     // read is followed up once the save lands (warnIfSentBehind, Vera 2026-11-17).
     const releaseInFlight = !asDraft && !centerPoint && !!releaseRead.current.pending;
-    if (!asDraft && !centerPoint) {
-      let behind = releaseBehindForSubmit(setSaving);
-      if (behind !== true && behind !== false) behind = await behind;
-      if (behind) { refuseBehindRelease(); return; }
-    }
+    // The release is checked after the reason prompts below, never before them
+    // (2026-11-28, ward photo: a Submit with "TPN calc. weight far from automatic"
+    // showed only "ต้องระบุเหตุผลก่อน"). A read over a minute old is awaited, and
+    // iPhone Safari drops the tap's user gesture across that await: window.prompt
+    // then returns null without opening, which reads as a blank reason. Every
+    // prompt runs in the tap itself; the read comes just before the network call.
+    // A fresh or in-flight read answers at once (a boolean, no await), so the save call
+    // stays in the tap's tick; only an older read gives a promise to wait on.
+    const releaseRefuses = () => {
+      if (asDraft || centerPoint) return false;
+      const refuse = (behind) => { if (behind) refuseBehindRelease(); return !!behind; };
+      const behind = releaseBehindForSubmit(setSaving);
+      return behind === true || behind === false ? refuse(behind) : behind.then(refuse);
+    };
     // -- Sunday's length and HC (Pp, 2026-11-22), see growthStop --
     // Asked before anything is saved, a draft excepted. The reason is kept for
     // this visit, so a Submit a stop below refuses does not ask for it again.
@@ -3062,6 +3071,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A nurse locks nothing (gas-backend.gs publishDailyLog refuses her, N1).
     const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing && !growthSkipUnsaved) {
+      let stop = releaseRefuses();
+      if (stop !== true && stop !== false) stop = await stop;
+      if (stop) return;
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -3201,6 +3213,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         return;
       }
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map(a => a.title), at: new Date().toISOString() };
+    }
+    // Every prompt has been answered in the tap; only now may the release read be awaited.
+    {
+      let stop = releaseRefuses();
+      if (stop !== true && stop !== false) stop = await stop;
+      if (stop) return;
     }
     const keyAtSave = formKey;
     // A nurse's save on an order another account owns: by now it is I/O only.
