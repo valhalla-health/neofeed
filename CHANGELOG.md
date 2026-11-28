@@ -7,6 +7,22 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-28 (3) — The box shows the lines Submit confirms (Vera's second run)
+
+`calculator.jsx` (`sameOrderByDoctorNow`, `criticalToConfirm`), `test/verify-stale-tab-1117.cjs` § 5.
+
+- **Vera on (2): NO BLOCK, one 🟠.** The box was built from `uncoveredCritical` (lines the saved reason does not
+  name), while Submit asks for every red line unless the order is unchanged. A revision of an order already
+  confirmed (an edit, a moved calculation, a changed dosing weight) hid the box and still asked, so on the ward's
+  iPhone the revision could not go. Both now read one list, `criticalToConfirm`, worked out with the render:
+  the box shows exactly when Submit asks, and names the lines it confirms.
+- **Her 🟡.** A reason typed for some lines no longer confirms a line that appears after it: the box empties
+  when a new line joins.
+- **Tests.** § 5 revises the confirmed order (TPN volume 100 → 96) with a prompt that never opens: the box shows
+  again and the revision goes with the new reason. It fails 3 checks on 81bffc3; 91 passed with the fix. Growth
+  gate 98, calc clicks 268, bed-DOL-I/O 85, publish lock 76, print holds 18, dosing weight 57, review-0917 calc
+  125, Center Point entry 68, TPN answers 71, clinical rules 1243, incident gaps 60, hardening 219: all pass.
+
 ## Session 2026-11-28 (2) — The reason box above Submit
 
 `calculator.jsx` (two boxes, `handleSave`), `test/verify-stale-tab-1117.cjs` § 5, `test/verify-growth-gate-1122.cjs`

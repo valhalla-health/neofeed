@@ -239,6 +239,7 @@ section('§4 the real calculator: the form reads the served release when it open
   const banner = () => container.querySelector('.release-behind');
   const patient = { sessionId: 'ST-9', name: 'ST', bw: 1200, currentBed: 'NICU 1', diagnosis: '-', weights: [], admissionDate: '2026-11-12' };
   const logged = [];
+  const updated = [];
   function mountFilled() {
     act(() => { root.unmount(); });
     root = ReactDOM.createRoot(container);
@@ -247,7 +248,7 @@ section('§4 the real calculator: the form reads the served release when it open
       root.render(React.createElement(window.Calculator, {
         patient, dol: 6, editEntry: null, baselineEntry: null, logDate: '2026-11-17',
         onLog(e) { logged.push(e); return Promise.resolve({ ok: true, entryId: 'st-' + logged.length, lastModified: 'lm-' + logged.length }); },
-        onUpdate() { return Promise.resolve({ ok: true, lastModified: 'lm-u' }); }, onSaved() {}, onWeightChange() {},
+        onUpdate(id, lm, e) { updated.push(e); return Promise.resolve({ ok: true, lastModified: 'lm-u' + updated.length }); }, onSaved() {}, onWeightChange() {},
       }));
     });
     act(() => { container.querySelectorAll('.card-h.clickable').forEach((h) => click(h)); });
@@ -427,6 +428,17 @@ section('§4 the real calculator: the form reads the served release when it open
       eq('…with that reason, trimmed, which prints', logged[0]?.calcInput?.critOverride?.reason, 'hydrops, dry weight');
       eq('…for the red line on screen', logged[0]?.calcInput?.critOverride?.alerts, ['TPN calc. weight far from automatic']);
       ok('…and the box is gone once the reason is saved', !box());
+
+      // Vera on PR #314: the doctor then revises the order. Submit asks again, so the box
+      // must show again, on the same lines Submit confirms.
+      updated.length = 0; asked.length = 0; toasts.length = 0;
+      setField('Volume(mL/day)', 96);
+      await tick();
+      ok('a revision of the confirmed order shows the box again', !!box());
+      ok('…naming the line Submit confirms', /TPN calc\. weight far from automatic/.test(container.querySelector('.crit-reason-box')?.textContent || ''));
+      act(() => { taSetter.call(box(), 'still hydrops'); box().dispatchEvent(new window.Event('input', { bubbles: true })); });
+      await clickAsync(submitBtn());
+      eq('…and the revision goes with the new reason, no prompt', [asked.length, updated.length, updated[0]?.calcInput?.critOverride?.reason], [0, 1, 'still hydrops']);
     } finally { window.prompt = realPrompt; served.mode = 'same'; }
   } catch (e) {
     ok('§4 ran without throwing', false, String(e && e.stack || e));

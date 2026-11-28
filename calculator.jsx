@@ -2847,6 +2847,30 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // confirmed, no sticker figures yet). Not with the nursing log on, where a
   // nurse has no Submit at all (ordersReadOnly).
   const nurseIoOnly = nurseAccount && !ordersReadOnly && !scratch && !centerPoint;
+  // The red lines a Submit asks a reason for, worked out once here so the reason box
+  // above Submit shows exactly the lines handleSave confirms (Vera on PR #314: a revised
+  // order asked again while the box, built from uncoveredCritical, was hidden).
+  // A doctor's save that changes only I/O on a submitted order keeps its number
+  // and its author too (Pp, 2026-11-15; gas-backend.gs writes it from the
+  // stored row): the same order, on the same constants. Its critical values
+  // were confirmed when it was ordered, so the stored confirmation stands, as
+  // on a nurse's I/O save; asking again would make it a new version (Vera).
+  const sameOrderByDoctorNow = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published)
+    && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
+    // The dosing weight moved after the save (a corrected birth weight): every per-kg figure is
+    // re-dosed while the inputs stay the same, so it is a new order and its critical values are
+    // asked again (code review, 2026-11-19: the old reason went out beside a GIR nobody confirmed).
+    && !dosingWeightChanged
+    && uncoveredCritical.length === 0;
+  const criticalToConfirm = nurseIoOnly || sameOrderByDoctorNow ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+  // A reason typed for some red lines does not confirm a line that appears after it:
+  // the box empties when a new line joins (Vera on PR #314).
+  const critTitlesSeen = React.useRef([]);
+  const critTitlesNow = criticalToConfirm.map(a => a.title);
+  React.useEffect(() => {
+    if (critTitlesNow.some(t => !critTitlesSeen.current.includes(t))) setCritReasonTyped("");
+    critTitlesSeen.current = critTitlesNow;
+  }, [critTitlesNow.join("\u0001")]);
   const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted"
     || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
   // An order held for a doctor (the calculation or dosing weight moved, a
@@ -3197,23 +3221,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A nurse never answers the critical-value prompt: her I/O save keeps the
     // doctor's confirmation as saved, and nurseSubmitRefused holds an order
     // with a critical value nobody confirmed (N1).
-    // A doctor's save that changes only I/O on a submitted order keeps its number
-    // and its author too (Pp, 2026-11-15; gas-backend.gs writes it from the
-    // stored row): the same order, on the same constants. Its critical values
-    // were confirmed when it was ordered, so the stored confirmation stands, as
-    // on a nurse's I/O save; asking again would make it a new version (Vera).
-    const sameOrderByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
-      && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
-      // The dosing weight moved after the save (a corrected birth weight): every per-kg figure is
-      // re-dosed while the inputs stay the same, so it is a new order and its critical values are
-      // asked again (code review, 2026-11-19: the old reason went out beside a GIR nobody confirmed).
-      && !dosingWeightChanged
-      && uncoveredCritical.length === 0;
+    // See sameOrderByDoctorNow and criticalToConfirm, worked out with the render.
+    const sameOrderByDoctor = !asDraft && sameOrderByDoctorNow;
     // A reason for Sunday's length and HC is part of the order (not IO_FREE_CALC_KEYS), so
     // giving one makes a revision; its figures are the ones confirmed, so the stored
     // confirmation stands and nothing is asked again (Vera, 2026-11-22).
     const ioOnlyByDoctor = sameOrderByDoctor && !growthSkipUnsaved;
-    const critical = asDraft || nurseIoOnly || sameOrderByDoctor ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+    const critical = asDraft ? [] : criticalToConfirm;
     let override = (nurseIoOnly || sameOrderByDoctor) && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
@@ -5113,10 +5127,10 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             )}
             {/* The critical-value reason, typed in the page (2026-11-28): Submit uses it
                 instead of window.prompt, which iPhone Safari on the ward did not open. */}
-            {!scratch && !ordersReadOnly && !nurseAccount && uncoveredCritical.length > 0 && (
+            {!scratch && !ordersReadOnly && !nurseAccount && criticalToConfirm.length > 0 && (
               <div className="crit-reason-box" style={{ border: "1px solid var(--crit-line)", borderRadius: 6, padding: "6px 8px", marginBottom: 8 }}>
                 <label htmlFor="crit-reason-input" style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--crit)", marginBottom: 4, lineHeight: 1.4 }}>
-                  เหตุผลยืนยันค่าวิกฤต: {uncoveredCritical.join(" · ")}
+                  เหตุผลยืนยันค่าวิกฤต: {critTitlesNow.join(" · ")}
                   <span style={{ display: "block", fontWeight: 400 }}>พิมพ์ลงใบสั่ง TPN · ห้ามใส่ชื่อหรือ HN</span>
                 </label>
                 <textarea id="crit-reason-input" className="crit-reason-input" rows={2} maxLength={300}
