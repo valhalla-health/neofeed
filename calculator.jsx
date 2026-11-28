@@ -1293,6 +1293,12 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // infant could not be measured, and one typed in this visit whose save did not go.
   const [savedGrowthSkip, setSavedGrowthSkip] = useState(editEntry?.calcInput?.growthSkip || null);
   const [growthSkipTyped, setGrowthSkipTyped] = useState(null);
+  // The two reasons typed in the page, above Submit (2026-11-28): iPhone Safari on the
+  // ward opened no window.prompt at all, so a red line or Sunday's gate could not be
+  // confirmed and the order could not go. A reason typed here is used as it stands;
+  // with the box empty, Submit still asks with window.prompt, as before.
+  const [critReasonTyped, setCritReasonTyped] = useState("");
+  const [growthReasonTyped, setGrowthReasonTyped] = useState("");
   const [draftOffer, setDraftOffer] = useState(null); // this user's unsaved draft for this order
   // Dosing weight the saved row was calculated with — see savedDosingWeightOf.
   // null = nothing saved from this form, or a legacy row with no evidence.
@@ -1502,6 +1508,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     setCritOverride(editEntry?.calcInput?.critOverride || null);
     setSavedGrowthSkip(editEntry?.calcInput?.growthSkip || null);
     setGrowthSkipTyped(null);
+    setCritReasonTyped(""); setGrowthReasonTyped("");
     // The order's own save (orderAt, orderRev), not a nurse's I/O save after it.
     setSavedMeta(editEntry ? {
       by: savedByOf(editEntry),
@@ -2840,6 +2847,30 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // confirmed, no sticker figures yet). Not with the nursing log on, where a
   // nurse has no Submit at all (ordersReadOnly).
   const nurseIoOnly = nurseAccount && !ordersReadOnly && !scratch && !centerPoint;
+  // The red lines a Submit asks a reason for, worked out once here so the reason box
+  // above Submit shows exactly the lines handleSave confirms (Vera on PR #314: a revised
+  // order asked again while the box, built from uncoveredCritical, was hidden).
+  // A doctor's save that changes only I/O on a submitted order keeps its number
+  // and its author too (Pp, 2026-11-15; gas-backend.gs writes it from the
+  // stored row): the same order, on the same constants. Its critical values
+  // were confirmed when it was ordered, so the stored confirmation stands, as
+  // on a nurse's I/O save; asking again would make it a new version (Vera).
+  const sameOrderByDoctorNow = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published)
+    && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
+    // The dosing weight moved after the save (a corrected birth weight): every per-kg figure is
+    // re-dosed while the inputs stay the same, so it is a new order and its critical values are
+    // asked again (code review, 2026-11-19: the old reason went out beside a GIR nobody confirmed).
+    && !dosingWeightChanged
+    && uncoveredCritical.length === 0;
+  const criticalToConfirm = nurseIoOnly || sameOrderByDoctorNow ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+  // A reason typed for some red lines does not confirm a line that appears after it:
+  // the box empties when a new line joins (Vera on PR #314).
+  const critTitlesSeen = React.useRef([]);
+  const critTitlesNow = criticalToConfirm.map(a => a.title);
+  React.useEffect(() => {
+    if (critTitlesNow.some(t => !critTitlesSeen.current.includes(t))) setCritReasonTyped("");
+    critTitlesSeen.current = critTitlesNow;
+  }, [critTitlesNow.join("\u0001")]);
   const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted"
     || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
   // An order held for a doctor (the calculation or dosing weight moved, a
@@ -3003,6 +3034,14 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     showToast(RELEASE_BEHIND_TEXT, "error");
   };
 
+  // A reason Submit could not get: point at the box above Submit, where it can be typed.
+  const focusReasonBox = (id) => {
+    const el = typeof document !== "undefined" ? document.getElementById(id) : null;
+    if (!el) return;
+    if (typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" });
+    el.focus();
+  };
+
   const handleSave = async (asDraft = false) => {
     asDraft = asDraft === true;
     if (saving) return;
@@ -3025,22 +3064,32 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A Submit decided while the form's first read is still in flight goes unchecked; the
     // read is followed up once the save lands (warnIfSentBehind, Vera 2026-11-17).
     const releaseInFlight = !asDraft && !centerPoint && !!releaseRead.current.pending;
-    if (!asDraft && !centerPoint) {
-      let behind = releaseBehindForSubmit(setSaving);
-      if (behind !== true && behind !== false) behind = await behind;
-      if (behind) { refuseBehindRelease(); return; }
-    }
+    // The release is checked after the reason prompts below, never before them
+    // (2026-11-28, ward photo: a Submit with "TPN calc. weight far from automatic"
+    // showed only "ต้องระบุเหตุผลก่อน"). A read over a minute old is awaited, and
+    // iPhone Safari drops the tap's user gesture across that await: window.prompt
+    // then returns null without opening, which reads as a blank reason. Every
+    // prompt runs in the tap itself; the read comes just before the network call.
+    // A fresh or in-flight read answers at once (a boolean, no await), so the save call
+    // stays in the tap's tick; only an older read gives a promise to wait on.
+    const releaseRefuses = () => {
+      if (asDraft || centerPoint) return false;
+      const refuse = (behind) => { if (behind) refuseBehindRelease(); return !!behind; };
+      const behind = releaseBehindForSubmit(setSaving);
+      return behind === true || behind === false ? refuse(behind) : behind.then(refuse);
+    };
     // -- Sunday's length and HC (Pp, 2026-11-22), see growthStop --
     // Asked before anything is saved, a draft excepted. The reason is kept for
     // this visit, so a Submit a stop below refuses does not ask for it again.
     let growthSkipNew = null;
     if (!asDraft && growthStop) {
-      const reason = window.prompt(
+      const reason = growthReasonTyped.trim() || window.prompt(
         `วันอาทิตย์: ยังไม่มี ${growthMissingText}\n\n` +
         `ไปวัดแล้วกรอกที่หน้า Growth chart ก่อน (กด Cancel) หรือถ้าวันนี้วัดไม่ได้ ให้ระบุเหตุผล เช่น ไม่ stable, on HFOV, กำลังทำหัตถการ ` +
         `(เก็บไว้กับคำสั่งนี้ ไม่พิมพ์ลงใบสั่ง · ห้ามใส่ชื่อหรือ HN):`, "");
       if (reason == null || !String(reason).trim()) {
-        showToast(`ยังไม่ได้ Submit — วันอาทิตย์ต้องมี ${growthMissingText} หรือเหตุผลที่วัดไม่ได้`, "error");
+        showToast(`ยังไม่ได้ Submit — วันอาทิตย์ต้องมี ${growthMissingText} หรือเหตุผลที่วัดไม่ได้ (พิมพ์ในช่องเหตุผลเหนือปุ่ม Submit)`, "error");
+        focusReasonBox("growth-reason-input");
         return;
       }
       growthSkipNew = { reason: String(reason).trim().slice(0, 200), dol: growthNeed.dol, at: new Date().toISOString() };
@@ -3062,6 +3111,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A nurse locks nothing (gas-backend.gs publishDailyLog refuses her, N1).
     const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing && !growthSkipUnsaved) {
+      let stop = releaseRefuses();
+      if (stop !== true && stop !== false) stop = await stop;
+      if (stop) return;
       setSaving(true);
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -3169,23 +3221,13 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // A nurse never answers the critical-value prompt: her I/O save keeps the
     // doctor's confirmation as saved, and nurseSubmitRefused holds an order
     // with a critical value nobody confirmed (N1).
-    // A doctor's save that changes only I/O on a submitted order keeps its number
-    // and its author too (Pp, 2026-11-15; gas-backend.gs writes it from the
-    // stored row): the same order, on the same constants. Its critical values
-    // were confirmed when it was ordered, so the stored confirmation stands, as
-    // on a nurse's I/O save; asking again would make it a new version (Vera).
-    const sameOrderByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft
-      && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION
-      // The dosing weight moved after the save (a corrected birth weight): every per-kg figure is
-      // re-dosed while the inputs stay the same, so it is a new order and its critical values are
-      // asked again (code review, 2026-11-19: the old reason went out beside a GIR nobody confirmed).
-      && !dosingWeightChanged
-      && uncoveredCritical.length === 0;
+    // See sameOrderByDoctorNow and criticalToConfirm, worked out with the render.
+    const sameOrderByDoctor = !asDraft && sameOrderByDoctorNow;
     // A reason for Sunday's length and HC is part of the order (not IO_FREE_CALC_KEYS), so
     // giving one makes a revision; its figures are the ones confirmed, so the stored
     // confirmation stands and nothing is asked again (Vera, 2026-11-22).
     const ioOnlyByDoctor = sameOrderByDoctor && !growthSkipUnsaved;
-    const critical = asDraft || nurseIoOnly || sameOrderByDoctor ? [] : sortClinicalAlerts(alerts).filter(a => a.level === "crit" && !a.noReason);
+    const critical = asDraft ? [] : criticalToConfirm;
     let override = (nurseIoOnly || sameOrderByDoctor) && !asDraft ? critOverride : null;
     if (critical.length > 0) {
       // The reason prints on the pharmacy form (and, on Center Point, goes
@@ -3193,14 +3235,21 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       // prompts say to keep names and HNs out of it (SEC-F7). It asks
       // "ยืนยันการสั่งหรือไม่?" in the TPN team's words (2026-09-22); a reason is
       // still what confirms, so the stop cannot be cleared with one tap.
-      const reason = window.prompt(
+      const reason = critReasonTyped.trim() || window.prompt(
         `มีค่าวิกฤต ${critical.length} รายการ:\n• ${critical.map(a => a.title).join("\n• ")}\n\n` +
         `ยืนยันการสั่งหรือไม่? — แพทย์ยืนยันคำสั่งโดยระบุเหตุผลทางคลินิก (จะพิมพ์ลงใบสั่ง TPN · ห้ามใส่ชื่อหรือ HN):`, "");
       if (reason == null || !String(reason).trim()) {
-        showToast("ยังไม่ได้บันทึก — มีค่าวิกฤต ต้องระบุเหตุผลก่อน", "error");
+        showToast("ยังไม่ได้บันทึก — มีค่าวิกฤต ต้องระบุเหตุผลก่อน (พิมพ์ในช่องเหตุผลเหนือปุ่ม Submit)", "error");
+        focusReasonBox("crit-reason-input");
         return;
       }
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map(a => a.title), at: new Date().toISOString() };
+    }
+    // Every prompt has been answered in the tap; only now may the release read be awaited.
+    {
+      let stop = releaseRefuses();
+      if (stop !== true && stop !== false) stop = await stop;
+      if (stop) return;
     }
     const keyAtSave = formKey;
     // A nurse's save on an order another account owns: by now it is I/O only.
@@ -3373,6 +3422,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!ioOnlyOnOthers) {
       setCritOverride(override);
       setSavedGrowthSkip(growthSkipSent);
+      setCritReasonTyped(""); setGrowthReasonTyped("");
       setSavedDosingWt({ g: dosingWtAtSave, exact: true });
       setSavedCalcVersion(D.CONSTANTS_VERSION);
       setSavedFiguresV(figures ? figures.v : null);
@@ -5008,6 +5058,17 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <div className="growth-gate" role="alert" style={{ fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
                 วันอาทิตย์ยังไม่มี {growthMissingText} — {nurseAccount ? "พิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart"
                   : "Submit และพิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart หรือระบุเหตุผลที่วัดไม่ได้ตอนกด Submit"}
+                {!nurseAccount && !ordersReadOnly && (
+                  <div style={{ marginTop: 4 }}>
+                    <label htmlFor="growth-reason-input" style={{ display: "block", fontWeight: 600, marginBottom: 2 }}>
+                      เหตุผลที่วันนี้วัดไม่ได้ (เก็บไว้กับคำสั่ง ไม่พิมพ์ลงใบสั่ง · ห้ามใส่ชื่อหรือ HN)
+                    </label>
+                    <textarea id="growth-reason-input" className="growth-reason-input" rows={2} maxLength={200}
+                      value={growthReasonTyped} onChange={(e) => setGrowthReasonTyped(e.target.value)}
+                      placeholder="เช่น ไม่ stable, on HFOV, กำลังทำหัตถการ"
+                      style={{ width: "100%", boxSizing: "border-box", fontSize: 16, fontWeight: 400, color: "var(--ink, #000)" }} />
+                  </div>
+                )}
                 {onOpenGrowth && (
                   <div style={{ marginTop: 4 }}>
                     <button type="button" className="btn" style={{ minHeight: 36 }} onClick={onOpenGrowth}>ไปกรอก Length / HC</button>
@@ -5062,6 +5123,20 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
             {isDraftSaved && !dirty && (
               <div className="draft-note" style={{ fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 }}>
                 ● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit
+              </div>
+            )}
+            {/* The critical-value reason, typed in the page (2026-11-28): Submit uses it
+                instead of window.prompt, which iPhone Safari on the ward did not open. */}
+            {!scratch && !ordersReadOnly && !nurseAccount && criticalToConfirm.length > 0 && (
+              <div className="crit-reason-box" style={{ border: "1px solid var(--crit-line)", borderRadius: 6, padding: "6px 8px", marginBottom: 8 }}>
+                <label htmlFor="crit-reason-input" style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--crit)", marginBottom: 4, lineHeight: 1.4 }}>
+                  เหตุผลยืนยันค่าวิกฤต: {critTitlesNow.join(" · ")}
+                  <span style={{ display: "block", fontWeight: 400 }}>พิมพ์ลงใบสั่ง TPN · ห้ามใส่ชื่อหรือ HN</span>
+                </label>
+                <textarea id="crit-reason-input" className="crit-reason-input" rows={2} maxLength={300}
+                  value={critReasonTyped} onChange={(e) => setCritReasonTyped(e.target.value)}
+                  placeholder="เหตุผลทางคลินิก เช่น hydrops ใช้ dry weight"
+                  style={{ width: "100%", boxSizing: "border-box", fontSize: 16 }} />
               </div>
             )}
             {/* Save draft: keep an incomplete order (Praew, 2026-09-23). Not on

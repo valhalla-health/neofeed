@@ -7,6 +7,62 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-28 (3) — The box shows the lines Submit confirms (Vera's second run)
+
+`calculator.jsx` (`sameOrderByDoctorNow`, `criticalToConfirm`), `test/verify-stale-tab-1117.cjs` § 5.
+
+- **Vera on (2): NO BLOCK, one 🟠.** The box was built from `uncoveredCritical` (lines the saved reason does not
+  name), while Submit asks for every red line unless the order is unchanged. A revision of an order already
+  confirmed (an edit, a moved calculation, a changed dosing weight) hid the box and still asked, so on the ward's
+  iPhone the revision could not go. Both now read one list, `criticalToConfirm`, worked out with the render:
+  the box shows exactly when Submit asks, and names the lines it confirms.
+- **Her 🟡.** A reason typed for some lines no longer confirms a line that appears after it: the box empties
+  when a new line joins.
+- **Tests.** § 5 revises the confirmed order (TPN volume 100 → 96) with a prompt that never opens: the box shows
+  again and the revision goes with the new reason. It fails 3 checks on 81bffc3; 91 passed with the fix. Growth
+  gate 98, calc clicks 268, bed-DOL-I/O 85, publish lock 76, print holds 18, dosing weight 57, review-0917 calc
+  125, Center Point entry 68, TPN answers 71, clinical rules 1243, incident gaps 60, hardening 219: all pass.
+
+## Session 2026-11-28 (2) — The reason box above Submit
+
+`calculator.jsx` (two boxes, `handleSave`), `test/verify-stale-tab-1117.cjs` § 5, `test/verify-growth-gate-1122.cjs`
+(`safari`, `reason box`).
+
+- **(1) was not enough on the ward.** Pp tried a second Submit within the minute, as (1) said would work, and it
+  still showed "ต้องระบุเหตุผลก่อน". That iPhone opened no `window.prompt` at all, inside the tap or not, so (1)'s
+  claim that "a second Submit within the minute worked" is wrong for it.
+- **The fix.** A box above Submit takes the critical-value reason whenever a red line that needs one is on screen
+  (`.crit-reason-box`, the lines named, "พิมพ์ลงใบสั่ง TPN · ห้ามใส่ชื่อหรือ HN", 300 characters), and the Sunday
+  held line takes the growth reason the same way (`.growth-reason-input`, 200, not printed). Submit uses a typed
+  reason as it stands and asks nothing; with the box empty it still asks with `window.prompt`, so a PC works as
+  before. When no reason comes back, the toast says to type it in the box, and the box takes the focus. A doctor's
+  account only: a nurse never answers either. The saved reason and its printing are unchanged.
+- **Vera on (1):** NO BLOCK. Her 🟡 (the Sunday prompt's new place had no test) is the `safari` scenario, which
+  fails 2 checks on `main` `59d17ad`. Her 🟠 (no harness reaches the lock-only branch's release check) is not
+  added: such a test passes on `main` too, so by REFERENCE.md § Pre-PR review rule 5 it stays out.
+- **Tests.** Stale tab 88 passed; growth gate 98 passed; calc clicks 268 passed.
+
+## Session 2026-11-28 — The critical-value reason is asked before the release read (iPhone)
+
+`calculator.jsx` (`handleSave`), `test/verify-stale-tab-1117.cjs` § 5.
+
+- **What the ward saw (photo, 2026-11-28 09:38).** A doctor on iPhone Safari typed a TPN calc. weight of
+  1800 g against an automatic 2435 g (−26 %). Submit showed only the toast "ยังไม่ได้บันทึก — มีค่าวิกฤต
+  ต้องระบุเหตุผลก่อน"; the box for the reason never opened, so the order could not be submitted.
+- **Why.** Since the stale-tab check (2026-11-17), Submit reads `compiled/tpn-room-version.js` again when the
+  last read is over a minute old, and it awaited that read at the top of `handleSave`, before the Sunday
+  growth prompt and the critical-value prompt. iPhone Safari drops the tap's user gesture across the
+  await, and `window.prompt` then returns `null` without opening, which the code reads as a blank reason.
+  Any form filled in for more than a minute hit it, with any red line that needs a reason. A second
+  Submit within the minute worked, because the read was fresh by then.
+- **The fix.** Both prompts run in the tap itself; the release read comes after them, just before the save
+  (and before the lock on a settled order). A fresh or in-flight read still answers without an await, so
+  the save call stays in the tap's tick (`verify-bed-dol-io`). A tab behind the release is still refused,
+  after the reason is typed. No figure, rule or printed line moves; `CONSTANTS_VERSION` stays.
+- **Tests.** `verify-stale-tab-1117.cjs` § 5 stands in for Safari: a prompt asked after a read went out in
+  the same tap returns `null`. On `main` `59d17ad` it fails 5 checks (the reason asked after the read, no
+  order, the toast); with the fix, 78 passed, 0 failed.
+
 ## Session 2026-11-27 (15) — The MyBreastmilk push: the third re-check
 
 `gas-backend.gs` (§ MyBreastmilk push), `test/verify-mybm-push-1127.cjs`, `test/mutate-mybm-push.cjs`, `REFERENCE.md`.

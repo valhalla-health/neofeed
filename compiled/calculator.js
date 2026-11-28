@@ -792,6 +792,8 @@ function Calculator({
   const [critOverride, setCritOverride] = useState(editEntry?.calcInput?.critOverride || null);
   const [savedGrowthSkip, setSavedGrowthSkip] = useState(editEntry?.calcInput?.growthSkip || null);
   const [growthSkipTyped, setGrowthSkipTyped] = useState(null);
+  const [critReasonTyped, setCritReasonTyped] = useState("");
+  const [growthReasonTyped, setGrowthReasonTyped] = useState("");
   const [draftOffer, setDraftOffer] = useState(null);
   const [savedDosingWt, setSavedDosingWt] = useState(null);
   const [savedCalcVersion, setSavedCalcVersion] = useState(null);
@@ -934,6 +936,8 @@ function Calculator({
     setCritOverride(editEntry?.calcInput?.critOverride || null);
     setSavedGrowthSkip(editEntry?.calcInput?.growthSkip || null);
     setGrowthSkipTyped(null);
+    setCritReasonTyped("");
+    setGrowthReasonTyped("");
     setSavedMeta(editEntry ? {
       by: savedByOf(editEntry),
       at: editEntry.calcInput?.orderAt || editEntry.lastModified || "",
@@ -1834,6 +1838,14 @@ function Calculator({
   const printBlockMessage = (before) => pendingSave ? `รายการนี้ยังบันทึกไม่เสร็จ (กำลังบันทึก…) — รอสักครู่แล้วเปิดใหม่${before}` : isDraftSaved && !dirty ? `เป็นแบบร่าง — กรอกให้ครบทุกช่องแล้วกด Submit${before}` : routeMissing ? `ยังไม่ได้เลือก route ของ TPN — เลือกที่ Step 3 แล้วบันทึก${before}` : noTpnUnticked ? `คำสั่งนี้ไม่มี TPN — ติ๊ก "No TPN" ที่ Step 3 แล้วบันทึก${before}` : zeroVolumeBag ? `${zeroVolumeText} แล้วบันทึก${before}` : kOverMax ? `${kOverMaxText} แล้วบันทึก${before}` : bagCannotBeMade ? `${bagCannotBeMadeText} แล้วบันทึก${before}` : stockAtZeroMl ? `${stockAtZeroMlText} แล้วบันทึก${before}` : feedsIrregular ? `${feedsIrregularText} แล้วบันทึก${before}` : feedsOverMax ? `${feedsOverMaxText} แล้วบันทึก${before}` : feedUnknown ? `${feedUnknownText} แล้วบันทึก${before}` : tpnWtOutOfRange ? `${tpnWtOutOfRangeText} แล้วบันทึก${before}` : dirty ? `มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึก${before}` : dosingWeightChanged ? `น้ำหนักที่ใช้คำนวณเปลี่ยนไปหลังบันทึก (birth weight แก้ไข) — ตรวจสอบและบันทึกใหม่${before}` : calcMoved ? `NeoFeed ปรับการคำนวณหลังคำสั่งนี้ถูกบันทึก — ตัวเลขบางรายการเปลี่ยน ตรวจสอบและบันทึกใหม่${before}` : uncoveredCritical.length > 0 ? `มีค่าวิกฤตที่ยังไม่ได้ระบุเหตุผล — บันทึกพร้อมเหตุผล${before}` : "";
   const printBlockToast = testOrder ? TEST_NO_PRINT_TEXT : openOrderGone ? OPEN_ORDER_GONE_TEXT : releaseHoldsPrint ? RELEASE_PRINT_TEXT : !printable ? printBlockMessage("ก่อนพิมพ์") : growthHeldForPrint ? growthPrintText : unackedRed.length > 0 ? printAckText : "";
   const nurseIoOnly = nurseAccount && !ordersReadOnly && !scratch && !centerPoint;
+  const sameOrderByDoctorNow = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION && !dosingWeightChanged && uncoveredCritical.length === 0;
+  const criticalToConfirm = nurseIoOnly || sameOrderByDoctorNow ? [] : sortClinicalAlerts(alerts).filter((a) => a.level === "crit" && !a.noReason);
+  const critTitlesSeen = React.useRef([]);
+  const critTitlesNow = criticalToConfirm.map((a) => a.title);
+  React.useEffect(() => {
+    if (critTitlesNow.some((t) => !critTitlesSeen.current.includes(t))) setCritReasonTyped("");
+    critTitlesSeen.current = critTitlesNow;
+  }, [critTitlesNow.join("")]);
   const nurseSubmitRefused = nurseIoOnly && (!savedEntryId || pendingSave || savedStatus !== "submitted" || savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
   const nurseHeldOrder = nurseIoOnly && savedStatus === "submitted" && !!savedEntryId && (calcMoved || dosingWeightChanged || uncoveredCritical.length > 0 || figuresMissing);
   const nurseDraftRefused = nurseIoOnly && !!savedEntryId && savedStatus === "draft" && !!savedSaver && savedSaver !== draftOwner && (savedOrderKey === null || orderKeyWithoutIo(liveInputs) !== savedOrderKey);
@@ -1959,6 +1971,12 @@ function Calculator({
     setReleaseBehind({ on: "submit", draft: !!dirty });
     showToast(RELEASE_BEHIND_TEXT, "error");
   };
+  const focusReasonBox = (id) => {
+    const el = typeof document !== "undefined" ? document.getElementById(id) : null;
+    if (!el) return;
+    if (typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" });
+    el.focus();
+  };
   const handleSave = async (asDraft = false) => {
     asDraft = asDraft === true;
     if (saving) return;
@@ -1973,24 +1991,26 @@ function Calculator({
       return;
     }
     const releaseInFlight = !asDraft && !centerPoint && !!releaseRead.current.pending;
-    if (!asDraft && !centerPoint) {
-      let behind = releaseBehindForSubmit(setSaving);
-      if (behind !== true && behind !== false) behind = await behind;
-      if (behind) {
-        refuseBehindRelease();
-        return;
-      }
-    }
+    const releaseRefuses = () => {
+      if (asDraft || centerPoint) return false;
+      const refuse = (behind2) => {
+        if (behind2) refuseBehindRelease();
+        return !!behind2;
+      };
+      const behind = releaseBehindForSubmit(setSaving);
+      return behind === true || behind === false ? refuse(behind) : behind.then(refuse);
+    };
     let growthSkipNew = null;
     if (!asDraft && growthStop) {
-      const reason = window.prompt(
+      const reason = growthReasonTyped.trim() || window.prompt(
         `วันอาทิตย์: ยังไม่มี ${growthMissingText}
 
 ไปวัดแล้วกรอกที่หน้า Growth chart ก่อน (กด Cancel) หรือถ้าวันนี้วัดไม่ได้ ให้ระบุเหตุผล เช่น ไม่ stable, on HFOV, กำลังทำหัตถการ (เก็บไว้กับคำสั่งนี้ ไม่พิมพ์ลงใบสั่ง · ห้ามใส่ชื่อหรือ HN):`,
         ""
       );
       if (reason == null || !String(reason).trim()) {
-        showToast(`ยังไม่ได้ Submit — วันอาทิตย์ต้องมี ${growthMissingText} หรือเหตุผลที่วัดไม่ได้`, "error");
+        showToast(`ยังไม่ได้ Submit — วันอาทิตย์ต้องมี ${growthMissingText} หรือเหตุผลที่วัดไม่ได้ (พิมพ์ในช่องเหตุผลเหนือปุ่ม Submit)`, "error");
+        focusReasonBox("growth-reason-input");
         return;
       }
       growthSkipNew = { reason: String(reason).trim().slice(0, 200), dol: growthNeed.dol, at: (/* @__PURE__ */ new Date()).toISOString() };
@@ -2000,6 +2020,9 @@ function Calculator({
     const growthSkipUnsaved = growthSkipSent !== savedGrowthSkip;
     const lockFirst = !asDraft && !centerPoint && !nurseIoOnly && !!onPublish && !!savedEntryId && savedStatus === "submitted" && !published;
     if (lockFirst && !dirty && orderSettled && !figuresMissing && !growthSkipUnsaved) {
+      let stop = releaseRefuses();
+      if (stop !== true && stop !== false) stop = await stop;
+      if (stop) return;
       setSaving(true);
       const res2 = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
@@ -2081,12 +2104,12 @@ function Calculator({
       showToast(feedUnknownText, "error");
       return;
     }
-    const sameOrderByDoctor = !nurseIoOnly && !!savedEntryId && (savedStatus === "submitted" || published) && !asDraft && savedOrderKey !== null && orderKeyWithoutIo(liveInputs) === savedOrderKey && savedCalcVersion === D.CONSTANTS_VERSION && !dosingWeightChanged && uncoveredCritical.length === 0;
+    const sameOrderByDoctor = !asDraft && sameOrderByDoctorNow;
     const ioOnlyByDoctor = sameOrderByDoctor && !growthSkipUnsaved;
-    const critical = asDraft || nurseIoOnly || sameOrderByDoctor ? [] : sortClinicalAlerts(alerts).filter((a) => a.level === "crit" && !a.noReason);
+    const critical = asDraft ? [] : criticalToConfirm;
     let override = (nurseIoOnly || sameOrderByDoctor) && !asDraft ? critOverride : null;
     if (critical.length > 0) {
-      const reason = window.prompt(
+      const reason = critReasonTyped.trim() || window.prompt(
         `มีค่าวิกฤต ${critical.length} รายการ:
 • ${critical.map((a) => a.title).join("\n• ")}
 
@@ -2094,10 +2117,16 @@ function Calculator({
         ""
       );
       if (reason == null || !String(reason).trim()) {
-        showToast("ยังไม่ได้บันทึก — มีค่าวิกฤต ต้องระบุเหตุผลก่อน", "error");
+        showToast("ยังไม่ได้บันทึก — มีค่าวิกฤต ต้องระบุเหตุผลก่อน (พิมพ์ในช่องเหตุผลเหนือปุ่ม Submit)", "error");
+        focusReasonBox("crit-reason-input");
         return;
       }
       override = { reason: String(reason).trim().slice(0, 300), alerts: critical.map((a) => a.title), at: (/* @__PURE__ */ new Date()).toISOString() };
+    }
+    {
+      let stop = releaseRefuses();
+      if (stop !== true && stop !== false) stop = await stop;
+      if (stop) return;
     }
     const keyAtSave = formKey;
     const ioOnlyOnOthers = nurseIoOnly && !!savedEntryId && !!savedSaver && savedSaver !== draftOwner;
@@ -2302,6 +2331,8 @@ function Calculator({
     if (!ioOnlyOnOthers) {
       setCritOverride(override);
       setSavedGrowthSkip(growthSkipSent);
+      setCritReasonTyped("");
+      setGrowthReasonTyped("");
       setSavedDosingWt({ g: dosingWtAtSave, exact: true });
       setSavedCalcVersion(D.CONSTANTS_VERSION);
       setSavedFiguresV(figures ? figures.v : null);
@@ -3283,7 +3314,31 @@ function Calculator({
       `══ NeoFeed · Calculator · ESPGHAN 2018/2022 · ไม่ได้บันทึก ══`
     ].filter((l) => l !== "").join("\n");
     navigator.clipboard.writeText(lines).then(() => showToast("คัดลอกผลคำนวณแล้ว")).catch(() => showToast("Copy failed — try again"));
-  } }, "คัดลอกผลคำนวณ"), missingFields.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 } }, "ยังกรอกไม่ครบ (", missingFields.length, ") — ต้องกรอกทุกช่องใน Step 1", centerPoint ? "" : " และ Intake / Output", " ก่อน", centerPoint ? "บันทึก" : " Submit (บันทึกร่างไว้ก่อนได้)", ":", /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, missingFields.map((f) => f.label).join(" · "))), routeMissing && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "route-missing-save", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, routeMissingText), noTpnUnticked && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "no-tpn-unticked", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, noTpnUntickedText), growthNeed && (growthHeldForPrint && !growthSkipShown ? /* @__PURE__ */ React.createElement("div", { className: "growth-gate", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "วันอาทิตย์ยังไม่มี ", growthMissingText, " — ", nurseAccount ? "พิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart" : "Submit และพิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart หรือระบุเหตุผลที่วัดไม่ได้ตอนกด Submit", onOpenGrowth && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4 } }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", style: { minHeight: 36 }, onClick: onOpenGrowth }, "ไปกรอก Length / HC"))) : growthSkipShown ? /* @__PURE__ */ React.createElement("div", { className: "growth-gate-skip", role: "note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "วันนี้ไม่ได้วัด ", growthMissingText, ": ", growthSkipShown.reason, growthSkipShown !== savedGrowthSkip ? " (ยังไม่ได้บันทึก)" : "") : null), zeroVolumeBag && /* @__PURE__ */ React.createElement("div", { className: "zero-volume-bag", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, zeroVolumeText, " — บันทึก/พิมพ์ไม่ได้"), kOverMax && /* @__PURE__ */ React.createElement("div", { className: "k-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, kOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), bagCannotBeMade && /* @__PURE__ */ React.createElement("div", { className: "bag-cannot-be-made", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, bagCannotBeMadeText, " — บันทึก/พิมพ์ไม่ได้"), stockAtZeroMl && /* @__PURE__ */ React.createElement("div", { className: "stock-at-zero-ml", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, stockAtZeroMlText, " — บันทึก/พิมพ์ไม่ได้"), feedsIrregular && /* @__PURE__ */ React.createElement("div", { className: "feeds-irregular", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedsIrregularText, " — บันทึก/พิมพ์ไม่ได้"), feedsOverMax && /* @__PURE__ */ React.createElement("div", { className: "feeds-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedsOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), feedUnknown && /* @__PURE__ */ React.createElement("div", { className: "feed-unknown", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedUnknownText, " — บันทึก/พิมพ์ไม่ได้"), tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "tpn-wt-out-of-range", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, tpnWtOutOfRangeText, " — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)"), isDraftSaved && !dirty && /* @__PURE__ */ React.createElement("div", { className: "draft-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit"), !scratch && !centerPoint && !ordersReadOnly && /* @__PURE__ */ React.createElement(
+  } }, "คัดลอกผลคำนวณ"), missingFields.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--crit)", marginBottom: 8, lineHeight: 1.5 } }, "ยังกรอกไม่ครบ (", missingFields.length, ") — ต้องกรอกทุกช่องใน Step 1", centerPoint ? "" : " และ Intake / Output", " ก่อน", centerPoint ? "บันทึก" : " Submit (บันทึกร่างไว้ก่อนได้)", ":", /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600 } }, missingFields.map((f) => f.label).join(" · "))), routeMissing && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "route-missing-save", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, routeMissingText), noTpnUnticked && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { className: "no-tpn-unticked", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, noTpnUntickedText), growthNeed && (growthHeldForPrint && !growthSkipShown ? /* @__PURE__ */ React.createElement("div", { className: "growth-gate", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "วันอาทิตย์ยังไม่มี ", growthMissingText, " — ", nurseAccount ? "พิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart" : "Submit และพิมพ์ไม่ได้จนกว่าจะกรอกที่หน้า Growth chart หรือระบุเหตุผลที่วัดไม่ได้ตอนกด Submit", !nurseAccount && !ordersReadOnly && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4 } }, /* @__PURE__ */ React.createElement("label", { htmlFor: "growth-reason-input", style: { display: "block", fontWeight: 600, marginBottom: 2 } }, "เหตุผลที่วันนี้วัดไม่ได้ (เก็บไว้กับคำสั่ง ไม่พิมพ์ลงใบสั่ง · ห้ามใส่ชื่อหรือ HN)"), /* @__PURE__ */ React.createElement(
+    "textarea",
+    {
+      id: "growth-reason-input",
+      className: "growth-reason-input",
+      rows: 2,
+      maxLength: 200,
+      value: growthReasonTyped,
+      onChange: (e) => setGrowthReasonTyped(e.target.value),
+      placeholder: "เช่น ไม่ stable, on HFOV, กำลังทำหัตถการ",
+      style: { width: "100%", boxSizing: "border-box", fontSize: 16, fontWeight: 400, color: "var(--ink, #000)" }
+    }
+  )), onOpenGrowth && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4 } }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", style: { minHeight: 36 }, onClick: onOpenGrowth }, "ไปกรอก Length / HC"))) : growthSkipShown ? /* @__PURE__ */ React.createElement("div", { className: "growth-gate-skip", role: "note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, "วันนี้ไม่ได้วัด ", growthMissingText, ": ", growthSkipShown.reason, growthSkipShown !== savedGrowthSkip ? " (ยังไม่ได้บันทึก)" : "") : null), zeroVolumeBag && /* @__PURE__ */ React.createElement("div", { className: "zero-volume-bag", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, zeroVolumeText, " — บันทึก/พิมพ์ไม่ได้"), kOverMax && /* @__PURE__ */ React.createElement("div", { className: "k-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, kOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), bagCannotBeMade && /* @__PURE__ */ React.createElement("div", { className: "bag-cannot-be-made", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, bagCannotBeMadeText, " — บันทึก/พิมพ์ไม่ได้"), stockAtZeroMl && /* @__PURE__ */ React.createElement("div", { className: "stock-at-zero-ml", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, stockAtZeroMlText, " — บันทึก/พิมพ์ไม่ได้"), feedsIrregular && /* @__PURE__ */ React.createElement("div", { className: "feeds-irregular", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedsIrregularText, " — บันทึก/พิมพ์ไม่ได้"), feedsOverMax && /* @__PURE__ */ React.createElement("div", { className: "feeds-over-max", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedsOverMaxText, " — บันทึก/พิมพ์ไม่ได้"), feedUnknown && /* @__PURE__ */ React.createElement("div", { className: "feed-unknown", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, feedUnknownText, " — บันทึก/พิมพ์ไม่ได้"), tpnWtOutOfRange && /* @__PURE__ */ React.createElement("div", { className: "tpn-wt-out-of-range", role: "alert", style: { fontSize: 11.5, color: "var(--crit)", fontWeight: 600, marginBottom: 8, lineHeight: 1.5 } }, tpnWtOutOfRangeText, " — บันทึก/พิมพ์ไม่ได้ (รวมแบบร่าง)"), isDraftSaved && !dirty && /* @__PURE__ */ React.createElement("div", { className: "draft-note", style: { fontSize: 11.5, color: "var(--warn-ink)", fontWeight: 600, marginBottom: 8 } }, "● บันทึกเป็นแบบร่าง — ยังพิมพ์ไม่ได้ จนกว่าจะกรอกครบและกด Submit"), !scratch && !ordersReadOnly && !nurseAccount && criticalToConfirm.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "crit-reason-box", style: { border: "1px solid var(--crit-line)", borderRadius: 6, padding: "6px 8px", marginBottom: 8 } }, /* @__PURE__ */ React.createElement("label", { htmlFor: "crit-reason-input", style: { display: "block", fontSize: 12, fontWeight: 600, color: "var(--crit)", marginBottom: 4, lineHeight: 1.4 } }, "เหตุผลยืนยันค่าวิกฤต: ", critTitlesNow.join(" · "), /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontWeight: 400 } }, "พิมพ์ลงใบสั่ง TPN · ห้ามใส่ชื่อหรือ HN")), /* @__PURE__ */ React.createElement(
+    "textarea",
+    {
+      id: "crit-reason-input",
+      className: "crit-reason-input",
+      rows: 2,
+      maxLength: 300,
+      value: critReasonTyped,
+      onChange: (e) => setCritReasonTyped(e.target.value),
+      placeholder: "เหตุผลทางคลินิก เช่น hydrops ใช้ dry weight",
+      style: { width: "100%", boxSizing: "border-box", fontSize: 16 }
+    }
+  )), !scratch && !centerPoint && !ordersReadOnly && /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "btn save-draft",
