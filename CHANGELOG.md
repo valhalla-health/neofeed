@@ -7,6 +7,25 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-28 (2) — The reason box above Submit
+
+`calculator.jsx` (two boxes, `handleSave`), `test/verify-stale-tab-1117.cjs` § 5, `test/verify-growth-gate-1122.cjs`
+(`safari`, `reason box`).
+
+- **(1) was not enough on the ward.** Pp tried a second Submit within the minute, as (1) said would work, and it
+  still showed "ต้องระบุเหตุผลก่อน". That iPhone opened no `window.prompt` at all, inside the tap or not, so (1)'s
+  claim that "a second Submit within the minute worked" is wrong for it.
+- **The fix.** A box above Submit takes the critical-value reason whenever a red line that needs one is on screen
+  (`.crit-reason-box`, the lines named, "พิมพ์ลงใบสั่ง TPN · ห้ามใส่ชื่อหรือ HN", 300 characters), and the Sunday
+  held line takes the growth reason the same way (`.growth-reason-input`, 200, not printed). Submit uses a typed
+  reason as it stands and asks nothing; with the box empty it still asks with `window.prompt`, so a PC works as
+  before. When no reason comes back, the toast says to type it in the box, and the box takes the focus. A doctor's
+  account only: a nurse never answers either. The saved reason and its printing are unchanged.
+- **Vera on (1):** NO BLOCK. Her 🟡 (the Sunday prompt's new place had no test) is the `safari` scenario, which
+  fails 2 checks on `main` `59d17ad`. Her 🟠 (no harness reaches the lock-only branch's release check) is not
+  added: such a test passes on `main` too, so by REFERENCE.md § Pre-PR review rule 5 it stays out.
+- **Tests.** Stale tab 88 passed; growth gate 98 passed; calc clicks 268 passed.
+
 ## Session 2026-11-28 — The critical-value reason is asked before the release read (iPhone)
 
 `calculator.jsx` (`handleSave`), `test/verify-stale-tab-1117.cjs` § 5.

@@ -233,6 +233,47 @@ runScenarios(__filename, 'GROWTH GATE ON THE TPN ORDER (2026-11-22)', {
     A.eq('…and nothing asks again', t.asked.length, asked);
   },
 
+  async 'safari'(A) {
+    // 2026-11-28 (ward photo): iPhone Safari drops the tap's user gesture across an await, and
+    // window.prompt then returns null without opening. Submit used to await the release read
+    // (when the last one was over a minute old) before this prompt. This stub behaves like
+    // Safari: asked after the version file was read in the same tap, it returns null.
+    console.log('\n── a Sunday on iPhone Safari: the reason is asked before the release read ──');
+    let reads = 0, readsAtTap = 0;
+    const t = await setup({ prompt: () => (reads > readsAtTap ? null : 'on HFOV') });
+    const appFetch = global.fetch;
+    t.window.fetch = global.fetch = (url, opts) => {
+      if (/tpn-room-version/.test(String(url))) { reads++; return Promise.reject(new TypeError('Failed to fetch')); }
+      return appFetch(url, opts);
+    };
+    try {
+      await t.openFromList('AA');
+      t.clock.advance(61 * 1000);   // the form's first read is now over a minute old
+      readsAtTap = reads;
+      await t.submit();
+      A.eq('Submit asks once', t.asked.length, 1);
+      A.ok('…and the release is read again, after the prompt', reads > readsAtTap, { reads, readsAtTap });
+      A.eq('the save went with the reason', t.updates()[0]?.entry?.calcInput?.growthSkip?.reason, 'on HFOV');
+      A.ok('…and no "วันอาทิตย์ต้องมี" toast', !t.toasts().some(m => /ยังไม่ได้ Submit — วันอาทิตย์ต้องมี/.test(m)));
+    } finally { t.window.fetch = global.fetch = appFetch; }
+  },
+
+  async 'reason box'(A) {
+    // The ward's iPhone opened no window.prompt at all (2026-11-28): the reason goes in the page.
+    console.log('\n── a Sunday: the reason typed in the box above Submit, no prompt ──');
+    const t = await setup({ prompt: () => null });
+    await t.openFromList('AA');
+    const box = () => t.window.document.querySelector('textarea.growth-reason-input');
+    A.ok('the held line offers a box for the reason', !!box());
+    const taSetter = Object.getOwnPropertyDescriptor(t.window.HTMLTextAreaElement.prototype, 'value').set;
+    taSetter.call(box(), 'on HFOV');
+    box().dispatchEvent(new t.window.Event('input', { bubbles: true }));
+    await t.settle();
+    await t.submit();
+    A.eq('no prompt', t.asked.length, 0);
+    A.eq('the save went with the reason', t.updates()[0]?.entry?.calcInput?.growthSkip?.reason, 'on HFOV');
+  },
+
   async 'values'(A) {
     console.log('\n── a Sunday: the values go in ──');
     const t = await setup();

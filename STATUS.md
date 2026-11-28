@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> 📝 **2026-11-28 — On iPhone Safari, a Submit with a red line that needs a reason (e.g. "TPN calc. weight far from automatic") showed only "ต้องระบุเหตุผลก่อน" and never opened the reason box, whenever the form had been open over a minute: the reason is now asked before the release read is awaited. Not merged.** Frontend only; no figure moves, `CONSTANTS_VERSION` stays. Until it is live, a second Submit within a minute of the first opens the box. `CHANGELOG.md` 2026-11-28.
+> 📝 **2026-11-28 — On iPhone Safari, a Submit with a red line that needs a reason (e.g. "TPN calc. weight far from automatic") showed only "ต้องระบุเหตุผลก่อน" and never opened the reason box, and on the ward's iPhone no `window.prompt` opened at all: a box above Submit now takes the critical-value reason (and Sunday's growth reason), and the prompt, when still used, comes before the release read. Not merged.** Frontend only; no figure moves, `CONSTANTS_VERSION` stays. Until it is live, Submit such an order from a PC. `CHANGELOG.md` 2026-11-28 and 2026-11-28 (2).
 
 > 📝 **2026-11-27 — The MyBreastmilk push: a time trigger sends MyBM, twice a day, each linked infant's weights and the feeds of the current order, signed, with no sessionId, name or DOB; off until the Script Property `MYBM_PUSH_ENABLED` is `true`: PR #313, merged into `main` on Praew's instruction.** Backend only, no figure moves, `CONSTANTS_VERSION` stays. Switching it on is Pp's, after the DPO's paper and the steps in `REFERENCE.md` § MyBreastmilk push. `CHANGELOG.md` 2026-11-27.
 

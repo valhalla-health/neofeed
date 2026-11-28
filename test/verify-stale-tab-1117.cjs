@@ -403,6 +403,30 @@ section('§4 the real calculator: the form reads the served release when it open
       ok('another release since: the reason is asked in the tap', asked.length === 1 && asked[0].afterRead === false, asked);
       eq('…and the release read still stops the Submit', logged.length, 0);
       ok('…with the banner', !!banner() && /ยังไม่ถึงห้อง TPN/.test(banner().textContent), banner() && banner().textContent);
+
+      // The ward then found a second Submit did not help either: this iPhone opened no
+      // window.prompt at all. The reason box above Submit takes the reason in the page.
+      window.prompt = (msg) => { asked.push({ msg: String(msg), afterRead: false }); return null; };
+      served.mode = 'same';
+      mountFilled(); logged.length = 0; asked.length = 0; toasts.length = 0;
+      setField('TPN calc. weight', 950);
+      await tick();
+      const box = () => container.querySelector('textarea.crit-reason-input');
+      ok('a red line that needs a reason shows the reason box above Submit', !!box());
+      ok('…naming the line', /TPN calc\. weight far from automatic/.test(container.querySelector('.crit-reason-box')?.textContent || ''));
+      await clickAsync(submitBtn());
+      eq('a prompt that never opens, box empty: nothing saved', logged.length, 0);
+      ok('…and the toast points at the box', toasts.some((t) => /ต้องระบุเหตุผลก่อน/.test(t.msg) && /ช่องเหตุผลเหนือปุ่ม Submit/.test(t.msg)), toasts);
+      ok('…which has the focus', document.activeElement === box());
+      const taSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+      act(() => { taSetter.call(box(), '  hydrops, dry weight  '); box().dispatchEvent(new window.Event('input', { bubbles: true })); });
+      asked.length = 0;
+      await clickAsync(submitBtn());
+      eq('the reason typed in the box: no prompt', asked.length, 0);
+      eq('…the order is submitted', logged.map((e) => e.status), ['submitted']);
+      eq('…with that reason, trimmed, which prints', logged[0]?.calcInput?.critOverride?.reason, 'hydrops, dry weight');
+      eq('…for the red line on screen', logged[0]?.calcInput?.critOverride?.alerts, ['TPN calc. weight far from automatic']);
+      ok('…and the box is gone once the reason is saved', !box());
     } finally { window.prompt = realPrompt; served.mode = 'same'; }
   } catch (e) {
     ok('§4 ran without throwing', false, String(e && e.stack || e));
