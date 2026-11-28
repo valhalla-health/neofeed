@@ -240,7 +240,7 @@ section('§4 the real calculator: the form reads the served release when it open
   const patient = { sessionId: 'ST-9', name: 'ST', bw: 1200, currentBed: 'NICU 1', diagnosis: '-', weights: [], admissionDate: '2026-11-12' };
   const logged = [];
   const updated = [];
-  function mountFilled() {
+  function mountFilled(over = {}) {
     act(() => { root.unmount(); });
     root = ReactDOM.createRoot(container);
     localStorage.clear();
@@ -249,6 +249,7 @@ section('§4 the real calculator: the form reads the served release when it open
         patient, dol: 6, editEntry: null, baselineEntry: null, logDate: '2026-11-17',
         onLog(e) { logged.push(e); return Promise.resolve({ ok: true, entryId: 'st-' + logged.length, lastModified: 'lm-' + logged.length }); },
         onUpdate(id, lm, e) { updated.push(e); return Promise.resolve({ ok: true, lastModified: 'lm-u' + updated.length }); }, onSaved() {}, onWeightChange() {},
+        ...over,
       }));
     });
     act(() => { container.querySelectorAll('.card-h.clickable').forEach((h) => click(h)); });
@@ -440,6 +441,73 @@ section('§4 the real calculator: the form reads the served release when it open
       await clickAsync(submitBtn());
       eq('…and the revision goes with the new reason, no prompt', [asked.length, updated.length, updated[0]?.calcInput?.critOverride?.reason], [0, 1, 'still hydrops']);
     } finally { window.prompt = realPrompt; served.mode = 'same'; }
+
+    // §6 (2026-11-28) — the rest of the order path, on a phone that opens no pop-up.
+    console.log('\n── §6 Print in the tap; a throw or a conflict says so ──');
+    let printed = 0;
+    const realPrint = window.print;
+    window.print = () => { printed++; };
+    const firePrint = () => document.dispatchEvent(new window.CustomEvent('__neofeed_print'));
+    try {
+      served.mode = 'same';
+      mountFilled(); logged.length = 0; toasts.length = 0;
+      await tick();
+      await clickAsync(submitBtn());
+      eq('a plain order is submitted', logged.map((e) => e.status), ['submitted']);
+      act(() => { container.querySelectorAll('.print-ack input[type="checkbox"]').forEach((c) => { if (!c.checked) click(c); }); });
+      printed = 0; toasts.length = 0;
+      act(() => { firePrint(); });
+      eq('a fresh read: Print opens the sheet in the tap itself, no wait (iPhone blocks a print that waited)', printed, 1);
+      ok('…with no refusal', !toasts.some((t) => t.type === 'error'), toasts);
+      printed = 0;
+      later();
+      try {
+        act(() => { firePrint(); });
+        eq('a read over a minute old: nothing in the tap, the read goes first', printed, 0);
+        await tick(); await tick();
+        eq('…then the sheet', printed, 1);
+      } finally { undoLater(); }
+
+      // 50 s on, the tab comes back on screen and the refresh starts a read that has not landed:
+      // the last settled read is still under a minute old, so it decides and Print stays in the tap (Vera, 🟡 2).
+      {
+        let land; served.hold = new Promise((r) => { land = r; });
+        const realNow2 = Date.now; Date.now = () => realNow2() + 61000 + 50000;   // the last read landed at +61 s (later())
+        try {
+          const callsBefore = served.calls.length;
+          act(() => { document.dispatchEvent(new window.Event('visibilitychange')); });
+          ok('…the refresh did start a read', served.calls.length > callsBefore, served.calls.length);
+          printed = 0;
+          act(() => { firePrint(); });
+          eq('a read in flight with a fresh one settled: Print opens in the tap', printed, 1);
+        } finally { Date.now = realNow2; land(); served.hold = null; await tick(); }
+      }
+
+      // The order reached the server, then something after it threw: the toast must not say it did not go (Vera, 🟡 4).
+      mountFilled({ onPublish() { throw new Error('harness: threw after the write'); } });
+      toasts.length = 0; logged.length = 0;
+      await tick();
+      await clickAsync(submitBtn());
+      ok('a throw after the write left says the outcome is unknown, not "not saved"', logged.length === 1
+        && toasts.some((t) => t.type === 'error' && /ไม่ทราบผลการบันทึก/.test(t.msg)) && !toasts.some((t) => /ยังไม่ได้บันทึก/.test(t.msg)), toasts);
+
+      // The save call itself throws (an input no case foresaw): the button comes back and a toast says so.
+      // The request may have left before the throw, so it says the outcome is unknown (Vera, 🟡 4).
+      mountFilled({ onLog() { throw new Error('harness: save threw'); } });
+      toasts.length = 0;
+      await tick();
+      await clickAsync(submitBtn());
+      ok('a Submit whose save call throws says so, outcome unknown', toasts.some((t) => t.type === 'error' && /ไม่ทราบผลการบันทึก — แอปขัดข้อง/.test(t.msg)), toasts);
+      ok('…and Submit is offered again', submitBtn() && submitBtn().disabled === false, submitBtn() && submitBtn().textContent);
+
+      // Saved from another device meanwhile: the banner is at the top, off a phone's screen, so a toast says it.
+      mountFilled({ onLog() { return Promise.resolve({ ok: false, conflict: true, current: { lastModified: 'x', lastModifiedBy: 'Dr Other' } }); } });
+      toasts.length = 0;
+      await tick();
+      await clickAsync(submitBtn());
+      ok('a save conflict shows a toast where the doctor is looking', toasts.some((t) => t.type === 'error' && /ถูกแก้จากเครื่องอื่น/.test(t.msg)), toasts);
+      ok('…and the banner', !!container.querySelector('.save-conflict'));
+    } finally { window.print = realPrint; served.mode = 'same'; }
   } catch (e) {
     ok('§4 ran without throwing', false, String(e && e.stack || e));
   }

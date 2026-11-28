@@ -135,11 +135,25 @@ function load(o) {
   return { cfg, files };
 }
 
+// A step that outlives this is hung, not slow: the longest step takes about three minutes in CI.
+// Without a limit a hang stops the whole run with no error (2026-11-28: a 45 s timer in the
+// Calculator kept calc-compare's snapshot alive, and the suite sat at verify-calc-compare for 40 min).
+const STEP_LIMIT_S = Number(process.env.RUN_CHECKS_STEP_LIMIT_S) || 900;
+
 function exec(cmd, args, { root, env, sink, quiet }) {
   return new Promise((resolve) => {
     const bin = cmd === 'node' ? process.execPath : cmd;
     const child = spawn(bin, args, { cwd: root, env, shell: cmd !== 'node' && process.platform === 'win32' });
-    let stdout = '', output = '';
+    let stdout = '', output = '', timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      const msg = `\nHUNG: ${[cmd, ...args].join(' ')} ran past ${STEP_LIMIT_S} s and was stopped. ` +
+        'Something keeps the process alive (a timer, an open handle) or it waits on input.\n';
+      output += msg; sink.write(msg);
+      // The whole tree: a check's own child (calc-compare's snapshot) is often the one that hangs.
+      if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+      else child.kill('SIGKILL');
+    }, STEP_LIMIT_S * 1000);
     const take = (isOut) => (d) => {
       const s = d.toString();
       output += s;
@@ -148,8 +162,8 @@ function exec(cmd, args, { root, env, sink, quiet }) {
     };
     child.stdout.on('data', take(true));
     child.stderr.on('data', take(false));
-    child.on('error', (e) => resolve({ code: 1, stdout, output: output + e.message }));
-    child.on('close', (code) => resolve({ code: code === null ? 1 : code, stdout, output }));
+    child.on('error', (e) => { clearTimeout(timer); resolve({ code: 1, stdout, output: output + e.message }); });
+    child.on('close', (code) => { clearTimeout(timer); resolve({ code: timedOut || code === null ? 1 : code, stdout, output }); });
   });
 }
 

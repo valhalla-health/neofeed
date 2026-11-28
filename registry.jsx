@@ -1467,7 +1467,7 @@ function PatientRegistry({ patients, activeId, role, log = {}, ward, onWardChang
           occupied by whoever is in it, including a patient the ward gate is
           currently hiding from view. */}
       {/* Each modal closes itself once its request succeeds (useModalSubmit). */}
-      {showAdd          && <NewPatientModal patients={patients} ward={ward} onClose={() => setShowAdd(false)} onSubmit={p => onAdd(p)} />}
+      {showAdd          && <NewPatientModal patients={patients} ward={ward} onClose={() => setShowAdd(false)} onSubmit={(p, extra) => onAdd(p, extra)} />}
       {editPatient      && <EditPatientModal patient={editPatient} patients={patients} onClose={() => setEditPatient(null)}
         onSubmit={(p, base) => onEdit?.(p, base)} mergeBaseFor={mergeBaseFor} onDelete={onDelete}
         canDeleteHop={role === "doctor" || role === "admin"} />}
@@ -1578,11 +1578,19 @@ function useModalSubmit(onSubmit, onClose) {
   const mountedRef = React.useRef(true);
   React.useEffect(() => () => { mountedRef.current = false; }, []);
   const fallback = "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง";
+  // The server's "is this the infant already on file?" when the pop-up never showed
+  // (app.jsx handleAddPatient, duplicateQuestion): the form asks it in the page instead.
+  const [duplicateAsk, setDuplicateAsk] = React.useState("");
+  const lastPayload = React.useRef(null);
   const finish = (res) => {
     busyRef.current = false;
     if (!mountedRef.current) return;
     setBusy(false);
-    if (res && res.ok === false) { setError(res.error || fallback); return; }
+    if (res && res.ok === false) {
+      setError(res.error || fallback);
+      setDuplicateAsk(res.duplicateQuestion || "");
+      return;
+    }
     onClose();
   };
   // `extra` is the merge base a patient editor captured when it opened — it
@@ -1592,6 +1600,8 @@ function useModalSubmit(onSubmit, onClose) {
   const submit = (payload, extra) => {
     if (busyRef.current) return;
     setError("");
+    setDuplicateAsk("");
+    lastPayload.current = payload;
     let out;
     try { out = onSubmit(payload, extra); }
     catch (e) { setError((e && e.message) || fallback); return; }
@@ -1600,7 +1610,12 @@ function useModalSubmit(onSubmit, onClose) {
     setBusy(true);
     out.then(finish, (e) => finish({ ok: false, error: (e && e.message) || fallback }));
   };
-  return { busy, error, submit };
+  // The look-alike answer is for the form as it was asked. `asked(now)` is
+  // false once any field differs, so an edit made after the question cannot
+  // ride on a yes given to the old values: Register asks the server again.
+  const asked = (payloadNow) => !!duplicateAsk && JSON.stringify(payloadNow) === JSON.stringify(lastPayload.current);
+  const confirmNewInfant = () => submit(lastPayload.current, { confirmDuplicate: true });
+  return { busy, error, submit, duplicateAsk, asked, confirmNewInfant };
 }
 
 // What admissionDateIssue found, said under the field it belongs to. The
@@ -1828,7 +1843,7 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
   // …and one infant per bed: registering onto an occupied bed would leave two
   // patients reading as the same bed on every board and handover sheet.
   const canSubmit = nameOk && bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
-  const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
+  const { busy, error: submitError, submit, asked: duplicateAskedFor, duplicateAsk, confirmNewInfant } = useModalSubmit(onSubmit, onClose);
 
   // DOB = admitDate − (admitDol − 1) days
   // Via addDaysToDateStr, which is UTC-anchored end to end. The previous
@@ -1841,6 +1856,21 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
     if (!admitDate) return today;
     return D_R.dobFromAdmitDol(admitDate, admitDol);
   }, [admitDate, admitDol]);
+
+  const registerPayload = () => ({
+    sessionId, name, initials, bw, ga, twinSuffix: twin,
+    multiplesCount: twin ? (parseInt(multiplesCount) || 0) : 0, sex,
+    currentBed: D_R.normalizeBed(bed), diagnosis: dx, status: "Active",
+    pnIndication, liverDysfunction: liverDx, renalDysfunction: renalDx,
+    admissionDate: admitDate,
+    dob,
+    // Birth weight, length and HC are the DAY OF BIRTH's, so they are
+    // filed on DOL 1 — not on the admission DOL, where an outborn
+    // infant's birth point used to sit at the admission PMA on the
+    // growth chart and outrank the admission-day order's weight
+    // (2026-09-24). DOL comes from `dob`, never from this row.
+    weights: [{ dol: 1, w: bw, l: len || null, hc: hc || null }],
+  });
 
   return (
     <div className="picker-backdrop" onClick={onClose} data-back-confirm="Register new session">
@@ -1959,6 +1989,15 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
           <PnIndicationFields indication={pnIndication} onIndication={setPnIndication}
             liverDx={liverDx} onLiverDx={setLiverDx} renalDx={renalDx} onRenalDx={setRenalDx} />
           {submitError && <div style={{ marginTop: 14 }}><SubmitError error={submitError} /></div>}
+          {duplicateAskedFor(registerPayload()) && (
+            <div className="duplicate-ask" role="group" style={{ marginTop: 8, padding: "8px 12px", border: "1px solid var(--warn-line, var(--line-2))",
+              borderRadius: 8, fontSize: 12, lineHeight: 1.5 }}>
+              <div style={{ whiteSpace: "pre-line", marginBottom: 6 }}>{duplicateAsk}</div>
+              <button type="button" className="btn" disabled={busy} onClick={confirmNewInfant}>
+                เป็นคนละคน — ลงทะเบียนเป็นรายใหม่
+              </button>
+            </div>
+          )}
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 }}>
             {!canSubmit && (
               <span style={{ fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" }}>
@@ -1969,20 +2008,7 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
               </span>
             )}
             <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn primary" disabled={!canSubmit || busy} onClick={() => submit({
-              sessionId, name, initials, bw, ga, twinSuffix: twin,
-              multiplesCount: twin ? (parseInt(multiplesCount) || 0) : 0, sex,
-              currentBed: D_R.normalizeBed(bed), diagnosis: dx, status: "Active",
-              pnIndication, liverDysfunction: liverDx, renalDysfunction: renalDx,
-              admissionDate: admitDate,
-              dob,
-              // Birth weight, length and HC are the DAY OF BIRTH's, so they are
-              // filed on DOL 1 — not on the admission DOL, where an outborn
-              // infant's birth point used to sit at the admission PMA on the
-              // growth chart and outrank the admission-day order's weight
-              // (2026-09-24). DOL comes from `dob`, never from this row.
-              weights: [{ dol: 1, w: bw, l: len || null, hc: hc || null }],
-            })}>
+            <button className="btn primary" disabled={!canSubmit || busy} onClick={() => submit(registerPayload())}>
               <Icon name="save" size={14} color="#fff" /> {busy ? "กำลังบันทึก…" : "Register"}
             </button>
           </div>

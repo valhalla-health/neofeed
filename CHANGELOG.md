@@ -7,6 +7,65 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-28 (5) — Vera on (4): the look-alike answer is for the form as asked
+
+`registry.jsx` (`useModalSubmit.asked`, `registerPayload`), `calculator.jsx` (Print's fast path, `saveWriteSent`),
+`NeoFeed.html` / `index.html` (print hide list), `test/verify-name-id-0927.cjs` § 5d,
+`test/verify-stale-tab-1117.cjs` § 6.
+
+- **Vera on (4): BLOCK, one 🔴.** "เป็นคนละคน — ลงทะเบียนเป็นรายใหม่" resent the form as it was at the last
+  Register press, while the form stayed editable under the question. A birth weight, GA, bed or date corrected
+  after the question was lost, and the modal closed on the old values. The question now shows only while the
+  form matches what was asked; any edit takes it away, and Register asks the server again. A corrected birth
+  weight is often no longer a look-alike, and then the server registers it without asking.
+- **Her 🟡s.** Print stays in the tap while the 45 s refresh has a read in flight, when the last settled read is
+  under a minute old (`at` is set when a read settles). The in-app banner is on the print hide list. A throw
+  after the save request has left says "ไม่ทราบผลการบันทึก — … ตรวจรายการก่อนกดส่งซ้ำ", not "ยังไม่ได้บันทึก",
+  since the server may have the row; this includes a throw inside the save call itself.
+- **Tests.** § 5d edits the bed after the question: the question goes, Register asks again, the button sends
+  NICU 7 (fails 1 check on 13cc58e). § 6 adds Print with a read in flight and a throw after the write (fail 3
+  checks on 13cc58e). Stale tab 103, names and ids 73. The print hide list has no harness.
+- **`tools/calc-compare.cjs` hung.** Its snapshot left the last order mounted, and the 45 s release re-read
+  kept that process alive, so the sources suite stopped at `verify-calc-compare` #1 and a release's
+  `calc-compare` would never return. The snapshot now unmounts when it is done. Against d70b43c: 100 orders,
+  16,409 figures, no difference.
+- **No check can hang a run again without saying so.** `tools/run_checks.js` stops any step past 15 min
+  (`RUN_CHECKS_STEP_LIMIT_S`; the longest takes about 3 min in CI), kills its process tree, prints "HUNG: <the
+  step>" and closes the gate. `calc-compare`'s snapshot stops at 10 min with the same reason. Tried with a 2 s
+  limit: the step was named and the run exited 1.
+
+## Session 2026-11-28 (4) — No browser dialog stands between a tap and a TPN order
+
+`calculator.jsx` (Print, `saveSafely`, the save-conflict toast, the release re-read, auto-print), `app.jsx`
+(`handleAddPatient`, `InAppBrowserBanner`), `registry.jsx` (`useModalSubmit`, `NewPatientModal`),
+`test/verify-stale-tab-1117.cjs` § 6, `test/verify-name-id-0927.cjs` § 5d.
+
+- **Why.** (1)–(3) are live (release #315). Pp asked for every other way a phone could block a TPN order.
+  iOS WebKit (Safari, Chrome and LINE on iPhone) drops the tap's user activation across an `await`, after
+  which `window.confirm` returns false unseen and `window.print` is refused as automatic printing. LINE,
+  Facebook, Instagram and Android webviews often show no dialog and cannot print at all.
+- **Print.** When the release read is under `RELEASE_FRESH_MS` old, Print prints inside the tap; only an old
+  read is awaited first. The release is now re-read every 45 s and when the tab comes back, so the read is
+  usually fresh.
+- **A throw in Save no longer freezes Submit.** `saveSafely` catches it, frees the button and says so
+  ("แอปขัดข้องระหว่างบันทึก ลองกดอีกครั้ง …"). Before, the button stayed on "Saving…" until a reload.
+- **A save conflict now says so.** The red banner was at the top of a long page and the phone showed nothing
+  near Submit: a toast now names it and the page scrolls to the banner.
+- **Registering a look-alike infant.** When the confirm returns false (declined or never shown), the modal
+  shows the server's question and a button "เป็นคนละคน — ลงทะเบียนเป็นรายใหม่", which sends again with
+  `confirmDuplicate`. Before, an iPhone could not register a second infant with a similar name and birth date.
+- **Auto-print after save.** When its confirm returns false, the print acknowledgements scroll into view, so
+  Print is one tap away.
+- **In-app browsers.** A banner says the in-app browser may not print or show confirm boxes; on LINE its button
+  reopens the page in Safari or Chrome (`openExternalBrowser=1`), elsewhere it points to the ⋯ menu.
+- **Tests.** § 6 (print in the tap, print after an old read, a throwing save, a conflict) fails on d70b43c:
+  the print and conflict checks fail and the throw crashes the harness; 100 passed with the fix. § 5d (the
+  look-alike question with no dialog) fails 4 of 4 on d70b43c; 72 passed with the fix.
+- **Not fixed here, for Pp:** the Sunday growth gate on an order dated tomorrow; a release read that may stay
+  "behind" after a reload while GitHub Pages caches; the backend's refusal of DOL over 400 or weight over
+  8,000 g (a clasp deploy); a timed-out write that holds later writes; the TPN room's print after awaits;
+  auto-print from the Print list with no tap behind it. Not checked on a real phone.
+
 ## Session 2026-11-28 (3) — The box shows the lines Submit confirms (Vera's second run)
 
 `calculator.jsx` (`sameOrderByDoctorNow`, `criticalToConfirm`), `test/verify-stale-tab-1117.cjs` § 5.
