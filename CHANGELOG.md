@@ -25,6 +25,14 @@ verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 - **Tests.** § 5d edits the bed after the question: the question goes, Register asks again, the button sends
   NICU 7 (fails 1 check on 13cc58e). § 6 adds Print with a read in flight and a throw after the write (fail 3
   checks on 13cc58e). Stale tab 103, names and ids 73. The print hide list has no harness.
+- **`tools/calc-compare.cjs` hung.** Its snapshot left the last order mounted, and the 45 s release re-read
+  kept that process alive, so the sources suite stopped at `verify-calc-compare` #1 and a release's
+  `calc-compare` would never return. The snapshot now unmounts when it is done. Against d70b43c: 100 orders,
+  16,409 figures, no difference.
+- **No check can hang a run again without saying so.** `tools/run_checks.js` stops any step past 15 min
+  (`RUN_CHECKS_STEP_LIMIT_S`; the longest takes about 3 min in CI), kills its process tree, prints "HUNG: <the
+  step>" and closes the gate. `calc-compare`'s snapshot stops at 10 min with the same reason. Tried with a 2 s
+  limit: the step was named and the run exited 1.
 
 ## Session 2026-11-28 (4) — No browser dialog stands between a tap and a TPN order
 

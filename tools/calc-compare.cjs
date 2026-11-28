@@ -288,6 +288,9 @@ async function snapshot(o) {
     }
   }
   fs.writeFileSync(o.to, JSON.stringify(out));
+  // Unmount the last order: the Calculator re-reads the release every 45 s while mounted
+  // (2026-11-28), and that timer would keep this snapshot process alive for ever.
+  act(() => { root.unmount(); });
 }
 
 // ── compare two versions ────────────────────────────────────────────────────
@@ -308,7 +311,11 @@ function materialise(spec, tmp, name) {
 function takeSnapshot(dir, cases, to) {
   const r = spawnSync(process.execPath, [__filename, '--snapshot', dir, '--cases', cases, '--to', to], {
     cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28, env: { ...process.env, NODE_OPTIONS: '', TZ: 'Asia/Bangkok' },
+    // A snapshot takes about a minute. One past ten has hung (a timer keeping the process alive):
+    // say so, rather than leave a release waiting on it with no error (2026-11-28).
+    timeout: 600000,
   });
+  if (r.error && r.error.code === 'ETIMEDOUT') die(`snapshot of ${dir} did not finish in 10 min: something in it keeps the process alive (a timer left mounted?)`);
   if (r.status !== 0) die(`snapshot of ${dir} failed:\n${r.stderr || r.stdout}`);
   return JSON.parse(fs.readFileSync(to, 'utf8'));
 }
