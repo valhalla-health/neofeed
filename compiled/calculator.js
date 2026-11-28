@@ -7,6 +7,7 @@ const roundMl = (n) => Number(D.displayNum(n, 1));
 const roundWholeMl = (n) => Number(D.displayNum(n, 0));
 const RELEASE_CHECK_MS = 5e3;
 const RELEASE_FRESH_MS = 6e4;
+const RELEASE_REFRESH_MS = 45e3;
 const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
 const RELEASE_PRINT_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า พิมพ์ใบสั่งไม่ได้ กดโหลดหน้าใหม่ แล้วเปิด order อีกครั้ง";
 const OPEN_ORDER_GONE_TEXT = "order นี้ถูกแก้หรือลบจากเครื่องอื่นแล้ว พิมพ์ฉบับนี้ไม่ได้ กลับไปที่รายชื่อแล้วเปิด order ใหม่";
@@ -785,6 +786,30 @@ function Calculator({
   React.useEffect(() => {
     if (!centerPoint && !scratch) readRelease();
   }, []);
+  React.useEffect(() => {
+    if (centerPoint || scratch) return void 0;
+    const refresh = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      const r = releaseRead.current;
+      if (!r.pending && Date.now() - (r.at || 0) >= RELEASE_REFRESH_MS) readRelease();
+    };
+    const timer = setInterval(refresh, RELEASE_REFRESH_MS);
+    const onShow = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onShow);
+    };
+  }, []);
+  const conflictRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!conflict) return;
+    showToast("ยังไม่ได้บันทึก — order นี้ถูกแก้จากเครื่องอื่น ดูแถบสีแดงด้านบน แล้วกดโหลดข้อมูลล่าสุด", "error");
+    const el = conflictRef.current;
+    if (el && typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" });
+  }, [conflict]);
   const [savedKey, setSavedKey] = useState(null);
   const [savedOrderKey, setSavedOrderKey] = useState(null);
   const [prefillKey, setPrefillKey] = useState(null);
@@ -1894,16 +1919,27 @@ function Calculator({
         showToast(printBlockToast || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนพิมพ์", "error");
         return;
       }
+      const printNow = () => {
+        const flush = window.ReactDOM && typeof window.ReactDOM.flushSync === "function" ? window.ReactDOM.flushSync : (fn) => fn();
+        flush(() => setOpenSteps(ALL));
+        window.print();
+        window.onafterprint = () => setOpenSteps(/* @__PURE__ */ new Set([1]));
+      };
+      const r = releaseRead.current;
+      if (!r.pending && Date.now() - (r.at || 0) < RELEASE_FRESH_MS) {
+        if (r.behind === true) {
+          showToast(RELEASE_PRINT_TEXT, "error");
+          return;
+        }
+        printNow();
+        return;
+      }
       releaseBeforePrint().then((behind) => {
         if (behind) {
           showToast(RELEASE_PRINT_TEXT, "error");
           return;
         }
-        setOpenSteps(ALL);
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          window.print();
-          window.onafterprint = () => setOpenSteps(/* @__PURE__ */ new Set([1]));
-        }));
+        printNow();
       });
     };
     document.addEventListener("__neofeed_print", handler);
@@ -1928,6 +1964,10 @@ function Calculator({
         return;
       }
       go();
+      setTimeout(() => {
+        const box = typeof document !== "undefined" ? document.querySelector(".print-ack") : null;
+        if (box && typeof box.scrollIntoView === "function") box.scrollIntoView({ block: "center" });
+      }, 0);
       return;
     }
     if (printReady) {
@@ -1976,6 +2016,12 @@ function Calculator({
     if (!el) return;
     if (typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" });
     el.focus();
+  };
+  const saveSafely = (asDraft) => {
+    handleSave(asDraft).catch(() => {
+      setSaving(false);
+      showToast("ยังไม่ได้บันทึก — แอปขัดข้องระหว่างบันทึก ลองกดอีกครั้ง ถ้ายังไม่ได้ให้ Submit จากคอมพิวเตอร์และแจ้งผู้ดูแลระบบ", "error");
+    });
   };
   const handleSave = async (asDraft = false) => {
     asDraft = asDraft === true;
@@ -2400,7 +2446,7 @@ function Calculator({
     alignItems: "center",
     gap: 8,
     flexWrap: "wrap"
-  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--crit)" }), releaseBehind.on === "sent" ? /* @__PURE__ */ React.createElement("span", null, RELEASE_SENT_TEXT) : releaseBehind.on === "submit" ? /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง", releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด") : /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า กดโหลดหน้าใหม่ก่อนกรอก order ถ้ากด Submit จากแท็บนี้ order จะไม่ถึงห้อง TPN"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("button", { className: "btn sm primary", onClick: () => window.location.reload() }, "โหลดหน้าใหม่"))), conflict && /* @__PURE__ */ React.createElement("div", { style: {
+  } }, /* @__PURE__ */ React.createElement(Icon, { name: "info", size: 13, color: "var(--crit)" }), releaseBehind.on === "sent" ? /* @__PURE__ */ React.createElement("span", null, RELEASE_SENT_TEXT) : releaseBehind.on === "submit" ? /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า order นี้ยังไม่ได้ Submit และยังไม่ถึงห้อง TPN กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง", releaseBehind.draft && " ที่กรอกไว้เก็บเป็นร่างแล้ว กู้คืนได้หลังโหลด") : /* @__PURE__ */ React.createElement("span", null, "NeoFeed ออกรุ่นใหม่แล้ว แต่แท็บนี้ยังเป็นรุ่นเก่า กดโหลดหน้าใหม่ก่อนกรอก order ถ้ากด Submit จากแท็บนี้ order จะไม่ถึงห้อง TPN"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginLeft: "auto" } }, /* @__PURE__ */ React.createElement("button", { className: "btn sm primary", onClick: () => window.location.reload() }, "โหลดหน้าใหม่"))), conflict && /* @__PURE__ */ React.createElement("div", { ref: conflictRef, className: "save-conflict", style: {
     padding: "10px 12px",
     background: "var(--crit-bg)",
     border: "1px solid var(--crit-line)",
@@ -3345,7 +3391,7 @@ function Calculator({
       style: { width: "100%", marginBottom: 8 },
       disabled: saving || pendingSave || tpnWtOutOfRange || savedStatus === "submitted" && !!savedEntryId,
       title: savedStatus === "submitted" && savedEntryId ? "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง" : "บันทึกไว้ก่อน แม้ยังกรอกไม่ครบ — พิมพ์ไม่ได้จนกว่าจะ Submit",
-      onClick: () => handleSave(true)
+      onClick: () => saveSafely(true)
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14 }),
     " ",
@@ -3366,7 +3412,7 @@ function Calculator({
       className: "btn primary",
       style: { width: "100%" },
       disabled: saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || !centerPoint && published && !dirty && orderSettled && !figuresMissing && !growthStop || nurseIoOnly && !dirty,
-      onClick: () => handleSave(false)
+      onClick: () => saveSafely(false)
     },
     /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, color: "#fff" }),
     " ",

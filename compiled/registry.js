@@ -871,7 +871,7 @@ function PatientRegistry({
       e.stopPropagation();
       setEditPatient(p);
     } }, "Edit"))
-  )))), (q ? activeSorted.length === 0 : sorted.length === 0) && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`), activeSorted.length > 0 && shownActive.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "32px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, "ไม่มีผู้ป่วย ", STAT_FILTER_LABEL[statFilter], q ? ` ที่ตรงกับ “${q}”` : "", " ใน ", wardName)), showAdd && /* @__PURE__ */ React.createElement(NewPatientModal, { patients, ward, onClose: () => setShowAdd(false), onSubmit: (p) => onAdd(p) }), editPatient && /* @__PURE__ */ React.createElement(
+  )))), (q ? activeSorted.length === 0 : sorted.length === 0) && /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, q ? miss : `ยังไม่มีผู้ป่วยใน ${ward === "other" ? "กลุ่มนี้" : ward} — กด New session เพื่อเริ่มต้น`), activeSorted.length > 0 && shownActive.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "32px 24px", textAlign: "center", color: "var(--ink-3)", fontSize: 13 } }, "ไม่มีผู้ป่วย ", STAT_FILTER_LABEL[statFilter], q ? ` ที่ตรงกับ “${q}”` : "", " ใน ", wardName)), showAdd && /* @__PURE__ */ React.createElement(NewPatientModal, { patients, ward, onClose: () => setShowAdd(false), onSubmit: (p, extra) => onAdd(p, extra) }), editPatient && /* @__PURE__ */ React.createElement(
     EditPatientModal,
     {
       patient: editPatient,
@@ -932,12 +932,15 @@ function useModalSubmit(onSubmit, onClose) {
     mountedRef.current = false;
   }, []);
   const fallback = "บันทึกไม่สำเร็จ — ลองใหม่อีกครั้ง";
+  const [duplicateAsk, setDuplicateAsk] = React.useState("");
+  const lastPayload = React.useRef(null);
   const finish = (res) => {
     busyRef.current = false;
     if (!mountedRef.current) return;
     setBusy(false);
     if (res && res.ok === false) {
       setError(res.error || fallback);
+      setDuplicateAsk(res.duplicateQuestion || "");
       return;
     }
     onClose();
@@ -945,6 +948,8 @@ function useModalSubmit(onSubmit, onClose) {
   const submit = (payload, extra) => {
     if (busyRef.current) return;
     setError("");
+    setDuplicateAsk("");
+    lastPayload.current = payload;
     let out;
     try {
       out = onSubmit(payload, extra);
@@ -960,7 +965,8 @@ function useModalSubmit(onSubmit, onClose) {
     setBusy(true);
     out.then(finish, (e) => finish({ ok: false, error: e && e.message || fallback }));
   };
-  return { busy, error, submit };
+  const confirmNewInfant = () => submit(lastPayload.current, { confirmDuplicate: true });
+  return { busy, error, submit, duplicateAsk, confirmNewInfant };
 }
 function AdmitDateIssue({ issue, correction, onFix }) {
   if (!issue) return null;
@@ -1072,7 +1078,7 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
   const initials = nameOk ? D_R.nameInitials(nameIn.first, nameIn.last) : "";
   const [sessionId] = React.useState(() => D_R.newSessionId());
   const canSubmit = nameOk && bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
-  const { busy, error: submitError, submit } = useModalSubmit(onSubmit, onClose);
+  const { busy, error: submitError, submit, duplicateAsk, confirmNewInfant } = useModalSubmit(onSubmit, onClose);
   const dob = React.useMemo(() => {
     if (!admitDate) return today;
     return D_R.dobFromAdmitDol(admitDate, admitDol);
@@ -1113,7 +1119,14 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
       renalDx,
       onRenalDx: setRenalDx
     }
-  ), submitError && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement(SubmitError, { error: submitError })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 } }, !canSubmit && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" } }, bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน" : admitIssue ? "แก้วันที่รับเข้าก่อนลงทะเบียน — ทุกเป้าหมายสารอาหารคิดจากวันนี้" : !nameOk ? "กรอกชื่อ + นามสกุล อย่างละ 2 ตัวอักษรก่อนลงทะเบียน" : "กรอกน้ำหนักแรกเกิด · GA · เพศ ให้ครบก่อนลงทะเบียน"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: !canSubmit || busy, onClick: () => submit({
+  ), submitError && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement(SubmitError, { error: submitError })), duplicateAsk && /* @__PURE__ */ React.createElement("div", { className: "duplicate-ask", role: "group", style: {
+    marginTop: 8,
+    padding: "8px 12px",
+    border: "1px solid var(--warn-line, var(--line-2))",
+    borderRadius: 8,
+    fontSize: 12,
+    lineHeight: 1.5
+  } }, /* @__PURE__ */ React.createElement("div", { style: { whiteSpace: "pre-line", marginBottom: 6 } }, duplicateAsk), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", disabled: busy, onClick: confirmNewInfant }, "เป็นคนละคน — ลงทะเบียนเป็นรายใหม่")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 } }, !canSubmit && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" } }, bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน" : admitIssue ? "แก้วันที่รับเข้าก่อนลงทะเบียน — ทุกเป้าหมายสารอาหารคิดจากวันนี้" : !nameOk ? "กรอกชื่อ + นามสกุล อย่างละ 2 ตัวอักษรก่อนลงทะเบียน" : "กรอกน้ำหนักแรกเกิด · GA · เพศ ให้ครบก่อนลงทะเบียน"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: !canSubmit || busy, onClick: () => submit({
     sessionId,
     name,
     initials,

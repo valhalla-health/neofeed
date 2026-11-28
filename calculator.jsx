@@ -40,6 +40,8 @@ const roundWholeMl = (n) => Number(D.displayNum(n, 0));
 // before, and the TPN room's page still refuses an order on other versions than its own.
 const RELEASE_CHECK_MS = 5000;
 const RELEASE_FRESH_MS = 60000;
+// How often an open form reads the release again, so the read stays fresh (2026-11-28).
+const RELEASE_REFRESH_MS = 45000;
 const RELEASE_BEHIND_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า ยังไม่ได้ Submit กดโหลดหน้าใหม่ แล้วกด Submit อีกครั้ง";
 const RELEASE_PRINT_TEXT = "NeoFeed ออกรุ่นใหม่แล้ว แท็บนี้ยังเป็นรุ่นเก่า พิมพ์ใบสั่งไม่ได้ กดโหลดหน้าใหม่ แล้วเปิด order อีกครั้ง";
 const OPEN_ORDER_GONE_TEXT = "order นี้ถูกแก้หรือลบจากเครื่องอื่นแล้ว พิมพ์ฉบับนี้ไม่ได้ กลับไปที่รายชื่อแล้วเปิด order ใหม่";
@@ -1271,6 +1273,32 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   };
   // When the form opens. Center Point never reaches the TPN room; the quick calc saves nothing.
   React.useEffect(() => { if (!centerPoint && !scratch) readRelease(); }, []);
+  // …and again every 45 s while the form is open and on screen, and when it comes back on
+  // screen (2026-11-28). A Submit or Print the last read decides runs in the tap itself; one
+  // that had to wait for a read lost the tap on iPhone Safari, which then opened no prompt
+  // and no print sheet. With a read under a minute old, neither waits.
+  React.useEffect(() => {
+    if (centerPoint || scratch) return undefined;
+    const refresh = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      const r = releaseRead.current;
+      if (!r.pending && Date.now() - (r.at || 0) >= RELEASE_REFRESH_MS) readRelease();
+    };
+    const timer = setInterval(refresh, RELEASE_REFRESH_MS);
+    const onShow = () => { if (!document.hidden) refresh(); };
+    document.addEventListener("visibilitychange", onShow);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", onShow); };
+  }, []);
+  // A save refused because the order changed on another device: the banner sits at the top of
+  // the form, off screen on a phone whose Submit is at the bottom, so the press seemed to do
+  // nothing (audit 2026-11-28). Say it where the doctor is looking, and bring the banner up.
+  const conflictRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!conflict) return;
+    showToast("ยังไม่ได้บันทึก — order นี้ถูกแก้จากเครื่องอื่น ดูแถบสีแดงด้านบน แล้วกดโหลดข้อมูลล่าสุด", "error");
+    const el = conflictRef.current;
+    if (el && typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" });
+  }, [conflict]);
 
   // ── "Is what's on screen what's saved?" ────────────────────────────
   // savedKey is the fingerprint of the inputs as last saved (or as loaded
@@ -2920,14 +2948,26 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         showToast(printBlockToast || "มีการแก้ไขที่ยังไม่ได้บันทึก — กดบันทึกก่อนพิมพ์", "error");
         return;
       }
+      // iPhone Safari opens the print sheet only from the tap itself ("blocked for automatic
+      // printing" otherwise), so a fresh, settled read decides here and prints at once, every
+      // card-b section rendered first with flushSync. Only a read in flight or over a minute
+      // old is waited for, as before (Vera on the code review's H2, 2026-11-19).
+      const printNow = () => {
+        const flush = window.ReactDOM && typeof window.ReactDOM.flushSync === "function"
+          ? window.ReactDOM.flushSync : (fn) => fn();
+        flush(() => setOpenSteps(ALL));
+        window.print();
+        window.onafterprint = () => setOpenSteps(new Set([1]));
+      };
+      const r = releaseRead.current;
+      if (!r.pending && Date.now() - (r.at || 0) < RELEASE_FRESH_MS) {
+        if (r.behind === true) { showToast(RELEASE_PRINT_TEXT, "error"); return; }
+        printNow();
+        return;
+      }
       releaseBeforePrint().then((behind) => {
         if (behind) { showToast(RELEASE_PRINT_TEXT, "error"); return; }
-        setOpenSteps(ALL);
-        // Wait one frame for React to render all card-b sections
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          window.print();
-          window.onafterprint = () => setOpenSteps(new Set([1]));
-        }));
+        printNow();
       });
     };
     document.addEventListener('__neofeed_print', handler);
@@ -2962,7 +3002,15 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       const yes = window.confirm(`${patient?.currentBed ? `เตียง ${patient.currentBed} · ` : ""}คำสั่งนี้มีค่าวิกฤต ${redAlertTitles.length} ข้อ:\n`
         + redAlertTitles.map(t => `• ${t}`).join("\n") + "\n\nรับทราบทุกข้อและพิมพ์?");
       if (yes) { setPrintAcks({ key: printAckKey, titles: redAlertTitles }); return; }
-      go(); return;
+      // No, or a phone that opened no pop-up at all (iPhone Safari, LINE's browser: a confirm
+      // with no tap behind it returns false unseen, 2026-11-28): the order stays held, and the
+      // tick boxes above Print order are brought on screen so it can still be acknowledged.
+      go();
+      setTimeout(() => {
+        const box = typeof document !== "undefined" ? document.querySelector(".print-ack") : null;
+        if (box && typeof box.scrollIntoView === "function") box.scrollIntoView({ block: "center" });
+      }, 0);
+      return;
     }
     // Behind the release: readRelease has set releaseBehind, printReady turns false, and this
     // effect runs again and sends the hold reason after the short wait below.
@@ -3040,6 +3088,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     if (!el) return;
     if (typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" });
     el.focus();
+  };
+
+  // A Submit or Save draft that throws (an input no case foresaw) used to do nothing at all:
+  // the promise was rejected with nobody listening, the button came back, and no toast said
+  // why (audit 2026-11-28). Now the button is freed and the toast says the order did not go.
+  const saveSafely = (asDraft) => {
+    handleSave(asDraft).catch(() => {
+      setSaving(false);
+      showToast("ยังไม่ได้บันทึก — แอปขัดข้องระหว่างบันทึก ลองกดอีกครั้ง ถ้ายังไม่ได้ให้ Submit จากคอมพิวเตอร์และแจ้งผู้ดูแลระบบ", "error");
+    });
   };
 
   const handleSave = async (asDraft = false) => {
@@ -3535,7 +3593,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       {/* Conflict notice — someone else saved this entry after this page opened.
           The form is left untouched: only navigation/reload discards it, never this banner. */}
       {conflict && (
-        <div style={{ padding:"10px 12px", background:"var(--crit-bg)", border:"1px solid var(--crit-line)",
+        <div ref={conflictRef} className="save-conflict" style={{ padding:"10px 12px", background:"var(--crit-bg)", border:"1px solid var(--crit-line)",
              borderRadius:8, marginBottom:10, fontSize:12.5, color:"var(--crit)",
              display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
           <Icon name="info" size={13} color="var(--crit)" />
@@ -5145,7 +5203,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
               <button className="btn save-draft" style={{ width: "100%", marginBottom: 8 }}
                 disabled={saving || pendingSave || tpnWtOutOfRange || (savedStatus === "submitted" && !!savedEntryId)}
                 title={savedStatus === "submitted" && savedEntryId ? "Submit แล้ว — แก้ไขแล้วกด Submit อีกครั้ง" : "บันทึกไว้ก่อน แม้ยังกรอกไม่ครบ — พิมพ์ไม่ได้จนกว่าจะ Submit"}
-                onClick={() => handleSave(true)}>
+                onClick={() => saveSafely(true)}>
                 <Icon name="save" size={14} /> {saving ? "กำลังบันทึก..." : "Save draft (บันทึกร่าง)"}
               </button>
             )}
@@ -5192,7 +5250,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
                 for its length and HC (growthStop): Submit is how its reason is given. */}
             {!scratch && !ordersReadOnly && (
               <button className="btn primary" style={{ width: "100%" }} disabled={saving || missingFields.length > 0 || routeMissing || noTpnUnticked || zeroVolumeBag || kOverMax || bagOverBottle || bagOverfull || stockAtZeroMl || feedsOverMax || feedsIrregular || feedUnknown || tpnWtOutOfRange || pendingSave || (!centerPoint && published && !dirty && orderSettled && !figuresMissing && !growthStop) || (nurseIoOnly && !dirty)}
-                onClick={() => handleSave(false)}>
+                onClick={() => saveSafely(false)}>
                 <Icon name="check" size={14} color="#fff" /> {saving ? "กำลังบันทึก..." : centerPoint ? "บันทึก" : "Submit"}
               </button>
             )}
