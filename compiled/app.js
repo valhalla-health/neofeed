@@ -376,6 +376,32 @@ function clearSession() {
   } catch {
   }
 }
+function inAppBrowserName(ua) {
+  const s = String(ua || "");
+  if (/\bLine\//i.test(s)) return "LINE";
+  if (/FBAN|FBAV|FB_IAB/.test(s)) return "Facebook";
+  if (/Instagram/.test(s)) return "Instagram";
+  if (/Android.*; wv\)/.test(s)) return "แอปอื่น";
+  return null;
+}
+function InAppBrowserBanner() {
+  const [hidden, setHidden] = React.useState(false);
+  const name = typeof navigator !== "undefined" ? inAppBrowserName(navigator.userAgent) : null;
+  if (!name || hidden) return null;
+  const openOutside = () => {
+    const u = new URL(window.location.href);
+    u.searchParams.set("openExternalBrowser", "1");
+    window.location.href = u.toString();
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "in-app-browser", role: "alert", style: {
+    padding: "8px 12px",
+    background: "var(--warn-bg, #fff4e0)",
+    borderBottom: "1px solid var(--warn-line, #e0b060)",
+    fontSize: 12.5,
+    lineHeight: 1.5,
+    color: "var(--warn-ink, #6b4400)"
+  } }, "กำลังเปิด NeoFeed ในหน้าเว็บของ ", name, " — ปุ่มพิมพ์ใบสั่งและกล่องยืนยันบางอย่างอาจใช้ไม่ได้ เปิดใน Safari หรือ Chrome ก่อนสั่ง TPN", name === "LINE" ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", style: { marginLeft: 8 }, onClick: openOutside }, "เปิดใน Safari / Chrome") : /* @__PURE__ */ React.createElement("span", null, " (กดเมนู ⋯ แล้วเลือกเปิดใน browser)"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn sm", style: { marginLeft: 8 }, onClick: () => setHidden(true) }, "ปิด"));
+}
 function AppRoot() {
   const [epoch, setEpoch] = React.useState(0);
   const [notice, setNotice] = React.useState(null);
@@ -384,7 +410,7 @@ function AppRoot() {
     setEpoch((e) => e + 1);
   }, []);
   const onNoticeSeen = React.useCallback(() => setNotice(null), []);
-  return /* @__PURE__ */ React.createElement(App, { key: epoch, notice, onSessionEnd, onNoticeSeen });
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(InAppBrowserBanner, null), /* @__PURE__ */ React.createElement(App, { key: epoch, notice, onSessionEnd, onNoticeSeen }));
 }
 class ViewErrorBoundary extends React.Component {
   constructor(props) {
@@ -1345,7 +1371,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     if (!holder) return null;
     return D_A.bedTakenMsg(D_A.normalizeBed(p.currentBed), holder);
   };
-  const handleAddPatient = (pIn) => {
+  const handleAddPatient = (pIn, extra) => {
     const asTest = GAS_ON && D_A.wardGroup(pIn.currentBed) === "other";
     const p0 = asTest ? { ...pIn, sessionId: D_A.testSessionId(), currentBed: "" } : pIn;
     const clash = bedConflict(p0);
@@ -1356,7 +1382,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const askNewInfant = (msg) => typeof window !== "undefined" && typeof window.confirm === "function" && window.confirm(`${msg}
 
 ถ้าเป็นคนละคน กด OK เพื่อลงทะเบียนเป็นรายใหม่`);
-    let confirmDuplicate = false;
+    let confirmDuplicate = !!(extra && extra.confirmDuplicate);
     let p = p0;
     setPatients((prev) => [p0, ...prev]);
     setActiveId(p0.sessionId);
@@ -1398,7 +1424,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
       if (res.needsConfirm && res.code === "PossibleDuplicate" && !confirmDuplicate) {
         if (!askNewInfant(res.message || res.error)) {
           rollback();
-          return cancelled;
+          return { ...cancelled, duplicateQuestion: res.message || res.error || "มีทารกที่ข้อมูลคล้ายกันอยู่ในระบบแล้ว" };
         }
         confirmDuplicate = true;
         return attempt(draws);

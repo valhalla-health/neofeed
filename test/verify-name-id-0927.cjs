@@ -349,6 +349,45 @@ const scenarios = {
     A.ok('5c.6 the server asked about the record no ward syncs, without naming it (A5)', t.confirms.length === 1 && /admin/.test(t.confirms[0]) && !/ปร พฒ/.test(t.confirms[0]) && !/NF-600002/.test(t.confirms[0]));
     A.eq('5c.7 a yes sends it again with confirmDuplicate, and it lands', [r2.length, r2[1]?.confirmDuplicate, g.rows('Patient_Registry').some(r => r[1] === 'ปร พง')], [2, true, true]);
   },
+
+  async 'app-lookalike-no-dialog'(A) {
+    console.log('\n── § 5d the look-alike question when the browser shows no confirm box (iPhone, LINE) ──');
+    const g = backend();
+    g.seed('NF-600001', { name: 'สม จด', initials: 'สจ', bw: 900, dob: day(-20), admit: day(-20), status: 'Transferred', bed: 'NICU 11', statusDate: day(-3) });
+    const t = app(g); t.quiet();
+    await t.start(); await t.pickWard('NICU');
+    t.answer = false;   // the confirm returns false: never shown, or declined
+    await t.click(t.btn(/New session/));
+    const m = t.modal();
+    const names = m.querySelectorAll('.name-fields input.inp');
+    await t.typeInto(names[0], 'สุดา'); await t.typeInto(names[1], 'ใจงาม');
+    await t.typeInto(t.fieldInput('Birth weight', m), 900);
+    const ga = [...m.querySelectorAll('.field')].find(f => /^GA/.test(f.querySelector('label').textContent.trim())).querySelectorAll('select');
+    await t.selectVal(ga[0], 28); await t.selectVal(ga[1], 0);
+    await t.selectVal(t.fieldInput('Sex', m), 'boys');
+    await t.selectVal(t.fieldInput('Bed', m), 'NICU 6');
+    await t.typeInto(t.fieldInput('Admit date', m), day(-20));
+    await t.click(t.btn(/Register/, m));
+    await t.settle();
+    let ask = t.modal() && t.modal().querySelector('.duplicate-ask');
+    A.ok('5d.1 the modal shows the server\'s question in the page', !!ask && /สม จด/.test(ask.textContent));
+    // A correction after the question (Vera, 🔴 1): the answer was for NICU 6, so the question goes
+    // and Register asks the server again with the bed as it now stands. (A changed birth weight is
+    // no longer a look-alike, and the server registers it without asking.)
+    await t.selectVal(t.fieldInput('Bed', t.modal()), 'NICU 7');
+    await t.settle();
+    A.ok('5d.1b an edit after the question takes the question away', !t.modal().querySelector('.duplicate-ask'));
+    await t.click(t.btn(/Register/, t.modal()));
+    await t.settle();
+    ask = t.modal() && t.modal().querySelector('.duplicate-ask');
+    const yes = ask && [...ask.querySelectorAll('button')].find(b => /เป็นคนละคน/.test(b.textContent));
+    A.ok('5d.2 …with a button to register as a new infant', !!yes);
+    if (yes) { await t.click(yes); await t.settle(); }
+    const regs = t.callsOf('registerPatient');
+    const mine = g.rows('Patient_Registry').filter(r => r[1] === 'สด จง');
+    A.eq('5d.3 asked, asked again for NICU 7, then the button sends NICU 7 with confirmDuplicate', [regs.length, !!regs[1]?.confirmDuplicate, regs[2]?.confirmDuplicate, regs[2]?.patient?.currentBed, mine.length], [3, false, true, 'NICU 7', 1]);
+    A.ok('5d.4 …and the modal closes', !t.modal());
+  },
 };
 
 RB.runScenarios(__filename, 'NAMES + NEOFEED ID 2026-09-27', scenarios);

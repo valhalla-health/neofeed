@@ -622,6 +622,42 @@ function clearSession() {
   try { sessionStorage.removeItem("neofeed_session"); } catch {}
 }
 
+// ── A browser inside another app (2026-11-28) ─────────────────
+// A NeoFeed link opened from LINE, Facebook or Instagram runs in that app's own
+// browser, which may show no pop-up (a reason, a confirmation) and cannot print.
+// The order screens no longer need pop-ups, but Print does, so the page says so
+// before anyone starts an order, and LINE's own switch (openExternalBrowser=1)
+// reopens it in Safari or Chrome.
+function inAppBrowserName(ua) {
+  const s = String(ua || "");
+  if (/\bLine\//i.test(s)) return "LINE";
+  if (/FBAN|FBAV|FB_IAB/.test(s)) return "Facebook";
+  if (/Instagram/.test(s)) return "Instagram";
+  if (/Android.*; wv\)/.test(s)) return "แอปอื่น";
+  return null;
+}
+function InAppBrowserBanner() {
+  const [hidden, setHidden] = React.useState(false);
+  const name = typeof navigator !== "undefined" ? inAppBrowserName(navigator.userAgent) : null;
+  if (!name || hidden) return null;
+  const openOutside = () => {
+    const u = new URL(window.location.href);
+    u.searchParams.set("openExternalBrowser", "1");
+    window.location.href = u.toString();
+  };
+  return (
+    <div className="in-app-browser" role="alert" style={{ padding: "8px 12px", background: "var(--warn-bg, #fff4e0)",
+      borderBottom: "1px solid var(--warn-line, #e0b060)", fontSize: 12.5, lineHeight: 1.5, color: "var(--warn-ink, #6b4400)" }}>
+      กำลังเปิด NeoFeed ในหน้าเว็บของ {name} — ปุ่มพิมพ์ใบสั่งและกล่องยืนยันบางอย่างอาจใช้ไม่ได้
+      เปิดใน Safari หรือ Chrome ก่อนสั่ง TPN
+      {name === "LINE"
+        ? <button type="button" className="btn sm" style={{ marginLeft: 8 }} onClick={openOutside}>เปิดใน Safari / Chrome</button>
+        : <span> (กดเมนู ⋯ แล้วเลือกเปิดใน browser)</span>}
+      <button type="button" className="btn sm" style={{ marginLeft: 8 }} onClick={() => setHidden(true)}>ปิด</button>
+    </div>
+  );
+}
+
 // ── AppRoot — the session boundary ────────────────────────────
 // Logging out used to be `setUser(null)` on the same <App/> instance, so every
 // other piece of state — patients, log, the open view and ward, lastSync, an
@@ -638,7 +674,12 @@ function AppRoot() {
   const [notice, setNotice] = React.useState(null);
   const onSessionEnd = React.useCallback((n) => { setNotice(n || null); setEpoch(e => e + 1); }, []);
   const onNoticeSeen = React.useCallback(() => setNotice(null), []);
-  return <App key={epoch} notice={notice} onSessionEnd={onSessionEnd} onNoticeSeen={onNoticeSeen} />;
+  return (
+    <>
+      <InAppBrowserBanner />
+      <App key={epoch} notice={notice} onSessionEnd={onSessionEnd} onNoticeSeen={onNoticeSeen} />
+    </>
+  );
 }
 
 // ── Error boundary ────────────────────────────────────────────
@@ -2117,7 +2158,7 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
   // open until it answers (UP-S9): they used to close the moment Register /
   // Save was pressed, so a refusal (a bed taken on another device, a duplicate
   // sessionId) was a toast over an empty screen and everything typed was gone.
-  const handleAddPatient = (pIn) => {
+  const handleAddPatient = (pIn, extra) => {
     // No bed → a test patient (2026-11-14): a TEST- id, kept in this browser.
     const asTest = GAS_ON && D_A.wardGroup(pIn.currentBed) === "other";
     const p0 = asTest ? { ...pIn, sessionId: D_A.testSessionId(), currentBed: "" } : pIn;
@@ -2133,7 +2174,12 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
     const cancelled = { ok: false, refused: true, error: "ยกเลิก — ยังไม่ได้ลงทะเบียน" };
     const askNewInfant = (msg) => typeof window !== "undefined" && typeof window.confirm === "function"
       && window.confirm(`${msg}\n\nถ้าเป็นคนละคน กด OK เพื่อลงทะเบียนเป็นรายใหม่`);
-    let confirmDuplicate = false;
+    // The question came after a wait on the server, and iPhone Safari (and LINE's browser)
+    // then show no pop-up and answer "no" unseen: every retry ended in "ยกเลิก" and the infant
+    // could not be registered (audit 2026-11-28). The refusal now carries the server's words,
+    // and the form offers "เป็นคนละคน — ลงทะเบียนเป็นรายใหม่", which sends again with
+    // { confirmDuplicate: true } from a tap.
+    let confirmDuplicate = !!(extra && extra.confirmDuplicate);
     let p = p0;
     setPatients(prev => [p0, ...prev]);
     setActiveId(p0.sessionId);
@@ -2191,7 +2237,10 @@ function App({ notice = null, onSessionEnd, onNoticeSeen } = {}) {
         ...(confirmDuplicate ? { confirmDuplicate: true } : {}) }, { quiet: true })
       .then(res => {
         if (res.needsConfirm && res.code === "PossibleDuplicate" && !confirmDuplicate) {
-          if (!askNewInfant(res.message || res.error)) { rollback(); return cancelled; }
+          if (!askNewInfant(res.message || res.error)) {
+            rollback();
+            return { ...cancelled, duplicateQuestion: res.message || res.error || "มีทารกที่ข้อมูลคล้ายกันอยู่ในระบบแล้ว" };
+          }
           confirmDuplicate = true;
           return attempt(draws);
         }
