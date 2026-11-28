@@ -1926,7 +1926,7 @@ function Calculator({
         window.onafterprint = () => setOpenSteps(/* @__PURE__ */ new Set([1]));
       };
       const r = releaseRead.current;
-      if (!r.pending && Date.now() - (r.at || 0) < RELEASE_FRESH_MS) {
+      if (Date.now() - (r.at || 0) < RELEASE_FRESH_MS) {
         if (r.behind === true) {
           showToast(RELEASE_PRINT_TEXT, "error");
           return;
@@ -2017,10 +2017,12 @@ function Calculator({
     if (typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center" });
     el.focus();
   };
+  const saveWriteSent = React.useRef(false);
   const saveSafely = (asDraft) => {
+    saveWriteSent.current = false;
     handleSave(asDraft).catch(() => {
       setSaving(false);
-      showToast("ยังไม่ได้บันทึก — แอปขัดข้องระหว่างบันทึก ลองกดอีกครั้ง ถ้ายังไม่ได้ให้ Submit จากคอมพิวเตอร์และแจ้งผู้ดูแลระบบ", "error");
+      showToast(saveWriteSent.current ? "ไม่ทราบผลการบันทึก — แอปขัดข้องหลังส่งข้อมูล ตรวจรายการก่อนกดส่งซ้ำ" : "ยังไม่ได้บันทึก — แอปขัดข้องระหว่างบันทึก ลองกดอีกครั้ง ถ้ายังไม่ได้ให้ Submit จากคอมพิวเตอร์และแจ้งผู้ดูแลระบบ", "error");
     });
   };
   const handleSave = async (asDraft = false) => {
@@ -2070,6 +2072,7 @@ function Calculator({
       if (stop !== true && stop !== false) stop = await stop;
       if (stop) return;
       setSaving(true);
+      saveWriteSent.current = true;
       const res2 = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
       if (res2.conflict) {
@@ -2352,6 +2355,7 @@ function Calculator({
     };
     const sent = ioOnlyOnOthers && editEntry ? storedOrderWithIo(editEntry, entry) : entry;
     setSaving(true);
+    saveWriteSent.current = true;
     const res = savedEntryId ? await onUpdate(savedEntryId, savedLastModified, sent) : await onLog(sent);
     setSaving(false);
     if (res.conflict) {

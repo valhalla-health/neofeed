@@ -965,8 +965,9 @@ function useModalSubmit(onSubmit, onClose) {
     setBusy(true);
     out.then(finish, (e) => finish({ ok: false, error: e && e.message || fallback }));
   };
+  const asked = (payloadNow) => !!duplicateAsk && JSON.stringify(payloadNow) === JSON.stringify(lastPayload.current);
   const confirmNewInfant = () => submit(lastPayload.current, { confirmDuplicate: true });
-  return { busy, error, submit, duplicateAsk, confirmNewInfant };
+  return { busy, error, submit, duplicateAsk, asked, confirmNewInfant };
 }
 function AdmitDateIssue({ issue, correction, onFix }) {
   if (!issue) return null;
@@ -1078,11 +1079,35 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
   const initials = nameOk ? D_R.nameInitials(nameIn.first, nameIn.last) : "";
   const [sessionId] = React.useState(() => D_R.newSessionId());
   const canSubmit = nameOk && bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
-  const { busy, error: submitError, submit, duplicateAsk, confirmNewInfant } = useModalSubmit(onSubmit, onClose);
+  const { busy, error: submitError, submit, asked: duplicateAskedFor, duplicateAsk, confirmNewInfant } = useModalSubmit(onSubmit, onClose);
   const dob = React.useMemo(() => {
     if (!admitDate) return today;
     return D_R.dobFromAdmitDol(admitDate, admitDol);
   }, [admitDate, admitDol]);
+  const registerPayload = () => ({
+    sessionId,
+    name,
+    initials,
+    bw,
+    ga,
+    twinSuffix: twin,
+    multiplesCount: twin ? parseInt(multiplesCount) || 0 : 0,
+    sex,
+    currentBed: D_R.normalizeBed(bed),
+    diagnosis: dx,
+    status: "Active",
+    pnIndication,
+    liverDysfunction: liverDx,
+    renalDysfunction: renalDx,
+    admissionDate: admitDate,
+    dob,
+    // Birth weight, length and HC are the DAY OF BIRTH's, so they are
+    // filed on DOL 1 — not on the admission DOL, where an outborn
+    // infant's birth point used to sit at the admission PMA on the
+    // growth chart and outrank the admission-day order's weight
+    // (2026-09-24). DOL comes from `dob`, never from this row.
+    weights: [{ dol: 1, w: bw, l: len || null, hc: hc || null }]
+  });
   return /* @__PURE__ */ React.createElement("div", { className: "picker-backdrop", onClick: onClose, "data-back-confirm": "Register new session" }, /* @__PURE__ */ React.createElement("div", { className: "picker", style: { width: 560 }, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "picker-h", style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 15 } }, "Register new session"), /* @__PURE__ */ React.createElement("button", { className: "icon-btn", onClick: onClose }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: 18 } }, /* @__PURE__ */ React.createElement(NameFields, { value: nameIn, onChange: setNameIn }), /* @__PURE__ */ React.createElement("div", { style: { height: 10 } }), /* @__PURE__ */ React.createElement("div", { className: "row-2 pair-row" }, /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "Multiples ", /* @__PURE__ */ React.createElement("span", { className: "unit" }, "(optional)")), /* @__PURE__ */ React.createElement("select", { className: "sel", value: twin, onChange: (e) => {
     setTwin(e.target.value);
     if (!e.target.value) setMultiplesCount("");
@@ -1119,37 +1144,14 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
       renalDx,
       onRenalDx: setRenalDx
     }
-  ), submitError && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement(SubmitError, { error: submitError })), duplicateAsk && /* @__PURE__ */ React.createElement("div", { className: "duplicate-ask", role: "group", style: {
+  ), submitError && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement(SubmitError, { error: submitError })), duplicateAskedFor(registerPayload()) && /* @__PURE__ */ React.createElement("div", { className: "duplicate-ask", role: "group", style: {
     marginTop: 8,
     padding: "8px 12px",
     border: "1px solid var(--warn-line, var(--line-2))",
     borderRadius: 8,
     fontSize: 12,
     lineHeight: 1.5
-  } }, /* @__PURE__ */ React.createElement("div", { style: { whiteSpace: "pre-line", marginBottom: 6 } }, duplicateAsk), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", disabled: busy, onClick: confirmNewInfant }, "เป็นคนละคน — ลงทะเบียนเป็นรายใหม่")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 } }, !canSubmit && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" } }, bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน" : admitIssue ? "แก้วันที่รับเข้าก่อนลงทะเบียน — ทุกเป้าหมายสารอาหารคิดจากวันนี้" : !nameOk ? "กรอกชื่อ + นามสกุล อย่างละ 2 ตัวอักษรก่อนลงทะเบียน" : "กรอกน้ำหนักแรกเกิด · GA · เพศ ให้ครบก่อนลงทะเบียน"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: !canSubmit || busy, onClick: () => submit({
-    sessionId,
-    name,
-    initials,
-    bw,
-    ga,
-    twinSuffix: twin,
-    multiplesCount: twin ? parseInt(multiplesCount) || 0 : 0,
-    sex,
-    currentBed: D_R.normalizeBed(bed),
-    diagnosis: dx,
-    status: "Active",
-    pnIndication,
-    liverDysfunction: liverDx,
-    renalDysfunction: renalDx,
-    admissionDate: admitDate,
-    dob,
-    // Birth weight, length and HC are the DAY OF BIRTH's, so they are
-    // filed on DOL 1 — not on the admission DOL, where an outborn
-    // infant's birth point used to sit at the admission PMA on the
-    // growth chart and outrank the admission-day order's weight
-    // (2026-09-24). DOL comes from `dob`, never from this row.
-    weights: [{ dol: 1, w: bw, l: len || null, hc: hc || null }]
-  }) }, /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14, color: "#fff" }), " ", busy ? "กำลังบันทึก…" : "Register")))));
+  } }, /* @__PURE__ */ React.createElement("div", { style: { whiteSpace: "pre-line", marginBottom: 6 } }, duplicateAsk), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", disabled: busy, onClick: confirmNewInfant }, "เป็นคนละคน — ลงทะเบียนเป็นรายใหม่")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 20 } }, !canSubmit && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11.5, color: "var(--ink-3)", marginRight: "auto" } }, bedTaken ? "เลือกเตียงที่ว่างก่อนลงทะเบียน" : admitIssue ? "แก้วันที่รับเข้าก่อนลงทะเบียน — ทุกเป้าหมายสารอาหารคิดจากวันนี้" : !nameOk ? "กรอกชื่อ + นามสกุล อย่างละ 2 ตัวอักษรก่อนลงทะเบียน" : "กรอกน้ำหนักแรกเกิด · GA · เพศ ให้ครบก่อนลงทะเบียน"), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement("button", { className: "btn primary", disabled: !canSubmit || busy, onClick: () => submit(registerPayload()) }, /* @__PURE__ */ React.createElement(Icon, { name: "save", size: 14, color: "#fff" }), " ", busy ? "กำลังบันทึก…" : "Register")))));
 }
 function PatientPicker({ patients, activeId, onSelect, onClose }) {
   const [q, setQ] = React.useState("");

@@ -468,12 +468,36 @@ section('§4 the real calculator: the form reads the served release when it open
         eq('…then the sheet', printed, 1);
       } finally { undoLater(); }
 
-      // Something inside Submit throws (an input no case foresaw): the button comes back and a toast says so.
+      // 50 s on, the tab comes back on screen and the refresh starts a read that has not landed:
+      // the last settled read is still under a minute old, so it decides and Print stays in the tap (Vera, 🟡 2).
+      {
+        let land; served.hold = new Promise((r) => { land = r; });
+        const realNow2 = Date.now; Date.now = () => realNow2() + 61000 + 50000;   // the last read landed at +61 s (later())
+        try {
+          const callsBefore = served.calls.length;
+          act(() => { document.dispatchEvent(new window.Event('visibilitychange')); });
+          ok('…the refresh did start a read', served.calls.length > callsBefore, served.calls.length);
+          printed = 0;
+          act(() => { firePrint(); });
+          eq('a read in flight with a fresh one settled: Print opens in the tap', printed, 1);
+        } finally { Date.now = realNow2; land(); served.hold = null; await tick(); }
+      }
+
+      // The order reached the server, then something after it threw: the toast must not say it did not go (Vera, 🟡 4).
+      mountFilled({ onPublish() { throw new Error('harness: threw after the write'); } });
+      toasts.length = 0; logged.length = 0;
+      await tick();
+      await clickAsync(submitBtn());
+      ok('a throw after the write left says the outcome is unknown, not "not saved"', logged.length === 1
+        && toasts.some((t) => t.type === 'error' && /ไม่ทราบผลการบันทึก/.test(t.msg)) && !toasts.some((t) => /ยังไม่ได้บันทึก/.test(t.msg)), toasts);
+
+      // The save call itself throws (an input no case foresaw): the button comes back and a toast says so.
+      // The request may have left before the throw, so it says the outcome is unknown (Vera, 🟡 4).
       mountFilled({ onLog() { throw new Error('harness: save threw'); } });
       toasts.length = 0;
       await tick();
       await clickAsync(submitBtn());
-      ok('a Submit that throws says the order did not go', toasts.some((t) => t.type === 'error' && /ยังไม่ได้บันทึก — แอปขัดข้อง/.test(t.msg)), toasts);
+      ok('a Submit whose save call throws says so, outcome unknown', toasts.some((t) => t.type === 'error' && /ไม่ทราบผลการบันทึก — แอปขัดข้อง/.test(t.msg)), toasts);
       ok('…and Submit is offered again', submitBtn() && submitBtn().disabled === false, submitBtn() && submitBtn().textContent);
 
       // Saved from another device meanwhile: the banner is at the top, off a phone's screen, so a toast says it.

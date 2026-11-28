@@ -369,13 +369,23 @@ const scenarios = {
     await t.typeInto(t.fieldInput('Admit date', m), day(-20));
     await t.click(t.btn(/Register/, m));
     await t.settle();
-    const ask = t.modal() && t.modal().querySelector('.duplicate-ask');
+    let ask = t.modal() && t.modal().querySelector('.duplicate-ask');
     A.ok('5d.1 the modal shows the server\'s question in the page', !!ask && /สม จด/.test(ask.textContent));
+    // A correction after the question (Vera, 🔴 1): the answer was for NICU 6, so the question goes
+    // and Register asks the server again with the bed as it now stands. (A changed birth weight is
+    // no longer a look-alike, and the server registers it without asking.)
+    await t.selectVal(t.fieldInput('Bed', t.modal()), 'NICU 7');
+    await t.settle();
+    A.ok('5d.1b an edit after the question takes the question away', !t.modal().querySelector('.duplicate-ask'));
+    await t.click(t.btn(/Register/, t.modal()));
+    await t.settle();
+    ask = t.modal() && t.modal().querySelector('.duplicate-ask');
     const yes = ask && [...ask.querySelectorAll('button')].find(b => /เป็นคนละคน/.test(b.textContent));
     A.ok('5d.2 …with a button to register as a new infant', !!yes);
     if (yes) { await t.click(yes); await t.settle(); }
     const regs = t.callsOf('registerPatient');
-    A.eq('5d.3 the button sends again with confirmDuplicate, and the record lands', [regs.length, regs[1]?.confirmDuplicate, g.rows('Patient_Registry').filter(r => r[1] === 'สด จง').length], [2, true, 1]);
+    const mine = g.rows('Patient_Registry').filter(r => r[1] === 'สด จง');
+    A.eq('5d.3 asked, asked again for NICU 7, then the button sends NICU 7 with confirmDuplicate', [regs.length, !!regs[1]?.confirmDuplicate, regs[2]?.confirmDuplicate, regs[2]?.patient?.currentBed, mine.length], [3, false, true, 'NICU 7', 1]);
     A.ok('5d.4 …and the modal closes', !t.modal());
   },
 };

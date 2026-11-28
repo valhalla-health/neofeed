@@ -1610,8 +1610,12 @@ function useModalSubmit(onSubmit, onClose) {
     setBusy(true);
     out.then(finish, (e) => finish({ ok: false, error: (e && e.message) || fallback }));
   };
+  // The look-alike answer is for the form as it was asked. `asked(now)` is
+  // false once any field differs, so an edit made after the question cannot
+  // ride on a yes given to the old values: Register asks the server again.
+  const asked = (payloadNow) => !!duplicateAsk && JSON.stringify(payloadNow) === JSON.stringify(lastPayload.current);
   const confirmNewInfant = () => submit(lastPayload.current, { confirmDuplicate: true });
-  return { busy, error, submit, duplicateAsk, confirmNewInfant };
+  return { busy, error, submit, duplicateAsk, asked, confirmNewInfant };
 }
 
 // What admissionDateIssue found, said under the field it belongs to. The
@@ -1839,7 +1843,7 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
   // …and one infant per bed: registering onto an occupied bed would leave two
   // patients reading as the same bed on every board and handover sheet.
   const canSubmit = nameOk && bw > 0 && gaW !== "" && sex !== "" && !bedTaken && !admitIssue;
-  const { busy, error: submitError, submit, duplicateAsk, confirmNewInfant } = useModalSubmit(onSubmit, onClose);
+  const { busy, error: submitError, submit, asked: duplicateAskedFor, duplicateAsk, confirmNewInfant } = useModalSubmit(onSubmit, onClose);
 
   // DOB = admitDate − (admitDol − 1) days
   // Via addDaysToDateStr, which is UTC-anchored end to end. The previous
@@ -1852,6 +1856,21 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
     if (!admitDate) return today;
     return D_R.dobFromAdmitDol(admitDate, admitDol);
   }, [admitDate, admitDol]);
+
+  const registerPayload = () => ({
+    sessionId, name, initials, bw, ga, twinSuffix: twin,
+    multiplesCount: twin ? (parseInt(multiplesCount) || 0) : 0, sex,
+    currentBed: D_R.normalizeBed(bed), diagnosis: dx, status: "Active",
+    pnIndication, liverDysfunction: liverDx, renalDysfunction: renalDx,
+    admissionDate: admitDate,
+    dob,
+    // Birth weight, length and HC are the DAY OF BIRTH's, so they are
+    // filed on DOL 1 — not on the admission DOL, where an outborn
+    // infant's birth point used to sit at the admission PMA on the
+    // growth chart and outrank the admission-day order's weight
+    // (2026-09-24). DOL comes from `dob`, never from this row.
+    weights: [{ dol: 1, w: bw, l: len || null, hc: hc || null }],
+  });
 
   return (
     <div className="picker-backdrop" onClick={onClose} data-back-confirm="Register new session">
@@ -1970,7 +1989,7 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
           <PnIndicationFields indication={pnIndication} onIndication={setPnIndication}
             liverDx={liverDx} onLiverDx={setLiverDx} renalDx={renalDx} onRenalDx={setRenalDx} />
           {submitError && <div style={{ marginTop: 14 }}><SubmitError error={submitError} /></div>}
-          {duplicateAsk && (
+          {duplicateAskedFor(registerPayload()) && (
             <div className="duplicate-ask" role="group" style={{ marginTop: 8, padding: "8px 12px", border: "1px solid var(--warn-line, var(--line-2))",
               borderRadius: 8, fontSize: 12, lineHeight: 1.5 }}>
               <div style={{ whiteSpace: "pre-line", marginBottom: 6 }}>{duplicateAsk}</div>
@@ -1989,20 +2008,7 @@ function NewPatientModal({ patients, ward, onClose, onSubmit }) {
               </span>
             )}
             <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn primary" disabled={!canSubmit || busy} onClick={() => submit({
-              sessionId, name, initials, bw, ga, twinSuffix: twin,
-              multiplesCount: twin ? (parseInt(multiplesCount) || 0) : 0, sex,
-              currentBed: D_R.normalizeBed(bed), diagnosis: dx, status: "Active",
-              pnIndication, liverDysfunction: liverDx, renalDysfunction: renalDx,
-              admissionDate: admitDate,
-              dob,
-              // Birth weight, length and HC are the DAY OF BIRTH's, so they are
-              // filed on DOL 1 — not on the admission DOL, where an outborn
-              // infant's birth point used to sit at the admission PMA on the
-              // growth chart and outrank the admission-day order's weight
-              // (2026-09-24). DOL comes from `dob`, never from this row.
-              weights: [{ dol: 1, w: bw, l: len || null, hc: hc || null }],
-            })}>
+            <button className="btn primary" disabled={!canSubmit || busy} onClick={() => submit(registerPayload())}>
               <Icon name="save" size={14} color="#fff" /> {busy ? "กำลังบันทึก…" : "Register"}
             </button>
           </div>

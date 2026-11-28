@@ -1,6 +1,6 @@
 # NeoFeed — Status
 
-> 📝 **2026-11-28 (4) — No browser dialog stands between a tap and a TPN order: Print prints inside the tap when the release read is fresh, a throw in Save frees Submit and says so, a save conflict shows a toast near Submit, a look-alike infant is confirmed by a button in the modal, and in-app browsers (LINE, Facebook, Instagram) get a banner with a way out. Not merged.** Frontend only; no figure moves, `CONSTANTS_VERSION` stays. `CHANGELOG.md` 2026-11-28 (4).
+> 📝 **2026-11-28 (4) — No browser dialog stands between a tap and a TPN order: Print prints inside the tap when the release read is fresh, a throw in Save frees Submit and says so, a save conflict shows a toast near Submit, a look-alike infant is confirmed by a button in the modal, and in-app browsers (LINE, Facebook, Instagram) get a banner with a way out. Not merged.** Frontend only; no figure moves, `CONSTANTS_VERSION` stays. `CHANGELOG.md` 2026-11-28 (4) and (5).
 
 > 📝 **2026-11-28 — On iPhone Safari, a Submit with a red line that needs a reason (e.g. "TPN calc. weight far from automatic") showed only "ต้องระบุเหตุผลก่อน" and never opened the reason box, and on the ward's iPhone no `window.prompt` opened at all: a box above Submit now takes the critical-value reason (and Sunday's growth reason), and the prompt, when still used, comes before the release read. Live: release #315, tag `release-2026-11-28-pr315`.** Frontend only; no figure moves, `CONSTANTS_VERSION` stays. Until it is live, Submit such an order from a PC. `CHANGELOG.md` 2026-11-28 and 2026-11-28 (2).
 

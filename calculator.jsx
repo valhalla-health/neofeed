@@ -2960,7 +2960,9 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
         window.onafterprint = () => setOpenSteps(new Set([1]));
       };
       const r = releaseRead.current;
-      if (!r.pending && Date.now() - (r.at || 0) < RELEASE_FRESH_MS) {
+      // A settled read under a minute old decides, even while the 45 s refresh has a newer one
+      // in flight (`at` is set when a read settles): waiting on that one would lose the tap.
+      if (Date.now() - (r.at || 0) < RELEASE_FRESH_MS) {
         if (r.behind === true) { showToast(RELEASE_PRINT_TEXT, "error"); return; }
         printNow();
         return;
@@ -3093,10 +3095,16 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
   // A Submit or Save draft that throws (an input no case foresaw) used to do nothing at all:
   // the promise was rejected with nobody listening, the button came back, and no toast said
   // why (audit 2026-11-28). Now the button is freed and the toast says the order did not go.
+  // A throw before any write left the device: nothing was saved. After one left, the server may
+  // have the row, so the toast says the outcome is unknown, as gasPost does (Vera, 2026-11-28).
+  const saveWriteSent = React.useRef(false);
   const saveSafely = (asDraft) => {
+    saveWriteSent.current = false;
     handleSave(asDraft).catch(() => {
       setSaving(false);
-      showToast("ยังไม่ได้บันทึก — แอปขัดข้องระหว่างบันทึก ลองกดอีกครั้ง ถ้ายังไม่ได้ให้ Submit จากคอมพิวเตอร์และแจ้งผู้ดูแลระบบ", "error");
+      showToast(saveWriteSent.current
+        ? "ไม่ทราบผลการบันทึก — แอปขัดข้องหลังส่งข้อมูล ตรวจรายการก่อนกดส่งซ้ำ"
+        : "ยังไม่ได้บันทึก — แอปขัดข้องระหว่างบันทึก ลองกดอีกครั้ง ถ้ายังไม่ได้ให้ Submit จากคอมพิวเตอร์และแจ้งผู้ดูแลระบบ", "error");
     });
   };
 
@@ -3173,6 +3181,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
       if (stop !== true && stop !== false) stop = await stop;
       if (stop) return;
       setSaving(true);
+      saveWriteSent.current = true;
       const res = await onPublish(savedEntryId, savedLastModified, { quiet: true });
       setSaving(false);
       if (res.conflict) { setConflict(res.current); return; }
@@ -3444,6 +3453,7 @@ function Calculator({ patient, entries, dol: dolProp, editEntry, baselineEntry, 
     // submitted (Pp, 2026-10-29). Locking it here first, as this did from
     // 2026-10-28, failed for every order saved before calcInput.stops, since
     // publishDailyLog refuses a row with no stop list (Vera, second review).
+    saveWriteSent.current = true;
     const res = savedEntryId
       ? await onUpdate(savedEntryId, savedLastModified, sent)
       : await onLog(sent);

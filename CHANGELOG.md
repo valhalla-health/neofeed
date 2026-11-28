@@ -7,6 +7,25 @@ Split out of `HANDOFF.md` on 2026-08-21 — every entry below is carried over
 verbatim, nothing was edited. Code comments that say *"see HANDOFF.md
 2026-08-10 (3)"* mean the session entry of that date, now in this file.
 
+## Session 2026-11-28 (5) — Vera on (4): the look-alike answer is for the form as asked
+
+`registry.jsx` (`useModalSubmit.asked`, `registerPayload`), `calculator.jsx` (Print's fast path, `saveWriteSent`),
+`NeoFeed.html` / `index.html` (print hide list), `test/verify-name-id-0927.cjs` § 5d,
+`test/verify-stale-tab-1117.cjs` § 6.
+
+- **Vera on (4): BLOCK, one 🔴.** "เป็นคนละคน — ลงทะเบียนเป็นรายใหม่" resent the form as it was at the last
+  Register press, while the form stayed editable under the question. A birth weight, GA, bed or date corrected
+  after the question was lost, and the modal closed on the old values. The question now shows only while the
+  form matches what was asked; any edit takes it away, and Register asks the server again. A corrected birth
+  weight is often no longer a look-alike, and then the server registers it without asking.
+- **Her 🟡s.** Print stays in the tap while the 45 s refresh has a read in flight, when the last settled read is
+  under a minute old (`at` is set when a read settles). The in-app banner is on the print hide list. A throw
+  after the save request has left says "ไม่ทราบผลการบันทึก — … ตรวจรายการก่อนกดส่งซ้ำ", not "ยังไม่ได้บันทึก",
+  since the server may have the row; this includes a throw inside the save call itself.
+- **Tests.** § 5d edits the bed after the question: the question goes, Register asks again, the button sends
+  NICU 7 (fails 1 check on 13cc58e). § 6 adds Print with a read in flight and a throw after the write (fail 3
+  checks on 13cc58e). Stale tab 103, names and ids 73. The print hide list has no harness.
+
 ## Session 2026-11-28 (4) — No browser dialog stands between a tap and a TPN order
 
 `calculator.jsx` (Print, `saveSafely`, the save-conflict toast, the release re-read, auto-print), `app.jsx`
